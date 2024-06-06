@@ -1,0 +1,18 @@
+{
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+
+    "features": {
+        "ghcr.io/rocker-org/devcontainer-features/miniforge:1": {}
+    },
+
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance"
+            ]
+        }
+    }
+}
