@@ -4,7 +4,7 @@ from c4types import Tags, Properties
 from . import Relationship
 
 @dataclass
-class Container:
+class Component:
     name: str
     description: str
     technology: str

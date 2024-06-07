@@ -1,8 +1,13 @@
+import uuid
 from typing import Self
+from dataclasses import dataclass
+from .software_system import SoftwareSystem
+from .person import Person
 
+@dataclass
 class Workspace:
-
-    def __init__(self, id, description='') -> None:
-        self.__id = id
-        self.__description = description
-        self.__models: list = []
+    name: str = ''
+    description: str = ''
+    version: str = ''
+    models: list[SoftwareSystem | Person] = []
+    id: str=str(uuid.uuid4())

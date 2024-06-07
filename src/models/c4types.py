@@ -1,3 +1,4 @@
+from typing import NewType, Dict
 from enum import StrEnum, auto
 
 class Location(StrEnum):
@@ -8,3 +9,6 @@ class Location(StrEnum):
 class InteractionStyle(StrEnum):
     SYNCHRONOUS  = 'Synchronous'
     ASYNCHRONOUS = 'Asynchronous'
+
+Tags = NewType('Tags', str)
+Properties = NewType('Properties', Dict[str, str | int | float])

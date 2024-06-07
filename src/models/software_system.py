@@ -1,23 +1,17 @@
-from architecture import Architecture
-from common import Location
+import uuid
+from typing import Optional
+from dataclasses import dataclass
+from c4types import Location, Tags, Properties
+from . import Relationship
 
-class SoftwareSystems(Architecture):
-    
-    def __init__(
-            self,
-            id: str,
-            name: str,
-            description: str='',
-            tags: set[str]=set(),
-            location: Location=Location.INTERNAL,
-            group: str='',
-    ) -> None:
-        super().__init__(
-            id=id,
-            name=name,
-            description=description,
-            tags=tags,
-            location=location,
-            group=group
-        )
-        self.containers = []
+@dataclass
+class SoftwareSystem:
+    name: str
+
+    description: str = ''
+    location: Location = Location.UNSPECIFIED
+    relationships: list[Relationship] = []
+    tags: Optional[Tags] = None
+    group: str=''
+    properties: Optional[Properties]=None
+    id: str=str(uuid.uuid4())

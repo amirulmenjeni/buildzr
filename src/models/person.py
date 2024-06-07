@@ -1,22 +1,17 @@
-from architecture import Architecture
-from common import Location
+import uuid
+from typing import Optional
+from dataclasses import dataclass
+from c4types import Tags, Location, Properties
+from . import Relationship
 
-class Person(Architecture):
+@dataclass
+class Person:
+    name: str
 
-    def __init__(
-            self,
-            id: str,
-            name: str,
-            description: str='',
-            tags: set[str]=set(),
-            location: Location=Location.INTERNAL,
-            group: str='',
-    ) -> None:
-        super().__init__(
-            id=id,
-            name=name,
-            description=description,
-            tags=tags,
-            location=location,
-            group=group
-        )
+    description: str = ''
+    tags: Optional[Tags] = None
+    location: Location = Location.UNSPECIFIED
+    group: str = ''
+    properties: Optional[Properties] = None
+    relationships: list[Relationship] = []
+    id: str=str(uuid.uuid4())
