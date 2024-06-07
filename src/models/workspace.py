@@ -6,6 +6,3 @@ class Workspace:
         self.__id = id
         self.__description = description
         self.__models: list = []
-    
-    def add_model(self) -> Self:
-        return self
