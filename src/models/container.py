@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import dataclass
-from c4types import Tags, Properties
+from .c4types import Tags, Properties
 from . import Relationship
 
 @dataclass

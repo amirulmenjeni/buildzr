@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional, Tuple
-from c4types import Properties
 from dataclasses import dataclass
+from .c4types import Properties
 
 @dataclass
 class SystemContextView:

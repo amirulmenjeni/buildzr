@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 from dataclasses import dataclass
-from c4types import Tags, Properties
+from .c4types import Tags, Properties
 
 @dataclass
 class Relationship:
