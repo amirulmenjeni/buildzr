@@ -1,6 +1,8 @@
 # A simple example as shown in https://docs.structurizr.com/dsl/example.
 
-from models import *
+from buildzr.encoders import *
+from buildzr.models import *
+import json
 
 if __name__ == '__main__':
 
@@ -27,3 +29,6 @@ if __name__ == '__main__':
 
     u.relationships.append(r0)
     ss.relationships.append(r0)
+
+    out = json.dumps(u, cls=JsonEncoder)
+    print(out)

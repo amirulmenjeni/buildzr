@@ -1,0 +1,15 @@
+[project]
+name = "buildzr"
+version = "0.0.1"
+description = "Programmatically build C4 diagrams."
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "buildzr",
+    "buildzr.encoders",
+    "buildzr.models",
+]
