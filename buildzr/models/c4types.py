@@ -1,14 +1,14 @@
-from typing import NewType, Dict
-from enum import StrEnum, auto
+from typing import NewType, Dict, Union
+from enum import Enum, auto
 
-class Location(StrEnum):
+class Location(Enum):
     INTERNAL    = 'Internal'
     EXTERNAL    = 'External'
     UNSPECIFIED = 'Unspecified'
 
-class InteractionStyle(StrEnum):
+class InteractionStyle(Enum):
     SYNCHRONOUS  = 'Synchronous'
     ASYNCHRONOUS = 'Asynchronous'
 
 Tags = NewType('Tags', str)
-Properties = NewType('Properties', Dict[str, str | int | float])
+Properties = NewType('Properties', Dict[str, Union[str, int, float]])

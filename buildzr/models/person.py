@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional
+from typing import Optional, List
 from dataclasses import dataclass, field
 from .c4types import Tags, Location, Properties
 from . import Relationship
@@ -13,5 +13,5 @@ class Person:
     location: Location = Location.UNSPECIFIED
     group: str = ''
     properties: Optional[Properties] = None
-    relationships: list[Relationship] = field(default_factory=list)
+    relationships: List[Relationship] = field(default_factory=list)
     id: str=str(uuid.uuid4())

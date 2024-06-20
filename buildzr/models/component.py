@@ -1,4 +1,5 @@
 import uuid
+from typing import List
 from dataclasses import dataclass
 from .c4types import Tags, Properties
 from . import Relationship
@@ -11,5 +12,5 @@ class Component:
     tags: Tags
     group: str
     properties: Properties
-    relationships: list[Relationship]
+    relationships: List[Relationship]
     id: str=str(uuid.uuid4())
