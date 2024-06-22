@@ -7,3 +7,9 @@
 ```bash
 python pip -m install --editable .
 ```
+
+# Tests
+
+```bash
+python -m pytest
+```

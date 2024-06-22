@@ -1,12 +1,12 @@
 from typing import NewType, Dict, Union
 from enum import Enum, auto
 
-class Location(Enum):
+class Location(str, Enum):
     INTERNAL    = 'Internal'
     EXTERNAL    = 'External'
     UNSPECIFIED = 'Unspecified'
 
-class InteractionStyle(Enum):
+class InteractionStyle(str, Enum):
     SYNCHRONOUS  = 'Synchronous'
     ASYNCHRONOUS = 'Asynchronous'
 
