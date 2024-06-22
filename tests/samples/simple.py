@@ -3,7 +3,7 @@
 from buildzr.encoders import *
 from buildzr.models import *
 from buildzr.models import Workspace
-from .abstract_builder import AbstractBuilder
+from .. import AbstractBuilder
 
 import json
 
