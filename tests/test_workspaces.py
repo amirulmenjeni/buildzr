@@ -36,6 +36,24 @@ def test_json_encode():
 def test_pass_structurizr_validation(json_workspace_paths: List[str]):
     """Uses structurizr CLI to validate the JSON document."""
 
+    import importlib
+    import glob
+
+    samples = glob.glob("tests/samples/[a-zA-Z0-9]*.py")
+
+    sample_packages : List[(str, str)] = []
+
+    for sample in samples:
+        parts   = samples[0].rpartition('.')[0].rpartition('/')
+
+        module  = f".{parts[2]}"
+        package = f".{parts[0].replace('/', '.')}"
+
+        sample_packages.append((module, package))
+
+    modules = [importlib.import_module(sample, package=package) \
+               for (sample, package) in sample_packages]
+
     completed_processes : List[subprocess.CompletedProcess] = []
     for path in json_workspace_paths:
         completed_process = subprocess.run([
