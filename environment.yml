@@ -38,5 +38,5 @@ dependencies:
   - wheel=0.43.0=pyhd8ed1ab_1
   - xz=5.2.6=h166bdaf_0
   - pip:
-      - buildzr==0.0.1
+      - -e .
 prefix: /opt/conda/envs/buildzr-dev-py38
