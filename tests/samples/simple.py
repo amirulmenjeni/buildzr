@@ -10,21 +10,25 @@ class Simple(AbstractBuilder):
     def build(self) -> Workspace:
 
         workspace = Workspace(
+            id=0,
             name='engineering',
             description='engineering apps landscape',
         )
 
         u = Person(
+            id=0,
             name="User"
         )
 
         ss = SoftwareSystem(
+            id=0,
             name='Software System'
         )
 
         workspace.models.extend([u, ss])
 
         r0 = Relationship(
+            id=0,
             description="Uses",
             source_id=u.id,
             destination_id=ss.id

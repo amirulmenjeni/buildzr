@@ -6,6 +6,7 @@ from . import Relationship
 
 @dataclass
 class Component:
+    id: int
     name: str
     description: str
     technology: str
@@ -13,4 +14,3 @@ class Component:
     group: str
     properties: Properties
     relationships: List[Relationship]
-    id: str=str(uuid.uuid4())
