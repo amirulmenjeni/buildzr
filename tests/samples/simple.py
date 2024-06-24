@@ -5,8 +5,6 @@ from buildzr.models import *
 from buildzr.models import Workspace
 from ..abstract_builder import AbstractBuilder
 
-import json
-
 class Simple(AbstractBuilder):
 
     def build(self) -> Workspace:

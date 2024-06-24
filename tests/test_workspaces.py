@@ -1,10 +1,16 @@
+import importlib.machinery
 import pytest
 import subprocess
 import glob
+import importlib
+import inspect
+import os
 from typing import List
+from types import ModuleType
 from deepdiff import DeepDiff
 from buildzr.models import *
 from buildzr.encoders import JsonEncoder
+from tests.abstract_builder import AbstractBuilder
 
 @pytest.fixture
 def json_workspace_paths():
@@ -24,20 +30,9 @@ def json_workspace_paths():
 
     return glob.glob("tests/dsl/*.json")
 
-def test_json_encode():
-
-    from .samples import simple
-    from buildzr.encoders import JsonEncoder
-    import json
-
-    simple_workspace = simple.Simple().build()
-    json.dumps(simple_workspace, cls=JsonEncoder)
-
-def test_pass_structurizr_validation(json_workspace_paths: List[str]):
-    """Uses structurizr CLI to validate the JSON document."""
-
-    import importlib
-    import glob
+@pytest.fixture
+def builders() -> List[AbstractBuilder]:
+    """Gets the instances of classes that implements `AbstractBuilder`."""
 
     samples = glob.glob("tests/samples/[a-zA-Z0-9]*.py")
 
@@ -54,13 +49,56 @@ def test_pass_structurizr_validation(json_workspace_paths: List[str]):
     modules = [importlib.import_module(sample, package=package) \
                for (sample, package) in sample_packages]
 
+    abstract_builder_mod = importlib.import_module('.abstract_builder', package='.tests')
+    abstract_builder_cls = [\
+        cls for name, cls in inspect.getmembers(abstract_builder_mod, inspect.isclass)\
+        if name == 'AbstractBuilder'
+    ][0]
+
+    builds: List[AbstractBuilder] = []
+
+    for module in modules:
+        classes = inspect.getmembers(module, inspect.isclass)
+
+        # Exclude imported class. Alsoname,  make sure the class inherits the abstract
+        # base class. Luckily, type hinting is retained on `cls` as well!
+        classes = [\
+            cls for _name, cls in classes\
+                if issubclass(cls, abstract_builder_cls) and\
+                   cls != abstract_builder_cls
+            ]
+
+        for cls in classes:
+            builds.append(cls())
+
+    return builds
+
+def test_json_encode():
+
+    from .samples import simple
+    from buildzr.encoders import JsonEncoder
+    import json
+
+    simple_workspace = simple.Simple().build()
+    json.dumps(simple_workspace, cls=JsonEncoder)
+
+def test_pass_structurizr_validation(builders: List[AbstractBuilder]):
+    """Uses structurizr CLI to validate the JSON document."""
+
     completed_processes : List[subprocess.CompletedProcess] = []
-    for path in json_workspace_paths:
+
+    for builder in builders:
+        json_file_name = builder.__class__.__module__
+
+        json_file_path = os.path.join('tests', 'samples', f"{json_file_name}.json")
+
+        builder.writes_json_to(json_file_path)
+
         completed_process = subprocess.run([
             'structurizr.sh',
             'validate',
             '-workspace',
-            path
+            json_file_path
         ])
         completed_processes.append(completed_process)
 
