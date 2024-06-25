@@ -10,24 +10,24 @@ class Simple(AbstractBuilder):
     def build(self) -> Workspace:
 
         u = Person(
-            id=0,
+            id=1,
             name="User"
         )
 
         ss = SoftwareSystem(
-            id=0,
+            id=2,
             name='Software System'
         )
 
         r0 = Relationship(
-            id=0,
+            id=3,
             description="Uses",
             source_id=u.id,
             destination_id=ss.id
         )
 
+        # Note that in `r0`, `u` is the source element.
         u.relationships.append(r0)
-        ss.relationships.append(r0)
 
         workspace = Workspace(
             id=0,
