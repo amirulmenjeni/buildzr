@@ -1,2 +1,5 @@
 **/__pycache__
 *.egg-info
+
+# Ignore the outputs of JSON dumps from sample builds.
+tests/samples/.tests.**.json
