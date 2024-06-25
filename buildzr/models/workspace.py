@@ -9,4 +9,4 @@ class Workspace:
     name: str = ''
     description: str = ''
     version: str = ''
-    model: Optional[Model]
+    model: Optional[Model] = None
