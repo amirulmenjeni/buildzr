@@ -13,7 +13,8 @@
                 "ms-python.python",
                 "ms-python.vscode-pylance",
                 "systemticks.c4-dsl-extension",
-                "ciarant.vscode-structurizr"
+                "ciarant.vscode-structurizr",
+                "jebbs.plantuml"
             ]
         }
     }
