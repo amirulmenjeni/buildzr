@@ -1,8 +1,7 @@
 import uuid
-from typing import List, Union
-from dataclasses import dataclass, field
-from .software_system import SoftwareSystem
-from .person import Person
+from typing import Optional
+from dataclasses import dataclass
+from .model import Model
 
 @dataclass
 class Workspace:
@@ -10,4 +9,4 @@ class Workspace:
     name: str = ''
     description: str = ''
     version: str = ''
-    models: List[Union[SoftwareSystem, Person]] = field(default_factory=list)
+    model: Optional[Model]

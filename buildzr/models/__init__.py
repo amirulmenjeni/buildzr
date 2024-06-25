@@ -8,4 +8,5 @@ from .system_landscape_view import SystemLandscapeView
 from .system_context_view import SystemContextView
 from .container_view import ContainerView
 from .component_view import ComponentView
+from .model import Model
 from . import c4types
