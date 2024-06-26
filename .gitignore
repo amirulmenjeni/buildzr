@@ -1,5 +1,6 @@
 **/__pycache__
 *.egg-info
 
-# Ignore the outputs of JSON dumps from sample builds.
+# Ignore tests artefacts
 tests/samples/.tests.**.json
+tests/samples/*.puml
