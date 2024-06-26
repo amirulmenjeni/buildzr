@@ -9,4 +9,5 @@ from .system_context_view import SystemContextView
 from .container_view import ContainerView
 from .component_view import ComponentView
 from .model import Model
+from .properties import Properties
 from . import c4types
