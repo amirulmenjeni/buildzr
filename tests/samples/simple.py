@@ -2,12 +2,15 @@
 
 from buildzr.encoders import *
 from buildzr.models import *
-from buildzr.models import Workspace
 from ..abstract_builder import AbstractBuilder
 
 class Simple(AbstractBuilder):
 
     def build(self) -> Workspace:
+
+        workspace_config = WorkspaceConfiguration(
+            scope=Scope.Landscape
+        )
 
         u = Person(
             id=1,
@@ -22,12 +25,12 @@ class Simple(AbstractBuilder):
         r0 = Relationship(
             id=3,
             description="Uses",
-            source_id=u.id,
-            destination_id=ss.id
+            sourceId=u.id,
+            destinationId=ss.id
         )
 
         # Note that in `r0`, `u` is the source element.
-        u.relationships.append(r0)
+        u.relationships = [r0]
 
         workspace = Workspace(
             id=0,
@@ -36,7 +39,8 @@ class Simple(AbstractBuilder):
             model=Model(
                 people=[u],
                 softwareSystems=[ss]
-            )
+            ),
+            configuration=workspace_config
         )
 
         return workspace
