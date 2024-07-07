@@ -49,28 +49,28 @@ class Person(buildzr.models.Person):
         self.relationships = []
 
     @overload
-    def __rshift__(self, description_and_technology: Tuple[str, str]) -> 'UsesFrom':
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> '_UsesFrom':
         ...
 
-    def __rshift__(self, other: str | Tuple[str, str]) -> 'UsesFrom':
+    def __rshift__(self, other: str | Tuple[str, str]) -> '_UsesFrom':
         if isinstance(other, str):
-            return UsesFrom(self, other)
+            return _UsesFrom(self, other)
         elif isinstance(other, Tuple):
-            return UsesFrom(self, description=other[0], technology=other[1])
+            return _UsesFrom(self, description=other[0], technology=other[1])
 
 
 Src = Union[Person, SoftwareSystem]
 Dst = Union[Person, SoftwareSystem]
 
 @dataclass
-class UsesData:
+class _UsesData:
     relationship: buildzr.models.Relationship
     source: Src
 
-class UsesFrom:
+class _UsesFrom:
 
-    def __init__(self, source: Src, description: str="", technology: str="") -> 'UsesTo':
-        self.uses_data = UsesData(
+    def __init__(self, source: Src, description: str="", technology: str="") -> '_UsesTo':
+        self.uses_data = _UsesData(
             relationship=buildzr.models.Relationship(
                 id=GenerateId.for_relationship(),
                 description=description,
@@ -80,12 +80,12 @@ class UsesFrom:
             source=source,
         )
 
-    def __rshift__(self, destination: Dst) -> 'UsesTo':
-        return UsesTo(self.uses_data, destination)
+    def __rshift__(self, destination: Dst) -> '_UsesTo':
+        return _UsesTo(self.uses_data, destination)
 
-class UsesTo:
+class _UsesTo:
 
-    def __init__(self, uses_data: UsesData, destination: Dst) -> None:
+    def __init__(self, uses_data: _UsesData, destination: Dst) -> None:
         uses_data.relationship.destinationId = destination.id
         if any(uses_data.source.relationships):
             uses_data.source.relationships.append(uses_data.relationship)
