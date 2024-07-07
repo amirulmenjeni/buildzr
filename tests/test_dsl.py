@@ -1,44 +1,55 @@
+from dataclasses import dataclass
 import pytest
 from buildzr.dsl import Workspace, SoftwareSystem, Person
 
-def test_element_ids():
+@dataclass
+class DslHolder:
+    """A `dataclass` for us to hold the objects created using the DSL.
+
+This helps by allowing us to create the workspace and other DSL objects in the
+fixture once to be reused across multiple tests.
+"""
+
+    workspace: Workspace
+    software_system: SoftwareSystem
+    person: Person
+
+@pytest.fixture
+def dsl() -> DslHolder:
 
     workspace = Workspace("My Workspace", "A happy place")
-    person = Person("Super user")
     software_system = SoftwareSystem("My Software System")
-
-    assert workspace.id is not None
-    assert person.id is not None
-    assert software_system.id is not None
-
-def test_workspace_has_configuration():
-
-    workspace = Workspace("My Workspace", "A happy place")
-
-    assert workspace.configuration is not None
-
-def test_relationship_dsl():
-
-    workspace = Workspace("My Workspace", "A happy place")
     person = Person("Super user")
-    software_system = SoftwareSystem("My Software System")
-    another_software_system = SoftwareSystem("Another Software System")
 
-    person >> ("uses", "cli") >> software_system
+    return DslHolder(
+        workspace=workspace,
+        software_system=software_system,
+        person=person,
+    )
 
-    assert person.relationships is not None
-    assert len(person.relationships) == 1
-    assert person.relationships[0].id is not None
-    assert person.relationships[0].description == "uses"
-    assert person.relationships[0].technology == "cli"
+def test_element_ids(dsl: DslHolder):
 
-def test_workspace_model_inclusion_dsl():
+    assert dsl.workspace.id is not None
+    assert dsl.person.id is not None
+    assert dsl.software_system.id is not None
 
-    workspace = Workspace("My Workspace", "A happy place")
-    person = Person("Super user")
-    software_system = SoftwareSystem("My Software System")
+def test_workspace_has_configuration(dsl: DslHolder):
 
-    workspace.contains([person, software_system])
+    assert dsl.workspace.configuration is not None
 
-    assert any(workspace.model.people)
-    assert any(workspace.model.softwareSystems)
+def test_relationship_dsl(dsl: DslHolder):
+
+    dsl.person >> ("uses", "cli") >> dsl.software_system
+
+    assert dsl.person.relationships is not None
+    assert len(dsl.person.relationships) == 1
+    assert dsl.person.relationships[0].id is not None
+    assert dsl.person.relationships[0].description == "uses"
+    assert dsl.person.relationships[0].technology == "cli"
+
+def test_workspace_model_inclusion_dsl(dsl: DslHolder):
+
+    dsl.workspace.contains([dsl.person, dsl.software_system])
+
+    assert any(dsl.workspace.model.people)
+    assert any(dsl.workspace.model.softwareSystems)
