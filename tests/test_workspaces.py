@@ -7,7 +7,6 @@ import inspect
 import os
 from typing import List
 from types import ModuleType
-from deepdiff import DeepDiff
 from buildzr.models import *
 from buildzr.encoders import JsonEncoder
 from tests.abstract_builder import AbstractBuilder
