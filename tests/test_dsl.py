@@ -10,6 +10,12 @@ def test_element_ids():
     assert person.id is not None
     assert software_system.id is not None
 
+def test_workspace_has_configuration():
+
+    workspace = Workspace("My Workspace", "A happy place")
+
+    assert workspace.configuration is not None
+
 def test_relationship_dsl():
 
     workspace = Workspace("My Workspace", "A happy place")
