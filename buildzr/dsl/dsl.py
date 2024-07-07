@@ -48,8 +48,16 @@ class Person(buildzr.models.Person):
         self.description = description
         self.relationships = []
 
-    def __rshift__(self, description: str) -> 'UsesFrom':
-        return UsesFrom(self, description)
+    @overload
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> 'UsesFrom':
+        ...
+
+    def __rshift__(self, other: str | Tuple[str, str]) -> 'UsesFrom':
+        if isinstance(other, str):
+            return UsesFrom(self, other)
+        elif isinstance(other, Tuple):
+            return UsesFrom(self, description=other[0], technology=other[1])
+
 
 Src = Union[Person, SoftwareSystem]
 Dst = Union[Person, SoftwareSystem]
