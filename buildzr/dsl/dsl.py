@@ -11,6 +11,14 @@ class Workspace(buildzr.models.Workspace):
         self.id = GenerateId.for_workspace()
         self.name = name
         self.description = description
+        self.model = buildzr.models.Model(
+            people=[],
+            softwareSystems=[],
+            deploymentNodes=[],
+        )
+        self.configuration = buildzr.models.WorkspaceConfiguration(
+            scope=buildzr.models.Scope.Landscape
+        )
 
     def contains(self, models: List[Union[
         buildzr.models.Person,
