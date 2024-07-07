@@ -38,6 +38,7 @@ class Person(buildzr.models.Person):
         self.id = GenerateId.for_element()
         self.name = name
         self.description = description
+        self.relationships = []
 
     def __rshift__(self, description: str) -> 'UsesFrom':
         return UsesFrom(self, description)
@@ -73,4 +74,4 @@ class UsesTo:
         if any(uses_data.source.relationships):
             uses_data.source.relationships.append(uses_data.relationship.id)
         else:
-            uses_data.source.relationships = uses_data.relationship
+            uses_data.source.relationships = [uses_data.relationship]

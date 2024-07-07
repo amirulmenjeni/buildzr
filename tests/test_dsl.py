@@ -8,4 +8,5 @@ def test_relationship_dsl():
 
     person >> "uses" >> software_system
 
-    assert any(person.relationships)
+    assert person.relationships is not None
+    assert len(person.relationships) == 1
