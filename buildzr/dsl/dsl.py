@@ -80,6 +80,6 @@ class UsesTo:
     def __init__(self, uses_data: UsesData, destination: Dst) -> None:
         uses_data.relationship.destinationId = destination.id
         if any(uses_data.source.relationships):
-            uses_data.source.relationships.append(uses_data.relationship.id)
+            uses_data.source.relationships.append(uses_data.relationship)
         else:
             uses_data.source.relationships = [uses_data.relationship]
