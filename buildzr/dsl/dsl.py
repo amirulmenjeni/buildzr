@@ -52,7 +52,7 @@ class Person(buildzr.models.Person):
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> '_UsesFrom':
         ...
 
-    def __rshift__(self, other: str | Tuple[str, str]) -> '_UsesFrom':
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> '_UsesFrom':
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, Tuple):
