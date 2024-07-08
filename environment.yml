@@ -1,4 +1,4 @@
-name: buildzr-dev-py312
+name: buildzr-devpy38
 channels:
   - conda-forge
 dependencies:
@@ -7,4 +7,4 @@ dependencies:
   - pyhumps
   - pip:
       - -e .
-prefix: /opt/conda/envs/buildzr-dev-py312
+prefix: /opt/conda/envs/buildzr-dev

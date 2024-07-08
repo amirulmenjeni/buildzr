@@ -5,7 +5,8 @@ from typing import Type, Generic, Union, Tuple, List, Optional, TypeVar, overloa
 from typing_extensions import Self
 from .factory import GenerateId
 
-class Workspace(buildzr.models.Workspace):
+class Workspace:
+    __doc__ = buildzr.models.Workspace
 
     def __init__(self, name: str, description: str="") -> None:
         self.id = GenerateId.for_workspace()
@@ -33,14 +34,16 @@ class Workspace(buildzr.models.Workspace):
                 # Ignore other model or bad types for now.
                 pass
 
-class SoftwareSystem(buildzr.models.SoftwareSystem):
+class SoftwareSystem:
+    __doc__ = buildzr.models.SoftwareSystem
 
     def __init__(self, name: str, description: str="") -> None:
         self.id = GenerateId.for_element()
         self.name = name
         self.description = description
 
-class Person(buildzr.models.Person):
+class Person:
+    __doc__ = buildzr.models.Person
 
     def __init__(self, name: str, description: str="") -> None:
         self.id = GenerateId.for_element()
@@ -52,12 +55,11 @@ class Person(buildzr.models.Person):
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> '_UsesFrom':
         ...
 
-    def __rshift__(self, other: str | Tuple[str, str]) -> '_UsesFrom':
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> '_UsesFrom':
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, Tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
-
 
 Src = Union[Person, SoftwareSystem]
 Dst = Union[Person, SoftwareSystem]
