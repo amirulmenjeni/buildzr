@@ -4,7 +4,10 @@
     },
 
     "features": {
-        "ghcr.io/rocker-org/devcontainer-features/miniforge:1": {}
+        "ghcr.io/rocker-org/devcontainer-features/miniforge:1": {},
+        "ghcr.io/devcontainers/features/sshd:1": {
+            "version": "latest"
+        }
     },
 
     "customizations": {
