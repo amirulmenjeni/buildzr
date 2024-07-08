@@ -6,6 +6,9 @@ from typing_extensions import Self
 from .factory import GenerateId
 
 class Workspace(buildzr.models.Workspace):
+    """
+    Represents a Structurizr workspace, which is a wrapper for a software architecture model, views, and documentation.
+    """
 
     def __init__(self, name: str, description: str="") -> None:
         self.id = GenerateId.for_workspace()
@@ -34,6 +37,9 @@ class Workspace(buildzr.models.Workspace):
                 pass
 
 class SoftwareSystem(buildzr.models.SoftwareSystem):
+    """
+    A software system.
+    """
 
     def __init__(self, name: str, description: str="") -> None:
         self.id = GenerateId.for_element()
@@ -41,6 +47,9 @@ class SoftwareSystem(buildzr.models.SoftwareSystem):
         self.description = description
 
 class Person(buildzr.models.Person):
+    """
+    A person who uses a software system.
+    """
 
     def __init__(self, name: str, description: str="") -> None:
         self.id = GenerateId.for_element()
