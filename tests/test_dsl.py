@@ -55,27 +55,27 @@ def test_docstrings(dsl: DslHolder):
 
 def test_element_ids(dsl: DslHolder):
 
-    assert dsl.workspace.id is not None
-    assert dsl.person.id is not None
-    assert dsl.software_system.id is not None
+    assert dsl.workspace._m.id is not None
+    assert dsl.person._m.id is not None
+    assert dsl.software_system._m.id is not None
 
 def test_workspace_has_configuration(dsl: DslHolder):
 
-    assert dsl.workspace.configuration is not None
+    assert dsl.workspace._m.configuration is not None
 
 def test_relationship_dsl(dsl: DslHolder):
 
     dsl.person >> ("uses", "cli") >> dsl.software_system
 
-    assert dsl.person.relationships is not None
-    assert len(dsl.person.relationships) == 1
-    assert dsl.person.relationships[0].id is not None
-    assert dsl.person.relationships[0].description == "uses"
-    assert dsl.person.relationships[0].technology == "cli"
+    assert dsl.person._m.relationships is not None
+    assert len(dsl.person._m.relationships) == 1
+    assert dsl.person._m.relationships[0].id is not None
+    assert dsl.person._m.relationships[0].description == "uses"
+    assert dsl.person._m.relationships[0].technology == "cli"
 
 def test_workspace_model_inclusion_dsl(dsl: DslHolder):
 
     dsl.workspace.contains([dsl.person, dsl.software_system])
 
-    assert any(dsl.workspace.model.people)
-    assert any(dsl.workspace.model.softwareSystems)
+    assert any(dsl.workspace._m.model.people)
+    assert any(dsl.workspace._m.model.softwareSystems)

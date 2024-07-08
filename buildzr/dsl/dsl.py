@@ -1,25 +1,30 @@
 from dataclasses import dataclass
 import buildzr
-from abc import ABC
+from abc import ABC, abstractproperty
 from typing import Type, Generic, Union, Tuple, List, Optional, TypeVar, overload
 from typing_extensions import Self
 from .factory import GenerateId
 
-class Workspace(buildzr.models.Workspace):
+class DslElement(ABC):
+    """An abstract class used to label classes that are part of the buildzr DSL"""
+    ...
+
+class Workspace(DslElement):
     """
     Represents a Structurizr workspace, which is a wrapper for a software architecture model, views, and documentation.
     """
 
     def __init__(self, name: str, description: str="") -> None:
-        self.id = GenerateId.for_workspace()
-        self.name = name
-        self.description = description
-        self.model = buildzr.models.Model(
+        self._m = buildzr.models.Workspace()
+        self._m.id = GenerateId.for_workspace()
+        self._m.name = name
+        self._m.description = description
+        self._m.model = buildzr.models.Model(
             people=[],
             softwareSystems=[],
             deploymentNodes=[],
         )
-        self.configuration = buildzr.models.WorkspaceConfiguration(
+        self._m.configuration = buildzr.models.WorkspaceConfiguration(
             scope=buildzr.models.Scope.Landscape
         )
 
@@ -29,33 +34,35 @@ class Workspace(buildzr.models.Workspace):
     ]]):
         for model in models:
             if isinstance(model, Person):
-                self.model.people.append(model)
+                self._m.model.people.append(model)
             elif isinstance(model, SoftwareSystem):
-                self.model.softwareSystems.append(model)
+                self._m.model.softwareSystems.append(model)
             else:
                 # Ignore other model or bad types for now.
                 pass
 
-class SoftwareSystem(buildzr.models.SoftwareSystem):
+class SoftwareSystem(DslElement):
     """
     A software system.
     """
 
     def __init__(self, name: str, description: str="") -> None:
-        self.id = GenerateId.for_element()
-        self.name = name
-        self.description = description
+        self._m = buildzr.models.SoftwareSystem()
+        self._m.id = GenerateId.for_element()
+        self._m.name = name
+        self._m.description = description
 
-class Person(buildzr.models.Person):
+class Person(DslElement):
     """
     A person who uses a software system.
     """
 
     def __init__(self, name: str, description: str="") -> None:
-        self.id = GenerateId.for_element()
-        self.name = name
-        self.description = description
-        self.relationships = []
+        self._m = buildzr.models.Person()
+        self._m.id = GenerateId.for_element()
+        self._m.name = name
+        self._m.description = description
+        self._m.relationships = []
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> '_UsesFrom':
@@ -84,7 +91,7 @@ class _UsesFrom:
                 id=GenerateId.for_relationship(),
                 description=description,
                 technology=technology,
-                sourceId=source.id,
+                sourceId=source._m.id,
             ),
             source=source,
         )
@@ -95,8 +102,8 @@ class _UsesFrom:
 class _UsesTo:
 
     def __init__(self, uses_data: _UsesData, destination: Dst) -> None:
-        uses_data.relationship.destinationId = destination.id
-        if any(uses_data.source.relationships):
-            uses_data.source.relationships.append(uses_data.relationship)
+        uses_data.relationship.destinationId = destination._m.id
+        if any(uses_data.source._m.relationships):
+            uses_data.source._m.relationships.append(uses_data.relationship)
         else:
-            uses_data.source.relationships = [uses_data.relationship]
+            uses_data.source._m.relationships = [uses_data.relationship]
