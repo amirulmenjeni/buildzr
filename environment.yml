@@ -1,10 +1,13 @@
-name: buildzr-devpy38
+name: buildzr-dev
 channels:
   - conda-forge
 dependencies:
+  - python==3.8
   - pytest
   - ipython
   - pyhumps
+  - mypy
+  - pip
   - pip:
       - -e .
 prefix: /opt/conda/envs/buildzr-dev
