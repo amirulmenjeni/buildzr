@@ -1,5 +1,8 @@
 {
     "c4.languageserver.java": "/usr/bin/java",
     "c4.diagram.plantuml.enabled": true,
-    "files.trimTrailingWhitespace": true
+    "files.trimTrailingWhitespace": true,
+    "mypy-type-checker.args": [
+        "--config-file=${workspaceFolder}/mypy.ini"
+    ],
 }

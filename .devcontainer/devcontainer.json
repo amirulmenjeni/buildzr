@@ -17,7 +17,8 @@
                 "ms-python.vscode-pylance",
                 "systemticks.c4-dsl-extension",
                 "ciarant.vscode-structurizr",
-                "jebbs.plantuml"
+                "jebbs.plantuml",
+                "ms-python.mypy-type-checker"
             ]
         }
     }
