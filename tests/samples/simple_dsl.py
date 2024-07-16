@@ -1,11 +1,12 @@
 # A simple example as shown in https://docs.structurizr.com/dsl/example.
 
+import buildzr
 from buildzr.dsl import *
 from ..abstract_builder import AbstractBuilder
 
 class Simple(AbstractBuilder):
 
-    def build(self) -> Workspace:
+    def build(self) -> buildzr.models.Workspace:
 
         workspace = Workspace("My workspace")
         user = Person("A user")
@@ -15,4 +16,4 @@ class Simple(AbstractBuilder):
 
         user >> ("Uses", "CLI") >> software_system
 
-        return workspace
+        return workspace.model
