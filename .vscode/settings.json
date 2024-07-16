@@ -2,6 +2,7 @@
     "c4.languageserver.java": "/usr/bin/java",
     "c4.diagram.plantuml.enabled": true,
     "files.trimTrailingWhitespace": true,
+    "python.languageServer": "Default",
     "mypy-type-checker.args": [
         "--config-file=${workspaceFolder}/mypy.ini"
     ],
