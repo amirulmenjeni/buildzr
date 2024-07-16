@@ -17,6 +17,10 @@ class DslElement(ABC):
     @property
     @abstractmethod
     def model(self) -> Model:
+        """
+        Returns the `dataclass` of the `DslElement` that follows Structurizr's
+        JSON Schema (see https://github.com/structurizr/json)
+        """
         pass
 
 class Workspace(DslElement):
