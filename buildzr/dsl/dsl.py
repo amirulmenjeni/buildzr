@@ -56,7 +56,7 @@ class Workspace(DslElement):
                     if self._m.model.people is not None:
                         self._m.model.people.append(model._m)
             elif isinstance(model, SoftwareSystem):
-                self._m.model.softwareSystems.append(model)
+                self._m.model.softwareSystems.append(model._m)
             else:
                 # Ignore other model or bad types for now.
                 pass
@@ -94,6 +94,10 @@ class Person(DslElement):
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> '_UsesFrom':
+        ...
+
+    @overload
+    def __rshift__(self, description: str) -> '_UsesFrom':
         ...
 
     def __rshift__(self, other: Union[str, Tuple[str, str]]) -> '_UsesFrom':

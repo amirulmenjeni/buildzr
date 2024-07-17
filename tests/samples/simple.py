@@ -13,17 +13,17 @@ class Simple(AbstractBuilder):
         )
 
         u = Person(
-            id=1,
+            id=str(1),
             name="User"
         )
 
         ss = SoftwareSystem(
-            id=2,
+            id=str(2),
             name='Software System'
         )
 
         r0 = Relationship(
-            id=3,
+            id=str(3),
             description="Uses",
             sourceId=u.id,
             destinationId=ss.id

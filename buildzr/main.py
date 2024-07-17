@@ -1,4 +1,4 @@
-from models import *
+from buildzr.models import Workspace, Person, SoftwareSystem, Relationship
 
 workspace = Workspace(
     name='engineering',
@@ -13,10 +13,11 @@ ss = SoftwareSystem(
     name='Software System'
 )
 
-workspace.models.extend([u, ss])
+workspace.model.people.append(u)
+workspace.model.softwareSystems.append(ss)
 
 r0 = Relationship(
     description="Uses",
-    source_id=u.id,
-    destination_id=ss.id
+    sourceId=u.id,
+    destinationId=ss.id
 )

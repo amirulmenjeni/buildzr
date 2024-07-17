@@ -18,7 +18,8 @@
                 "systemticks.c4-dsl-extension",
                 "ciarant.vscode-structurizr",
                 "jebbs.plantuml",
-                "ms-python.mypy-type-checker"
+                "ms-python.mypy-type-checker",
+                "tamasfe.even-better-toml"
             ]
         }
     }

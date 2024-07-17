@@ -5,14 +5,13 @@ import glob
 import importlib
 import inspect
 import os
-from typing import List
+from typing import List, Tuple, Type, Optional
 from types import ModuleType
 from buildzr.models import *
-from buildzr.encoders import JsonEncoder
 from tests.abstract_builder import AbstractBuilder
 
 @pytest.fixture
-def json_workspace_paths():
+def json_workspace_paths() -> List[str]:
     """Use structurizr CLI to generate the json file for each dsl test files."""
 
     export_outputs : List[subprocess.CompletedProcess] = []
@@ -35,7 +34,7 @@ def builders() -> List[AbstractBuilder]:
 
     samples = glob.glob("tests/samples/[a-zA-Z0-9]*.py")
 
-    sample_packages : List[(str, str)] = []
+    sample_packages : List[Tuple[str, str]] = []
 
     for sample in samples:
         parts   = samples[0].rpartition('.')[0].rpartition('/')
@@ -56,13 +55,14 @@ def builders() -> List[AbstractBuilder]:
 
     builds: List[AbstractBuilder] = []
 
-    for module in modules:
-        classes = inspect.getmembers(module, inspect.isclass)
+    mod: ModuleType
+    for mod in modules:
+        module_classes = inspect.getmembers(mod, inspect.isclass)
 
         # Exclude imported class. Alsoname,  make sure the class inherits the abstract
         # base class. Luckily, type hinting is retained on `cls` as well!
-        classes = [\
-            cls for _name, cls in classes\
+        classes: List[Type[Any]] = [\
+            cls for _name, cls in module_classes\
                 if issubclass(cls, abstract_builder_cls) and\
                    cls != abstract_builder_cls
             ]
@@ -72,7 +72,7 @@ def builders() -> List[AbstractBuilder]:
 
     return builds
 
-def test_json_encode():
+def test_json_encode() -> Optional[None]:
 
     from .samples import simple
     from buildzr.encoders import JsonEncoder
@@ -81,7 +81,7 @@ def test_json_encode():
     simple_workspace = simple.Simple().build()
     json.dumps(simple_workspace, cls=JsonEncoder)
 
-def test_pass_structurizr_validation(builders: List[AbstractBuilder]):
+def test_pass_structurizr_validation(builders: List[AbstractBuilder]) -> Optional[None]:
     """Uses structurizr CLI to validate the JSON document."""
 
     completed_processes : List[subprocess.CompletedProcess] = []

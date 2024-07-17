@@ -13,3 +13,14 @@ packages = [
     "buildzr.encoders",
     "buildzr.models",
 ]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+strict_optional = false
+ignore_missing_imports = false
+show_error_codes = true
+warn_unused_ignores = true

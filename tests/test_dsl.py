@@ -2,6 +2,7 @@ from dataclasses import dataclass, fields
 import inspect
 import pytest
 import importlib
+from typing import Optional
 from buildzr.dsl import Workspace, SoftwareSystem, Person
 
 @dataclass
@@ -29,7 +30,7 @@ def dsl() -> DslHolder:
         person=person,
     )
 
-def test_docstrings(dsl: DslHolder):
+def test_docstrings(dsl: DslHolder) -> Optional[None]:
     """The docstrings of the DSL object should match the one in the Structurizr schema."""
 
     models_module = importlib.import_module('buildzr.models')
@@ -53,17 +54,17 @@ def test_docstrings(dsl: DslHolder):
         assert dsl_doc is not None
         assert dsl_doc.strip() == class_docstring[dsl_name].strip()
 
-def test_element_ids(dsl: DslHolder):
+def test_element_ids(dsl: DslHolder) -> Optional[None]:
 
     assert dsl.workspace._m.id is not None
     assert dsl.person._m.id is not None
     assert dsl.software_system._m.id is not None
 
-def test_workspace_has_configuration(dsl: DslHolder):
+def test_workspace_has_configuration(dsl: DslHolder) -> Optional[None]:
 
     assert dsl.workspace._m.configuration is not None
 
-def test_relationship_dsl(dsl: DslHolder):
+def test_relationship_dsl(dsl: DslHolder) -> Optional[None]:
 
     dsl.person >> ("uses", "cli") >> dsl.software_system
 
@@ -73,7 +74,7 @@ def test_relationship_dsl(dsl: DslHolder):
     assert dsl.person._m.relationships[0].description == "uses"
     assert dsl.person._m.relationships[0].technology == "cli"
 
-def test_workspace_model_inclusion_dsl(dsl: DslHolder):
+def test_workspace_model_inclusion_dsl(dsl: DslHolder) -> Optional[None]:
 
     dsl.workspace.contains([dsl.person, dsl.software_system])
 
