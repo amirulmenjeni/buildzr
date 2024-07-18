@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import buildzr
 from abc import ABC, abstractmethod
-from typing import Union, Tuple, List, overload
+from typing import Union, Tuple, List, Dict, Optional, overload
 from typing_extensions import Self
 from .factory import GenerateId
 
@@ -112,9 +112,25 @@ Src = Union[Person, SoftwareSystem]
 Dst = Union[Person, SoftwareSystem]
 
 @dataclass
+class With:
+    tags: Optional[List[str]] = None
+    properties: Optional[Dict[str, str]] = None
+    url: Optional[str] = None
+
+@dataclass
 class _UsesData:
     relationship: buildzr.models.Relationship
     source: Src
+
+class _AddRelationshipExtras:
+
+    def __init__(self, uses_to: '_UsesTo', relationship_extras: With) -> None:
+        if relationship_extras.tags:
+            uses_to.uses_data.relationship.tags = " ".join(relationship_extras.tags)
+        if relationship_extras.properties:
+            uses_to.uses_data.relationship.properties = relationship_extras.properties
+        if relationship_extras.url:
+            uses_to.uses_data.relationship.url = relationship_extras.url
 
 class _UsesFrom:
 
@@ -140,3 +156,15 @@ class _UsesTo:
             uses_data.source._m.relationships.append(uses_data.relationship)
         else:
             uses_data.source._m.relationships = [uses_data.relationship]
+
+        # Used to pass the `_UsesData` object as reference to the `__or__`
+        # operator overloading method.
+        self._ref: Tuple[_UsesData] = (uses_data,)
+
+    def __or__(self, _with: With) -> None:
+        if _with.tags:
+            self._ref[0].relationship.tags = " ".join(_with.tags)
+        if _with.properties:
+            self._ref[0].relationship.properties = _with.properties
+        if _with.url:
+            self._ref[0].relationship.url = _with.url

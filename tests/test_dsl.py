@@ -3,7 +3,7 @@ import inspect
 import pytest
 import importlib
 from typing import Optional
-from buildzr.dsl import Workspace, SoftwareSystem, Person
+from buildzr.dsl import Workspace, SoftwareSystem, Person, With
 
 @dataclass
 class DslHolder:
@@ -73,6 +73,21 @@ def test_relationship_dsl(dsl: DslHolder) -> Optional[None]:
     assert dsl.person._m.relationships[0].id is not None
     assert dsl.person._m.relationships[0].description == "uses"
     assert dsl.person._m.relationships[0].technology == "cli"
+
+def test_relationship_with_extra_info(dsl: DslHolder) -> Optional[None]:
+
+    dsl.person >> ("uses", "cli") >> dsl.software_system | With(
+        tags=["bash", "terminal"],
+        properties={
+            "authentication": "ssh",
+        },
+        url="http://example.com/info/relationship-user-uses-cli",
+    )
+
+    assert "bash" in dsl.person.model.relationships[0].tags
+    assert "terminal" in dsl.person.model.relationships[0].tags
+    assert "authentication" in dsl.person.model.relationships[0].properties.keys()
+    assert "http://example.com/info/relationship-user-uses-cli" == dsl.person.model.relationships[0].url
 
 def test_workspace_model_inclusion_dsl(dsl: DslHolder) -> Optional[None]:
 
