@@ -122,16 +122,6 @@ class _UsesData:
     relationship: buildzr.models.Relationship
     source: Src
 
-class _AddRelationshipExtras:
-
-    def __init__(self, uses_to: '_UsesTo', relationship_extras: With) -> None:
-        if relationship_extras.tags:
-            uses_to.uses_data.relationship.tags = " ".join(relationship_extras.tags)
-        if relationship_extras.properties:
-            uses_to.uses_data.relationship.properties = relationship_extras.properties
-        if relationship_extras.url:
-            uses_to.uses_data.relationship.url = relationship_extras.url
-
 class _UsesFrom:
 
     def __init__(self, source: Src, description: str="", technology: str="") -> None:
