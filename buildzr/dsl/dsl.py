@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 import buildzr
 from abc import ABC, abstractmethod
-from typing import Union, Tuple, List, Dict, Optional, overload
-from typing_extensions import Self
+from typing import Union, Tuple, List, Dict, Optional, Generic, TypeVar, overload
 from .factory import GenerateId
 
 Model = Union[
@@ -10,6 +9,61 @@ Model = Union[
     buildzr.models.Person,
     buildzr.models.SoftwareSystem,
 ]
+
+TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
+TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
+
+@dataclass
+class With:
+    tags: Optional[List[str]] = None
+    properties: Optional[Dict[str, str]] = None
+    url: Optional[str] = None
+
+@dataclass
+class _UsesData(Generic[TSrc]):
+    relationship: buildzr.models.Relationship
+    source: TSrc
+
+class _UsesFrom(Generic[TSrc, TDst]):
+
+    def __init__(self, source: TSrc, description: str="", technology: str="") -> None:
+        self.uses_data = _UsesData(
+            relationship=buildzr.models.Relationship(
+                id=GenerateId.for_relationship(),
+                description=description,
+                technology=technology,
+                sourceId=str(source.model.id),
+            ),
+            source=source,
+        )
+
+    def __rshift__(self, destination: TDst) -> '_UsesTo[TSrc, TDst]':
+        if isinstance(destination, Workspace):
+            raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(destination).__name__}")
+        return _UsesTo(self.uses_data, destination)
+
+class _UsesTo(Generic[TSrc, TDst]):
+
+    def __init__(self, uses_data: _UsesData[TSrc], destination: TDst) -> None:
+        uses_data.relationship.destinationId = str(destination.model.id)
+
+        if not isinstance(uses_data.source.model, buildzr.models.Workspace):
+            if any(uses_data.source.model.relationships):
+                uses_data.source.model.relationships.append(uses_data.relationship)
+            else:
+                uses_data.source.model.relationships = [uses_data.relationship]
+
+        # Used to pass the `_UsesData` object as reference to the `__or__`
+        # operator overloading method.
+        self._ref: Tuple[_UsesData] = (uses_data,)
+
+    def __or__(self, _with: With) -> None:
+        if _with.tags:
+            self._ref[0].relationship.tags = " ".join(_with.tags)
+        if _with.properties:
+            self._ref[0].relationship.properties = _with.properties
+        if _with.url:
+            self._ref[0].relationship.url = _with.url
 
 class DslElement(ABC):
     """An abstract class used to label classes that are part of the buildzr DSL"""
@@ -66,6 +120,8 @@ class SoftwareSystem(DslElement):
     A software system.
     """
 
+    _SoftwareSystemRelation = _UsesFrom['SoftwareSystem', Union['Person', 'SoftwareSystem']]
+
     @property
     def model(self) -> buildzr.models.SoftwareSystem:
         return self._m
@@ -76,10 +132,28 @@ class SoftwareSystem(DslElement):
         self.model.name = name
         self.model.description = description
 
+    @overload
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _SoftwareSystemRelation:
+        ...
+
+    @overload
+    def __rshift__(self, description: str) -> _SoftwareSystemRelation:
+        ...
+
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _SoftwareSystemRelation:
+        if isinstance(other, str):
+            return _UsesFrom(self, other)
+        elif isinstance(other, tuple):
+            return _UsesFrom(self, description=other[0], technology=other[1])
+        else:
+            raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
+
 class Person(DslElement):
     """
     A person who uses a software system.
     """
+
+    _PersonRelation = _UsesFrom['Person', Union['Person', 'SoftwareSystem']]
 
     @property
     def model(self) -> buildzr.models.Person:
@@ -93,68 +167,17 @@ class Person(DslElement):
         self.model.relationships = []
 
     @overload
-    def __rshift__(self, description_and_technology: Tuple[str, str]) -> '_UsesFrom':
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _PersonRelation:
         ...
 
     @overload
-    def __rshift__(self, description: str) -> '_UsesFrom':
+    def __rshift__(self, description: str) -> _PersonRelation:
         ...
 
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> '_UsesFrom':
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _PersonRelation:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
-
-Src = Union[Person, SoftwareSystem]
-Dst = Union[Person, SoftwareSystem]
-
-@dataclass
-class With:
-    tags: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
-    url: Optional[str] = None
-
-@dataclass
-class _UsesData:
-    relationship: buildzr.models.Relationship
-    source: Src
-
-class _UsesFrom:
-
-    def __init__(self, source: Src, description: str="", technology: str="") -> None:
-        self.uses_data = _UsesData(
-            relationship=buildzr.models.Relationship(
-                id=GenerateId.for_relationship(),
-                description=description,
-                technology=technology,
-                sourceId=source._m.id,
-            ),
-            source=source,
-        )
-
-    def __rshift__(self, destination: Dst) -> '_UsesTo':
-        return _UsesTo(self.uses_data, destination)
-
-class _UsesTo:
-
-    def __init__(self, uses_data: _UsesData, destination: Dst) -> None:
-        uses_data.relationship.destinationId = destination._m.id
-        if any(uses_data.source._m.relationships):
-            uses_data.source._m.relationships.append(uses_data.relationship)
-        else:
-            uses_data.source._m.relationships = [uses_data.relationship]
-
-        # Used to pass the `_UsesData` object as reference to the `__or__`
-        # operator overloading method.
-        self._ref: Tuple[_UsesData] = (uses_data,)
-
-    def __or__(self, _with: With) -> None:
-        if _with.tags:
-            self._ref[0].relationship.tags = " ".join(_with.tags)
-        if _with.properties:
-            self._ref[0].relationship.properties = _with.properties
-        if _with.url:
-            self._ref[0].relationship.url = _with.url

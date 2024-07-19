@@ -89,6 +89,17 @@ def test_relationship_with_extra_info(dsl: DslHolder) -> Optional[None]:
     assert "authentication" in dsl.person.model.relationships[0].properties.keys()
     assert "http://example.com/info/relationship-user-uses-cli" == dsl.person.model.relationships[0].url
 
+def test_relationship_dont_work_with_workspace(dsl: DslHolder) -> Optional[None]:
+
+    with pytest.raises(TypeError):
+        dsl.workspace >> "uses" >> dsl.person #type: ignore[operator]
+
+    with pytest.raises(TypeError):
+        dsl.person >> "uses" >> dsl.workspace #type: ignore[operator]
+
+    with pytest.raises(TypeError):
+        dsl.workspace >> "uses" >> dsl.software_system #type: ignore[operator]
+
 def test_workspace_model_inclusion_dsl(dsl: DslHolder) -> Optional[None]:
 
     dsl.workspace.contains([dsl.person, dsl.software_system])
