@@ -112,6 +112,15 @@ def test_workspace_model_inclusion_dsl(dsl: DslHolder) -> Optional[None]:
     assert any(dsl.workspace._m.model.people)
     assert any(dsl.workspace._m.model.softwareSystems)
 
+def test_parenting(dsl: DslHolder) -> Optional[None]:
+
+    dsl.workspace.contains([dsl.person, dsl.software_system])
+    dsl.software_system.contains([dsl.container])
+
+    assert dsl.person.parent.model.id == dsl.workspace.model.id
+    assert dsl.software_system.parent.model.id == dsl.workspace.model.id
+    assert dsl.container.parent.model.id == dsl.software_system.model.id
+
 def test_relationship_definition_commutativity() -> Optional[None]:
 
     from buildzr.encoders import JsonEncoder

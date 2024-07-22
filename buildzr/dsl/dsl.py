@@ -11,6 +11,14 @@ Model = Union[
     buildzr.models.Container,
 ]
 
+DslParentElement = Union[
+    None,
+    'Workspace',
+    'Person',
+    'SoftwareSystem',
+    'Container',
+]
+
 TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
 TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
 
@@ -78,6 +86,11 @@ class DslElement(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def parent(self) -> DslParentElement:
+        pass
+
 class Workspace(DslElement):
     """
     Represents a Structurizr workspace, which is a wrapper for a software architecture model, views, and documentation.
@@ -87,8 +100,13 @@ class Workspace(DslElement):
     def model(self) -> buildzr.models.Workspace:
         return self._m
 
+    @property
+    def parent(self) -> None:
+        return None
+
     def __init__(self, name: str, description: str="") -> None:
         self._m = buildzr.models.Workspace()
+        self._parent = None
         self.model.id = GenerateId.for_workspace()
         self.model.name = name
         self.model.description = description
@@ -107,11 +125,11 @@ class Workspace(DslElement):
     ]]) -> None:
         for model in models:
             if isinstance(model, Person):
-                if self._m.model is not None:
-                    if self._m.model.people is not None:
-                        self._m.model.people.append(model._m)
+                self._m.model.people.append(model._m)
+                model._parent = self
             elif isinstance(model, SoftwareSystem):
                 self._m.model.softwareSystems.append(model._m)
+                model._parent = self
             else:
                 # Ignore other model or bad types for now.
                 pass
@@ -127,8 +145,13 @@ class SoftwareSystem(DslElement):
     def model(self) -> buildzr.models.SoftwareSystem:
         return self._m
 
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
     def __init__(self, name: str, description: str="") -> None:
         self._m = buildzr.models.SoftwareSystem()
+        self._parent: Optional[Workspace] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
@@ -138,6 +161,7 @@ class SoftwareSystem(DslElement):
             self.model.containers = []
         for container in containers:
             self.model.containers.append(container.model)
+            container._parent = self
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _SoftwareSystemRelation:
@@ -166,8 +190,13 @@ class Person(DslElement):
     def model(self) -> buildzr.models.Person:
         return self._m
 
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
     def __init__(self, name: str, description: str="") -> None:
         self._m = buildzr.models.Person()
+        self._parent: Optional[Workspace] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
@@ -200,8 +229,13 @@ class Container(DslElement):
     def model(self) -> buildzr.models.Container:
         return self._m
 
+    @property
+    def parent(self) -> Optional[SoftwareSystem]:
+        return self._parent
+
     def __init__(self, name: str, description: str="", technology: str="") -> None:
         self._m = buildzr.models.Container()
+        self._parent: Optional[SoftwareSystem] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
