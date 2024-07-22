@@ -3,7 +3,7 @@ import inspect
 import pytest
 import importlib
 from typing import Optional
-from buildzr.dsl import Workspace, SoftwareSystem, Person, With
+from buildzr.dsl import Workspace, SoftwareSystem, Person, Container, With
 
 @dataclass
 class DslHolder:
@@ -16,6 +16,7 @@ fixture once to be reused across multiple tests.
     workspace: Workspace
     software_system: SoftwareSystem
     person: Person
+    container: Container
 
 @pytest.fixture
 def dsl() -> DslHolder:
@@ -23,11 +24,13 @@ def dsl() -> DslHolder:
     workspace = Workspace("My Workspace", "A happy place")
     software_system = SoftwareSystem("My Software System")
     person = Person("Super user")
+    container = Container("My container")
 
     return DslHolder(
         workspace=workspace,
         software_system=software_system,
         person=person,
+        container=container,
     )
 
 def test_docstrings(dsl: DslHolder) -> Optional[None]:
@@ -59,6 +62,7 @@ def test_element_ids(dsl: DslHolder) -> Optional[None]:
     assert dsl.workspace._m.id is not None
     assert dsl.person._m.id is not None
     assert dsl.software_system._m.id is not None
+    assert dsl.container._m.id is not None
 
 def test_workspace_has_configuration(dsl: DslHolder) -> Optional[None]:
 

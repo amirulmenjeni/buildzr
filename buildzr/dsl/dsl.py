@@ -8,6 +8,7 @@ Model = Union[
     buildzr.models.Workspace,
     buildzr.models.Person,
     buildzr.models.SoftwareSystem,
+    buildzr.models.Container,
 ]
 
 TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
@@ -120,7 +121,7 @@ class SoftwareSystem(DslElement):
     A software system.
     """
 
-    _SoftwareSystemRelation = _UsesFrom['SoftwareSystem', Union['Person', 'SoftwareSystem']]
+    _SoftwareSystemRelation = _UsesFrom['SoftwareSystem', Union['Person', 'SoftwareSystem', 'Container']]
 
     @property
     def model(self) -> buildzr.models.SoftwareSystem:
@@ -131,6 +132,12 @@ class SoftwareSystem(DslElement):
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
+
+    def contains(self, containers: List['Container']) -> None:
+        if not self.model.containers:
+            self.model.containers = []
+        for container in containers:
+            self.model.containers.append(container.model)
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _SoftwareSystemRelation:
@@ -153,7 +160,7 @@ class Person(DslElement):
     A person who uses a software system.
     """
 
-    _PersonRelation = _UsesFrom['Person', Union['Person', 'SoftwareSystem']]
+    _PersonRelation = _UsesFrom['Person', Union['Person', 'SoftwareSystem', 'Container']]
 
     @property
     def model(self) -> buildzr.models.Person:
@@ -175,6 +182,41 @@ class Person(DslElement):
         ...
 
     def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _PersonRelation:
+        if isinstance(other, str):
+            return _UsesFrom(self, other)
+        elif isinstance(other, tuple):
+            return _UsesFrom(self, description=other[0], technology=other[1])
+        else:
+            raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
+
+class Container(DslElement):
+    """
+    A container (something that can execute code or host data).
+    """
+
+    _ContainerRelation = _UsesFrom['Container', Union[Person, SoftwareSystem, 'Container']]
+
+    @property
+    def model(self) -> buildzr.models.Container:
+        return self._m
+
+    def __init__(self, name: str, description: str="", technology: str="") -> None:
+        self._m = buildzr.models.Container()
+        self.model.id = GenerateId.for_element()
+        self.model.name = name
+        self.model.description = description
+        self.model.relationships = []
+        self.model.technology = technology
+
+    @overload
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _ContainerRelation:
+        ...
+
+    @overload
+    def __rshift__(self, description: str) -> _ContainerRelation:
+        ...
+
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _ContainerRelation:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
