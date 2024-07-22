@@ -4,6 +4,7 @@ import pytest
 import importlib
 from typing import Optional
 from buildzr.dsl import Workspace, SoftwareSystem, Person, Container, With
+from buildzr.encoders import JsonEncoder
 
 @dataclass
 class DslHolder:
@@ -110,3 +111,45 @@ def test_workspace_model_inclusion_dsl(dsl: DslHolder) -> Optional[None]:
 
     assert any(dsl.workspace._m.model.people)
     assert any(dsl.workspace._m.model.softwareSystems)
+
+def test_relationship_definition_commutativity() -> Optional[None]:
+
+    from buildzr.encoders import JsonEncoder
+    import jsondiff #type: ignore[import-untyped]
+    import json
+
+    # For now, we have to cheat a bit and manually edit each entity's ID so they
+    # they're not identified as differences between the two workspaces. This is
+    # because the current IDs are running numbers across the same class of
+    # `DslElements`s.
+    #
+    # So, hashtag TODO.
+
+    w1 = Workspace("w")
+    w1.model.id = 1
+    u1 = Person("u")
+    u1.model.id = "2"
+    s1 = SoftwareSystem("s")
+    s1.model.id = "3"
+    u1 >> "Uses" >> s1
+    u1.model.relationships[0].id = "4"
+    w1.contains([u1, s1])
+
+    w2 = Workspace("w")
+    w2.model.id = 1
+    u2 = Person("u")
+    u2.model.id = "2"
+    s2 = SoftwareSystem("s")
+    s2.model.id = "3"
+    w2.contains([u2, s2])
+    u2 >> "Uses" >> s2
+    u2.model.relationships[0].id = "4"
+
+    json_str_w1 = json.dumps(w1, cls=JsonEncoder)
+    json_str_w2 = json.dumps(w2, cls=JsonEncoder)
+    differences = jsondiff.diff(
+        json_str_w1,
+        json_str_w2,
+    )
+
+    assert not differences
