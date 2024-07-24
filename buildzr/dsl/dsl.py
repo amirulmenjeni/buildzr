@@ -97,8 +97,8 @@ class _UsesTo(Generic[TSrc, TDst]):
 
 class _FluentRelationship(Generic[TParent, TChild]):
 
-    def __init__(self, parent: TParent, children: List[TChild]) -> None:
-        self._children: List[TChild] = children
+    def __init__(self, parent: TParent, children: Tuple[TChild, ...]) -> None:
+        self._children: Tuple[TChild, ...] = children
         self._parent: TParent = parent
 
     def where(self, func: Callable[..., Any]) -> TParent:
@@ -150,7 +150,7 @@ class Workspace(DslElement):
             scope=buildzr.models.Scope.Landscape
         )
 
-    def contains(self, models: List[Union['Person', 'SoftwareSystem']]) -> _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem']]:
+    def contains(self, *models: Union['Person', 'SoftwareSystem']) -> _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem']]:
         for model in models:
             if isinstance(model, Person):
                 self._m.model.people.append(model._m)
@@ -185,7 +185,7 @@ class SoftwareSystem(DslElement):
         self.model.name = name
         self.model.description = description
 
-    def contains(self, containers: List['Container']) -> _FluentRelationship['SoftwareSystem', 'Container']:
+    def contains(self, *containers: 'Container') -> _FluentRelationship['SoftwareSystem', 'Container']:
         if not self.model.containers:
             self.model.containers = []
         for container in containers:

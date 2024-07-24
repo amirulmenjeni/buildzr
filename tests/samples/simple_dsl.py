@@ -12,7 +12,7 @@ class Simple(AbstractBuilder):
         user = Person("A user")
         software_system = SoftwareSystem("A software system")
 
-        workspace.contains([user, software_system])
+        workspace.contains(user, software_system)
 
         user >> ("Uses", "CLI") >> software_system | With(
             tags=["linux", "rules"]

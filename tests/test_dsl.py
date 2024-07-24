@@ -107,15 +107,15 @@ def test_relationship_dont_work_with_workspace(dsl: DslHolder) -> Optional[None]
 
 def test_workspace_model_inclusion_dsl(dsl: DslHolder) -> Optional[None]:
 
-    dsl.workspace.contains([dsl.person, dsl.software_system])
+    dsl.workspace.contains(dsl.person, dsl.software_system)
 
     assert any(dsl.workspace._m.model.people)
     assert any(dsl.workspace._m.model.softwareSystems)
 
 def test_parenting(dsl: DslHolder) -> Optional[None]:
 
-    dsl.workspace.contains([dsl.person, dsl.software_system])
-    dsl.software_system.contains([dsl.container])
+    dsl.workspace.contains(dsl.person, dsl.software_system)
+    dsl.software_system.contains(dsl.container)
 
     assert dsl.person.parent.model.id == dsl.workspace.model.id
     assert dsl.software_system.parent.model.id == dsl.workspace.model.id
@@ -142,7 +142,7 @@ def test_relationship_definition_commutativity() -> Optional[None]:
     s1.model.id = "3"
     u1 >> "Uses" >> s1
     u1.model.relationships[0].id = "4"
-    w1.contains([u1, s1])
+    w1.contains(u1, s1)
 
     w2 = Workspace("w")
     w2.model.id = 1
@@ -150,7 +150,7 @@ def test_relationship_definition_commutativity() -> Optional[None]:
     u2.model.id = "2"
     s2 = SoftwareSystem("s")
     s2.model.id = "3"
-    w2.contains([u2, s2])
+    w2.contains(u2, s2)
     u2 >> "Uses" >> s2
     u2.model.relationships[0].id = "4"
 
@@ -166,17 +166,17 @@ def test_relationship_definition_commutativity() -> Optional[None]:
 def test_fluent_workspace_definition() -> Optional[None]:
 
     w = Workspace("w")\
-        .contains([
+        .contains(
             Person("u"),
             SoftwareSystem("s")\
-            .contains([
+            .contains(
                 Container("webapp"),
-                Container("database"),
-            ])
+                Container("database")
+            )\
             .where(lambda webapp, database: [
                 webapp >> "Uses" >> database
             ])
-        ])\
+        )\
         .where(lambda u, s: [
             u >> "Uses" >> s
         ])

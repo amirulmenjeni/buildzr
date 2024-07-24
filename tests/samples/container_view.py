@@ -13,11 +13,11 @@ class Simple(AbstractBuilder):
 
         u = Person("User")
         s = SoftwareSystem("Software System")
-        workspace.contains([u, s])
+        workspace.contains(u, s)
 
         webapp = Container("Web Application")
         database = Container("Database")
-        s.contains([webapp, database])
+        s.contains(webapp, database)
 
         u >> "Uses" >> webapp
         webapp >> "Reads and writes to" >> database
