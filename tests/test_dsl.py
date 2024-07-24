@@ -168,7 +168,14 @@ def test_fluent_workspace_definition() -> Optional[None]:
     w = Workspace("w")\
         .contains([
             Person("u"),
-            SoftwareSystem("s"),
+            SoftwareSystem("s")\
+            .contains([
+                Container("webapp"),
+                Container("database"),
+            ])
+            .where(lambda webapp, database: [
+                webapp >> "Uses" >> database
+            ])
         ])\
         .where(lambda u, s: [
             u >> "Uses" >> s
@@ -176,3 +183,6 @@ def test_fluent_workspace_definition() -> Optional[None]:
 
     assert any(w.model.model.people)
     assert any(w.model.model.people[0].relationships)
+    assert any(w.model.model.softwareSystems)
+    assert any(w.model.model.softwareSystems[0].containers)
+    assert any(w.model.model.softwareSystems[0].containers[0].relationships)
