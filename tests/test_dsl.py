@@ -162,3 +162,17 @@ def test_relationship_definition_commutativity() -> Optional[None]:
     )
 
     assert not differences
+
+def test_fluent_workspace_definition() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains([
+            Person("u"),
+            SoftwareSystem("s"),
+        ])\
+        .where(lambda u, s: [
+            u >> "Uses" >> s
+        ])
+
+    assert any(w.model.model.people)
+    assert any(w.model.model.people[0].relationships)

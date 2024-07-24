@@ -1,8 +1,23 @@
 from dataclasses import dataclass
 import buildzr
 from abc import ABC, abstractmethod
-from typing import Union, Tuple, List, Dict, Optional, Generic, TypeVar, overload
 from .factory import GenerateId
+from typing_extensions import (
+    Self,
+    ParamSpec,
+)
+from typing import (
+    Union,
+    Tuple,
+    List,
+    Dict,
+    Optional,
+    Generic,
+    TypeVar,
+    Protocol,
+    Callable,
+    overload,
+)
 
 Model = Union[
     buildzr.models.Workspace,
@@ -21,6 +36,9 @@ DslParentElement = Union[
 
 TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
 TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
+
+TChild = TypeVar('TChild', bound='DslElement', contravariant=True)
+P = ParamSpec('P')
 
 @dataclass
 class With:
@@ -66,13 +84,29 @@ class _UsesTo(Generic[TSrc, TDst]):
         # operator overloading method.
         self._ref: Tuple[_UsesData] = (uses_data,)
 
-    def __or__(self, _with: With) -> None:
+    def __or__(self, _with: With) -> Self:
         if _with.tags:
             self._ref[0].relationship.tags = " ".join(_with.tags)
         if _with.properties:
             self._ref[0].relationship.properties = _with.properties
         if _with.url:
             self._ref[0].relationship.url = _with.url
+        return self
+
+class _RelationshipsDefiner(Protocol, Generic[TChild]):
+
+    def __call__(self, *entities: TChild) -> List[_UsesTo]:
+        ...
+
+class _FluentRelationship(Generic[TChild]):
+
+    def __init__(self, workspace: 'Workspace', children: List[TChild]) -> None:
+        self._children: List[TChild] = children
+        self._workspace: Workspace = workspace
+
+    def where(self, func: _RelationshipsDefiner) -> 'Workspace':
+        func(*self._children)
+        return self._workspace
 
 class DslElement(ABC):
     """An abstract class used to label classes that are part of the buildzr DSL"""
@@ -119,10 +153,7 @@ class Workspace(DslElement):
             scope=buildzr.models.Scope.Landscape
         )
 
-    def contains(self, models: List[Union[
-        'Person',
-        'SoftwareSystem'
-    ]]) -> None:
+    def contains(self, models: List[TChild]) -> _FluentRelationship[TChild]:
         for model in models:
             if isinstance(model, Person):
                 self._m.model.people.append(model._m)
@@ -133,6 +164,7 @@ class Workspace(DslElement):
             else:
                 # Ignore other model or bad types for now.
                 pass
+        return _FluentRelationship[TChild](self, models)
 
 class SoftwareSystem(DslElement):
     """
