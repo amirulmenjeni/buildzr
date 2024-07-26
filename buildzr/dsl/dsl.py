@@ -40,7 +40,6 @@ TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
 
 TParent = TypeVar('TParent', bound='DslElement', covariant=True)
 TChild = TypeVar('TChild', bound='DslElement', contravariant=True)
-P = ParamSpec('P')
 
 @dataclass
 class With:
