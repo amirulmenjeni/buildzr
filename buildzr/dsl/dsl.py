@@ -65,10 +65,10 @@ class _UsesFrom(Generic[TSrc, TDst]):
             source=source,
         )
 
-    def __rshift__(self, destination: TDst) -> 'Relationship[TSrc, TDst]':
+    def __rshift__(self, destination: TDst) -> '_Relationship[TSrc, TDst]':
         if isinstance(destination, Workspace):
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(destination).__name__}")
-        return Relationship(self.uses_data, destination)
+        return _Relationship(self.uses_data, destination)
 
 class DslElement(ABC):
     """An abstract class used to label classes that are part of the buildzr DSL"""
@@ -98,7 +98,7 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
     def model(self) -> buildzr.models.Relationship:
         pass
 
-class Relationship(DslRelationship[TSrc, TDst]):
+class _Relationship(DslRelationship[TSrc, TDst]):
 
     @property
     def model(self) -> buildzr.models.Relationship:
