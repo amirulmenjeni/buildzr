@@ -65,14 +65,48 @@ class _UsesFrom(Generic[TSrc, TDst]):
             source=source,
         )
 
-    def __rshift__(self, destination: TDst) -> '_UsesTo[TSrc, TDst]':
+    def __rshift__(self, destination: TDst) -> 'Relationship[TSrc, TDst]':
         if isinstance(destination, Workspace):
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(destination).__name__}")
-        return _UsesTo(self.uses_data, destination)
+        return Relationship(self.uses_data, destination)
 
-class _UsesTo(Generic[TSrc, TDst]):
+class DslElement(ABC):
+    """An abstract class used to label classes that are part of the buildzr DSL"""
+
+    @property
+    @abstractmethod
+    def model(self) -> Model:
+        """
+        Returns the `dataclass` of the `DslElement` that follows Structurizr's
+        JSON Schema (see https://github.com/structurizr/json)
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def parent(self) -> DslParentElement:
+        pass
+
+class DslRelationship(ABC, Generic[TSrc, TDst]):
+    """
+    An abstract class specially used to label classes that are part of the
+    relationship definer in the buildzr DSL
+    """
+
+    @property
+    @abstractmethod
+    def model(self) -> buildzr.models.Relationship:
+        pass
+
+class Relationship(DslRelationship[TSrc, TDst]):
+
+    @property
+    def model(self) -> buildzr.models.Relationship:
+        return self._m
 
     def __init__(self, uses_data: _UsesData[TSrc], destination: TDst) -> None:
+        self._m = uses_data.relationship
+
         uses_data.relationship.destinationId = str(destination.model.id)
 
         if not isinstance(uses_data.source.model, buildzr.models.Workspace):
@@ -100,26 +134,9 @@ class _FluentRelationship(Generic[TParent, TChild]):
         self._children: Tuple[TChild, ...] = children
         self._parent: TParent = parent
 
-    def where(self, func: Callable[..., Any]) -> TParent:
+    def where(self, func: Callable[..., List[DslRelationship]]) -> TParent:
         func(*self._children)
         return self._parent
-
-class DslElement(ABC):
-    """An abstract class used to label classes that are part of the buildzr DSL"""
-
-    @property
-    @abstractmethod
-    def model(self) -> Model:
-        """
-        Returns the `dataclass` of the `DslElement` that follows Structurizr's
-        JSON Schema (see https://github.com/structurizr/json)
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def parent(self) -> DslParentElement:
-        pass
 
 class Workspace(DslElement):
     """

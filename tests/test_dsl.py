@@ -3,7 +3,7 @@ import inspect
 import pytest
 import importlib
 from typing import Optional
-from buildzr.dsl import Workspace, SoftwareSystem, Person, Container, With
+from buildzr.dsl import Workspace, SoftwareSystem, Person, Container, Relationship, With
 from buildzr.encoders import JsonEncoder
 
 @dataclass
@@ -163,6 +163,19 @@ def test_relationship_definition_commutativity() -> Optional[None]:
 
     assert not differences
 
+def test_relationship_returns_correct_type(dsl: DslHolder) -> Optional[None]:
+
+    dsl.workspace.contains(
+        dsl.person,
+        dsl.software_system,
+    )
+
+    relationship = dsl.person >> "Uses" >> dsl.software_system
+
+    assert isinstance(relationship, Relationship)
+    assert relationship.model.description == "Uses"
+    assert relationship.model.destinationId == dsl.software_system.model.id
+
 def test_fluent_workspace_definition() -> Optional[None]:
 
     w = Workspace("w")\
@@ -178,7 +191,9 @@ def test_fluent_workspace_definition() -> Optional[None]:
             ])
         )\
         .where(lambda u, s: [
-            u >> "Uses" >> s
+            u >> "Uses" >> s | With(
+                tags=["5g-network"],
+            )
         ])
 
     assert any(w.model.model.people)
