@@ -120,12 +120,24 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         self._ref: Tuple[_UsesData] = (uses_data,)
 
     def __or__(self, _with: With) -> Self:
-        if _with.tags:
-            self._ref[0].relationship.tags = " ".join(_with.tags)
-        if _with.properties:
-            self._ref[0].relationship.properties = _with.properties
-        if _with.url:
-            self._ref[0].relationship.url = _with.url
+        return self.has(
+            tags=_with.tags,
+            properties=_with.properties,
+            url=_with.url,
+        )
+
+    def has(
+        self,
+        tags: Optional[List[str]]=None,
+        properties: Optional[Dict[str, str]]=None,
+        url: Optional[str]=None,
+    ) -> Self:
+        if tags:
+            self._ref[0].relationship.tags = " ".join(tags)
+        if properties:
+            self._ref[0].relationship.properties = properties
+        if url:
+            self._ref[0].relationship.url = url
         return self
 
 class _FluentRelationship(Generic[TParent, TChild]):
