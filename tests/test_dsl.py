@@ -120,6 +120,9 @@ def test_relationship_dont_work_with_workspace(dsl: DslHolder) -> Optional[None]
     with pytest.raises(TypeError):
         dsl.workspace >> "uses" >> dsl.software_system #type: ignore[operator]
 
+    with pytest.raises(AttributeError):
+        dsl.workspace.uses(dsl.person, description="Uses") #type: ignore[attr-defined]
+
 def test_workspace_model_inclusion_dsl(dsl: DslHolder) -> Optional[None]:
 
     dsl.workspace.contains(dsl.person, dsl.software_system)

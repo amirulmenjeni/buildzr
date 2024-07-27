@@ -2,13 +2,13 @@ from __future__ import annotations
 import dataclasses, json
 import enum
 import humps
-from buildzr.dsl import DslElement
+from buildzr.dsl import DslElement, DslWorkspaceElement
 from typing import Union, TYPE_CHECKING, Type, Any
 from typing_extensions import TypeGuard
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
-    JsonEncodable = Union[DslElement, DataclassInstance, enum.Enum]
+    JsonEncodable = Union[DslElement, DslWorkspaceElement, DataclassInstance, enum.Enum]
 else:
     # Need this so that when we're not type checking with mypy, we're still on
     # the clear.
@@ -24,8 +24,8 @@ def _is_dataclass(obj: JsonEncodable) -> TypeGuard['DataclassInstance']:
 
 class JsonEncoder(json.JSONEncoder):
     def default(self, obj: JsonEncodable) -> Union[str, list, dict]:
-        # Handle the default encoder the nicely wrapped `DslElement`s.
-        if isinstance(obj, DslElement):
+        # Handle the default encoder the nicely wrapped DSL elements.
+        if isinstance(obj, DslElement) or isinstance(obj, DslWorkspaceElement):
             return humps.camelize(dataclasses.asdict(obj.model))
 
         # Handle the default encoder for those `dataclass`es models generated in

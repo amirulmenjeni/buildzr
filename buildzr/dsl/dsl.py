@@ -17,6 +17,7 @@ from typing import (
     TypeVar,
     Protocol,
     Callable,
+    cast,
     overload,
 )
 
@@ -38,7 +39,7 @@ DslParentElement = Union[
 TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
 TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
 
-TParent = TypeVar('TParent', bound='DslElement', covariant=True)
+TParent = TypeVar('TParent', bound=Union['DslWorkspaceElement', 'DslElement'], covariant=True)
 TChild = TypeVar('TChild', bound='DslElement', contravariant=True)
 
 @dataclass
@@ -70,8 +71,22 @@ class _UsesFrom(Generic[TSrc, TDst]):
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(destination).__name__}")
         return _Relationship(self.uses_data, destination)
 
+class DslWorkspaceElement(ABC):
+
+    @property
+    @abstractmethod
+    def model(self) -> buildzr.models.Workspace:
+        pass
+
+    @property
+    @abstractmethod
+    def parent(self) -> None:
+        pass
+
 class DslElement(ABC):
     """An abstract class used to label classes that are part of the buildzr DSL"""
+
+    _Affectee = Union['Person', 'SoftwareSystem', 'Container']
 
     @property
     @abstractmethod
@@ -86,6 +101,26 @@ class DslElement(ABC):
     @abstractmethod
     def parent(self) -> DslParentElement:
         pass
+
+
+    TAffectee = TypeVar('TAffectee', bound=_Affectee, contravariant=True)
+    def uses(
+        self,
+        other: TAffectee,
+        description: Optional[str]=None,
+        technology: Optional[str]=None) -> '_Relationship[Self, TAffectee]':
+
+        source = self
+        return _Relationship(
+            _UsesData(
+                relationship=buildzr.models.Relationship(
+                    description=description,
+                    technology=technology,
+                ),
+                source=source,
+            ),
+            destination=other,
+        )
 
 class DslRelationship(ABC, Generic[TSrc, TDst]):
     """
@@ -156,7 +191,7 @@ class _FluentRelationship(Generic[TParent, TChild]):
         func(*self._children)
         return self._parent
 
-class Workspace(DslElement):
+class Workspace(DslWorkspaceElement):
     """
     Represents a Structurizr workspace, which is a wrapper for a software architecture model, views, and documentation.
     """
@@ -202,7 +237,8 @@ class SoftwareSystem(DslElement):
     A software system.
     """
 
-    _SoftwareSystemRelation = _UsesFrom['SoftwareSystem', Union['Person', 'SoftwareSystem', 'Container']]
+    _Affectee = Union['Person', 'SoftwareSystem', 'Container']
+    _SoftwareSystemRelation = _UsesFrom['SoftwareSystem', _Affectee]
 
     @property
     def model(self) -> buildzr.models.SoftwareSystem:
@@ -211,6 +247,9 @@ class SoftwareSystem(DslElement):
     @property
     def parent(self) -> Optional[Workspace]:
         return self._parent
+
+    def uses(self, other: _Affectee, description: Optional[str]=None, technology: Optional[str]=None) -> _Relationship[Self, _Affectee]:
+        return super().uses(other, description=description, technology=technology)
 
     def __init__(self, name: str, description: str="") -> None:
         self._m = buildzr.models.SoftwareSystem()
@@ -248,7 +287,8 @@ class Person(DslElement):
     A person who uses a software system.
     """
 
-    _PersonRelation = _UsesFrom['Person', Union['Person', 'SoftwareSystem', 'Container']]
+    _Affectee = Union['Person', 'SoftwareSystem', 'Container']
+    _PersonRelation = _UsesFrom['Person', _Affectee]
 
     @property
     def model(self) -> buildzr.models.Person:
@@ -257,6 +297,9 @@ class Person(DslElement):
     @property
     def parent(self) -> Optional[Workspace]:
         return self._parent
+
+    def uses(self, other: _Affectee, description: Optional[str]=None, technology: Optional[str]=None) -> _Relationship[Self, _Affectee]:
+        return super().uses(other, description=description, technology=technology)
 
     def __init__(self, name: str, description: str="") -> None:
         self._m = buildzr.models.Person()
@@ -287,7 +330,8 @@ class Container(DslElement):
     A container (something that can execute code or host data).
     """
 
-    _ContainerRelation = _UsesFrom['Container', Union[Person, SoftwareSystem, 'Container']]
+    _Affectee = Union[Person, SoftwareSystem, 'Container']
+    _ContainerRelation = _UsesFrom['Container', _Affectee]
 
     @property
     def model(self) -> buildzr.models.Container:
@@ -296,6 +340,9 @@ class Container(DslElement):
     @property
     def parent(self) -> Optional[SoftwareSystem]:
         return self._parent
+
+    def uses(self, other: _Affectee, description: Optional[str]=None, technology: Optional[str]=None) -> _Relationship[Self, _Affectee]:
+        return super().uses(other, description=description, technology=technology)
 
     def __init__(self, name: str, description: str="", technology: str="") -> None:
         self._m = buildzr.models.Container()
