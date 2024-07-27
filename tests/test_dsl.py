@@ -109,6 +109,28 @@ def test_relationship_with_extra_info_using_has(dsl: DslHolder) -> Optional[None
     assert "authentication" in dsl.person.model.relationships[0].properties.keys()
     assert "http://example.com/info/relationship-user-uses-cli" == dsl.person.model.relationships[0].url
 
+def test_relationship_using_uses_method(dsl: DslHolder) -> Optional[None]:
+
+    dsl.person\
+        .uses(
+            dsl.software_system,
+            description="browses",
+            technology="browser")\
+        .has(
+            tags=["webapp"],
+            properties={
+                "url": "http://link.example.page"
+            }
+        )
+
+    assert any(dsl.person.model.relationships)
+    assert any(dsl.person.model.tags)
+    assert any(dsl.person.model.properties.keys())
+    assert dsl.person.model.relationships[0].description == "browses"
+    assert dsl.person.model.relationships[0].technology == "browser"
+    assert dsl.person.model.relationships[0].tags[0] == "webapp"
+    assert dsl.person.model.relationships[0].properties['url'] == "http://link.example.page"
+
 def test_relationship_dont_work_with_workspace(dsl: DslHolder) -> Optional[None]:
 
     with pytest.raises(TypeError):
