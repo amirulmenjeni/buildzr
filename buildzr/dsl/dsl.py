@@ -132,6 +132,12 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         properties: Optional[Dict[str, str]]=None,
         url: Optional[str]=None,
     ) -> Self:
+        """
+        Adds extra info to the relationship.
+
+        This can also be achieved using the syntax sugar `DslRelationship |
+        With(...)`.
+        """
         if tags:
             self._ref[0].relationship.tags = " ".join(tags)
         if properties:
