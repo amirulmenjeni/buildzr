@@ -124,11 +124,11 @@ def test_relationship_using_uses_method(dsl: DslHolder) -> Optional[None]:
         )
 
     assert any(dsl.person.model.relationships)
-    assert any(dsl.person.model.tags)
-    assert any(dsl.person.model.properties.keys())
+    assert any(dsl.person.model.relationships[0].tags)
+    assert any(dsl.person.model.relationships[0].properties.keys())
     assert dsl.person.model.relationships[0].description == "browses"
     assert dsl.person.model.relationships[0].technology == "browser"
-    assert dsl.person.model.relationships[0].tags[0] == "webapp"
+    assert dsl.person.model.relationships[0].tags == "webapp"
     assert dsl.person.model.relationships[0].properties['url'] == "http://link.example.page"
 
 def test_relationship_dont_work_with_workspace(dsl: DslHolder) -> Optional[None]:
