@@ -3,7 +3,15 @@ import inspect
 import pytest
 import importlib
 from typing import Optional
-from buildzr.dsl import Workspace, SoftwareSystem, Person, Container, DslRelationship, With
+from buildzr.dsl import (
+    Workspace,
+    SoftwareSystem,
+    Person,
+    Container,
+    Component,
+    DslRelationship,
+    With,
+)
 from buildzr.encoders import JsonEncoder
 
 @dataclass
@@ -18,6 +26,7 @@ fixture once to be reused across multiple tests.
     software_system: SoftwareSystem
     person: Person
     container: Container
+    component: Component
 
 @pytest.fixture
 def dsl() -> DslHolder:
@@ -26,12 +35,14 @@ def dsl() -> DslHolder:
     software_system = SoftwareSystem("My Software System")
     person = Person("Super user")
     container = Container("My container")
+    component = Component("My component")
 
     return DslHolder(
         workspace=workspace,
         software_system=software_system,
         person=person,
         container=container,
+        component=component,
     )
 
 def test_docstrings(dsl: DslHolder) -> Optional[None]:
@@ -64,6 +75,7 @@ def test_element_ids(dsl: DslHolder) -> Optional[None]:
     assert dsl.person._m.id is not None
     assert dsl.software_system._m.id is not None
     assert dsl.container._m.id is not None
+    assert dsl.component._m.id is not None
 
 def test_workspace_has_configuration(dsl: DslHolder) -> Optional[None]:
 
@@ -156,10 +168,12 @@ def test_parenting(dsl: DslHolder) -> Optional[None]:
 
     dsl.workspace.contains(dsl.person, dsl.software_system)
     dsl.software_system.contains(dsl.container)
+    dsl.container.contains(dsl.component)
 
     assert dsl.person.parent.model.id == dsl.workspace.model.id
     assert dsl.software_system.parent.model.id == dsl.workspace.model.id
     assert dsl.container.parent.model.id == dsl.software_system.model.id
+    assert dsl.component.parent.model.id == dsl.container.model.id
 
 def test_relationship_definition_commutativity() -> Optional[None]:
 
@@ -219,25 +233,38 @@ def test_relationship_returns_correct_type(dsl: DslHolder) -> Optional[None]:
 def test_fluent_workspace_definition() -> Optional[None]:
 
     w = Workspace("w")\
-        .contains(
-            Person("u"),
-            SoftwareSystem("s")\
             .contains(
-                Container("webapp"),
-                Container("database")
+                Person("u"),
+                SoftwareSystem("s")\
+                    .contains(
+                        Container("webapp")\
+                            .contains(
+                                Component("database layer"),
+                                Component("API layer"),
+                                Component("UI layer"),
+                            )\
+                            .where(lambda db, api, ui: [
+                                ui >> ("Calls HTTP API from", "http/api") >> api,
+                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            ]),\
+                        Container("database"),
+                    )\
+                    .where(lambda webapp, database: [
+                        webapp >> "Uses" >> database
+                    ])
             )\
-            .where(lambda webapp, database: [
-                webapp >> "Uses" >> database
+            .where(lambda u, s: [
+                u >> "Uses" >> s | With(
+                    tags=["5g-network"],
+                )
             ])
-        )\
-        .where(lambda u, s: [
-            u >> "Uses" >> s | With(
-                tags=["5g-network"],
-            )
-        ])
 
     assert any(w.model.model.people)
     assert any(w.model.model.people[0].relationships)
     assert any(w.model.model.softwareSystems)
     assert any(w.model.model.softwareSystems[0].containers)
     assert any(w.model.model.softwareSystems[0].containers[0].relationships)
+    assert any(w.model.model.softwareSystems[0].containers[0].components)
+    assert any(w.model.model.softwareSystems[0].containers[0].components[1].relationships)
+    assert any(w.model.model.softwareSystems[0].containers[0].components[2].relationships)
+    assert not w.model.model.softwareSystems[0].containers[0].components[0].relationships

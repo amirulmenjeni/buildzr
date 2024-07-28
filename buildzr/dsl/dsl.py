@@ -26,6 +26,7 @@ Model = Union[
     buildzr.models.Person,
     buildzr.models.SoftwareSystem,
     buildzr.models.Container,
+    buildzr.models.Component,
 ]
 
 DslParentElement = Union[
@@ -86,7 +87,7 @@ class DslWorkspaceElement(ABC):
 class DslElement(ABC):
     """An abstract class used to label classes that are part of the buildzr DSL"""
 
-    _Affectee = Union['Person', 'SoftwareSystem', 'Container']
+    _Affectee = Union['Person', 'SoftwareSystem', 'Container', 'Component']
 
     @property
     @abstractmethod
@@ -174,7 +175,7 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         With(...)`.
         """
         if tags:
-            self._ref[0].relationship.tags = " ".join(tags)
+            self._ref[0].relationship.tags = " ".join(tags) # TODO: Change this to be comma separated
         if properties:
             self._ref[0].relationship.properties = properties
         if url:
@@ -237,7 +238,7 @@ class SoftwareSystem(DslElement):
     A software system.
     """
 
-    _Affectee = Union['Person', 'SoftwareSystem', 'Container']
+    _Affectee = Union['Person', 'SoftwareSystem', 'Container', 'Component']
     _SoftwareSystemRelation = _UsesFrom['SoftwareSystem', _Affectee]
 
     @property
@@ -287,7 +288,7 @@ class Person(DslElement):
     A person who uses a software system.
     """
 
-    _Affectee = Union['Person', 'SoftwareSystem', 'Container']
+    _Affectee = Union['Person', 'SoftwareSystem', 'Container', 'Component']
     _PersonRelation = _UsesFrom['Person', _Affectee]
 
     @property
@@ -330,7 +331,7 @@ class Container(DslElement):
     A container (something that can execute code or host data).
     """
 
-    _Affectee = Union[Person, SoftwareSystem, 'Container']
+    _Affectee = Union[Person, SoftwareSystem, 'Container', 'Component']
     _ContainerRelation = _UsesFrom['Container', _Affectee]
 
     @property
@@ -343,6 +344,14 @@ class Container(DslElement):
 
     def uses(self, other: _Affectee, description: Optional[str]=None, technology: Optional[str]=None) -> _Relationship[Self, _Affectee]:
         return super().uses(other, description=description, technology=technology)
+
+    def contains(self, *components: 'Component') -> _FluentRelationship['Container', 'Component']:
+        if not self.model.components:
+            self.model.components = []
+        for component in components:
+            self.model.components.append(component.model)
+            component._parent = self
+        return _FluentRelationship['Container', Union['Component', Any]](self, components)
 
     def __init__(self, name: str, description: str="", technology: str="") -> None:
         self._m = buildzr.models.Container()
@@ -362,6 +371,50 @@ class Container(DslElement):
         ...
 
     def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _ContainerRelation:
+        if isinstance(other, str):
+            return _UsesFrom(self, other)
+        elif isinstance(other, tuple):
+            return _UsesFrom(self, description=other[0], technology=other[1])
+        else:
+            raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
+
+class Component(DslElement):
+    """
+    A component (a grouping of related functionality behind an interface that runs inside a container).
+    """
+
+    _Affectee = Union[Person, SoftwareSystem, Container, 'Component']
+    _ComponentRelation = _UsesFrom['Component', _Affectee]
+
+    @property
+    def model(self) -> buildzr.models.Component:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Container]:
+        return self._parent
+
+    def uses(self, other: _Affectee, description: Optional[str]=None, technology: Optional[str]=None) -> _Relationship[Self, _Affectee]:
+        return super().uses(other, description=description, technology=technology)
+
+    def __init__(self, name: str, description: str="", technology: str="") -> None:
+        self._m = buildzr.models.Component()
+        self._parent: Optional[Container] = None
+        self.model.id = GenerateId.for_element()
+        self.model.name = name
+        self.model.description = description
+        self.model.technology = technology
+        self.model.relationships = []
+
+    @overload
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _ComponentRelation:
+        ...
+
+    @overload
+    def __rshift__(self, description: str) -> _ComponentRelation:
+        ...
+
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _ComponentRelation:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
