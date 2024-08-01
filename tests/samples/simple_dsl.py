@@ -4,7 +4,7 @@ import buildzr
 from buildzr.dsl import *
 from ..abstract_builder import AbstractBuilder
 
-class Simple(AbstractBuilder):
+class SimpleDsl(AbstractBuilder):
 
     def build(self) -> buildzr.models.Workspace:
 
