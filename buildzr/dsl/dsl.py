@@ -17,6 +17,7 @@ from typing import (
     TypeVar,
     Protocol,
     Callable,
+    Iterable,
     cast,
     overload,
 )
@@ -42,6 +43,9 @@ TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
 
 TParent = TypeVar('TParent', bound=Union['DslWorkspaceElement', 'DslElement'], covariant=True)
 TChild = TypeVar('TChild', bound='DslElement', contravariant=True)
+
+def _child_name_transform(name: str) -> str:
+    return name.lower().replace(' ', '_')
 
 @dataclass
 class With:
@@ -192,6 +196,9 @@ class _FluentRelationship(Generic[TParent, TChild]):
         func(*self._children)
         return self._parent
 
+    def get(self) -> TParent:
+        return self._parent
+
 class Workspace(DslWorkspaceElement):
     """
     Represents a Structurizr workspace, which is a wrapper for a software architecture model, views, and documentation.
@@ -208,6 +215,7 @@ class Workspace(DslWorkspaceElement):
     def __init__(self, name: str, description: str="") -> None:
         self._m = buildzr.models.Workspace()
         self._parent = None
+        self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem']] = {}
         self.model.id = GenerateId.for_workspace()
         self.model.name = name
         self.model.description = description
@@ -225,13 +233,24 @@ class Workspace(DslWorkspaceElement):
             if isinstance(model, Person):
                 self._m.model.people.append(model._m)
                 model._parent = self
+                self._dynamic_attrs[_child_name_transform(model.model.name)] = model
             elif isinstance(model, SoftwareSystem):
                 self._m.model.softwareSystems.append(model._m)
                 model._parent = self
+                self._dynamic_attrs[_child_name_transform(model.model.name)] = model
             else:
                 # Ignore other model or bad types for now.
                 pass
         return _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem', Any]](self, models)
+
+    def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
+        return self._dynamic_attrs[name]
+
+    def __getitem__(self, name: str) -> Union['Person', 'SoftwareSystem']:
+        return self._dynamic_attrs[_child_name_transform(name)]
+
+    def __dir__(self) -> Iterable[str]:
+        return list(super().__dir__()) + list(self._dynamic_attrs.keys())
 
 class SoftwareSystem(DslElement):
     """
@@ -255,6 +274,7 @@ class SoftwareSystem(DslElement):
     def __init__(self, name: str, description: str="") -> None:
         self._m = buildzr.models.SoftwareSystem()
         self._parent: Optional[Workspace] = None
+        self._dynamic_attrs: Dict[str, 'Container'] = {}
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
@@ -265,6 +285,7 @@ class SoftwareSystem(DslElement):
         for container in containers:
             self.model.containers.append(container.model)
             container._parent = self
+            self._dynamic_attrs[_child_name_transform(container.model.name)] = container
         return _FluentRelationship['SoftwareSystem', Union['Container', Any]](self, containers)
 
     @overload
@@ -282,6 +303,15 @@ class SoftwareSystem(DslElement):
             return _UsesFrom(self, description=other[0], technology=other[1])
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
+
+    def __getattr__(self, name: str) -> 'Container':
+        return self._dynamic_attrs[name]
+
+    def __getitem__(self, name: str) -> 'Container':
+        return self._dynamic_attrs[_child_name_transform(name)]
+
+    def __dir__(self) -> Iterable[str]:
+        return list(super().__dir__()) + list(self._dynamic_attrs.keys())
 
 class Person(DslElement):
     """
@@ -326,6 +356,7 @@ class Person(DslElement):
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
 
+
 class Container(DslElement):
     """
     A container (something that can execute code or host data).
@@ -351,11 +382,13 @@ class Container(DslElement):
         for component in components:
             self.model.components.append(component.model)
             component._parent = self
+            self._dynamic_attrs[_child_name_transform(component.model.name)] = component
         return _FluentRelationship['Container', Union['Component', Any]](self, components)
 
     def __init__(self, name: str, description: str="", technology: str="") -> None:
         self._m = buildzr.models.Container()
         self._parent: Optional[SoftwareSystem] = None
+        self._dynamic_attrs: Dict[str, 'Component'] = {}
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
@@ -377,6 +410,15 @@ class Container(DslElement):
             return _UsesFrom(self, description=other[0], technology=other[1])
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
+
+    def __getattr__(self, name: str) -> 'Component':
+        return self._dynamic_attrs[name]
+
+    def __getitem__(self, name: str) -> 'Component':
+        return self._dynamic_attrs[_child_name_transform(name)]
+
+    def __dir__(self) -> Iterable[str]:
+        return list(super().__dir__()) + list(self._dynamic_attrs.keys())
 
 class Component(DslElement):
     """

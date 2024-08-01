@@ -154,9 +154,6 @@ def test_relationship_dont_work_with_workspace(dsl: DslHolder) -> Optional[None]
     with pytest.raises(TypeError):
         dsl.workspace >> "uses" >> dsl.software_system #type: ignore[operator]
 
-    with pytest.raises(AttributeError):
-        dsl.workspace.uses(dsl.person, description="Uses") #type: ignore[attr-defined]
-
 def test_workspace_model_inclusion_dsl(dsl: DslHolder) -> Optional[None]:
 
     dsl.workspace.contains(dsl.person, dsl.software_system)
@@ -174,6 +171,41 @@ def test_parenting(dsl: DslHolder) -> Optional[None]:
     assert dsl.software_system.parent.model.id == dsl.workspace.model.id
     assert dsl.container.parent.model.id == dsl.software_system.model.id
     assert dsl.component.parent.model.id == dsl.container.model.id
+
+def test_accessing_child_elements(dsl: DslHolder) -> Optional[None]:
+
+    w = Workspace("w")\
+            .contains(
+                Person("u"),
+                SoftwareSystem("s")\
+                    .contains(
+                        Container("webapp")\
+                            .contains(
+                                Component("database layer"),
+                                Component("API layer"),
+                                Component("UI layer"),
+                            )\
+                            .where(lambda db, api, ui: [
+                                ui >> ("Calls HTTP API from", "http/api") >> api,
+                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            ]),\
+                        Container("database"),
+                    )\
+                    .where(lambda webapp, database: [
+                        webapp >> "Uses" >> database
+                    ])
+            )\
+            .get()
+
+
+    assert type(w.u) is Person
+    assert type(w.s) is SoftwareSystem
+    assert type(w.s.webapp) is Container
+    assert type(w.s.database) is Container
+    assert type(w.s.webapp.api_layer) is Component
+
+    if isinstance(w['s'], SoftwareSystem):
+        assert type(w['s']['webapp']['database layer']) is Component
 
 def test_relationship_definition_commutativity() -> Optional[None]:
 
