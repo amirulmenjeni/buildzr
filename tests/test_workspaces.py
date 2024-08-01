@@ -37,7 +37,7 @@ def builders() -> List[AbstractBuilder]:
     sample_packages : List[Tuple[str, str]] = []
 
     for sample in samples:
-        parts   = samples[0].rpartition('.')[0].rpartition('/')
+        parts   = sample.rpartition('.')[0].rpartition('/')
 
         module  = f".{parts[2]}"
         package = f".{parts[0].replace('/', '.')}"
