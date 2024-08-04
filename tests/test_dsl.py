@@ -306,6 +306,14 @@ def test_implied_relationship() -> Optional[None]:
     See: https://docs.structurizr.com/java/implied-relationships#createimpliedrelationshipsunlessanyrelationshipexistsstrategy
     """
 
+    # _I think_ the behavior of the implied relationship can't really be tested
+    # in the authoring tool, as it is handled by the rendering tool (e.g., the
+    # Structurizr Lite or Structurizr On-Premise).
+    #
+    # But this test ensures that cross-layer relationship _doesn't_ create new
+    # relationship. For example, u -> s.database doesn't explicitly create a u
+    # -> s relationship in the workspace JSON.
+
     w = Workspace("w")\
             .contains(
                 Person("u"),
@@ -330,3 +338,7 @@ def test_implied_relationship() -> Optional[None]:
             .where(lambda u, s: [
                 u >> "Runs SQL queries" >> s.database
             ])
+
+    assert isinstance(w.u, Person)
+    assert len(w.u.model.relationships) == 1
+    assert w.u.model.relationships[0].description == "Runs SQL queries"
