@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # The structurizr lite only accept folder as an argument -- the folder
 # _must_ has a file named workspace.json or workspace.dsl.
 
