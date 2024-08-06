@@ -301,6 +301,38 @@ def test_fluent_workspace_definition() -> Optional[None]:
     assert any(w.model.model.softwareSystems[0].containers[0].components[2].relationships)
     assert not w.model.model.softwareSystems[0].containers[0].components[0].relationships
 
+def test_fluent_workspace_definition_without_contains_where() -> Optional[None]:
+
+    """
+    Expected behavior: Workspace.contains(...) and SoftwareSystem.contains(...)
+    methods should not need to expect explicit follow-up chain method .get() to
+    get the instance of its child class.
+    """
+
+    w = Workspace('w')\
+        .contains(
+            Person('u'),
+            SoftwareSystem('s')\
+            .contains(
+                Container('db'),
+                Container('app')\
+                .contains(
+                    Component('api layer'),
+                    Component('model layer'),
+                    Component('view layer'),
+                )
+            )
+        )\
+        .get()
+
+    assert isinstance(w.u, Person)
+    assert isinstance(w.s, SoftwareSystem)
+    assert isinstance(w.s.db, Container)
+    assert isinstance(w.s.app, Container)
+    assert isinstance(w.s.app.api_layer, Component)
+    assert isinstance(w.s.app.model_layer, Component)
+    assert isinstance(w.s.app.view_layer, Component)
+
 def test_implied_relationship() -> Optional[None]:
     """
     See: https://docs.structurizr.com/java/implied-relationships#createimpliedrelationshipsunlessanyrelationshipexistsstrategy

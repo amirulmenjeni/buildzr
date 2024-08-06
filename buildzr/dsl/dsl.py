@@ -228,7 +228,14 @@ class Workspace(DslWorkspaceElement):
             scope=buildzr.models.Scope.Landscape
         )
 
-    def contains(self, *models: Union['Person', 'SoftwareSystem']) -> _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem']]:
+    def contains(
+        self,
+        *models: Union[
+            'Person',
+            'SoftwareSystem',
+            _FluentRelationship['SoftwareSystem', 'Container'],
+        ]) -> _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem']]:
+
         for model in models:
             if isinstance(model, Person):
                 self._m.model.people.append(model._m)
@@ -239,8 +246,10 @@ class Workspace(DslWorkspaceElement):
                 model._parent = self
                 self._dynamic_attrs[_child_name_transform(model.model.name)] = model
             else:
-                # Ignore other model or bad types for now.
-                pass
+                software_system = model._parent
+                self._m.model.softwareSystems.append(software_system._m)
+                software_system._parent = self
+                self._dynamic_attrs[_child_name_transform(software_system.model.name)] = software_system
         return _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem', Any]](self, models)
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
@@ -279,13 +288,22 @@ class SoftwareSystem(DslElement):
         self.model.name = name
         self.model.description = description
 
-    def contains(self, *containers: 'Container') -> _FluentRelationship['SoftwareSystem', 'Container']:
+    def contains(
+        self,
+        *containers: Union['Container', _FluentRelationship['Container', 'Component']]
+    ) -> _FluentRelationship['SoftwareSystem', 'Container']:
         if not self.model.containers:
             self.model.containers = []
-        for container in containers:
-            self.model.containers.append(container.model)
-            container._parent = self
-            self._dynamic_attrs[_child_name_transform(container.model.name)] = container
+        for child in containers:
+            if isinstance(child, Container):
+                self.model.containers.append(child.model)
+                child._parent = self
+                self._dynamic_attrs[_child_name_transform(child.model.name)] = child
+            else:
+                child = child._parent
+                self._m.containers.append(child._m)
+                child._parent = self
+                self._dynamic_attrs[_child_name_transform(child.model.name)] = child
         return _FluentRelationship['SoftwareSystem', Union['Container', Any]](self, containers)
 
     @overload
