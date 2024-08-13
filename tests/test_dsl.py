@@ -323,7 +323,9 @@ def test_fluent_workspace_definition_without_contains_where() -> Optional[None]:
                 )
             )
         )\
-        .get()
+        .where(lambda u, s: [
+            u >> "Makes API calls" >> s.app.api_layer,
+        ])
 
     assert isinstance(w.u, Person)
     assert isinstance(w.s, SoftwareSystem)
@@ -332,6 +334,16 @@ def test_fluent_workspace_definition_without_contains_where() -> Optional[None]:
     assert isinstance(w.s.app.api_layer, Component)
     assert isinstance(w.s.app.model_layer, Component)
     assert isinstance(w.s.app.view_layer, Component)
+
+    w.s.app.model_layer >> "Uses" >> w.s.db
+
+    assert any(w.s.app.model_layer.model.relationships)
+    assert w.s.app.model_layer.model.relationships[0].description == "Uses"
+    assert w.s.app.model_layer.model.relationships[0].destinationId == w.s.db.model.id
+
+    assert any(w.u.model.relationships)
+    assert w.u.model.relationships[0].description == "Makes API calls"
+    assert w.u.model.relationships[0].destinationId == w.s.app.api_layer.model.id
 
 def test_implied_relationship() -> Optional[None]:
     """

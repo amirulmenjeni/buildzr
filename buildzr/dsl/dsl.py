@@ -5,6 +5,7 @@ from .factory import GenerateId
 from typing_extensions import (
     Self,
     ParamSpec,
+    TypeGuard,
 )
 from typing import (
     Any,
@@ -46,6 +47,20 @@ TChild = TypeVar('TChild', bound='DslElement', contravariant=True)
 
 def _child_name_transform(name: str) -> str:
     return name.lower().replace(' ', '_')
+
+def _is_software_container_fluent_relationship(
+    obj: '_FluentRelationship[Any, Any]') -> TypeGuard["_FluentRelationship['SoftwareSystem', 'Container']"]:
+
+    return isinstance(obj._parent, SoftwareSystem) and all([
+        isinstance(x, Container) for x in obj._children
+    ])
+
+def _is_container_component_fluent_relationship(
+    obj: '_FluentRelationship[Any, Any]') -> TypeGuard["_FluentRelationship['Container', 'Component']"]:
+
+    return isinstance(obj._parent, Container) and all([
+        isinstance(x, Component) for x in obj._children
+    ])
 
 @dataclass
 class With:
@@ -234,23 +249,33 @@ class Workspace(DslWorkspaceElement):
             'Person',
             'SoftwareSystem',
             _FluentRelationship['SoftwareSystem', 'Container'],
+            _FluentRelationship['Container', 'Component'],
         ]) -> _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem']]:
+
+        args: List[Union[Person, SoftwareSystem]] = []
 
         for model in models:
             if isinstance(model, Person):
                 self._m.model.people.append(model._m)
                 model._parent = self
                 self._dynamic_attrs[_child_name_transform(model.model.name)] = model
+                args.append(model)
             elif isinstance(model, SoftwareSystem):
                 self._m.model.softwareSystems.append(model._m)
                 model._parent = self
                 self._dynamic_attrs[_child_name_transform(model.model.name)] = model
-            else:
-                software_system = model._parent
-                self._m.model.softwareSystems.append(software_system._m)
-                software_system._parent = self
-                self._dynamic_attrs[_child_name_transform(software_system.model.name)] = software_system
-        return _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem', Any]](self, models)
+                args.append(model)
+            elif _is_software_container_fluent_relationship(model):
+                self._m.model.softwareSystems.append(model._parent._m)
+                model._parent._parent = self
+                self._dynamic_attrs[_child_name_transform(model._parent.model.name)] = model._parent
+                args.append(model._parent)
+            elif _is_container_component_fluent_relationship(model):
+                self._m.model.softwareSystems.append(model._parent._parent._m)
+                model._parent._parent._parent = self
+                self._dynamic_attrs[_child_name_transform(model._parent._parent.model.name)] = model._parent._parent
+                args.append(model._parent._parent)
+        return _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem']](self, tuple(args))
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
         return self._dynamic_attrs[name]
@@ -294,17 +319,21 @@ class SoftwareSystem(DslElement):
     ) -> _FluentRelationship['SoftwareSystem', 'Container']:
         if not self.model.containers:
             self.model.containers = []
+
+        args: List[Container] = []
+
         for child in containers:
             if isinstance(child, Container):
                 self.model.containers.append(child.model)
                 child._parent = self
                 self._dynamic_attrs[_child_name_transform(child.model.name)] = child
-            else:
-                child = child._parent
-                self._m.containers.append(child._m)
-                child._parent = self
-                self._dynamic_attrs[_child_name_transform(child.model.name)] = child
-        return _FluentRelationship['SoftwareSystem', Union['Container', Any]](self, containers)
+                args.append(child)
+            elif _is_container_component_fluent_relationship(child):
+                self._m.containers.append(child._parent._m)
+                child._parent._parent = self
+                self._dynamic_attrs[_child_name_transform(child._parent.model.name)] = child._parent
+                args.append(child._parent)
+        return _FluentRelationship['SoftwareSystem', 'Container'](self, tuple(args))
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _SoftwareSystemRelation:
@@ -401,7 +430,7 @@ class Container(DslElement):
             self.model.components.append(component.model)
             component._parent = self
             self._dynamic_attrs[_child_name_transform(component.model.name)] = component
-        return _FluentRelationship['Container', Union['Component', Any]](self, components)
+        return _FluentRelationship['Container', 'Component'](self, components)
 
     def __init__(self, name: str, description: str="", technology: str="") -> None:
         self._m = buildzr.models.Container()
