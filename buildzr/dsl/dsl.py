@@ -713,6 +713,9 @@ _AutoLayout = Optional[
 ]
 
 def _auto_layout_to_model(auto_layout: _AutoLayout) -> buildzr.models.AutomaticLayout:
+    """
+    See: https://docs.structurizr.com/dsl/language#autolayout
+    """
 
     model = buildzr.models.AutomaticLayout()
 
@@ -752,6 +755,17 @@ def _auto_layout_to_model(auto_layout: _AutoLayout) -> buildzr.models.AutomaticL
             model.nodeSeparation = ns
         else:
             model.rankDirection = map_rank_direction[cast(_RankDirection, auto_layout)]
+
+    if model.rankSeparation is None:
+        model.rankSeparation = 300
+    if model.nodeSeparation is None:
+        model.nodeSeparation = 300
+    if model.edgeSeparation is None:
+        model.edgeSeparation = 0
+    if model.implementation is None:
+        model.implementation = buildzr.models.Implementation.Graphviz
+    if model.vertices is None:
+        model.vertices = False
 
     return model
 
@@ -822,10 +836,10 @@ class SystemContextView:
         self._m.title = title
         self._m.properties = properties
 
-        self._on_added(software_system_selector)
+        self._selector = software_system_selector
 
-    def _on_added(self, selector: Callable[[Workspace], SoftwareSystem]) -> None:
-        self._m.softwareSystemId = selector(self._parent._parent)._m.id
+    def _on_added(self) -> None:
+        self._m.softwareSystemId = self._selector(self._parent._parent)._m.id
 
 class ContainerView:
 
@@ -858,10 +872,10 @@ class ContainerView:
         self._m.title = title
         self._m.properties = properties
 
-        self._on_added(software_system_selector)
+        self._selector = software_system_selector
 
-    def _on_added(self, selector: Callable[[Workspace], SoftwareSystem]) -> None:
-        self._m.softwareSystemId = selector(self._parent._parent)._m.id
+    def _on_added(self) -> None:
+        self._m.softwareSystemId = self._selector(self._parent._parent)._m.id
 
 class ComponentView:
 
@@ -894,10 +908,10 @@ class ComponentView:
         self._m.title = title
         self._m.properties = properties
 
-        self._on_added(container_selector)
+        self._selector = container_selector
 
-    def _on_added(self, selector: Callable[[Workspace], Container]) -> None:
-        self._m.containerId = selector(self._parent._parent)._m.id
+    def _on_added(self) -> None:
+        self._m.containerId = self._selector(self._parent._parent)._m.id
 
 class Views(DslViewsElement):
 
@@ -915,6 +929,7 @@ class Views(DslViewsElement):
     ) -> None:
         self._m = buildzr.models.Views()
         self._parent = workspace
+        self._parent._m.views = self._m
 
     def contains(
         self,
@@ -928,16 +943,35 @@ class Views(DslViewsElement):
         for view in views:
             view._parent = self
             if isinstance(view, SystemLandscapeView):
-                self._m.systemLandscapeViews.append(view.model)
+                if self._m.systemLandscapeViews:
+                    self._m.systemLandscapeViews.append(view.model)
+                else:
+                    self._m.systemLandscapeViews = [view.model]
             elif isinstance(view, SystemContextView):
-                self._m.systemContextViews.append(view.model)
+                view._on_added()
+                if self._m.systemContextViews:
+                    self._m.systemContextViews.append(view.model)
+                else:
+                    self._m.systemContextViews = [view.model]
             elif isinstance(view, ContainerView):
-                self._m.containerViews.append(view.model)
-            # TODO: Fix this after rebasing.
-            # elif isinstance(view, ComponentView):
-            #     container = view.get_container(view._parent)
-            #     self._m.componentViews.append(view.model)
+                view._on_added()
+                if self._m.containerViews:
+                    self._m.containerViews.append(view.model)
+                else:
+                    self._m.containerViews = [view.model]
+            elif isinstance(view, ComponentView):
+                view._on_added()
+                if self._m.componentViews:
+                    self._m.componentViews.append(view.model)
+                else:
+                    self._m.componentViews = [view.model]
             else:
                 raise NotImplementedError("The view {0} is currently not supported", type(view))
 
         return self
+
+    def get_workspace(self) -> Workspace:
+        """
+        Get the `Workspace` which contain this views definition.
+        """
+        return self._parent
