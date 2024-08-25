@@ -35,6 +35,6 @@ class JsonEncoder(json.JSONEncoder):
 
         # Handle the enums
         elif isinstance(obj, enum.Enum):
-            return str(obj)
+            return str(obj.value)
 
         return super().default(obj) #type: ignore[no-any-return]
