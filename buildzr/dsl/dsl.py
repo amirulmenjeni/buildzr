@@ -12,6 +12,7 @@ from typing import (
     Union,
     Tuple,
     List,
+    Set,
     Dict,
     Optional,
     Generic,
@@ -64,7 +65,7 @@ def _is_container_component_fluent_relationship(
 
 @dataclass
 class With:
-    tags: Optional[List[str]] = None
+    tags: Optional[Set[str]] = None
     properties: Optional[Dict[str, str]] = None
     url: Optional[str] = None
 
@@ -122,13 +123,18 @@ class DslElement(ABC):
     def parent(self) -> DslParentElement:
         pass
 
+    @property
+    @abstractmethod
+    def tags(self) -> Set[str]:
+        pass
 
     TAffectee = TypeVar('TAffectee', bound=_Affectee, contravariant=True)
     def uses(
         self,
         other: TAffectee,
         description: Optional[str]=None,
-        technology: Optional[str]=None) -> '_Relationship[Self, TAffectee]':
+        technology: Optional[str]=None,
+        tags: Set[str]=set()) -> '_Relationship[Self, TAffectee]':
 
         source = self
         return _Relationship(
@@ -140,6 +146,7 @@ class DslElement(ABC):
                 source=source,
             ),
             destination=other,
+            tags=tags,
         )
 
 class DslRelationship(ABC, Generic[TSrc, TDst]):
@@ -153,14 +160,25 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
     def model(self) -> buildzr.models.Relationship:
         pass
 
+    @property
+    @abstractmethod
+    def tags(self) -> Set[str]:
+        pass
+
 class _Relationship(DslRelationship[TSrc, TDst]):
 
     @property
     def model(self) -> buildzr.models.Relationship:
         return self._m
 
-    def __init__(self, uses_data: _UsesData[TSrc], destination: TDst) -> None:
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
+
+    def __init__(self, uses_data: _UsesData[TSrc], destination: TDst, tags: Set[str]=set()) -> None:
         self._m = uses_data.relationship
+        self._tags = {'Relationship'}.union(tags)
+        self.model.tags = ','.join(self._tags)
 
         uses_data.relationship.destinationId = str(destination.model.id)
 
@@ -183,7 +201,7 @@ class _Relationship(DslRelationship[TSrc, TDst]):
 
     def has(
         self,
-        tags: Optional[List[str]]=None,
+        tags: Optional[Set[str]]=None,
         properties: Optional[Dict[str, str]]=None,
         url: Optional[str]=None,
     ) -> Self:
@@ -194,7 +212,8 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         With(...)`.
         """
         if tags:
-            self._ref[0].relationship.tags = " ".join(tags) # TODO: Change this to be comma separated
+            self._tags = self._tags.union(tags)
+            self._ref[0].relationship.tags = ",".join(self._tags)
         if properties:
             self._ref[0].relationship.properties = properties
         if url:
@@ -302,16 +321,27 @@ class SoftwareSystem(DslElement):
     def parent(self) -> Optional[Workspace]:
         return self._parent
 
-    def uses(self, other: _Affectee, description: Optional[str]=None, technology: Optional[str]=None) -> _Relationship[Self, _Affectee]:
-        return super().uses(other, description=description, technology=technology)
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
 
-    def __init__(self, name: str, description: str="") -> None:
+    def uses(
+        self,
+        other: _Affectee,
+        description: Optional[str]=None,
+        technology: Optional[str]=None,
+        tags: Set[str]=set()) -> _Relationship[Self, _Affectee]:
+        return super().uses(other, description=description, technology=technology, tags=tags)
+
+    def __init__(self, name: str, description: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.SoftwareSystem()
         self._parent: Optional[Workspace] = None
+        self._tags = {'Element', 'Software System'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Container'] = {}
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
+        self.model.tags = ','.join(self._tags)
 
     def contains(
         self,
@@ -376,16 +406,27 @@ class Person(DslElement):
     def parent(self) -> Optional[Workspace]:
         return self._parent
 
-    def uses(self, other: _Affectee, description: Optional[str]=None, technology: Optional[str]=None) -> _Relationship[Self, _Affectee]:
-        return super().uses(other, description=description, technology=technology)
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
 
-    def __init__(self, name: str, description: str="") -> None:
+    def uses(
+        self,
+        other: _Affectee,
+        description: Optional[str]=None,
+        technology: Optional[str]=None,
+        tags: Set[str]=set()) -> _Relationship[Self, _Affectee]:
+        return super().uses(other, description=description, technology=technology, tags=tags)
+
+    def __init__(self, name: str, description: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.Person()
         self._parent: Optional[Workspace] = None
+        self._tags = {'Element', 'Person'}.union(tags)
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
         self.model.relationships = []
+        self.model.tags = ','.join(self._tags)
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _PersonRelation:
@@ -420,8 +461,17 @@ class Container(DslElement):
     def parent(self) -> Optional[SoftwareSystem]:
         return self._parent
 
-    def uses(self, other: _Affectee, description: Optional[str]=None, technology: Optional[str]=None) -> _Relationship[Self, _Affectee]:
-        return super().uses(other, description=description, technology=technology)
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
+
+    def uses(
+        self,
+        other: _Affectee,
+        description: Optional[str]=None,
+        technology: Optional[str]=None,
+        tags: Set[str]=set()) -> _Relationship[Self, _Affectee]:
+        return super().uses(other, description=description, technology=technology, tags=tags)
 
     def contains(self, *components: 'Component') -> _FluentRelationship['Container', 'Component']:
         if not self.model.components:
@@ -432,15 +482,17 @@ class Container(DslElement):
             self._dynamic_attrs[_child_name_transform(component.model.name)] = component
         return _FluentRelationship['Container', 'Component'](self, components)
 
-    def __init__(self, name: str, description: str="", technology: str="") -> None:
+    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.Container()
         self._parent: Optional[SoftwareSystem] = None
+        self._tags = {'Element', 'Container'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Component'] = {}
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
         self.model.relationships = []
         self.model.technology = technology
+        self.model.tags = ','.join(self._tags)
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _ContainerRelation:
@@ -483,17 +535,28 @@ class Component(DslElement):
     def parent(self) -> Optional[Container]:
         return self._parent
 
-    def uses(self, other: _Affectee, description: Optional[str]=None, technology: Optional[str]=None) -> _Relationship[Self, _Affectee]:
-        return super().uses(other, description=description, technology=technology)
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
 
-    def __init__(self, name: str, description: str="", technology: str="") -> None:
+    def uses(
+        self,
+        other: _Affectee,
+        description: Optional[str]=None,
+        technology: Optional[str]=None,
+        tags: Set[str]=set()) -> _Relationship[Self, _Affectee]:
+        return super().uses(other, description=description, technology=technology, tags=tags)
+
+    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.Component()
         self._parent: Optional[Container] = None
+        self._tags = {'Element', 'Component'}.union(tags)
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
         self.model.technology = technology
         self.model.relationships = []
+        self.model.tags = ','.join(self._tags)
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _ComponentRelation:
