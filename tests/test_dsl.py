@@ -129,7 +129,7 @@ def test_relationship_using_uses_method(dsl: DslHolder) -> Optional[None]:
             description="browses",
             technology="browser")\
         .has(
-            tags=["webapp"],
+            tags={"webapp"},
             properties={
                 "url": "http://link.example.page"
             }
@@ -140,7 +140,7 @@ def test_relationship_using_uses_method(dsl: DslHolder) -> Optional[None]:
     assert any(dsl.person.model.relationships[0].properties.keys())
     assert dsl.person.model.relationships[0].description == "browses"
     assert dsl.person.model.relationships[0].technology == "browser"
-    assert dsl.person.model.relationships[0].tags == "webapp"
+    assert set(dsl.person.model.relationships[0].tags.split(',')) == {'Relationship', 'webapp'}
     assert dsl.person.model.relationships[0].properties['url'] == "http://link.example.page"
 
 def test_relationship_dont_work_with_workspace(dsl: DslHolder) -> Optional[None]:
@@ -386,3 +386,41 @@ def test_implied_relationship() -> Optional[None]:
     assert isinstance(w.u, Person)
     assert len(w.u.model.relationships) == 1
     assert w.u.model.relationships[0].description == "Runs SQL queries"
+
+def test_tags_on_elements() -> Optional[None]:
+
+    u = Person('My User', tags={'admin'})
+    ss = SoftwareSystem('My Software System', tags={'External', 'Cloud'})
+    container = Container('The Container', tags={'Database'})
+    component = Component('A Component', tags={'Views'})
+
+    assert set(u.model.tags.split(',')) == {'Element', 'Person', 'admin'}
+    assert u.tags == {'Element', 'Person', 'admin'}
+
+    assert set(ss.model.tags.split(',')) == {'Element', 'Software System', 'External', 'Cloud'}
+    assert ss.tags == {'Element', 'Software System', 'External', 'Cloud'}
+
+    assert set(container.model.tags.split(',')) == {'Element', 'Container', 'Database'}
+    assert container.tags == {'Element', 'Container', 'Database'}
+
+    assert set(component.model.tags.split(',')) == {'Element', 'Component', 'Views'}
+    assert component.tags == {'Element', 'Component', 'Views'}
+
+def test_tags_on_relationship_using_uses() -> Optional[None]:
+
+    u = Person('u')
+    s = SoftwareSystem('s')
+    r = u.uses(s, 'Uses', tags={'Human-Computer Interaction'})
+
+    assert set(r.model.tags.split(',')) == {'Relationship', 'Human-Computer Interaction'}
+    assert r.tags == {'Relationship', 'Human-Computer Interaction'}
+
+def test_tags_on_relationship_using_with() -> Optional[None]:
+
+
+    u = Person('u')
+    s = SoftwareSystem('s')
+    r = (u >> "Uses" >> s | With(tags={'Human-Computer Interaction'}))
+
+    assert set(r.model.tags.split(',')) == {'Relationship', 'Human-Computer Interaction'}
+    assert r.tags == {'Relationship', 'Human-Computer Interaction'}
