@@ -63,6 +63,19 @@ def _is_container_component_fluent_relationship(
         isinstance(x, Component) for x in obj._children
     ])
 
+def _create_linked_relationship_from(
+    relationship: '_Relationship[TSrc, TDst]') -> buildzr.models.Relationship:
+
+    src = relationship.source
+    dst = relationship.destination
+
+    return buildzr.models.Relationship(
+        id=GenerateId.for_relationship(),
+        sourceId=str(src.model.id),
+        destinationId=str(dst.parent.model.id),
+        linkedRelationshipId=relationship.model.id,
+    )
+
 @dataclass
 class With:
     tags: Optional[Set[str]] = None
@@ -165,6 +178,16 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
     def tags(self) -> Set[str]:
         pass
 
+    @property
+    @abstractmethod
+    def source(self) -> DslElement:
+        pass
+
+    @property
+    @abstractmethod
+    def destination(self) -> DslElement:
+        pass
+
 class _Relationship(DslRelationship[TSrc, TDst]):
 
     @property
@@ -175,9 +198,19 @@ class _Relationship(DslRelationship[TSrc, TDst]):
     def tags(self) -> Set[str]:
         return self._tags
 
+    @property
+    def source(self) -> DslElement:
+        return self._src
+
+    @property
+    def destination(self) -> DslElement:
+        return self._dst
+
     def __init__(self, uses_data: _UsesData[TSrc], destination: TDst, tags: Set[str]=set()) -> None:
         self._m = uses_data.relationship
         self._tags = {'Relationship'}.union(tags)
+        self._src = uses_data.source
+        self._dst = destination
         self.model.tags = ','.join(self._tags)
 
         uses_data.relationship.destinationId = str(destination.model.id)
@@ -187,6 +220,8 @@ class _Relationship(DslRelationship[TSrc, TDst]):
                 uses_data.source.model.relationships.append(uses_data.relationship)
             else:
                 uses_data.source.model.relationships = [uses_data.relationship]
+
+            # TODO: Create implied relationship(s)
 
         # Used to pass the `_UsesData` object as reference to the `__or__`
         # operator overloading method.
@@ -259,7 +294,7 @@ class Workspace(DslWorkspaceElement):
             deploymentNodes=[],
         )
         self.model.configuration = buildzr.models.WorkspaceConfiguration(
-            scope=buildzr.models.Scope.Landscape
+            scope=buildzr.models.Scope.Landscape,
         )
 
     def contains(
