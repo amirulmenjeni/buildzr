@@ -105,6 +105,36 @@ class _UsesFrom(Generic[TSrc, TDst]):
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(destination).__name__}")
         return _Relationship(self.uses_data, destination)
 
+class EnableImpliedRelationships:
+
+    """
+    A singleton class to set and get the enablement of implied relationships.
+
+    When used prior to defining a `Workspace`, this is similar to the
+    `!ImpliedRelationships` keyword in DSL:
+
+    ```python
+    EnableImpliedRelationships()
+
+    w = Workspace('w').contains(...).get()
+    ```
+    """
+
+    _instance: 'EnableImpliedRelationships' = None
+
+    def __new__(cls) -> 'EnableImpliedRelationships':
+        if not cls._instance:
+            cls._instance = super(EnableImpliedRelationships, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, enable:bool=True) -> None:
+        if not hasattr(self, '_initialized'):
+            self._initialized = True
+            self._enabled = enable
+
+    def enabled(self) -> bool:
+        return self._enabled
+
 class DslWorkspaceElement(ABC):
 
     @property
@@ -150,14 +180,10 @@ class DslElement(ABC):
         tags: Set[str]=set()) -> '_Relationship[Self, TAffectee]':
 
         source = self
+
+        uses_from = _UsesFrom[DslElement, DslElement](source=source, description=description, technology=technology)
         return _Relationship(
-            _UsesData(
-                relationship=buildzr.models.Relationship(
-                    description=description,
-                    technology=technology,
-                ),
-                source=source,
-            ),
+            uses_from.uses_data,
             destination=other,
             tags=tags,
         )
@@ -221,8 +247,6 @@ class _Relationship(DslRelationship[TSrc, TDst]):
             else:
                 uses_data.source.model.relationships = [uses_data.relationship]
 
-            # TODO: Create implied relationship(s)
-
         # Used to pass the `_UsesData` object as reference to the `__or__`
         # operator overloading method.
         self._ref: Tuple[_UsesData] = (uses_data,)
@@ -257,12 +281,30 @@ class _Relationship(DslRelationship[TSrc, TDst]):
 
 class _FluentRelationship(Generic[TParent, TChild]):
 
+    """
+    A hidden class used in the fluent DSL syntax after specifying a model (i.e.,
+    Person, Software System, Container) to define relationship(s) within the
+    specified model.
+    """
+
     def __init__(self, parent: TParent, children: Tuple[TChild, ...]) -> None:
         self._children: Tuple[TChild, ...] = children
         self._parent: TParent = parent
 
     def where(self, func: Callable[..., List[DslRelationship]]) -> TParent:
-        func(*self._children)
+        relationships = func(*self._children)
+
+        # If we have relationship s >> do >> a.b, then create s >> do >> a.
+        # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
+        # And so on...
+        if EnableImpliedRelationships().enabled():
+            for relationship in relationships:
+                source = relationship.source
+                parent = relationship.destination.parent
+                while parent is not None and not isinstance(parent, Workspace):
+                    source.uses(parent, description=relationship.model.description, technology=relationship.model.technology)
+                    parent = parent.parent
+
         return self._parent
 
     def get(self) -> TParent:
