@@ -96,7 +96,7 @@ def test_relationship_dsl(dsl: DslHolder) -> Optional[None]:
 def test_relationship_with_extra_info_using_with(dsl: DslHolder) -> Optional[None]:
 
     dsl.person >> ("uses", "cli") >> dsl.software_system | With(
-        tags=["bash", "terminal"],
+        tags={"bash", "terminal"},
         properties={
             "authentication": "ssh",
         },
@@ -111,7 +111,7 @@ def test_relationship_with_extra_info_using_with(dsl: DslHolder) -> Optional[Non
 def test_relationship_with_extra_info_using_has(dsl: DslHolder) -> Optional[None]:
 
     (dsl.person >> ("uses", "cli") >> dsl.software_system).has(
-        tags=["bash", "terminal"],
+        tags={"bash", "terminal"},
         properties={
             "authentication": "ssh",
         },
@@ -291,7 +291,7 @@ def test_fluent_workspace_definition() -> Optional[None]:
             )\
             .where(lambda u, s: [
                 u >> "Uses" >> s | With(
-                    tags=["5g-network"],
+                    tags={"5g-network"},
                 )
             ])
 
