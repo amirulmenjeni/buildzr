@@ -4,9 +4,8 @@
 # _must_ has a file named workspace.json or workspace.dsl.
 
 if [ -n "$1" ]; then
-    IFS='.' read -a array <<< "$1"
-    filename=${array[0]}
-    extension=${array[1]}
+    filename=${1%.*}
+    extension=${1##*.}
 
     mkdir -p .tmp/${filename}
 
