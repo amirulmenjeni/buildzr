@@ -302,7 +302,8 @@ class _FluentRelationship(Generic[TParent, TChild]):
                 source = relationship.source
                 parent = relationship.destination.parent
                 while parent is not None and not isinstance(parent, Workspace):
-                    source.uses(parent, description=relationship.model.description, technology=relationship.model.technology)
+                    r = source.uses(parent, description=relationship.model.description, technology=relationship.model.technology)
+                    r.model.linkedRelationshipId = relationship.model.id
                     parent = parent.parent
 
         return self._parent

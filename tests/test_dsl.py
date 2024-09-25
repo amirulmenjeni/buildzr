@@ -398,6 +398,7 @@ def test_implied_relationship() -> Optional[None]:
     assert w.u.model.relationships[1].description == "Runs SQL queries"
     assert w.u.model.relationships[1].sourceId == w.u.model.relationships[0].sourceId
     assert w.u.model.relationships[1].destinationId == w.s.model.id
+    assert w.u.model.relationships[1].linkedRelationshipId == w.u.model.relationships[0].id
 
 def test_tags_on_elements() -> Optional[None]:
 
