@@ -5,9 +5,14 @@ import buildzr
 from buildzr.dsl import *
 from ..abstract_builder import AbstractBuilder
 
-class ImpliedRelationships(AbstractBuilder):
+class SampleImpliedRelationships(AbstractBuilder):
 
     def build(self) -> buildzr.models.Workspace:
+
+        # There should be an implied relationship where
+        # u >> "Runs SQL queries" >> s after when we enable implied
+        # relationships.
+        EnableImpliedRelationships()
 
         w = Workspace("w")\
                 .contains(

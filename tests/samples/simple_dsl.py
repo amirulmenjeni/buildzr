@@ -15,7 +15,7 @@ class SimpleDsl(AbstractBuilder):
         workspace.contains(user, software_system)
 
         user >> ("Uses", "CLI") >> software_system | With(
-            tags=["linux", "rules"]
+            tags={"linux", "rules"}
         )
 
         return workspace.model

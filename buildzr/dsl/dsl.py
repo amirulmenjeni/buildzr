@@ -63,6 +63,19 @@ def _is_container_component_fluent_relationship(
         isinstance(x, Component) for x in obj._children
     ])
 
+def _create_linked_relationship_from(
+    relationship: '_Relationship[TSrc, TDst]') -> buildzr.models.Relationship:
+
+    src = relationship.source
+    dst = relationship.destination
+
+    return buildzr.models.Relationship(
+        id=GenerateId.for_relationship(),
+        sourceId=str(src.model.id),
+        destinationId=str(dst.parent.model.id),
+        linkedRelationshipId=relationship.model.id,
+    )
+
 @dataclass
 class With:
     tags: Optional[Set[str]] = None
@@ -91,6 +104,36 @@ class _UsesFrom(Generic[TSrc, TDst]):
         if isinstance(destination, Workspace):
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(destination).__name__}")
         return _Relationship(self.uses_data, destination)
+
+class EnableImpliedRelationships:
+
+    """
+    A singleton class to set and get the enablement of implied relationships.
+
+    When used prior to defining a `Workspace`, this is similar to the
+    `!ImpliedRelationships` keyword in DSL:
+
+    ```python
+    EnableImpliedRelationships()
+
+    w = Workspace('w').contains(...).get()
+    ```
+    """
+
+    _instance: 'EnableImpliedRelationships' = None
+
+    def __new__(cls) -> 'EnableImpliedRelationships':
+        if not cls._instance:
+            cls._instance = super(EnableImpliedRelationships, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self, enable:bool=True) -> None:
+        if not hasattr(self, '_initialized'):
+            self._initialized = True
+            self._enabled = enable
+
+    def enabled(self) -> bool:
+        return self._enabled
 
 class DslWorkspaceElement(ABC):
 
@@ -137,14 +180,10 @@ class DslElement(ABC):
         tags: Set[str]=set()) -> '_Relationship[Self, TAffectee]':
 
         source = self
+
+        uses_from = _UsesFrom[DslElement, DslElement](source=source, description=description, technology=technology)
         return _Relationship(
-            _UsesData(
-                relationship=buildzr.models.Relationship(
-                    description=description,
-                    technology=technology,
-                ),
-                source=source,
-            ),
+            uses_from.uses_data,
             destination=other,
             tags=tags,
         )
@@ -165,6 +204,16 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
     def tags(self) -> Set[str]:
         pass
 
+    @property
+    @abstractmethod
+    def source(self) -> DslElement:
+        pass
+
+    @property
+    @abstractmethod
+    def destination(self) -> DslElement:
+        pass
+
 class _Relationship(DslRelationship[TSrc, TDst]):
 
     @property
@@ -175,9 +224,19 @@ class _Relationship(DslRelationship[TSrc, TDst]):
     def tags(self) -> Set[str]:
         return self._tags
 
+    @property
+    def source(self) -> DslElement:
+        return self._src
+
+    @property
+    def destination(self) -> DslElement:
+        return self._dst
+
     def __init__(self, uses_data: _UsesData[TSrc], destination: TDst, tags: Set[str]=set()) -> None:
         self._m = uses_data.relationship
         self._tags = {'Relationship'}.union(tags)
+        self._src = uses_data.source
+        self._dst = destination
         self.model.tags = ','.join(self._tags)
 
         uses_data.relationship.destinationId = str(destination.model.id)
@@ -222,12 +281,31 @@ class _Relationship(DslRelationship[TSrc, TDst]):
 
 class _FluentRelationship(Generic[TParent, TChild]):
 
+    """
+    A hidden class used in the fluent DSL syntax after specifying a model (i.e.,
+    Person, Software System, Container) to define relationship(s) within the
+    specified model.
+    """
+
     def __init__(self, parent: TParent, children: Tuple[TChild, ...]) -> None:
         self._children: Tuple[TChild, ...] = children
         self._parent: TParent = parent
 
     def where(self, func: Callable[..., List[DslRelationship]]) -> TParent:
-        func(*self._children)
+        relationships = func(*self._children)
+
+        # If we have relationship s >> do >> a.b, then create s >> do >> a.
+        # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
+        # And so on...
+        if EnableImpliedRelationships().enabled():
+            for relationship in relationships:
+                source = relationship.source
+                parent = relationship.destination.parent
+                while parent is not None and not isinstance(parent, Workspace):
+                    r = source.uses(parent, description=relationship.model.description, technology=relationship.model.technology)
+                    r.model.linkedRelationshipId = relationship.model.id
+                    parent = parent.parent
+
         return self._parent
 
     def get(self) -> TParent:
@@ -259,7 +337,7 @@ class Workspace(DslWorkspaceElement):
             deploymentNodes=[],
         )
         self.model.configuration = buildzr.models.WorkspaceConfiguration(
-            scope=buildzr.models.Scope.Landscape
+            scope=buildzr.models.Scope.Landscape,
         )
 
     def contains(

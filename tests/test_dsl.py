@@ -88,13 +88,15 @@ def test_relationship_dsl(dsl: DslHolder) -> Optional[None]:
     assert dsl.person._m.relationships is not None
     assert len(dsl.person._m.relationships) == 1
     assert dsl.person._m.relationships[0].id is not None
+    assert dsl.person._m.relationships[0].sourceId == dsl.person.model.id
+    assert dsl.person._m.relationships[0].destinationId == dsl.software_system.model.id
     assert dsl.person._m.relationships[0].description == "uses"
     assert dsl.person._m.relationships[0].technology == "cli"
 
 def test_relationship_with_extra_info_using_with(dsl: DslHolder) -> Optional[None]:
 
     dsl.person >> ("uses", "cli") >> dsl.software_system | With(
-        tags=["bash", "terminal"],
+        tags={"bash", "terminal"},
         properties={
             "authentication": "ssh",
         },
@@ -109,7 +111,7 @@ def test_relationship_with_extra_info_using_with(dsl: DslHolder) -> Optional[Non
 def test_relationship_with_extra_info_using_has(dsl: DslHolder) -> Optional[None]:
 
     (dsl.person >> ("uses", "cli") >> dsl.software_system).has(
-        tags=["bash", "terminal"],
+        tags={"bash", "terminal"},
         properties={
             "authentication": "ssh",
         },
@@ -138,6 +140,8 @@ def test_relationship_using_uses_method(dsl: DslHolder) -> Optional[None]:
     assert any(dsl.person.model.relationships)
     assert any(dsl.person.model.relationships[0].tags)
     assert any(dsl.person.model.relationships[0].properties.keys())
+    assert dsl.person.model.relationships[0].sourceId == dsl.person.model.id
+    assert dsl.person.model.relationships[0].destinationId == dsl.software_system.model.id
     assert dsl.person.model.relationships[0].description == "browses"
     assert dsl.person.model.relationships[0].technology == "browser"
     assert set(dsl.person.model.relationships[0].tags.split(',')) == {'Relationship', 'webapp'}
@@ -287,7 +291,7 @@ def test_fluent_workspace_definition() -> Optional[None]:
             )\
             .where(lambda u, s: [
                 u >> "Uses" >> s | With(
-                    tags=["5g-network"],
+                    tags={"5g-network"},
                 )
             ])
 
@@ -384,8 +388,17 @@ def test_implied_relationship() -> Optional[None]:
             ])
 
     assert isinstance(w.u, Person)
-    assert len(w.u.model.relationships) == 1
+    assert isinstance(w.s, SoftwareSystem)
+    assert len(w.u.model.relationships) == 2 # Should have u >> R >> s and u >> R >> s.database
+
     assert w.u.model.relationships[0].description == "Runs SQL queries"
+    assert w.u.model.relationships[0].sourceId == w.u.model.id
+    assert w.u.model.relationships[0].destinationId == w.s.database.model.id
+
+    assert w.u.model.relationships[1].description == "Runs SQL queries"
+    assert w.u.model.relationships[1].sourceId == w.u.model.relationships[0].sourceId
+    assert w.u.model.relationships[1].destinationId == w.s.model.id
+    assert w.u.model.relationships[1].linkedRelationshipId == w.u.model.relationships[0].id
 
 def test_tags_on_elements() -> Optional[None]:
 
