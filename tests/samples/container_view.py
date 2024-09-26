@@ -5,7 +5,7 @@ import buildzr
 from buildzr.dsl import *
 from ..abstract_builder import AbstractBuilder
 
-class ContainerView(AbstractBuilder):
+class SampleContainerView(AbstractBuilder):
 
     def build(self) -> buildzr.models.Workspace:
 
