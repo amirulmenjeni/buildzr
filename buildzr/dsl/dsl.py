@@ -230,7 +230,7 @@ class Workspace(DslWorkspaceElement):
     def children(self) -> Optional[List[Union['Person', 'SoftwareSystem']]]:
         return self._children
 
-    def __init__(self, name: str, description: str="") -> None:
+    def __init__(self, name: str, description: str="", scope: Literal['landscape', 'software_system']='software_system') -> None:
         self._m = buildzr.models.Workspace()
         self._parent = None
         self._children: Optional[List[Union['Person', 'SoftwareSystem']]] = []
@@ -244,7 +244,7 @@ class Workspace(DslWorkspaceElement):
             deploymentNodes=[],
         )
         self.model.configuration = buildzr.models.WorkspaceConfiguration(
-            scope=buildzr.models.Scope.Landscape,
+            scope=buildzr.models.Scope.Landscape if scope == 'landscape' else buildzr.models.Scope.SoftwareSystem,
         )
 
     def contains(
