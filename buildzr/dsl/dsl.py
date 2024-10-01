@@ -1,10 +1,8 @@
 from dataclasses import dataclass
 import buildzr
-from abc import ABC, abstractmethod
 from .factory import GenerateId
 from typing_extensions import (
     Self,
-    ParamSpec,
     TypeGuard,
 )
 from typing import (
@@ -24,27 +22,15 @@ from typing import (
     overload,
 )
 
-Model = Union[
-    buildzr.models.Workspace,
-    buildzr.models.Person,
-    buildzr.models.SoftwareSystem,
-    buildzr.models.Container,
-    buildzr.models.Component,
-]
-
-DslParentElement = Union[
-    None,
-    'Workspace',
-    'Person',
-    'SoftwareSystem',
-    'Container',
-]
-
-TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
-TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
-
-TParent = TypeVar('TParent', bound=Union['DslWorkspaceElement', 'DslElement'], covariant=True)
-TChild = TypeVar('TChild', bound='DslElement', contravariant=True)
+from buildzr.dsl.interfaces import (
+    DslWorkspaceElement,
+    DslElement,
+    DslRelationship,
+    DslFluentRelationship,
+    BindLeft,
+    TSrc, TDst,
+    TParent, TChild,
+)
 
 def _child_name_transform(name: str) -> str:
     return name.lower().replace(' ', '_')
@@ -87,7 +73,7 @@ class _UsesData(Generic[TSrc]):
     relationship: buildzr.models.Relationship
     source: TSrc
 
-class _UsesFrom(Generic[TSrc, TDst]):
+class _UsesFrom(BindLeft[TSrc, TDst]):
 
     def __init__(self, source: TSrc, description: str="", technology: str="") -> None:
         self.uses_data = _UsesData(
@@ -134,85 +120,6 @@ class EnableImpliedRelationships:
 
     def enabled(self) -> bool:
         return self._enabled
-
-class DslWorkspaceElement(ABC):
-
-    @property
-    @abstractmethod
-    def model(self) -> buildzr.models.Workspace:
-        pass
-
-    @property
-    @abstractmethod
-    def parent(self) -> None:
-        pass
-
-class DslElement(ABC):
-    """An abstract class used to label classes that are part of the buildzr DSL"""
-
-    _Affectee = Union['Person', 'SoftwareSystem', 'Container', 'Component']
-
-    @property
-    @abstractmethod
-    def model(self) -> Model:
-        """
-        Returns the `dataclass` of the `DslElement` that follows Structurizr's
-        JSON Schema (see https://github.com/structurizr/json)
-        """
-        pass
-
-    @property
-    @abstractmethod
-    def parent(self) -> DslParentElement:
-        pass
-
-    @property
-    @abstractmethod
-    def tags(self) -> Set[str]:
-        pass
-
-    TAffectee = TypeVar('TAffectee', bound=_Affectee, contravariant=True)
-    def uses(
-        self,
-        other: TAffectee,
-        description: Optional[str]=None,
-        technology: Optional[str]=None,
-        tags: Set[str]=set()) -> '_Relationship[Self, TAffectee]':
-
-        source = self
-
-        uses_from = _UsesFrom[DslElement, DslElement](source=source, description=description, technology=technology)
-        return _Relationship(
-            uses_from.uses_data,
-            destination=other,
-            tags=tags,
-        )
-
-class DslRelationship(ABC, Generic[TSrc, TDst]):
-    """
-    An abstract class specially used to label classes that are part of the
-    relationship definer in the buildzr DSL
-    """
-
-    @property
-    @abstractmethod
-    def model(self) -> buildzr.models.Relationship:
-        pass
-
-    @property
-    @abstractmethod
-    def tags(self) -> Set[str]:
-        pass
-
-    @property
-    @abstractmethod
-    def source(self) -> DslElement:
-        pass
-
-    @property
-    @abstractmethod
-    def destination(self) -> DslElement:
-        pass
 
 class _Relationship(DslRelationship[TSrc, TDst]):
 
@@ -279,7 +186,7 @@ class _Relationship(DslRelationship[TSrc, TDst]):
             self._ref[0].relationship.url = url
         return self
 
-class _FluentRelationship(Generic[TParent, TChild]):
+class _FluentRelationship(DslFluentRelationship[TParent, TChild]):
 
     """
     A hidden class used in the fluent DSL syntax after specifying a model (i.e.,
@@ -301,7 +208,7 @@ class _FluentRelationship(Generic[TParent, TChild]):
             for relationship in relationships:
                 source = relationship.source
                 parent = relationship.destination.parent
-                while parent is not None and not isinstance(parent, Workspace):
+                while parent is not None and not isinstance(parent, DslWorkspaceElement):
                     r = source.uses(parent, description=relationship.model.description, technology=relationship.model.technology)
                     r.model.linkedRelationshipId = relationship.model.id
                     parent = parent.parent
@@ -389,7 +296,6 @@ class SoftwareSystem(DslElement):
     """
 
     _Affectee = Union['Person', 'SoftwareSystem', 'Container', 'Component']
-    _SoftwareSystemRelation = _UsesFrom['SoftwareSystem', _Affectee]
 
     @property
     def model(self) -> buildzr.models.SoftwareSystem:
@@ -405,11 +311,24 @@ class SoftwareSystem(DslElement):
 
     def uses(
         self,
-        other: _Affectee,
+        other: DslElement,
         description: Optional[str]=None,
         technology: Optional[str]=None,
-        tags: Set[str]=set()) -> _Relationship[Self, _Affectee]:
-        return super().uses(other, description=description, technology=technology, tags=tags)
+        tags: Set[str]=set()) -> _Relationship[Self, DslElement]:
+
+        source = self
+
+        uses_from = _UsesFrom[Self, DslElement](
+            source=source,
+            description=description,
+            technology=technology
+        )
+
+        return _Relationship(
+            uses_from.uses_data,
+            destination=other,
+            tags=tags,
+        )
 
     def __init__(self, name: str, description: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.SoftwareSystem()
@@ -444,14 +363,14 @@ class SoftwareSystem(DslElement):
         return _FluentRelationship['SoftwareSystem', 'Container'](self, tuple(args))
 
     @overload
-    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _SoftwareSystemRelation:
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
         ...
 
     @overload
-    def __rshift__(self, description: str) -> _SoftwareSystemRelation:
+    def __rshift__(self, description: str) -> _UsesFrom[Self, _Affectee]:
         ...
 
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _SoftwareSystemRelation:
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _UsesFrom[Self, _Affectee]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
@@ -474,7 +393,6 @@ class Person(DslElement):
     """
 
     _Affectee = Union['Person', 'SoftwareSystem', 'Container', 'Component']
-    _PersonRelation = _UsesFrom['Person', _Affectee]
 
     @property
     def model(self) -> buildzr.models.Person:
@@ -490,11 +408,24 @@ class Person(DslElement):
 
     def uses(
         self,
-        other: _Affectee,
+        other: DslElement,
         description: Optional[str]=None,
         technology: Optional[str]=None,
-        tags: Set[str]=set()) -> _Relationship[Self, _Affectee]:
-        return super().uses(other, description=description, technology=technology, tags=tags)
+        tags: Set[str]=set()) -> _Relationship[Self, DslElement]:
+
+        source = self
+
+        uses_from = _UsesFrom[Self, DslElement](
+            source=source,
+            description=description,
+            technology=technology
+        )
+
+        return _Relationship(
+            uses_from.uses_data,
+            destination=other,
+            tags=tags,
+        )
 
     def __init__(self, name: str, description: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.Person()
@@ -507,14 +438,14 @@ class Person(DslElement):
         self.model.tags = ','.join(self._tags)
 
     @overload
-    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _PersonRelation:
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
         ...
 
     @overload
-    def __rshift__(self, description: str) -> _PersonRelation:
+    def __rshift__(self, description: str) -> _UsesFrom[Self, _Affectee]:
         ...
 
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _PersonRelation:
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _UsesFrom[Self, _Affectee]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
@@ -529,7 +460,6 @@ class Container(DslElement):
     """
 
     _Affectee = Union[Person, SoftwareSystem, 'Container', 'Component']
-    _ContainerRelation = _UsesFrom['Container', _Affectee]
 
     @property
     def model(self) -> buildzr.models.Container:
@@ -545,11 +475,24 @@ class Container(DslElement):
 
     def uses(
         self,
-        other: _Affectee,
+        other: DslElement,
         description: Optional[str]=None,
         technology: Optional[str]=None,
-        tags: Set[str]=set()) -> _Relationship[Self, _Affectee]:
-        return super().uses(other, description=description, technology=technology, tags=tags)
+        tags: Set[str]=set()) -> _Relationship[Self, DslElement]:
+
+        source = self
+
+        uses_from = _UsesFrom[Self, DslElement](
+            source=source,
+            description=description,
+            technology=technology
+        )
+
+        return _Relationship(
+            uses_from.uses_data,
+            destination=other,
+            tags=tags,
+        )
 
     def contains(self, *components: 'Component') -> _FluentRelationship['Container', 'Component']:
         if not self.model.components:
@@ -573,14 +516,14 @@ class Container(DslElement):
         self.model.tags = ','.join(self._tags)
 
     @overload
-    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _ContainerRelation:
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
         ...
 
     @overload
-    def __rshift__(self, description: str) -> _ContainerRelation:
+    def __rshift__(self, description: str) -> _UsesFrom[Self, _Affectee]:
         ...
 
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _ContainerRelation:
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _UsesFrom[Self, _Affectee]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
@@ -603,7 +546,6 @@ class Component(DslElement):
     """
 
     _Affectee = Union[Person, SoftwareSystem, Container, 'Component']
-    _ComponentRelation = _UsesFrom['Component', _Affectee]
 
     @property
     def model(self) -> buildzr.models.Component:
@@ -619,11 +561,24 @@ class Component(DslElement):
 
     def uses(
         self,
-        other: _Affectee,
+        other: DslElement,
         description: Optional[str]=None,
         technology: Optional[str]=None,
-        tags: Set[str]=set()) -> _Relationship[Self, _Affectee]:
-        return super().uses(other, description=description, technology=technology, tags=tags)
+        tags: Set[str]=set()) -> _Relationship[Self, DslElement]:
+
+        source = self
+
+        uses_from = _UsesFrom[Self, DslElement](
+            source=source,
+            description=description,
+            technology=technology
+        )
+
+        return _Relationship(
+            uses_from.uses_data,
+            destination=other,
+            tags=tags,
+        )
 
     def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.Component()
@@ -637,14 +592,14 @@ class Component(DslElement):
         self.model.tags = ','.join(self._tags)
 
     @overload
-    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _ComponentRelation:
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
         ...
 
     @overload
-    def __rshift__(self, description: str) -> _ComponentRelation:
+    def __rshift__(self, description: str) -> _UsesFrom[Self, _Affectee]:
         ...
 
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _ComponentRelation:
+    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _UsesFrom[Self, _Affectee]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
