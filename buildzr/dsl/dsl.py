@@ -119,6 +119,8 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         uses_data.relationship.destinationId = str(destination.model.id)
 
         if not isinstance(uses_data.source.model, buildzr.models.Workspace):
+            uses_data.source.destinations.append(self._dst)
+            self._dst.sources.append(self._src)
             if any(uses_data.source.model.relationships):
                 uses_data.source.model.relationships.append(uses_data.relationship)
             else:
@@ -276,6 +278,14 @@ class SoftwareSystem(DslElement):
         return self._parent
 
     @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -303,6 +313,8 @@ class SoftwareSystem(DslElement):
     def __init__(self, name: str, description: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.SoftwareSystem()
         self._parent: Optional[Workspace] = None
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Software System'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Container'] = {}
         self.model.id = GenerateId.for_element()
@@ -373,6 +385,14 @@ class Person(DslElement):
         return self._parent
 
     @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -400,6 +420,8 @@ class Person(DslElement):
     def __init__(self, name: str, description: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.Person()
         self._parent: Optional[Workspace] = None
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Person'}.union(tags)
         self.model.id = GenerateId.for_element()
         self.model.name = name
@@ -440,6 +462,14 @@ class Container(DslElement):
         return self._parent
 
     @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -476,6 +506,8 @@ class Container(DslElement):
     def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.Container()
         self._parent: Optional[SoftwareSystem] = None
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Container'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Component'] = {}
         self.model.id = GenerateId.for_element()
@@ -526,6 +558,14 @@ class Component(DslElement):
         return self._parent
 
     @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -553,6 +593,8 @@ class Component(DslElement):
     def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.Component()
         self._parent: Optional[Container] = None
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Component'}.union(tags)
         self.model.id = GenerateId.for_element()
         self.model.name = name

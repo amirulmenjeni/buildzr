@@ -85,6 +85,16 @@ class DslElement(BindRight[TSrc, TDst]):
 
     @property
     @abstractmethod
+    def sources(self) -> List['DslElement']:
+        pass
+
+    @property
+    @abstractmethod
+    def destinations(self) -> List['DslElement']:
+        pass
+
+    @property
+    @abstractmethod
     def tags(self) -> Set[str]:
         pass
 

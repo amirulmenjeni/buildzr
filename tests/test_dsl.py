@@ -437,3 +437,50 @@ def test_tags_on_relationship_using_with() -> Optional[None]:
 
     assert set(r.model.tags.split(',')) == {'Relationship', 'Human-Computer Interaction'}
     assert r.tags == {'Relationship', 'Human-Computer Interaction'}
+
+def test_source_destinations_in_dsl_elements() -> Optional[None]:
+
+    w = Workspace("w")\
+            .contains(
+                Person("u"),
+                SoftwareSystem("s")\
+                    .contains(
+                        Container("webapp")\
+                            .contains(
+                                Component("database layer"),
+                                Component("API layer"),
+                                Component("UI layer"),
+                            )\
+                            .where(lambda db, api, ui: [
+                                ui >> ("Calls HTTP API from", "http/api") >> api,
+                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            ]),\
+                        Container("database"),
+                    )\
+                    .where(lambda webapp, database: [
+                        webapp >> "Uses" >> database
+                    ])
+            )\
+            .where(lambda u, s: [
+                u >> "Runs SQL queries" >> s.database
+            ])
+
+    assert isinstance(w.u, Person)
+    assert isinstance(w.s, SoftwareSystem)
+
+    assert len(w.u.sources) == 0
+    assert len(w.s.sources) == 2
+    assert w.u.model.id in [element.model.id for element in w.s.sources]
+    assert w.s.webapp.model.id in [element.model.id for element in w.s.sources]
+
+    assert len(w.u.destinations) == 2
+    assert len(w.s.destinations) == 0
+    assert w.s.model.id in [element.model.id for element in w.u.destinations]
+    assert w.s.database.model.id in [element.model.id for element in w.u.destinations]
+
+    assert len(w.s.webapp.sources) == 2
+    assert len(w.s.database.sources) == 2
+    assert {w.s.webapp.ui_layer.model.id, w.s.webapp.api_layer.model.id}.issubset(set([element.model.id for element in w.s.webapp.sources]))
+    assert {w.u.model.id, w.s.webapp.model.id}.issubset(set([element.model.id for element in w.s.database.sources]))
+
+    assert len(w.s.webapp.destinations) == 2
