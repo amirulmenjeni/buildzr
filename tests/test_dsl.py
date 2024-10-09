@@ -381,11 +381,11 @@ def test_implied_relationship() -> Optional[None]:
                     )\
                     .where(lambda webapp, database: [
                         webapp >> "Uses" >> database
-                    ])
+                    ], implied=True)
             )\
             .where(lambda u, s: [
                 u >> "Runs SQL queries" >> s.database
-            ])
+            ], implied=True)
 
     assert isinstance(w.u, Person)
     assert isinstance(w.s, SoftwareSystem)

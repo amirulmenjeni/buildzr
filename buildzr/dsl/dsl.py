@@ -91,36 +91,6 @@ class _UsesFrom(BindLeft[TSrc, TDst]):
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(destination).__name__}")
         return _Relationship(self.uses_data, destination)
 
-class EnableImpliedRelationships:
-
-    """
-    A singleton class to set and get the enablement of implied relationships.
-
-    When used prior to defining a `Workspace`, this is similar to the
-    `!ImpliedRelationships` keyword in DSL:
-
-    ```python
-    EnableImpliedRelationships()
-
-    w = Workspace('w').contains(...).get()
-    ```
-    """
-
-    _instance: 'EnableImpliedRelationships' = None
-
-    def __new__(cls) -> 'EnableImpliedRelationships':
-        if not cls._instance:
-            cls._instance = super(EnableImpliedRelationships, cls).__new__(cls)
-        return cls._instance
-
-    def __init__(self, enable:bool=True) -> None:
-        if not hasattr(self, '_initialized'):
-            self._initialized = True
-            self._enabled = enable
-
-    def enabled(self) -> bool:
-        return self._enabled
-
 class _Relationship(DslRelationship[TSrc, TDst]):
 
     @property
@@ -198,13 +168,13 @@ class _FluentRelationship(DslFluentRelationship[TParent, TChild]):
         self._children: Tuple[TChild, ...] = children
         self._parent: TParent = parent
 
-    def where(self, func: Callable[..., List[DslRelationship]]) -> TParent:
+    def where(self, func: Callable[..., List[DslRelationship]], implied:bool=False) -> TParent:
         relationships = func(*self._children)
 
         # If we have relationship s >> do >> a.b, then create s >> do >> a.
         # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
         # And so on...
-        if EnableImpliedRelationships().enabled():
+        if implied:
             for relationship in relationships:
                 source = relationship.source
                 parent = relationship.destination.parent

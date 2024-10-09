@@ -9,11 +9,6 @@ class SampleImpliedRelationships(AbstractBuilder):
 
     def build(self) -> buildzr.models.Workspace:
 
-        # There should be an implied relationship where
-        # u >> "Runs SQL queries" >> s after when we enable implied
-        # relationships.
-        EnableImpliedRelationships()
-
         w = Workspace("w")\
                 .contains(
                     Person("u"),
@@ -33,10 +28,10 @@ class SampleImpliedRelationships(AbstractBuilder):
                         )\
                         .where(lambda webapp, database: [
                             webapp >> "Uses" >> database
-                        ])
+                        ], implied=True)
                 )\
                 .where(lambda u, s: [
-                    u >> "Runs SQL queries" >> s.database
-                ])
+                    u >> "Runs SQL queries" >> s.database,
+                ], implied=True)
 
         return w.model
