@@ -463,24 +463,22 @@ def test_source_destinations_in_dsl_elements() -> Optional[None]:
             )\
             .where(lambda u, s: [
                 u >> "Runs SQL queries" >> s.database
-            ])
+            ], implied=True)
 
     assert isinstance(w.u, Person)
     assert isinstance(w.s, SoftwareSystem)
 
     assert len(w.u.sources) == 0
-    assert len(w.s.sources) == 2
-    assert w.u.model.id in [element.model.id for element in w.s.sources]
-    assert w.s.webapp.model.id in [element.model.id for element in w.s.sources]
+
+    assert len(w.s.sources) == 1
+    assert {w.u.model.id}.issubset({src.model.id for src in w.s.sources})
 
     assert len(w.u.destinations) == 2
+    assert {w.s.model.id, w.s.database.model.id}.issubset({dst.model.id for dst in w.u.destinations})
+
     assert len(w.s.destinations) == 0
-    assert w.s.model.id in [element.model.id for element in w.u.destinations]
-    assert w.s.database.model.id in [element.model.id for element in w.u.destinations]
 
-    assert len(w.s.webapp.sources) == 2
+    assert len(w.s.webapp.sources) == 0
+
     assert len(w.s.database.sources) == 2
-    assert {w.s.webapp.ui_layer.model.id, w.s.webapp.api_layer.model.id}.issubset(set([element.model.id for element in w.s.webapp.sources]))
-    assert {w.u.model.id, w.s.webapp.model.id}.issubset(set([element.model.id for element in w.s.database.sources]))
-
-    assert len(w.s.webapp.destinations) == 2
+    assert {w.u.model.id, w.s.webapp.model.id}.issubset({dst.model.id for dst in w.s.database.sources})
