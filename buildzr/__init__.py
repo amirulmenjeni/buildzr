@@ -1,4 +1,4 @@
 from . import models
 from . import encoders
 from .dsl import interfaces
-from .dsl import expr
+from .dsl import expression
