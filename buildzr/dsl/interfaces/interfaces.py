@@ -9,6 +9,7 @@ from typing import (
     Tuple,
     Callable,
     overload,
+    Sequence,
 )
 from typing_extensions import (
     Self
@@ -66,6 +67,11 @@ class DslWorkspaceElement(ABC):
     def parent(self) -> None:
         pass
 
+    @property
+    @abstractmethod
+    def children(self) -> Optional[Sequence['DslElement']]:
+        pass
+
 class DslElement(BindRight[TSrc, TDst]):
     """An abstract class used to label classes that are part of the buildzr DSL"""
 
@@ -81,6 +87,11 @@ class DslElement(BindRight[TSrc, TDst]):
     @property
     @abstractmethod
     def parent(self) -> Union[None, DslWorkspaceElement, 'DslElement']:
+        pass
+
+    @property
+    @abstractmethod
+    def children(self) -> Union[None, Sequence['DslElement']]:
         pass
 
     @property

@@ -20,6 +20,7 @@ from typing import (
     Iterable,
     cast,
     overload,
+    Sequence,
 )
 
 from buildzr.dsl.interfaces import (
@@ -203,9 +204,14 @@ class Workspace(DslWorkspaceElement):
     def parent(self) -> None:
         return None
 
+    @property
+    def children(self) -> Optional[List[Union['Person', 'SoftwareSystem']]]:
+        return self._children
+
     def __init__(self, name: str, description: str="") -> None:
         self._m = buildzr.models.Workspace()
         self._parent = None
+        self._children: Optional[List[Union['Person', 'SoftwareSystem']]] = []
         self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem']] = {}
         self.model.id = GenerateId.for_workspace()
         self.model.name = name
@@ -236,21 +242,25 @@ class Workspace(DslWorkspaceElement):
                 model._parent = self
                 self._dynamic_attrs[_child_name_transform(model.model.name)] = model
                 args.append(model)
+                self._children.append(model)
             elif isinstance(model, SoftwareSystem):
                 self._m.model.softwareSystems.append(model._m)
                 model._parent = self
                 self._dynamic_attrs[_child_name_transform(model.model.name)] = model
                 args.append(model)
+                self._children.append(model)
             elif _is_software_container_fluent_relationship(model):
                 self._m.model.softwareSystems.append(model._parent._m)
                 model._parent._parent = self
                 self._dynamic_attrs[_child_name_transform(model._parent.model.name)] = model._parent
                 args.append(model._parent)
+                self._children.append(model._parent)
             elif _is_container_component_fluent_relationship(model):
                 self._m.model.softwareSystems.append(model._parent._parent._m)
                 model._parent._parent._parent = self
                 self._dynamic_attrs[_child_name_transform(model._parent._parent.model.name)] = model._parent._parent
                 args.append(model._parent._parent)
+                self._children.append(model._parent._parent)
         return _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem']](self, tuple(args))
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
@@ -276,6 +286,10 @@ class SoftwareSystem(DslElement):
     @property
     def parent(self) -> Optional[Workspace]:
         return self._parent
+
+    @property
+    def children(self) -> Optional[List['Container']]:
+        return self._children
 
     @property
     def sources(self) -> List[DslElement]:
@@ -313,6 +327,7 @@ class SoftwareSystem(DslElement):
     def __init__(self, name: str, description: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.SoftwareSystem()
         self._parent: Optional[Workspace] = None
+        self._children: Optional[List['Container']] = []
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Software System'}.union(tags)
@@ -337,11 +352,13 @@ class SoftwareSystem(DslElement):
                 child._parent = self
                 self._dynamic_attrs[_child_name_transform(child.model.name)] = child
                 args.append(child)
+                self._children.append(child)
             elif _is_container_component_fluent_relationship(child):
                 self._m.containers.append(child._parent._m)
                 child._parent._parent = self
                 self._dynamic_attrs[_child_name_transform(child._parent.model.name)] = child._parent
                 args.append(child._parent)
+                self._children.append(child._parent)
         return _FluentRelationship['SoftwareSystem', 'Container'](self, tuple(args))
 
     @overload
@@ -383,6 +400,14 @@ class Person(DslElement):
     @property
     def parent(self) -> Optional[Workspace]:
         return self._parent
+
+    @property
+    def children(self) -> None:
+        """
+        The `Person` element does not have any children, and will always return
+        `None`.
+        """
+        return None
 
     @property
     def sources(self) -> List[DslElement]:
@@ -462,6 +487,10 @@ class Container(DslElement):
         return self._parent
 
     @property
+    def children(self) -> Optional[List['Component']]:
+        return self._children
+
+    @property
     def sources(self) -> List[DslElement]:
         return self._sources
 
@@ -501,11 +530,13 @@ class Container(DslElement):
             self.model.components.append(component.model)
             component._parent = self
             self._dynamic_attrs[_child_name_transform(component.model.name)] = component
+            self._children.append(component)
         return _FluentRelationship['Container', 'Component'](self, components)
 
     def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set()) -> None:
         self._m = buildzr.models.Container()
         self._parent: Optional[SoftwareSystem] = None
+        self._children: Optional[List['Component']] = []
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Container'}.union(tags)
@@ -556,6 +587,10 @@ class Component(DslElement):
     @property
     def parent(self) -> Optional[Container]:
         return self._parent
+
+    @property
+    def children(self) -> None:
+        return None
 
     @property
     def sources(self) -> List[DslElement]:

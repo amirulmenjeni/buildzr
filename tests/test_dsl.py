@@ -176,6 +176,17 @@ def test_parenting(dsl: DslHolder) -> Optional[None]:
     assert dsl.container.parent.model.id == dsl.software_system.model.id
     assert dsl.component.parent.model.id == dsl.container.model.id
 
+def test_making_children(dsl: DslHolder) -> Optional[None]:
+
+    dsl.workspace.contains(dsl.person, dsl.software_system)
+    dsl.software_system.contains(dsl.container)
+    dsl.container.contains(dsl.component)
+
+    assert dsl.workspace.children[0].model.id == dsl.person.model.id
+    assert dsl.workspace.children[1].model.id == dsl.software_system.model.id
+    assert dsl.software_system.children[0].model.id == dsl.container.model.id
+    assert dsl.container.children[0].model.id == dsl.component.model.id
+
 def test_accessing_child_elements(dsl: DslHolder) -> Optional[None]:
 
     w = Workspace("w")\
