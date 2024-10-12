@@ -41,8 +41,7 @@ class Explorer:
 
                 if child.model.relationships and child.destinations:
                     for relationship, destination in zip(child.model.relationships, child.destinations):
-                        print(f"{child.model.name} >> {relationship.description} >> {destination.model.name}")
-                        yield _Relationship(
+                        fake_relationship = _Relationship(
                             _UsesData(
                                 relationship=buildzr.models.Relationship(
                                     id=relationship.id,
@@ -56,6 +55,9 @@ class Explorer:
                             destination=destination,
                             _include_in_model=False,
                         )
+                        fake_relationship._tags = set(relationship.tags.split(','))
+
+                        yield fake_relationship
 
                 explorer = Explorer(child).walk_relationships()
                 yield from explorer

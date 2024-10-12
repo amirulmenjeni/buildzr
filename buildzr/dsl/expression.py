@@ -85,6 +85,26 @@ class Relationship:
     def __init__(self, relationship: _Relationship):
         self._relationship = relationship
 
+    @property
+    def tags(self) -> Set[str]:
+        return self._relationship.tags
+
+    @property
+    def technology(self) -> Optional[str]:
+        return self._relationship.model.technology
+
+    @property
+    def source(self) -> Element:
+        return Element(self._relationship.source)
+
+    @property
+    def destination(self) -> Element:
+        return Element(self._relationship.destination)
+
+    @property
+    def properties(self) -> Dict[str, Any]:
+        return self._relationship.model.properties
+
 class Expression:
 
     """
@@ -97,9 +117,11 @@ class Expression:
 
     def __init__(
         self,
-        *filters: Callable[[Element, Relationship], bool],
+        elements: Iterable[Callable[[Element], bool]]=[],
+        relationships: Iterable[Callable[[Relationship], bool]]=[],
     ) -> 'None':
-        self._filters = filters
+        self._elements = elements
+        self._relationships = relationships
 
     def run(
         self,
@@ -110,16 +132,19 @@ class Expression:
         filtered_relationships: List[DslRelationship] = []
 
         workspace_elements = buildzr.dsl.Explorer(workspace).walk_elements()
+        if self._elements:
+            for element in workspace_elements:
+                if any([f(Element(element)) for f in self._elements]):
+                    filtered_elements.append(element)
+        else:
+            filtered_elements = list(workspace_elements)
 
-        if not self._filters:
-            return (list(workspace_elements), filtered_relationships)
-
-        for element in workspace_elements:
-            if any([f(Element(element), None) for f in self._filters]):
-                filtered_elements.append(element)
-
-        # for relationship in relationships:
-        #     if self._relationships_callback(Relationship(relationship)):
-        #         filtered_relationships.append(relationship)
+        workspace_relationships = buildzr.dsl.Explorer(workspace).walk_relationships()
+        if self._relationships:
+            for relationship in workspace_relationships:
+                if any([f(Relationship(relationship)) for f in self._relationships]):
+                    filtered_relationships.append(relationship)
+        else:
+            filtered_relationships = list(workspace_relationships)
 
         return (filtered_elements, filtered_relationships)
