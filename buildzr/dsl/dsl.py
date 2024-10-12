@@ -110,7 +110,14 @@ class _Relationship(DslRelationship[TSrc, TDst]):
     def destination(self) -> DslElement:
         return self._dst
 
-    def __init__(self, uses_data: _UsesData[TSrc], destination: TDst, tags: Set[str]=set()) -> None:
+    def __init__(
+            self,
+            uses_data: _UsesData[TSrc],
+            destination: TDst,
+            tags: Set[str]=set(),
+            _include_in_model: bool=True,
+        ) -> None:
+
         self._m = uses_data.relationship
         self._tags = {'Relationship'}.union(tags)
         self._src = uses_data.source
@@ -122,10 +129,11 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         if not isinstance(uses_data.source.model, buildzr.models.Workspace):
             uses_data.source.destinations.append(self._dst)
             self._dst.sources.append(self._src)
-            if any(uses_data.source.model.relationships):
-                uses_data.source.model.relationships.append(uses_data.relationship)
-            else:
-                uses_data.source.model.relationships = [uses_data.relationship]
+            if _include_in_model:
+                if any(uses_data.source.model.relationships):
+                    uses_data.source.model.relationships.append(uses_data.relationship)
+                else:
+                    uses_data.source.model.relationships = [uses_data.relationship]
 
         # Used to pass the `_UsesData` object as reference to the `__or__`
         # operator overloading method.
