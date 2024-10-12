@@ -82,9 +82,3 @@ def test_walk_relationships(workspace: Workspace) -> Optional[None]:
     assert next_relationship.model.description == "Calls HTTP API from"
     assert next_relationship.model.sourceId == cast(SoftwareSystem, workspace.s).webapp.ui_layer.model.id
     assert next_relationship.model.destinationId == cast(SoftwareSystem, workspace.s).webapp.api_layer.model.id
-
-# TODO: Tests further on filtering relationships:
-# - [ ] Filter by technology
-# - [ ] Filter by source
-# - [ ] Filter by destination
-# - [ ] Filter by properties

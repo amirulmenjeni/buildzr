@@ -23,11 +23,16 @@ def workspace() -> Workspace:
                 Container('db', technology='mssql'),
             )\
             .where(lambda app, db: [
-                app >> "Uses" >> db | With(tags={'backend-interface'}),
+                app >> "Uses" >> db | With(tags={'backend-interface', 'mssql'}),
             ])
         )\
         .where(lambda u, s:
-            u >> "Uses" >> s | With(tags={'frontend-interface'})
+            u >> "Uses" >> s | With(
+                tags={'frontend-interface'},
+                properties={
+                    'url': 'http://example.com/docs/api/endpoint',
+                }
+            )
         )
 
     return w
@@ -113,8 +118,74 @@ def test_filter_relationships_by_tags(workspace: Workspace) -> Optional[None]:
         ]
     )
 
-    _, relationships = filter.run(workspace)
+    elements, relationships = filter.run(workspace)
+    all_elements = list(Explorer(workspace).walk_elements())
 
     assert len(relationships) == 1
+    assert len(elements) == len(all_elements)
     assert relationships[0].source.model.name == 'u'
     assert relationships[0].destination.model.name == 's'
+
+def test_filter_relationships_by_technology(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        relationships=[
+            lambda r: 'mssql' in r.tags
+        ]
+    )
+
+    elements, relationships = filter.run(workspace)
+    all_elements = list(Explorer(workspace).walk_elements())
+
+    assert len(relationships) == 1
+    assert len(elements) == len(all_elements)
+    assert relationships[0].source.model.name == 'app'
+    assert relationships[0].destination.model.name == 'db'
+
+def test_filter_relationships_by_source(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        relationships=[
+            lambda r: r.source == cast(SoftwareSystem, workspace.s).app
+        ]
+    )
+
+    elements, relationships = filter.run(workspace)
+    all_elements = list(Explorer(workspace).walk_elements())
+
+    assert len(relationships) == 1
+    assert len(elements) == len(all_elements)
+    assert relationships[0].source.model.name == 'app'
+    assert relationships[0].destination.model.name == 'db'
+
+def test_filter_relationships_by_destination(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        relationships=[
+            lambda r: r.destination == cast(SoftwareSystem, workspace.s).db
+        ]
+    )
+
+    elements, relationships = filter.run(workspace)
+    all_elements = list(Explorer(workspace).walk_elements())
+
+    assert len(relationships) == 1
+    assert len(elements) == len(all_elements)
+    assert relationships[0].source.model.name == 'app'
+    assert relationships[0].destination.model.name == 'db'
+
+def test_filter_relationships_by_properties(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        relationships=[
+            lambda r: 'url' in r.properties.keys() and 'example.com' in r.properties['url']
+        ]
+    )
+
+    elements, relationships = filter.run(workspace)
+    all_elements = list(Explorer(workspace).walk_elements())
+
+    assert len(relationships) == 1
+    assert len(elements) == len(all_elements)
+    assert 'url' in relationships[0].model.properties.keys()
+    assert 'example.com' in relationships[0].model.properties['url']

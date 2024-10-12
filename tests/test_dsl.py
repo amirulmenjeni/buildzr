@@ -106,6 +106,7 @@ def test_relationship_with_extra_info_using_with(dsl: DslHolder) -> Optional[Non
     assert "bash" in dsl.person.model.relationships[0].tags
     assert "terminal" in dsl.person.model.relationships[0].tags
     assert "authentication" in dsl.person.model.relationships[0].properties.keys()
+    assert "ssh" in dsl.person.model.relationships[0].properties['authentication']
     assert "http://example.com/info/relationship-user-uses-cli" == dsl.person.model.relationships[0].url
 
 def test_relationship_with_extra_info_using_has(dsl: DslHolder) -> Optional[None]:
@@ -297,7 +298,14 @@ def test_fluent_workspace_definition() -> Optional[None]:
                         Container("database"),
                     )\
                     .where(lambda webapp, database: [
-                        webapp >> "Uses" >> database
+                        webapp >> "Uses" >> database | With(
+                            tags={
+                                'api'
+                            },
+                            properties={
+                                'url': 'https://example.com/api'
+                            }
+                        )
                     ])
             )\
             .where(lambda u, s: [
@@ -315,6 +323,9 @@ def test_fluent_workspace_definition() -> Optional[None]:
     assert any(w.model.model.softwareSystems[0].containers[0].components[1].relationships)
     assert any(w.model.model.softwareSystems[0].containers[0].components[2].relationships)
     assert not w.model.model.softwareSystems[0].containers[0].components[0].relationships
+    assert 'api' in w.model.model.softwareSystems[0].containers[0].relationships[0].tags.split(',')
+    assert 'url' in w.model.model.softwareSystems[0].containers[0].relationships[0].properties.keys()
+    assert 'example.com' in w.model.model.softwareSystems[0].containers[0].relationships[0].properties['url']
 
 def test_fluent_workspace_definition_without_contains_where() -> Optional[None]:
 

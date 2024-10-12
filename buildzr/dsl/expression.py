@@ -103,7 +103,9 @@ class Relationship:
 
     @property
     def properties(self) -> Dict[str, Any]:
-        return self._relationship.model.properties
+        if self._relationship.model.properties is not None:
+            return self._relationship.model.properties
+        return dict()
 
 class Expression:
 

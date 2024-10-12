@@ -46,6 +46,7 @@ class Explorer:
                                 relationship=buildzr.models.Relationship(
                                     id=relationship.id,
                                     description=relationship.description,
+                                    properties=relationship.properties,
                                     technology=relationship.technology,
                                     tags=relationship.tags,
                                     sourceId=relationship.sourceId,
