@@ -7,7 +7,7 @@ from buildzr.dsl import (
     Component,
     expression,
 )
-from typing import Optional
+from typing import Optional, cast
 
 @pytest.fixture
 def workspace() -> Workspace:
@@ -73,3 +73,14 @@ def test_filter_elements_by_sources_and_destinations(workspace: Workspace) -> Op
 def test_filter_elements_by_properties(workspace: Workspace) -> Optional[None]:
     # TODO: Add `properties` property to the `DslElement`s first!
     pass
+
+def test_filter_elements_by_equal_operator(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        lambda e, r: e == cast(SoftwareSystem, workspace.s).app
+    )
+
+    elements, _ = filter.run(workspace)
+
+    assert len(elements) == 1
+    assert elements[0].model.name == 'app'

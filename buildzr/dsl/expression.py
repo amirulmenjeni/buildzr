@@ -76,12 +76,24 @@ class Element:
     def properties(self) -> Dict[str, Any]:
         return self._element.model.properties
 
+    def __eq__(self, element: object) -> bool:
+        return isinstance(element, type(self._element)) and\
+               element.model.id == self._element.model.id
+
 class Relationship:
 
     def __init__(self, relationship: _Relationship):
         self._relationship = relationship
 
 class Expression:
+
+    """
+    A class used to filter the elements and the relationships in the workspace.
+    To be used when defining views.
+
+    In the Structurizr DSL, these are called "Expressions". See the Structurizr docs here:
+    https://docs.structurizr.com/dsl/expressions
+    """
 
     def __init__(
         self,
