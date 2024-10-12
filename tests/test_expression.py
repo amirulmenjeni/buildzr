@@ -5,7 +5,7 @@ from buildzr.dsl import (
     Person,
     Container,
     Component,
-    expr,
+    expression,
 )
 from typing import Optional
 
@@ -32,7 +32,7 @@ def workspace() -> Workspace:
 
 def test_filter_elements_by_tags(workspace: Workspace) -> Optional[None]:
 
-    filter = expr.Expression(
+    filter = expression.Expression(
         lambda e, r: 'Person' in e.tags,
         lambda e, r: 'Container' in e.tags,
         lambda e, r: 'user' in e.tags
@@ -48,7 +48,7 @@ def test_filter_elements_by_technology(workspace: Workspace) -> Optional[None]:
     # `SoftwareSystem`.
     #
     # This should not cause any problem to the filter.
-    filter = expr.Expression(
+    filter = expression.Expression(
         lambda e, r: e.technology == 'mssql'
     )
 
@@ -59,7 +59,7 @@ def test_filter_elements_by_technology(workspace: Workspace) -> Optional[None]:
 
 def test_filter_elements_by_sources_and_destinations(workspace: Workspace) -> Optional[None]:
 
-    filter = expr.Expression(
+    filter = expression.Expression(
         lambda e, r: 'u' in e.sources.names,
         lambda e, r: 'db' in e.destinations.names and 'Container' in e.destinations.tags
     )
