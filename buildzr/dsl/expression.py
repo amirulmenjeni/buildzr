@@ -111,6 +111,9 @@ class Expression:
 
         workspace_elements = buildzr.dsl.Explorer(workspace).walk_elements()
 
+        if not self._filters:
+            return (list(workspace_elements), filtered_relationships)
+
         for element in workspace_elements:
             if any([f(Element(element), None) for f in self._filters]):
                 filtered_elements.append(element)

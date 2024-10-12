@@ -7,6 +7,7 @@ from buildzr.dsl import (
     Component,
     expression,
 )
+from buildzr.dsl import Explorer
 from typing import Optional, cast
 
 @pytest.fixture
@@ -84,3 +85,13 @@ def test_filter_elements_by_equal_operator(workspace: Workspace) -> Optional[Non
 
     assert len(elements) == 1
     assert elements[0].model.name == 'app'
+
+def test_include_all_elements(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression()
+
+    elements, _ = filter.run(workspace)
+
+    all_elements = list(Explorer(workspace).walk_elements())
+
+    assert len(elements) == len(all_elements)
