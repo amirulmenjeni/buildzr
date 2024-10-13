@@ -10,6 +10,7 @@ from typing import (
     Callable,
     overload,
     Sequence,
+    cast,
 )
 from typing_extensions import (
     Self
@@ -72,6 +73,9 @@ class DslWorkspaceElement(ABC):
     def children(self) -> Optional[Sequence['DslElement']]:
         pass
 
+    def __contains__(self, other: 'DslElement') -> bool:
+        return self.model.id == other.parent.model.id
+
 class DslElement(BindRight[TSrc, TDst]):
     """An abstract class used to label classes that are part of the buildzr DSL"""
 
@@ -117,6 +121,9 @@ class DslElement(BindRight[TSrc, TDst]):
         tags: Set[str]=set()) -> 'DslRelationship[Self, DslElement]':
         pass
 
+    def __contains__(self, other: 'DslElement') -> bool:
+        return self.model.id == other.parent.model.id
+
 class DslRelationship(ABC, Generic[TSrc, TDst]):
     """
     An abstract class specially used to label classes that are part of the
@@ -142,6 +149,9 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
     @abstractmethod
     def destination(self) -> DslElement:
         pass
+
+    def __contains__(self, other: 'DslElement') -> bool:
+        return self.source.model.id == other.model.id or self.destination.model.id == other.model.id
 
 class DslFluentRelationship(ABC, Generic[TParent, TChild]):
 

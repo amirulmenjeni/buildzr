@@ -2,7 +2,7 @@ from dataclasses import dataclass, fields
 import inspect
 import pytest
 import importlib
-from typing import Optional
+from typing import Optional, cast
 from buildzr.dsl import (
     Workspace,
     SoftwareSystem,
@@ -504,3 +504,49 @@ def test_source_destinations_in_dsl_elements() -> Optional[None]:
 
     assert len(w.s.database.sources) == 2
     assert {w.u.model.id, w.s.webapp.model.id}.issubset({dst.model.id for dst in w.s.database.sources})
+
+def test_contains_operator() -> Optional[None]:
+
+    from buildzr.dsl import Explorer
+
+    w = Workspace("w")\
+            .contains(
+                Person("u"),
+                SoftwareSystem("s")\
+                    .contains(
+                        Container("webapp")\
+                            .contains(
+                                Component("database layer"),
+                                Component("API layer"),
+                                Component("UI layer"),
+                            )\
+                            .where(lambda db, api, ui: [
+                                ui >> ("Calls HTTP API from", "http/api") >> api,
+                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            ]),\
+                        Container("database"),
+                    )\
+                    .where(lambda webapp, database: [
+                        webapp >> "Uses" >> database
+                    ])
+            )\
+            .where(lambda u, s: [
+                u >> "Runs SQL queries" >> s.database
+            ], implied=True)
+
+    assert isinstance(w.u, Person)
+    assert isinstance(w.s, SoftwareSystem)
+    assert w.u in w
+    assert w.s in w
+    assert w.s.webapp in w.s
+    assert w.s.database in w.s
+    assert w.s.webapp.database_layer in w.s.webapp
+    assert w.s.webapp.api_layer in w.s.webapp
+    assert w.s.webapp.ui_layer in w.s.webapp
+    assert w.s.webapp.ui_layer not in w.s.database
+
+    relationships = Explorer(w).walk_relationships()
+    assert any([
+        r for r in list(relationships)
+        if w.u in r and w.s in r and r.model.description == "Runs SQL queries"
+    ])
