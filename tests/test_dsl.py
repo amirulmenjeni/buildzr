@@ -550,3 +550,35 @@ def test_contains_operator() -> Optional[None]:
         r for r in list(relationships)
         if w.u in r and w.s in r and r.model.description == "Runs SQL queries"
     ])
+
+def test_accessing_typed_dynamic_attributes() -> Optional[None]:
+
+    w = Workspace("w")\
+            .contains(
+                Person("u"),
+                SoftwareSystem("s")\
+                    .contains(
+                        Container("webapp")\
+                            .contains(
+                                Component("database layer"),
+                                Component("API layer"),
+                                Component("UI layer"),
+                            )\
+                            .where(lambda db, api, ui: [
+                                ui >> ("Calls HTTP API from", "http/api") >> api,
+                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            ]),\
+                        Container("database"),
+                    )\
+                    .where(lambda webapp, database: [
+                        webapp >> "Uses" >> database
+                    ])
+            )\
+            .where(lambda u, s: [
+                u >> "Runs SQL queries" >> s.database
+            ], implied=True)
+
+    assert 'Person' in w.person().u.tags
+    assert 'Software System' in w.software_system().s.tags
+    assert 'Container' in w.software_system().s.container().webapp.tags
+    assert 'Component' in w.software_system().s.container().webapp.component().ui_layer.tags

@@ -21,6 +21,7 @@ from typing import (
     cast,
     overload,
     Sequence,
+    Type,
 )
 
 from buildzr.dsl.interfaces import (
@@ -73,6 +74,16 @@ class With:
 class _UsesData(Generic[TSrc]):
     relationship: buildzr.models.Relationship
     source: TSrc
+
+
+TypedModel = TypeVar('TypedModel')
+class TypedDynamicAttribute(Generic[TypedModel]):
+
+    def __init__(self, dynamic_attributes: Dict[str, Any]) -> None:
+        self._dynamic_attributes = dynamic_attributes
+
+    def __getattr__(self, name: str) -> TypedModel:
+        return cast(TypedModel, self._dynamic_attributes.get(name))
 
 class _UsesFrom(BindLeft[TSrc, TDst]):
 
@@ -271,6 +282,12 @@ class Workspace(DslWorkspaceElement):
                 self._children.append(model._parent._parent)
         return _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem']](self, tuple(args))
 
+    def person(self) -> TypedDynamicAttribute['Person']:
+        return TypedDynamicAttribute['Person'](self._dynamic_attrs)
+
+    def software_system(self) -> TypedDynamicAttribute['SoftwareSystem']:
+        return TypedDynamicAttribute['SoftwareSystem'](self._dynamic_attrs)
+
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
         return self._dynamic_attrs[name]
 
@@ -369,6 +386,9 @@ class SoftwareSystem(DslElement):
                 args.append(child._parent)
                 self._children.append(child._parent)
         return _FluentRelationship['SoftwareSystem', 'Container'](self, tuple(args))
+
+    def container(self) -> TypedDynamicAttribute['Container']:
+        return TypedDynamicAttribute['Container'](self._dynamic_attrs)
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
@@ -480,7 +500,6 @@ class Person(DslElement):
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
 
-
 class Container(DslElement):
     """
     A container (something that can execute code or host data).
@@ -558,6 +577,9 @@ class Container(DslElement):
         self.model.technology = technology
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
+
+    def component(self) -> TypedDynamicAttribute['Component']:
+        return TypedDynamicAttribute['Component'](self._dynamic_attrs)
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
