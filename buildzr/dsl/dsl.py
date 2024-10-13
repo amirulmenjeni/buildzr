@@ -4,6 +4,7 @@ from .factory import GenerateId
 from typing_extensions import (
     Self,
     TypeGuard,
+    TypeIs,
 )
 from typing import (
     Any,
@@ -18,6 +19,7 @@ from typing import (
     Protocol,
     Callable,
     Iterable,
+    Literal,
     cast,
     overload,
     Sequence,
@@ -29,6 +31,7 @@ from buildzr.dsl.interfaces import (
     DslElement,
     DslRelationship,
     DslFluentRelationship,
+    DslViewsElement,
     BindLeft,
     TSrc, TDst,
     TParent, TChild,
@@ -287,6 +290,17 @@ class Workspace(DslWorkspaceElement):
 
     def software_system(self) -> TypedDynamicAttribute['SoftwareSystem']:
         return TypedDynamicAttribute['SoftwareSystem'](self._dynamic_attrs)
+
+    def with_views(
+        self,
+        *views: Union[
+            'SystemLandscapeView',
+            'SystemContextView',
+            'ContainerView',
+            'ComponentView',
+        ]
+    ) -> 'Views':
+        return Views(self).contains(*views)
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
         return self._dynamic_attrs[name]
@@ -687,3 +701,243 @@ class Component(DslElement):
             return _UsesFrom(self, description=other[0], technology=other[1])
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
+
+_RankDirection = Literal['tb', 'bt', 'lr', 'rl']
+
+_AutoLayout = Optional[
+    Union[
+        _RankDirection,
+        Tuple[_RankDirection, float],
+        Tuple[_RankDirection, float, float]
+    ]
+]
+
+def _auto_layout_to_model(auto_layout: _AutoLayout) -> buildzr.models.AutomaticLayout:
+
+    model = buildzr.models.AutomaticLayout()
+
+    def is_auto_layout_with_rank_separation(\
+        auto_layout: _AutoLayout,
+    ) -> TypeIs[Tuple[_RankDirection, float]]:
+        if isinstance(auto_layout, tuple):
+            return len(auto_layout) == 2 and \
+                    type(auto_layout[0]) is _RankDirection and \
+                    type(auto_layout[1]) is float
+        return False
+
+    def is_auto_layout_with_node_separation(\
+        auto_layout: _AutoLayout,
+    ) -> TypeIs[Tuple[_RankDirection, float, float]]:
+        if isinstance(auto_layout, tuple) and len(auto_layout) == 3:
+            return type(auto_layout[0]) is _RankDirection and \
+                   all([type(x) is float for x in auto_layout[1:]])
+        return False
+
+    map_rank_direction: Dict[_RankDirection, buildzr.models.RankDirection] = {
+        'lr': buildzr.models.RankDirection.LeftRight,
+        'tb': buildzr.models.RankDirection.TopBottom,
+        'rl': buildzr.models.RankDirection.RightLeft,
+        'bt': buildzr.models.RankDirection.BottomTop,
+    }
+
+    if auto_layout is not None:
+        if is_auto_layout_with_rank_separation(auto_layout):
+            d, rs = cast(Tuple[_RankDirection, float], auto_layout)
+            model.rankDirection = map_rank_direction[cast(_RankDirection, d)]
+            model.rankSeparation = rs
+        elif is_auto_layout_with_node_separation(auto_layout):
+            d, rs, ns = cast(Tuple[_RankDirection, float, float], auto_layout)
+            model.rankDirection = map_rank_direction[cast(_RankDirection, d)]
+            model.rankSeparation = rs
+            model.nodeSeparation = ns
+        else:
+            model.rankDirection = map_rank_direction[cast(_RankDirection, auto_layout)]
+
+    return model
+
+class IncludeExpression:
+    pass
+
+class ExcludeExpression:
+    pass
+
+class SystemLandscapeView:
+
+    @property
+    def model(self) -> buildzr.models.SystemLandscapeView:
+        return self._m
+
+    @property
+    def parent(self) -> Optional['Views']:
+        return self._parent
+
+    def __init__(
+        self,
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout=None,
+        title: Optional[str]=None,
+        includes: Optional[List[IncludeExpression]]=None,
+        excludes: Optional[List[ExcludeExpression]]=None,
+        properties: Optional[Dict[str, str]]=None,
+    ) -> None:
+        self._m = buildzr.models.SystemLandscapeView()
+        self._parent: Optional['Views'] = None
+
+        self._m.key = key
+        self._m.description = description
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+class SystemContextView:
+
+    @property
+    def model(self) -> buildzr.models.SystemContextView:
+        return self._m
+
+    @property
+    def parent(self) -> Optional['Views']:
+        return self._parent
+
+    def __init__(
+        self,
+        software_system_selector: Callable[[Workspace], SoftwareSystem],
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout=None,
+        title: Optional[str]=None,
+        includes: Optional[List[IncludeExpression]]=None,
+        excludes: Optional[List[ExcludeExpression]]=None,
+        properties: Optional[Dict[str, str]]=None,
+    ) -> None:
+        self._m = buildzr.models.SystemContextView()
+        self._parent: Optional['Views'] = None
+
+        self._m.key = key
+        self._m.description = description
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        self._on_added(software_system_selector)
+
+    def _on_added(self, selector: Callable[[Workspace], SoftwareSystem]) -> None:
+        self._m.softwareSystemId = selector(self._parent._parent)._m.id
+
+class ContainerView:
+
+    @property
+    def model(self) -> buildzr.models.ContainerView:
+        return self._m
+
+    @property
+    def parent(self) -> Optional['Views']:
+        return self._parent
+
+    def __init__(
+        self,
+        software_system_selector: Callable[[Workspace], SoftwareSystem],
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout=None,
+        title: Optional[str]=None,
+        includes: Optional[List[IncludeExpression]]=None,
+        excludes: Optional[List[ExcludeExpression]]=None,
+        properties: Optional[Dict[str, str]]=None,
+    ) -> None:
+        self._m = buildzr.models.ContainerView()
+        self._parent: Optional['Views'] = None
+
+        self._m.key = key
+        self._m.description = description
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        self._on_added(software_system_selector)
+
+    def _on_added(self, selector: Callable[[Workspace], SoftwareSystem]) -> None:
+        self._m.softwareSystemId = selector(self._parent._parent)._m.id
+
+class ComponentView:
+
+    @property
+    def model(self) -> buildzr.models.ComponentView:
+        return self._m
+
+    @property
+    def parent(self) -> Optional['Views']:
+        return self._parent
+
+    def __init__(
+        self,
+        container_selector: Callable[[Workspace], Container],
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout=None,
+        title: Optional[str]=None,
+        includes: Optional[List[IncludeExpression]]=None,
+        excludes: Optional[List[ExcludeExpression]]=None,
+        properties: Optional[Dict[str, str]]=None,
+    ) -> None:
+        self._m = buildzr.models.ComponentView()
+        self._parent: Optional['Views'] = None
+
+        self._m.key = key
+        self._m.description = description
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        self._on_added(container_selector)
+
+    def _on_added(self, selector: Callable[[Workspace], Container]) -> None:
+        self._m.containerId = selector(self._parent._parent)._m.id
+
+class Views(DslViewsElement):
+
+    @property
+    def model(self) -> buildzr.models.Views:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    def __init__(
+        self,
+        workspace: Workspace,
+    ) -> None:
+        self._m = buildzr.models.Views()
+        self._parent = workspace
+
+    def contains(
+        self,
+        *views: Union[
+            SystemLandscapeView,
+            SystemContextView,
+            ContainerView,
+            ComponentView,
+        ]) -> Self:
+
+        for view in views:
+            view._parent = self
+            if isinstance(view, SystemLandscapeView):
+                self._m.systemLandscapeViews.append(view.model)
+            elif isinstance(view, SystemContextView):
+                self._m.systemContextViews.append(view.model)
+            elif isinstance(view, ContainerView):
+                self._m.containerViews.append(view.model)
+            # TODO: Fix this after rebasing.
+            # elif isinstance(view, ComponentView):
+            #     container = view.get_container(view._parent)
+            #     self._m.componentViews.append(view.model)
+            else:
+                raise NotImplementedError("The view {0} is currently not supported", type(view))
+
+        return self
