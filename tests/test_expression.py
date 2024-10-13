@@ -47,7 +47,7 @@ def test_filter_elements_by_tags(workspace: Workspace) -> Optional[None]:
         ]
     )
 
-    elements, _ = filter.run(workspace)
+    elements = filter.elements(workspace)
 
     assert len(elements) == 3
 
@@ -63,7 +63,7 @@ def test_filter_elements_by_technology(workspace: Workspace) -> Optional[None]:
         ]
     )
 
-    elements, _ = filter.run(workspace)
+    elements = filter.elements(workspace)
 
     assert len(elements) == 1
     assert elements[0].model.name == 'db'
@@ -77,7 +77,7 @@ def test_filter_elements_by_sources_and_destinations(workspace: Workspace) -> Op
         ]
     )
 
-    elements, _ = filter.run(workspace)
+    elements = filter.elements(workspace)
 
     assert len(elements) == 2
     assert elements[0].model.name == 's'
@@ -95,7 +95,7 @@ def test_filter_elements_by_equal_operator(workspace: Workspace) -> Optional[Non
         ]
     )
 
-    elements, _ = filter.run(workspace)
+    elements = filter.elements(workspace)
 
     assert len(elements) == 1
     assert elements[0].model.name == 'app'
@@ -104,7 +104,7 @@ def test_include_all_elements(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression()
 
-    elements, _ = filter.run(workspace)
+    elements = filter.elements(workspace)
 
     all_elements = list(Explorer(workspace).walk_elements())
 
@@ -118,7 +118,8 @@ def test_filter_relationships_by_tags(workspace: Workspace) -> Optional[None]:
         ]
     )
 
-    elements, relationships = filter.run(workspace)
+    elements = filter.elements(workspace)
+    relationships = filter.relationships(workspace)
     all_elements = list(Explorer(workspace).walk_elements())
 
     assert len(relationships) == 1
@@ -134,7 +135,8 @@ def test_filter_relationships_by_technology(workspace: Workspace) -> Optional[No
         ]
     )
 
-    elements, relationships = filter.run(workspace)
+    elements = filter.elements(workspace)
+    relationships = filter.relationships(workspace)
     all_elements = list(Explorer(workspace).walk_elements())
 
     assert len(relationships) == 1
@@ -150,7 +152,8 @@ def test_filter_relationships_by_source(workspace: Workspace) -> Optional[None]:
         ]
     )
 
-    elements, relationships = filter.run(workspace)
+    elements = filter.elements(workspace)
+    relationships = filter.relationships(workspace)
     all_elements = list(Explorer(workspace).walk_elements())
 
     assert len(relationships) == 1
@@ -166,7 +169,8 @@ def test_filter_relationships_by_destination(workspace: Workspace) -> Optional[N
         ]
     )
 
-    elements, relationships = filter.run(workspace)
+    elements = filter.elements(workspace)
+    relationships = filter.relationships(workspace)
     all_elements = list(Explorer(workspace).walk_elements())
 
     assert len(relationships) == 1
@@ -182,7 +186,8 @@ def test_filter_relationships_by_properties(workspace: Workspace) -> Optional[No
         ]
     )
 
-    elements, relationships = filter.run(workspace)
+    elements = filter.elements(workspace)
+    relationships = filter.relationships(workspace)
     all_elements = list(Explorer(workspace).walk_elements())
 
     assert len(relationships) == 1

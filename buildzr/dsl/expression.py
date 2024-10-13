@@ -125,13 +125,12 @@ class Expression:
         self._elements = elements
         self._relationships = relationships
 
-    def run(
+    def elements(
         self,
         workspace: Workspace,
-    ) -> Tuple[List[DslElement], List[DslRelationship]]:
+    ) -> List[DslElement]:
 
         filtered_elements: List[DslElement] = []
-        filtered_relationships: List[DslRelationship] = []
 
         workspace_elements = buildzr.dsl.Explorer(workspace).walk_elements()
         if self._elements:
@@ -141,6 +140,15 @@ class Expression:
         else:
             filtered_elements = list(workspace_elements)
 
+        return filtered_elements
+
+    def relationships(
+        self,
+        workspace: Workspace
+    ) -> List[DslRelationship]:
+
+        filtered_relationships: List[DslRelationship] = []
+
         workspace_relationships = buildzr.dsl.Explorer(workspace).walk_relationships()
         if self._relationships:
             for relationship in workspace_relationships:
@@ -149,4 +157,4 @@ class Expression:
         else:
             filtered_relationships = list(workspace_relationships)
 
-        return (filtered_elements, filtered_relationships)
+        return filtered_relationships
