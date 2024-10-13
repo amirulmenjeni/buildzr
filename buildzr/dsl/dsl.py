@@ -332,7 +332,7 @@ class SoftwareSystem(DslElement):
             tags=tags,
         )
 
-    def __init__(self, name: str, description: str="", tags: Set[str]=set()) -> None:
+    def __init__(self, name: str, description: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
         self._m = buildzr.models.SoftwareSystem()
         self._parent: Optional[Workspace] = None
         self._children: Optional[List['Container']] = []
@@ -344,6 +344,7 @@ class SoftwareSystem(DslElement):
         self.model.name = name
         self.model.description = description
         self.model.tags = ','.join(self._tags)
+        self.model.properties = properties
 
     def contains(
         self,
@@ -450,7 +451,7 @@ class Person(DslElement):
             tags=tags,
         )
 
-    def __init__(self, name: str, description: str="", tags: Set[str]=set()) -> None:
+    def __init__(self, name: str, description: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
         self._m = buildzr.models.Person()
         self._parent: Optional[Workspace] = None
         self._sources: List[DslElement] = []
@@ -461,6 +462,7 @@ class Person(DslElement):
         self.model.description = description
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
+        self.model.properties = properties
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
@@ -541,7 +543,7 @@ class Container(DslElement):
             self._children.append(component)
         return _FluentRelationship['Container', 'Component'](self, components)
 
-    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set()) -> None:
+    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
         self._m = buildzr.models.Container()
         self._parent: Optional[SoftwareSystem] = None
         self._children: Optional[List['Component']] = []
@@ -555,6 +557,7 @@ class Container(DslElement):
         self.model.relationships = []
         self.model.technology = technology
         self.model.tags = ','.join(self._tags)
+        self.model.properties = properties
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
@@ -633,7 +636,7 @@ class Component(DslElement):
             tags=tags,
         )
 
-    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set()) -> None:
+    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
         self._m = buildzr.models.Component()
         self._parent: Optional[Container] = None
         self._sources: List[DslElement] = []
@@ -645,6 +648,7 @@ class Component(DslElement):
         self.model.technology = technology
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
+        self.model.properties = properties
 
     @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:

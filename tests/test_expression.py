@@ -17,7 +17,9 @@ def workspace() -> Workspace:
     w = Workspace('w')\
         .contains(
             Person('u', tags={'user'}),
-            SoftwareSystem('s')\
+            SoftwareSystem('s', properties={
+                'repo': 'https://github.com/amirulmenjeni/buildzr',
+            })\
             .contains(
                 Container('app'),
                 Container('db', technology='mssql'),
@@ -84,8 +86,17 @@ def test_filter_elements_by_sources_and_destinations(workspace: Workspace) -> Op
     assert elements[1].model.name == 'app'
 
 def test_filter_elements_by_properties(workspace: Workspace) -> Optional[None]:
-    # TODO: Add `properties` property to the `DslElement`s first!
-    pass
+
+    filter = expression.Expression(
+        elements=[
+            lambda e: 'repo' in e.properties.keys() and 'github.com' in e.properties['repo']
+        ]
+    )
+
+    elements = filter.elements(workspace)
+
+    assert len(elements) == 1
+    assert elements[0].model.name == 's'
 
 def test_filter_elements_by_equal_operator(workspace: Workspace) -> Optional[None]:
 
