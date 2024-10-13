@@ -106,6 +106,7 @@ def test_relationship_with_extra_info_using_with(dsl: DslHolder) -> Optional[Non
     assert "bash" in dsl.person.model.relationships[0].tags
     assert "terminal" in dsl.person.model.relationships[0].tags
     assert "authentication" in dsl.person.model.relationships[0].properties.keys()
+    assert "ssh" in dsl.person.model.relationships[0].properties['authentication']
     assert "http://example.com/info/relationship-user-uses-cli" == dsl.person.model.relationships[0].url
 
 def test_relationship_with_extra_info_using_has(dsl: DslHolder) -> Optional[None]:
@@ -175,6 +176,17 @@ def test_parenting(dsl: DslHolder) -> Optional[None]:
     assert dsl.software_system.parent.model.id == dsl.workspace.model.id
     assert dsl.container.parent.model.id == dsl.software_system.model.id
     assert dsl.component.parent.model.id == dsl.container.model.id
+
+def test_making_children(dsl: DslHolder) -> Optional[None]:
+
+    dsl.workspace.contains(dsl.person, dsl.software_system)
+    dsl.software_system.contains(dsl.container)
+    dsl.container.contains(dsl.component)
+
+    assert dsl.workspace.children[0].model.id == dsl.person.model.id
+    assert dsl.workspace.children[1].model.id == dsl.software_system.model.id
+    assert dsl.software_system.children[0].model.id == dsl.container.model.id
+    assert dsl.container.children[0].model.id == dsl.component.model.id
 
 def test_accessing_child_elements(dsl: DslHolder) -> Optional[None]:
 
@@ -286,7 +298,14 @@ def test_fluent_workspace_definition() -> Optional[None]:
                         Container("database"),
                     )\
                     .where(lambda webapp, database: [
-                        webapp >> "Uses" >> database
+                        webapp >> "Uses" >> database | With(
+                            tags={
+                                'api'
+                            },
+                            properties={
+                                'url': 'https://example.com/api'
+                            }
+                        )
                     ])
             )\
             .where(lambda u, s: [
@@ -304,6 +323,9 @@ def test_fluent_workspace_definition() -> Optional[None]:
     assert any(w.model.model.softwareSystems[0].containers[0].components[1].relationships)
     assert any(w.model.model.softwareSystems[0].containers[0].components[2].relationships)
     assert not w.model.model.softwareSystems[0].containers[0].components[0].relationships
+    assert 'api' in w.model.model.softwareSystems[0].containers[0].relationships[0].tags.split(',')
+    assert 'url' in w.model.model.softwareSystems[0].containers[0].relationships[0].properties.keys()
+    assert 'example.com' in w.model.model.softwareSystems[0].containers[0].relationships[0].properties['url']
 
 def test_fluent_workspace_definition_without_contains_where() -> Optional[None]:
 
@@ -437,3 +459,48 @@ def test_tags_on_relationship_using_with() -> Optional[None]:
 
     assert set(r.model.tags.split(',')) == {'Relationship', 'Human-Computer Interaction'}
     assert r.tags == {'Relationship', 'Human-Computer Interaction'}
+
+def test_source_destinations_in_dsl_elements() -> Optional[None]:
+
+    w = Workspace("w")\
+            .contains(
+                Person("u"),
+                SoftwareSystem("s")\
+                    .contains(
+                        Container("webapp")\
+                            .contains(
+                                Component("database layer"),
+                                Component("API layer"),
+                                Component("UI layer"),
+                            )\
+                            .where(lambda db, api, ui: [
+                                ui >> ("Calls HTTP API from", "http/api") >> api,
+                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            ]),\
+                        Container("database"),
+                    )\
+                    .where(lambda webapp, database: [
+                        webapp >> "Uses" >> database
+                    ])
+            )\
+            .where(lambda u, s: [
+                u >> "Runs SQL queries" >> s.database
+            ], implied=True)
+
+    assert isinstance(w.u, Person)
+    assert isinstance(w.s, SoftwareSystem)
+
+    assert len(w.u.sources) == 0
+
+    assert len(w.s.sources) == 1
+    assert {w.u.model.id}.issubset({src.model.id for src in w.s.sources})
+
+    assert len(w.u.destinations) == 2
+    assert {w.s.model.id, w.s.database.model.id}.issubset({dst.model.id for dst in w.u.destinations})
+
+    assert len(w.s.destinations) == 0
+
+    assert len(w.s.webapp.sources) == 0
+
+    assert len(w.s.database.sources) == 2
+    assert {w.u.model.id, w.s.webapp.model.id}.issubset({dst.model.id for dst in w.s.database.sources})
