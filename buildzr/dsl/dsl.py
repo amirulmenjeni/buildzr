@@ -769,13 +769,9 @@ def _auto_layout_to_model(auto_layout: _AutoLayout) -> buildzr.models.AutomaticL
 
     return model
 
-class IncludeExpression:
-    pass
-
-class ExcludeExpression:
-    pass
-
 class SystemLandscapeView:
+
+    from buildzr.dsl.expression import Expression
 
     @property
     def model(self) -> buildzr.models.SystemLandscapeView:
@@ -791,8 +787,7 @@ class SystemLandscapeView:
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        includes: Optional[List[IncludeExpression]]=None,
-        excludes: Optional[List[ExcludeExpression]]=None,
+        expression: Optional[Expression]=None,
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemLandscapeView()
@@ -806,6 +801,8 @@ class SystemLandscapeView:
         self._m.properties = properties
 
 class SystemContextView:
+
+    from buildzr.dsl.expression import Expression
 
     @property
     def model(self) -> buildzr.models.SystemContextView:
@@ -822,8 +819,7 @@ class SystemContextView:
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        includes: Optional[List[IncludeExpression]]=None,
-        excludes: Optional[List[ExcludeExpression]]=None,
+        expression: Optional[Expression]=None,
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemContextView()
@@ -843,6 +839,8 @@ class SystemContextView:
 
 class ContainerView:
 
+    from buildzr.dsl.expression import Expression
+
     @property
     def model(self) -> buildzr.models.ContainerView:
         return self._m
@@ -858,8 +856,7 @@ class ContainerView:
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        includes: Optional[List[IncludeExpression]]=None,
-        excludes: Optional[List[ExcludeExpression]]=None,
+        expression: Optional[Expression]=None,
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ContainerView()
@@ -879,6 +876,8 @@ class ContainerView:
 
 class ComponentView:
 
+    from buildzr.dsl.expression import Expression
+
     @property
     def model(self) -> buildzr.models.ComponentView:
         return self._m
@@ -894,8 +893,7 @@ class ComponentView:
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        includes: Optional[List[IncludeExpression]]=None,
-        excludes: Optional[List[ExcludeExpression]]=None,
+        expression: Optional[Expression]=None,
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ComponentView()
