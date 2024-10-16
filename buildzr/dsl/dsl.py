@@ -144,7 +144,7 @@ class _Relationship(DslRelationship[TSrc, TDst]):
             uses_data.source.destinations.append(self._dst)
             self._dst.sources.append(self._src)
             if _include_in_model:
-                if any(uses_data.source.model.relationships):
+                if uses_data.source.model.relationships:
                     uses_data.source.model.relationships.append(uses_data.relationship)
                 else:
                     uses_data.source.model.relationships = [uses_data.relationship]
@@ -819,7 +819,7 @@ class SystemContextView:
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        expression: Optional[Expression]=None,
+        expression: Expression=Expression(),
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemContextView()
@@ -833,9 +833,32 @@ class SystemContextView:
         self._m.properties = properties
 
         self._selector = software_system_selector
+        self._expression = expression
 
     def _on_added(self) -> None:
+        from buildzr.models import ElementView, RelationshipView
+
         self._m.softwareSystemId = self._selector(self._parent._parent)._m.id
+
+        workspace = self._parent._parent
+
+        element_ids = map(
+            lambda x: str(x.model.id),
+            self._expression.elements(workspace)
+        )
+
+        relationship_ids = map(
+            lambda x: str(x.model.id),
+            self._expression.relationships(workspace)
+        )
+
+        self._m.elements = []
+        for element_id in element_ids:
+            self._m.elements.append(ElementView(id=element_id))
+
+        self._m.relationships = []
+        for relationship_id in relationship_ids:
+            self._m.relationships.append(RelationshipView(id=relationship_id))
 
 class ContainerView:
 

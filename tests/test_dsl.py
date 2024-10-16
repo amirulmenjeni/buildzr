@@ -11,6 +11,7 @@ from buildzr.dsl import (
     Component,
     DslRelationship,
     With,
+    SystemContextView,
 )
 from buildzr.encoders import JsonEncoder
 
@@ -582,3 +583,41 @@ def test_accessing_typed_dynamic_attributes() -> Optional[None]:
     assert 'Software System' in w.software_system().s.tags
     assert 'Container' in w.software_system().s.container().webapp.tags
     assert 'Component' in w.software_system().s.container().webapp.component().ui_layer.tags
+
+def test_system_context_view() -> Optional[None]:
+
+    w = Workspace('w')\
+            .contains(
+                Person('u'),
+                SoftwareSystem('email_system')\
+                    .contains(
+                        Container('email_c1'),
+                        Container('email_c2'),
+                    )\
+                    .where(lambda c1, c2: [
+                        c1 >> "Uses" >> c2,
+                    ]),
+                SoftwareSystem('business_app')
+                    .contains(
+                        Container('business_app_c1'),
+                        Container('business_app_c2'),
+                    )
+                    .where(lambda c1, c2: [
+                        c1 >> "Gets data from" >> c2,
+                    ])
+            )\
+            .where(lambda u, email_system, business_app: [
+                u >> "Uses" >> business_app,
+                business_app >> "Notifies users using" >> email_system,
+            ])\
+            .with_views(
+                SystemContextView(
+                    software_system_selector=lambda w: w.software_system().business_app,
+                    key="ss_business_app",
+                    description="The business app",
+                )
+            )\
+            .get_workspace()
+
+    assert any(w.model.views.systemContextViews)
+    assert len(w.model.views.systemContextViews) == 1
