@@ -1,4 +1,5 @@
 from buildzr.dsl.interfaces import (
+    DslWorkspaceElement,
     DslElement,
     DslRelationship,
 )
@@ -60,9 +61,10 @@ class Element:
             return self._element.model.technology
         return None
 
-    # @property
-    # def parent(self) -> Optional[Union[Workspace, SoftwareSystem, Container]]:
-    #     return self._element.parent
+    # TODO: Make a test for this in `tests/test_expression.py`
+    @property
+    def parent(self) -> Optional[Union[DslWorkspaceElement, DslElement]]:
+        return self._element.parent
 
     @property
     def sources(self) -> FlattenElement:

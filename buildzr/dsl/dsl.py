@@ -802,7 +802,12 @@ class SystemLandscapeView:
 
 class SystemContextView:
 
-    from buildzr.dsl.expression import Expression
+    """
+    If no filter is applied, this view includes all elements that have a direct
+    relationship with the selected `SoftwareSystem`.
+    """
+
+    from buildzr.dsl.expression import Expression, Element, Relationship
 
     @property
     def model(self) -> buildzr.models.SystemContextView:
@@ -819,7 +824,8 @@ class SystemContextView:
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        expression: Expression=Expression(),
+        include_elements: List[Callable[[Element], bool]]=[],
+        include_relationships: List[Callable[[Relationship], bool]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemContextView()
@@ -833,23 +839,41 @@ class SystemContextView:
         self._m.properties = properties
 
         self._selector = software_system_selector
-        self._expression = expression
+        self._include_elements = include_elements
+        self._include_relationships = include_relationships
 
     def _on_added(self) -> None:
+
+        from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
 
-        self._m.softwareSystemId = self._selector(self._parent._parent)._m.id
+        # TODO: Refactor below codes. Similar patterns may exists for other views.
+        # Maybe make the views a subclass of some abstract `BaseView` class?
+
+        software_system = self._selector(self._parent._parent)
+        self._m.softwareSystemId = software_system.model.id
+        view_elements_filter: List[Callable[[Element], bool]] = [
+            lambda e: e == software_system,
+            lambda e: software_system.model.id in e.sources.ids,
+        ]
+        view_relationships_filter: List[Callable[[Relationship], bool]] = [
+            lambda r: software_system == r.source,
+        ]
+        expression = Expression(
+            elements=self._include_elements + view_elements_filter,
+            relationships=self._include_relationships + view_relationships_filter,
+        )
 
         workspace = self._parent._parent
 
         element_ids = map(
             lambda x: str(x.model.id),
-            self._expression.elements(workspace)
+            expression.elements(workspace)
         )
 
         relationship_ids = map(
             lambda x: str(x.model.id),
-            self._expression.relationships(workspace)
+            expression.relationships(workspace)
         )
 
         self._m.elements = []

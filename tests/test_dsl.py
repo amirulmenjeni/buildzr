@@ -604,9 +604,10 @@ def test_system_context_view() -> Optional[None]:
                     )
                     .where(lambda c1, c2: [
                         c1 >> "Gets data from" >> c2,
-                    ])
+                    ]),
+                SoftwareSystem('git_repo'), # Unrelated!
             )\
-            .where(lambda u, email_system, business_app: [
+            .where(lambda u, email_system, business_app, _git_repo: [
                 u >> "Uses" >> business_app,
                 business_app >> "Notifies users using" >> email_system,
             ])\
@@ -619,5 +620,23 @@ def test_system_context_view() -> Optional[None]:
             )\
             .get_workspace()
 
+    element_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].elements))
+    relationship_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].relationships))
+
+    print('element ids:', element_ids)
+    print('email system id:', w.software_system().email_system.model.id)
+    print('business app id:', w.software_system().business_app.model.id)
+    print('git repo id:', w.software_system().git_repo.model.id)
+
     assert any(w.model.views.systemContextViews)
     assert len(w.model.views.systemContextViews) == 1
+    assert len(element_ids) == 2
+    assert len(relationship_ids) == 1
+    assert w.software_system().business_app.model.id in element_ids
+    assert w.software_system().email_system.model.id in element_ids
+    assert w.software_system().git_repo.model.id not in element_ids
+    assert w.software_system().business_app.business_app_c1.model.id not in element_ids
+    assert w.software_system().business_app.business_app_c2.model.id not in element_ids
+    assert w.software_system().email_system.email_c1.model.id not in element_ids
+    assert w.software_system().email_system.email_c2.model.id not in element_ids
+    assert w.software_system().business_app.model.relationships[0].id in relationship_ids
