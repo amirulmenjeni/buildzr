@@ -855,9 +855,16 @@ class SystemContextView:
         view_elements_filter: List[Callable[[Element], bool]] = [
             lambda e: e == software_system,
             lambda e: software_system.model.id in e.sources.ids,
+            lambda e: software_system.model.id in e.destinations.ids,
         ]
+
+        # TODO: (Or, TOTHINK?) The code below includes all sources and all
+        # destinations of the subject software system. What if we want to
+        # exclude a source? Maybe the predicates in `elements` and
+        # `relationships` should be ANDed together afterall?
         view_relationships_filter: List[Callable[[Relationship], bool]] = [
             lambda r: software_system == r.source,
+            lambda r: software_system == r.destination,
         ]
         expression = Expression(
             elements=self._include_elements + view_elements_filter,

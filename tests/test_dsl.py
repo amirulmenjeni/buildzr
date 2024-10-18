@@ -630,8 +630,9 @@ def test_system_context_view() -> Optional[None]:
 
     assert any(w.model.views.systemContextViews)
     assert len(w.model.views.systemContextViews) == 1
-    assert len(element_ids) == 2
-    assert len(relationship_ids) == 1
+    assert len(element_ids) == 3
+    assert len(relationship_ids) == 2
+    assert w.person().u.model.id in element_ids
     assert w.software_system().business_app.model.id in element_ids
     assert w.software_system().email_system.model.id in element_ids
     assert w.software_system().git_repo.model.id not in element_ids
@@ -640,3 +641,8 @@ def test_system_context_view() -> Optional[None]:
     assert w.software_system().email_system.email_c1.model.id not in element_ids
     assert w.software_system().email_system.email_c2.model.id not in element_ids
     assert w.software_system().business_app.model.relationships[0].id in relationship_ids
+    assert w.software_system().business_app.model.relationships[0].sourceId == w.software_system().business_app.model.id
+    assert w.software_system().business_app.model.relationships[0].destinationId == w.software_system().email_system.model.id
+    assert w.person().u.model.relationships[0].id in relationship_ids
+    assert w.person().u.model.relationships[0].sourceId == w.person().u.model.id
+    assert w.person().u.model.relationships[0].destinationId == w.software_system().business_app.model.id
