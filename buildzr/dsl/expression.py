@@ -119,8 +119,8 @@ class Expression:
 
     def __init__(
         self,
-        elements: Iterable[Callable[[Element], bool]]=[],
-        relationships: Iterable[Callable[[Relationship], bool]]=[],
+        elements: Iterable[Callable[[Workspace, Element], bool]]=[],
+        relationships: Iterable[Callable[[Workspace, Relationship], bool]]=[],
     ) -> 'None':
         self._elements = elements
         self._relationships = relationships
@@ -135,7 +135,7 @@ class Expression:
         workspace_elements = buildzr.dsl.Explorer(workspace).walk_elements()
         if self._elements:
             for element in workspace_elements:
-                if any([f(Element(element)) for f in self._elements]):
+                if any([f(workspace, Element(element)) for f in self._elements]):
                     filtered_elements.append(element)
         else:
             filtered_elements = list(workspace_elements)
@@ -152,7 +152,7 @@ class Expression:
         workspace_relationships = buildzr.dsl.Explorer(workspace).walk_relationships()
         if self._relationships:
             for relationship in workspace_relationships:
-                if any([f(Relationship(relationship)) for f in self._relationships]):
+                if any([f(workspace, Relationship(relationship)) for f in self._relationships]):
                     filtered_relationships.append(relationship)
         else:
             filtered_relationships = list(workspace_relationships)

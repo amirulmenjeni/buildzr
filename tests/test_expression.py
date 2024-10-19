@@ -43,9 +43,9 @@ def test_filter_elements_by_tags(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
         elements=[
-            lambda e: 'Person' in e.tags,
-            lambda e: 'Container' in e.tags,
-            lambda e: 'user' in e.tags
+            lambda w, e: 'Person' in e.tags,
+            lambda w, e: 'Container' in e.tags,
+            lambda w, e: 'user' in e.tags
         ]
     )
 
@@ -61,7 +61,7 @@ def test_filter_elements_by_technology(workspace: Workspace) -> Optional[None]:
     # This should not cause any problem to the filter.
     filter = expression.Expression(
         elements=[
-            lambda e: e.technology == 'mssql',
+            lambda w, e: e.technology == 'mssql',
         ]
     )
 
@@ -74,8 +74,8 @@ def test_filter_elements_by_sources_and_destinations(workspace: Workspace) -> Op
 
     filter = expression.Expression(
         elements=[
-            lambda e: 'u' in e.sources.names,
-            lambda e: 'db' in e.destinations.names and 'Container' in e.destinations.tags,
+            lambda w, e: 'u' in e.sources.names,
+            lambda w, e: 'db' in e.destinations.names and 'Container' in e.destinations.tags,
         ]
     )
 
@@ -89,7 +89,7 @@ def test_filter_elements_by_properties(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
         elements=[
-            lambda e: 'repo' in e.properties.keys() and 'github.com' in e.properties['repo']
+            lambda w, e: 'repo' in e.properties.keys() and 'github.com' in e.properties['repo']
         ]
     )
 
@@ -102,7 +102,7 @@ def test_filter_elements_by_equal_operator(workspace: Workspace) -> Optional[Non
 
     filter = expression.Expression(
         elements=[
-            lambda e: e == cast(SoftwareSystem, workspace.s).app,
+            lambda w, e: e == cast(SoftwareSystem, workspace.s).app,
         ]
     )
 
@@ -125,7 +125,7 @@ def test_filter_relationships_by_tags(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
         relationships=[
-            lambda r: 'frontend-interface' in r.tags
+            lambda w, r: 'frontend-interface' in r.tags
         ]
     )
 
@@ -142,7 +142,7 @@ def test_filter_relationships_by_technology(workspace: Workspace) -> Optional[No
 
     filter = expression.Expression(
         relationships=[
-            lambda r: 'mssql' in r.tags
+            lambda w, r: 'mssql' in r.tags
         ]
     )
 
@@ -159,7 +159,7 @@ def test_filter_relationships_by_source(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
         relationships=[
-            lambda r: r.source == cast(SoftwareSystem, workspace.s).app
+            lambda w, r: r.source == cast(SoftwareSystem, workspace.s).app
         ]
     )
 
@@ -176,7 +176,7 @@ def test_filter_relationships_by_destination(workspace: Workspace) -> Optional[N
 
     filter = expression.Expression(
         relationships=[
-            lambda r: r.destination == cast(SoftwareSystem, workspace.s).db
+            lambda w, r: r.destination == cast(SoftwareSystem, workspace.s).db
         ]
     )
 
@@ -193,7 +193,7 @@ def test_filter_relationships_by_properties(workspace: Workspace) -> Optional[No
 
     filter = expression.Expression(
         relationships=[
-            lambda r: 'url' in r.properties.keys() and 'example.com' in r.properties['url']
+            lambda w, r: 'url' in r.properties.keys() and 'example.com' in r.properties['url']
         ]
     )
 
@@ -205,3 +205,30 @@ def test_filter_relationships_by_properties(workspace: Workspace) -> Optional[No
     assert len(elements) == len(all_elements)
     assert 'url' in relationships[0].model.properties.keys()
     assert 'example.com' in relationships[0].model.properties['url']
+
+def test_filter_element_with_workspace_path(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        elements=[
+            lambda w, e: e == w.software_system().s.db,
+        ]
+    )
+
+    elements = filter.elements(workspace)
+
+    assert len(elements) == 1
+    assert isinstance(elements[0], Container)
+    assert elements[0].model.technology == 'mssql'
+
+def test_filter_relationship_with_workspace_path(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        relationships=[
+            lambda w, r: r.source == w.person().u
+        ]
+    )
+
+    relationships = filter.relationships(workspace)
+
+    assert len(relationships) == 1
+    assert relationships[0].model.destinationId == workspace.software_system().s.model.id
