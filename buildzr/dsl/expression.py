@@ -119,11 +119,15 @@ class Expression:
 
     def __init__(
         self,
-        elements: Iterable[Callable[[Workspace, Element], bool]]=[],
-        relationships: Iterable[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: Iterable[Callable[[Workspace, Element], bool]]=[lambda w, e: True],
+        exclude_elements: Iterable[Callable[[Workspace, Element], bool]]=[],
+        include_relationships: Iterable[Callable[[Workspace, Relationship], bool]]=[lambda w, e: True],
+        exclude_relationships: Iterable[Callable[[Workspace, Relationship], bool]]=[],
     ) -> 'None':
-        self._elements = elements
-        self._relationships = relationships
+        self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
+        self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
 
     def elements(
         self,
@@ -133,12 +137,11 @@ class Expression:
         filtered_elements: List[DslElement] = []
 
         workspace_elements = buildzr.dsl.Explorer(workspace).walk_elements()
-        if self._elements:
-            for element in workspace_elements:
-                if any([f(workspace, Element(element)) for f in self._elements]):
-                    filtered_elements.append(element)
-        else:
-            filtered_elements = list(workspace_elements)
+        for element in workspace_elements:
+            any_includes = any([f(workspace, Element(element)) for f in self._include_elements])
+            any_excludes = any([f(workspace, Element(element)) for f in self._exclude_elements])
+            if any_includes and not any_excludes:
+                filtered_elements.append(element)
 
         return filtered_elements
 
@@ -150,11 +153,10 @@ class Expression:
         filtered_relationships: List[DslRelationship] = []
 
         workspace_relationships = buildzr.dsl.Explorer(workspace).walk_relationships()
-        if self._relationships:
-            for relationship in workspace_relationships:
-                if any([f(workspace, Relationship(relationship)) for f in self._relationships]):
-                    filtered_relationships.append(relationship)
-        else:
-            filtered_relationships = list(workspace_relationships)
+        for relationship in workspace_relationships:
+            any_includes = any([f(workspace, Relationship(relationship)) for f in self._include_relationships])
+            any_excludes = any([f(workspace, Relationship(relationship)) for f in self._exclude_relationships])
+            if any_includes and not any_excludes:
+                filtered_relationships.append(relationship)
 
         return filtered_relationships

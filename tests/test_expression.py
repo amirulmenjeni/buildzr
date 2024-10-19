@@ -42,7 +42,7 @@ def workspace() -> Workspace:
 def test_filter_elements_by_tags(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        elements=[
+        include_elements=[
             lambda w, e: 'Person' in e.tags,
             lambda w, e: 'Container' in e.tags,
             lambda w, e: 'user' in e.tags
@@ -60,7 +60,7 @@ def test_filter_elements_by_technology(workspace: Workspace) -> Optional[None]:
     #
     # This should not cause any problem to the filter.
     filter = expression.Expression(
-        elements=[
+        include_elements=[
             lambda w, e: e.technology == 'mssql',
         ]
     )
@@ -73,7 +73,7 @@ def test_filter_elements_by_technology(workspace: Workspace) -> Optional[None]:
 def test_filter_elements_by_sources_and_destinations(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        elements=[
+        include_elements=[
             lambda w, e: 'u' in e.sources.names,
             lambda w, e: 'db' in e.destinations.names and 'Container' in e.destinations.tags,
         ]
@@ -88,7 +88,7 @@ def test_filter_elements_by_sources_and_destinations(workspace: Workspace) -> Op
 def test_filter_elements_by_properties(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        elements=[
+        include_elements=[
             lambda w, e: 'repo' in e.properties.keys() and 'github.com' in e.properties['repo']
         ]
     )
@@ -101,7 +101,7 @@ def test_filter_elements_by_properties(workspace: Workspace) -> Optional[None]:
 def test_filter_elements_by_equal_operator(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        elements=[
+        include_elements=[
             lambda w, e: e == cast(SoftwareSystem, workspace.s).app,
         ]
     )
@@ -124,7 +124,7 @@ def test_include_all_elements(workspace: Workspace) -> Optional[None]:
 def test_filter_relationships_by_tags(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        relationships=[
+        include_relationships=[
             lambda w, r: 'frontend-interface' in r.tags
         ]
     )
@@ -141,7 +141,7 @@ def test_filter_relationships_by_tags(workspace: Workspace) -> Optional[None]:
 def test_filter_relationships_by_technology(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        relationships=[
+        include_relationships=[
             lambda w, r: 'mssql' in r.tags
         ]
     )
@@ -158,7 +158,7 @@ def test_filter_relationships_by_technology(workspace: Workspace) -> Optional[No
 def test_filter_relationships_by_source(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        relationships=[
+        include_relationships=[
             lambda w, r: r.source == cast(SoftwareSystem, workspace.s).app
         ]
     )
@@ -175,7 +175,7 @@ def test_filter_relationships_by_source(workspace: Workspace) -> Optional[None]:
 def test_filter_relationships_by_destination(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        relationships=[
+        include_relationships=[
             lambda w, r: r.destination == cast(SoftwareSystem, workspace.s).db
         ]
     )
@@ -192,7 +192,7 @@ def test_filter_relationships_by_destination(workspace: Workspace) -> Optional[N
 def test_filter_relationships_by_properties(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        relationships=[
+        include_relationships=[
             lambda w, r: 'url' in r.properties.keys() and 'example.com' in r.properties['url']
         ]
     )
@@ -209,7 +209,7 @@ def test_filter_relationships_by_properties(workspace: Workspace) -> Optional[No
 def test_filter_element_with_workspace_path(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        elements=[
+        include_elements=[
             lambda w, e: e == w.software_system().s.db,
         ]
     )
@@ -223,7 +223,7 @@ def test_filter_element_with_workspace_path(workspace: Workspace) -> Optional[No
 def test_filter_relationship_with_workspace_path(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
-        relationships=[
+        include_relationships=[
             lambda w, r: r.source == w.person().u
         ]
     )
@@ -232,3 +232,57 @@ def test_filter_relationship_with_workspace_path(workspace: Workspace) -> Option
 
     assert len(relationships) == 1
     assert relationships[0].model.destinationId == workspace.software_system().s.model.id
+
+def test_filter_elements_with_excludes(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        include_elements=[
+            lambda w, e: 'Person' in e.tags,
+            lambda w, e: 'Container' in e.tags,
+            lambda w, e: 'user' in e.tags
+        ],
+        exclude_elements=[
+            lambda w, e: e == w.person().u
+        ]
+    )
+
+    elements = filter.elements(workspace)
+
+    assert len(elements) == 2
+    assert workspace.person().u.model.id not in list(map(lambda x: x.model.id, elements))
+
+def test_filter_relationships_with_excludes(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        include_relationships=[
+            lambda w, r: any(['interface' in tag for tag in r.tags]) # True for all relationships
+        ],
+        exclude_relationships=[
+            lambda w, r: r.source == w.person().u
+        ]
+    )
+
+    relationships = filter.relationships(workspace)
+    assert len(relationships) == 1
+
+def test_filter_elements_without_includes_only_excludes(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        exclude_elements=[
+            lambda w, e: w.person().u == e
+        ]
+    )
+
+    elements = filter.elements(workspace)
+    assert workspace.person().u.model.id not in list(map(lambda x: x.model.id, elements))
+
+def test_filter_relationships_without_includes_only_excludes(workspace: Workspace) -> Optional[None]:
+
+    filter = expression.Expression(
+        exclude_relationships=[
+            lambda w, r: r.source == w.person().u
+        ]
+    )
+
+    relationships = filter.relationships(workspace)
+    assert len(relationships) == 1
