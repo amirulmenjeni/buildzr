@@ -824,8 +824,10 @@ class SystemContextView:
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Callable[[Element], bool]]=[],
-        include_relationships: List[Callable[[Relationship], bool]]=[],
+        include_elements: List[Callable[[Workspace, Element], bool]]=[],
+        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
+        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemContextView()
@@ -840,7 +842,9 @@ class SystemContextView:
 
         self._selector = software_system_selector
         self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
         self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
 
     def _on_added(self) -> None:
 
@@ -852,23 +856,23 @@ class SystemContextView:
 
         software_system = self._selector(self._parent._parent)
         self._m.softwareSystemId = software_system.model.id
-        view_elements_filter: List[Callable[[Element], bool]] = [
-            lambda e: e == software_system,
-            lambda e: software_system.model.id in e.sources.ids,
-            lambda e: software_system.model.id in e.destinations.ids,
+        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+            lambda w, e: e == software_system,
+            lambda w, e: software_system.model.id in e.sources.ids,
+            lambda w, e: software_system.model.id in e.destinations.ids,
         ]
 
         # TODO: (Or, TOTHINK?) The code below includes all sources and all
         # destinations of the subject software system. What if we want to
         # exclude a source? Maybe the predicates in `elements` and
         # `relationships` should be ANDed together afterall?
-        view_relationships_filter: List[Callable[[Relationship], bool]] = [
-            lambda r: software_system == r.source,
-            lambda r: software_system == r.destination,
+        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+            lambda w, r: software_system == r.source,
+            lambda w, r: software_system == r.destination,
         ]
         expression = Expression(
-            elements=self._include_elements + view_elements_filter,
-            relationships=self._include_relationships + view_relationships_filter,
+            include_elements=self._include_elements + view_elements_filter,
+            include_relationships=self._include_relationships + view_relationships_filter,
         )
 
         workspace = self._parent._parent
