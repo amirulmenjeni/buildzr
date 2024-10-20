@@ -7,6 +7,7 @@ from buildzr.dsl import (
     Component,
     SystemContextView,
     ContainerView,
+    ComponentView,
 )
 
 def test_system_context_view() -> Optional[None]:
@@ -211,3 +212,62 @@ def test_container_view() -> Optional[None]:
     assert w.software_system().email_system.email_c2.model.id not in element_ids
     assert w.software_system().business_app.model.relationships[0].id not in relationship_ids
     assert w.person().u.model.relationships[0].id not in relationship_ids
+
+def test_component_view() -> Optional[None]:
+
+    w = Workspace('workspace')\
+        .contains(
+            Person('User'),
+            SoftwareSystem("Software System")\
+            .contains(
+                Container("Web Application")\
+                .contains(
+                    Component("Component 1"),
+                    Component("Component 2"),
+                )\
+                .where(lambda c1, c2: [
+                    c1 >> "Uses" >> c2,
+                ]),
+                Container("Database"),
+            )\
+            .where(lambda web_application, database: [
+                web_application.component_2 >> "Reads from and writes to" >> database,
+            ]),
+        )\
+        .where(lambda user, software_system: [
+            user >> "Uses" >> software_system.web_application.component_1,
+        ])\
+        .with_views(
+            ComponentView(
+                container_selector=lambda w: w.software_system().software_system.web_application,
+                key="web_application_container_00",
+                description="Component View Test",
+            )
+        )\
+        .get_workspace()
+
+    element_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].elements))
+    relationship_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].relationships))
+
+    print("user id:", w.person().user.model.id)
+    print("software system id", w.software_system().software_system.model.id)
+    print("  web application id", w.software_system().software_system.web_application.model.id)
+    print("    component 1 id", w.software_system().software_system.web_application.component_1.model.id)
+    print("    component 2 id", w.software_system().software_system.web_application.component_2.model.id)
+    print("  database id", w.software_system().software_system.database.model.id)
+
+    assert any(w.model.views.componentViews)
+    assert len(w.model.views.componentViews) == 1
+
+    assert w.person().user.model.id in element_ids
+    assert w.software_system().software_system.web_application.component_1.model.id in element_ids
+    assert w.software_system().software_system.web_application.component_2.model.id in element_ids
+    assert w.software_system().software_system.database.model.id in element_ids
+
+    assert w.person().user.model.relationships[0].id in relationship_ids
+    assert w.person().user.model.relationships[0].sourceId in element_ids
+    assert w.person().user.model.relationships[0].destinationId in element_ids
+    assert w.software_system().software_system.web_application.component_1.model.relationships[0].id in relationship_ids
+    assert w.software_system().software_system.web_application.component_2.model.relationships[0].id in relationship_ids
+    assert w.software_system().software_system.web_application.component_2.model.relationships[0].sourceId in element_ids
+    assert w.software_system().software_system.web_application.component_2.model.relationships[0].destinationId in element_ids

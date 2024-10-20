@@ -995,7 +995,7 @@ class ContainerView:
 
 class ComponentView:
 
-    from buildzr.dsl.expression import Expression
+    from buildzr.dsl.expression import Expression, Element, Relationship
 
     @property
     def model(self) -> buildzr.models.ComponentView:
@@ -1012,7 +1012,10 @@ class ComponentView:
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        expression: Optional[Expression]=None,
+        include_elements: List[Callable[[Workspace, Element], bool]]=[],
+        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
+        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ComponentView()
@@ -1026,9 +1029,58 @@ class ComponentView:
         self._m.properties = properties
 
         self._selector = container_selector
+        self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
+        self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
 
     def _on_added(self) -> None:
-        self._m.containerId = self._selector(self._parent._parent)._m.id
+
+        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.models import ElementView, RelationshipView
+
+        container = self._selector(self._parent._parent)
+        self._m.containerId = container.model.id
+
+        component_ids = { component.model.id for component in container.children }
+
+        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+            lambda w, e: e.parent == container,
+            lambda w, e: any(component_ids.intersection({ id for id in e.sources.ids })),
+            lambda w, e: any(component_ids.intersection({ id for id in e.destinations.ids })),
+        ]
+
+        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+            lambda w, r: container == r.source.parent,
+            lambda w, r: container == r.destination.parent,
+        ]
+
+        expression = Expression(
+            include_elements=self._include_elements + view_elements_filter,
+            exclude_elements=self._exclude_elements,
+            include_relationships=self._include_relationships + view_relationships_filter,
+            exclude_relationships=self._exclude_relationships,
+        )
+
+        workspace = self._parent._parent
+
+        element_ids = map(
+            lambda x: str(x.model.id),
+            expression.elements(workspace)
+        )
+
+        relationship_ids = map(
+            lambda x: str(x.model.id),
+            expression.relationships(workspace)
+        )
+
+        self._m.elements = []
+        for element_id in element_ids:
+            self._m.elements.append(ElementView(id=element_id))
+
+        self._m.relationships = []
+        for relationship_id in relationship_ids:
+            self._m.relationships.append(RelationshipView(id=relationship_id))
 
 class Views(DslViewsElement):
 
