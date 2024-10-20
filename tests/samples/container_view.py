@@ -1,4 +1,4 @@
-# Container view example shown in the cookbook:
+# Container view example shown in the cookbook (with a bit of modifications):
 # https://docs.structurizr.com/dsl/cookbook/container-view/
 
 import buildzr
@@ -11,35 +11,26 @@ class SampleContainerView(AbstractBuilder):
 
         w = Workspace('w', scope=None)\
                 .contains(
-                    Person('u'),
-                    SoftwareSystem('email_system')\
+                    Person('user'),
+                    SoftwareSystem('app')
                         .contains(
-                            Container('email_c1'),
-                            Container('email_c2'),
-                        )\
-                        .where(lambda c1, c2: [
-                            c1 >> "Uses" >> c2,
-                        ]),
-                    SoftwareSystem('business_app')
-                        .contains(
-                            Container('business_app_c1'),
-                            Container('business_app_c2'),
+                            Container('web_application'),
+                            Container('database'),
                         )
-                        .where(lambda c1, c2: [
-                            c1 >> "Gets data from" >> c2,
+                        .where(lambda web_application, database: [
+                            web_application >> "Reads from and writes to" >> database,
                         ]),
                     SoftwareSystem('git_repo'), # Unrelated!
                     SoftwareSystem('external_system'), # Also unrelated!
                 )\
-                .where(lambda u, email_system, business_app, git_repo, external_system: [
-                    u >> "Uses" >> business_app,
-                    u >> "Hacks" >> git_repo,
-                    business_app >> "Notifies users using" >> email_system,
+                .where(lambda user, app, git_repo, external_system: [
+                    user >> "Uses" >> app.web_application,
+                    user >> "Hacks" >> git_repo,
                     git_repo >> "Uses" >> external_system,
                 ])\
                 .with_views(
                     ContainerView(
-                        software_system_selector=lambda w: w.software_system().business_app,
+                        software_system_selector=lambda w: w.software_system().app,
                         key="ss_business_app",
                         description="The business app",
                     )

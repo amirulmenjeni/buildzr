@@ -957,8 +957,12 @@ class ContainerView:
         software_system = self._selector(self._parent._parent)
         self._m.softwareSystemId = software_system.model.id
 
+        container_ids = { container.model.id for container in software_system.children}
+
         view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
             lambda w, e: e.parent == software_system,
+            lambda w, e: any(container_ids.intersection({ id for id in e.sources.ids })),
+            lambda w, e: any(container_ids.intersection({ id for id in e.destinations.ids })),
         ]
 
         view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
