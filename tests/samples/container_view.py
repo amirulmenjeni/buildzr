@@ -9,17 +9,41 @@ class SampleContainerView(AbstractBuilder):
 
     def build(self) -> buildzr.models.Workspace:
 
-        workspace = Workspace("My workspace")
+        w = Workspace('w', scope=None)\
+                .contains(
+                    Person('u'),
+                    SoftwareSystem('email_system')\
+                        .contains(
+                            Container('email_c1'),
+                            Container('email_c2'),
+                        )\
+                        .where(lambda c1, c2: [
+                            c1 >> "Uses" >> c2,
+                        ]),
+                    SoftwareSystem('business_app')
+                        .contains(
+                            Container('business_app_c1'),
+                            Container('business_app_c2'),
+                        )
+                        .where(lambda c1, c2: [
+                            c1 >> "Gets data from" >> c2,
+                        ]),
+                    SoftwareSystem('git_repo'), # Unrelated!
+                    SoftwareSystem('external_system'), # Also unrelated!
+                )\
+                .where(lambda u, email_system, business_app, git_repo, external_system: [
+                    u >> "Uses" >> business_app,
+                    u >> "Hacks" >> git_repo,
+                    business_app >> "Notifies users using" >> email_system,
+                    git_repo >> "Uses" >> external_system,
+                ])\
+                .with_views(
+                    ContainerView(
+                        software_system_selector=lambda w: w.software_system().business_app,
+                        key="ss_business_app",
+                        description="The business app",
+                    )
+                )\
+                .get_workspace()
 
-        u = Person("User")
-        s = SoftwareSystem("Software System")
-        workspace.contains(u, s)
-
-        webapp = Container("Web Application")
-        database = Container("Database")
-        s.contains(webapp, database)
-
-        u >> "Uses" >> webapp
-        webapp >> "Reads and writes to" >> database
-
-        return workspace.model
+        return w.model

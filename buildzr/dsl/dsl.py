@@ -230,7 +230,7 @@ class Workspace(DslWorkspaceElement):
     def children(self) -> Optional[List[Union['Person', 'SoftwareSystem']]]:
         return self._children
 
-    def __init__(self, name: str, description: str="", scope: Literal['landscape', 'software_system']='software_system') -> None:
+    def __init__(self, name: str, description: str="", scope: Literal['landscape', 'software_system', None]='software_system') -> None:
         self._m = buildzr.models.Workspace()
         self._parent = None
         self._children: Optional[List[Union['Person', 'SoftwareSystem']]] = []
@@ -243,8 +243,18 @@ class Workspace(DslWorkspaceElement):
             softwareSystems=[],
             deploymentNodes=[],
         )
+
+        scope_mapper: Dict[
+            str,
+            Literal[buildzr.models.Scope.Landscape, buildzr.models.Scope.SoftwareSystem, None]
+        ] = {
+            'landscape': buildzr.models.Scope.Landscape,
+            'software_system': buildzr.models.Scope.SoftwareSystem,
+            None: None
+        }
+
         self.model.configuration = buildzr.models.WorkspaceConfiguration(
-            scope=buildzr.models.Scope.Landscape if scope == 'landscape' else buildzr.models.Scope.SoftwareSystem,
+            scope=scope_mapper[scope],
         )
 
     def contains(
@@ -900,7 +910,7 @@ class SystemContextView:
 
 class ContainerView:
 
-    from buildzr.dsl.expression import Expression
+    from buildzr.dsl.expression import Expression, Element, Relationship
 
     @property
     def model(self) -> buildzr.models.ContainerView:
@@ -917,7 +927,10 @@ class ContainerView:
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        expression: Optional[Expression]=None,
+        include_elements: List[Callable[[Workspace, Element], bool]]=[],
+        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
+        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ContainerView()
@@ -931,9 +944,54 @@ class ContainerView:
         self._m.properties = properties
 
         self._selector = software_system_selector
+        self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
+        self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
 
     def _on_added(self) -> None:
-        self._m.softwareSystemId = self._selector(self._parent._parent)._m.id
+
+        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.models import ElementView, RelationshipView
+
+        software_system = self._selector(self._parent._parent)
+        self._m.softwareSystemId = software_system.model.id
+
+        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+            lambda w, e: e.parent == software_system,
+        ]
+
+        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+            lambda w, r: software_system == r.source.parent,
+            lambda w, r: software_system == r.destination.parent,
+        ]
+
+        expression = Expression(
+            include_elements=self._include_elements + view_elements_filter,
+            exclude_elements=self._exclude_elements,
+            include_relationships=self._include_relationships + view_relationships_filter,
+            exclude_relationships=self._exclude_relationships,
+        )
+
+        workspace = self._parent._parent
+
+        element_ids = map(
+            lambda x: str(x.model.id),
+            expression.elements(workspace)
+        )
+
+        relationship_ids = map(
+            lambda x: str(x.model.id),
+            expression.relationships(workspace)
+        )
+
+        self._m.elements = []
+        for element_id in element_ids:
+            self._m.elements.append(ElementView(id=element_id))
+
+        self._m.relationships = []
+        for relationship_id in relationship_ids:
+            self._m.relationships.append(RelationshipView(id=relationship_id))
 
 class ComponentView:
 
