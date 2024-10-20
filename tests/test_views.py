@@ -322,3 +322,50 @@ def test_component_view_with_exclude_user() -> Optional[None]:
     assert w.software_system().software_system.web_application.component_2.model.relationships[0].id in relationship_ids
     assert w.software_system().software_system.web_application.component_2.model.relationships[0].sourceId in element_ids
     assert w.software_system().software_system.web_application.component_2.model.relationships[0].destinationId in element_ids
+
+def test_container_view_with_multiple_software_systems() -> Optional[None]:
+
+    w = Workspace('workspace')\
+        .contains(
+            SoftwareSystem("App1")\
+            .contains(
+                Container("c1"),
+            ),
+            SoftwareSystem("App2")\
+            .contains(
+                Container("c2"),
+            )
+        )\
+        .where(lambda app1, app2: [
+            app1.c1 >> "uses" >> app2.c2,
+        ])\
+        .with_views(
+            ContainerView(
+                key="container_view_00",
+                description="Container View Test",
+                software_system_selector=lambda w: w.software_system().app1,
+            ),
+        )\
+        .get_workspace()
+
+    assert any(w.model.views.containerViews)
+    assert len(w.model.views.containerViews) == 1
+
+    app1 = w.software_system().app1
+    app2 = w.software_system().app2
+    c1 = app1.c1
+    c2 = app2.c2
+
+    element_ids =  list(map(lambda x: x.id, w.model.views.containerViews[0].elements))
+    relationship_ids =  list(map(lambda x: x.id, w.model.views.containerViews[0].relationships))
+
+    assert len(element_ids) == 2
+    assert {
+        c1.model.id,
+        c2.model.id,
+    }.issubset(set(element_ids))
+
+    assert len(relationship_ids) == 1
+    assert {
+        c1.model.relationships[0].id,
+    }.issubset(set(relationship_ids))
