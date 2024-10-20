@@ -152,12 +152,42 @@ class Expression:
         workspace: Workspace
     ) -> List[DslRelationship]:
 
+        """
+        Returns the relationships that are included as defined in
+        `include_relationships` and excludes those that are defined in
+        `exclude_relationships`. Any relationships that directly works on
+        elements that are excluded as defined in `exclude_elements` will also be
+        excluded.
+        """
+
         filtered_relationships: List[DslRelationship] = []
+
+        def _is_relationship_of_excluded_elements(
+            workspace: Workspace,
+            relationship: Relationship,
+            exclude_element_predicates: Iterable[Callable[[Workspace, Element], bool]],
+        ) -> bool:
+            return any([
+                f(workspace, relationship.source) for f in exclude_element_predicates
+            ] + [
+                f(workspace, relationship.destination) for f in exclude_element_predicates
+            ])
 
         workspace_relationships = buildzr.dsl.Explorer(workspace).walk_relationships()
         for relationship in workspace_relationships:
             any_includes = any([f(workspace, Relationship(relationship)) for f in self._include_relationships])
-            any_excludes = any([f(workspace, Relationship(relationship)) for f in self._exclude_relationships])
+
+            # Also exclude relationships whose source or destination elements are excluded.
+            any_excludes = any([
+                f(workspace, Relationship(relationship))
+                for f in self._exclude_relationships
+            ] + [
+                _is_relationship_of_excluded_elements(
+                    workspace,
+                    Relationship(relationship),
+                    self._exclude_elements,
+                )
+            ])
             if any_includes and not any_excludes:
                 filtered_relationships.append(relationship)
 

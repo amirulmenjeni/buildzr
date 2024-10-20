@@ -870,9 +870,12 @@ class SystemContextView:
             lambda w, r: software_system == r.source,
             lambda w, r: software_system == r.destination,
         ]
+
         expression = Expression(
             include_elements=self._include_elements + view_elements_filter,
+            exclude_elements=self._exclude_elements,
             include_relationships=self._include_relationships + view_relationships_filter,
+            exclude_relationships=self._exclude_relationships,
         )
 
         workspace = self._parent._parent
