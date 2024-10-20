@@ -20,16 +20,20 @@ class SystemContextViewSample(AbstractBuilder):
                             Container('database'),
                             Container('api'),
                         ),
-                    SoftwareSystem('email'),
+                    SoftwareSystem('email_system'),
                 )\
-                .where(lambda user, web_app, _email: [
+                .where(lambda user, web_app, email_system: [
                     user >> "uses" >> web_app,
+                    web_app >> "sends notification using" >> email_system,
                 ])\
                 .with_views(
                     SystemContextView(
                         lambda w: w.software_system().web_app,
                         key='web_app_system_context_00',
                         description="Web App System Context",
+                        exclude_elements=[
+                            lambda w, e: w.person().user == e,
+                        ]
                     )
                 )\
                 .get_workspace()
