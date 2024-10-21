@@ -286,3 +286,22 @@ def test_filter_relationships_without_includes_only_excludes(workspace: Workspac
 
     relationships = filter.relationships(workspace)
     assert len(relationships) == 1
+
+def test_filter_type(workspace: Workspace) -> Optional[None]:
+    # Create an expression with include_elements and exclude_elements
+
+    filter = expression.Expression(
+        include_elements=[
+            lambda w, e: e.type == Person,
+            lambda w, e: e.type == Container,
+        ],
+    )
+
+    elements = filter.elements(workspace)
+
+    assert {
+        workspace.person().u.model.id,
+        workspace.software_system().s.app.model.id,
+        workspace.software_system().s.db.model.id,
+    }.issubset({ id for id in map(lambda x: x.model.id, elements) })
+    assert len(elements) == 3

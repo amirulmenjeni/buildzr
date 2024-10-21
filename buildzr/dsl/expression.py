@@ -1,4 +1,5 @@
 from buildzr.dsl.interfaces import (
+    DslWorkspaceElement,
     DslElement,
     DslRelationship,
 )
@@ -13,7 +14,7 @@ from buildzr.dsl.dsl import (
 )
 
 import buildzr
-from typing import Set, Union, Optional, List, Dict, Any, Callable, Tuple, Sequence, Iterable
+from typing import Set, Union, Optional, List, Dict, Any, Callable, Tuple, Sequence, Iterable, cast, Type
 from typing_extensions import TypeIs
 
 def _has_technology_attribute(obj: DslElement) -> TypeIs[Union[Container, Component]]:
@@ -50,6 +51,15 @@ class Element:
     def __init__(self, element: DslElement):
         self._element = element
 
+    # TODO: Make a test for this in `tests/test_expression.py`
+    @property
+    def id(self) -> str:
+        return cast(str, self._element.model.id)
+
+    @property
+    def type(self) -> Type:
+        return type(self._element)
+
     @property
     def tags(self) -> Set[str]:
         return self._element.tags
@@ -60,9 +70,10 @@ class Element:
             return self._element.model.technology
         return None
 
-    # @property
-    # def parent(self) -> Optional[Union[Workspace, SoftwareSystem, Container]]:
-    #     return self._element.parent
+    # TODO: Make a test for this in `tests/test_expression.py`
+    @property
+    def parent(self) -> Optional[Union[DslWorkspaceElement, DslElement]]:
+        return self._element.parent
 
     @property
     def sources(self) -> FlattenElement:
@@ -84,6 +95,11 @@ class Relationship:
 
     def __init__(self, relationship: _Relationship):
         self._relationship = relationship
+
+    # TODO: Make a test for this in `tests/test_expression.py`
+    @property
+    def id(self) -> str:
+        return cast(str, self._relationship.model.id)
 
     @property
     def tags(self) -> Set[str]:
@@ -150,12 +166,42 @@ class Expression:
         workspace: Workspace
     ) -> List[DslRelationship]:
 
+        """
+        Returns the relationships that are included as defined in
+        `include_relationships` and excludes those that are defined in
+        `exclude_relationships`. Any relationships that directly works on
+        elements that are excluded as defined in `exclude_elements` will also be
+        excluded.
+        """
+
         filtered_relationships: List[DslRelationship] = []
+
+        def _is_relationship_of_excluded_elements(
+            workspace: Workspace,
+            relationship: Relationship,
+            exclude_element_predicates: Iterable[Callable[[Workspace, Element], bool]],
+        ) -> bool:
+            return any([
+                f(workspace, relationship.source) for f in exclude_element_predicates
+            ] + [
+                f(workspace, relationship.destination) for f in exclude_element_predicates
+            ])
 
         workspace_relationships = buildzr.dsl.Explorer(workspace).walk_relationships()
         for relationship in workspace_relationships:
             any_includes = any([f(workspace, Relationship(relationship)) for f in self._include_relationships])
-            any_excludes = any([f(workspace, Relationship(relationship)) for f in self._exclude_relationships])
+
+            # Also exclude relationships whose source or destination elements are excluded.
+            any_excludes = any([
+                f(workspace, Relationship(relationship))
+                for f in self._exclude_relationships
+            ] + [
+                _is_relationship_of_excluded_elements(
+                    workspace,
+                    Relationship(relationship),
+                    self._exclude_elements,
+                )
+            ])
             if any_includes and not any_excludes:
                 filtered_relationships.append(relationship)
 

@@ -4,6 +4,7 @@ from .factory import GenerateId
 from typing_extensions import (
     Self,
     TypeGuard,
+    TypeIs,
 )
 from typing import (
     Any,
@@ -18,6 +19,7 @@ from typing import (
     Protocol,
     Callable,
     Iterable,
+    Literal,
     cast,
     overload,
     Sequence,
@@ -29,6 +31,7 @@ from buildzr.dsl.interfaces import (
     DslElement,
     DslRelationship,
     DslFluentRelationship,
+    DslViewsElement,
     BindLeft,
     TSrc, TDst,
     TParent, TChild,
@@ -141,7 +144,7 @@ class _Relationship(DslRelationship[TSrc, TDst]):
             uses_data.source.destinations.append(self._dst)
             self._dst.sources.append(self._src)
             if _include_in_model:
-                if any(uses_data.source.model.relationships):
+                if uses_data.source.model.relationships:
                     uses_data.source.model.relationships.append(uses_data.relationship)
                 else:
                     uses_data.source.model.relationships = [uses_data.relationship]
@@ -227,7 +230,7 @@ class Workspace(DslWorkspaceElement):
     def children(self) -> Optional[List[Union['Person', 'SoftwareSystem']]]:
         return self._children
 
-    def __init__(self, name: str, description: str="") -> None:
+    def __init__(self, name: str, description: str="", scope: Literal['landscape', 'software_system', None]='software_system') -> None:
         self._m = buildzr.models.Workspace()
         self._parent = None
         self._children: Optional[List[Union['Person', 'SoftwareSystem']]] = []
@@ -240,8 +243,18 @@ class Workspace(DslWorkspaceElement):
             softwareSystems=[],
             deploymentNodes=[],
         )
+
+        scope_mapper: Dict[
+            str,
+            Literal[buildzr.models.Scope.Landscape, buildzr.models.Scope.SoftwareSystem, None]
+        ] = {
+            'landscape': buildzr.models.Scope.Landscape,
+            'software_system': buildzr.models.Scope.SoftwareSystem,
+            None: None
+        }
+
         self.model.configuration = buildzr.models.WorkspaceConfiguration(
-            scope=buildzr.models.Scope.Landscape,
+            scope=scope_mapper[scope],
         )
 
     def contains(
@@ -287,6 +300,17 @@ class Workspace(DslWorkspaceElement):
 
     def software_system(self) -> TypedDynamicAttribute['SoftwareSystem']:
         return TypedDynamicAttribute['SoftwareSystem'](self._dynamic_attrs)
+
+    def with_views(
+        self,
+        *views: Union[
+            'SystemLandscapeView',
+            'SystemContextView',
+            'ContainerView',
+            'ComponentView',
+        ]
+    ) -> 'Views':
+        return Views(self).contains(*views)
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
         return self._dynamic_attrs[name]
@@ -687,3 +711,505 @@ class Component(DslElement):
             return _UsesFrom(self, description=other[0], technology=other[1])
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
+
+_RankDirection = Literal['tb', 'bt', 'lr', 'rl']
+
+_AutoLayout = Optional[
+    Union[
+        _RankDirection,
+        Tuple[_RankDirection, float],
+        Tuple[_RankDirection, float, float]
+    ]
+]
+
+def _auto_layout_to_model(auto_layout: _AutoLayout) -> buildzr.models.AutomaticLayout:
+    """
+    See: https://docs.structurizr.com/dsl/language#autolayout
+    """
+
+    model = buildzr.models.AutomaticLayout()
+
+    def is_auto_layout_with_rank_separation(\
+        auto_layout: _AutoLayout,
+    ) -> TypeIs[Tuple[_RankDirection, float]]:
+        if isinstance(auto_layout, tuple):
+            return len(auto_layout) == 2 and \
+                    type(auto_layout[0]) is _RankDirection and \
+                    type(auto_layout[1]) is float
+        return False
+
+    def is_auto_layout_with_node_separation(\
+        auto_layout: _AutoLayout,
+    ) -> TypeIs[Tuple[_RankDirection, float, float]]:
+        if isinstance(auto_layout, tuple) and len(auto_layout) == 3:
+            return type(auto_layout[0]) is _RankDirection and \
+                   all([type(x) is float for x in auto_layout[1:]])
+        return False
+
+    map_rank_direction: Dict[_RankDirection, buildzr.models.RankDirection] = {
+        'lr': buildzr.models.RankDirection.LeftRight,
+        'tb': buildzr.models.RankDirection.TopBottom,
+        'rl': buildzr.models.RankDirection.RightLeft,
+        'bt': buildzr.models.RankDirection.BottomTop,
+    }
+
+    if auto_layout is not None:
+        if is_auto_layout_with_rank_separation(auto_layout):
+            d, rs = cast(Tuple[_RankDirection, float], auto_layout)
+            model.rankDirection = map_rank_direction[cast(_RankDirection, d)]
+            model.rankSeparation = rs
+        elif is_auto_layout_with_node_separation(auto_layout):
+            d, rs, ns = cast(Tuple[_RankDirection, float, float], auto_layout)
+            model.rankDirection = map_rank_direction[cast(_RankDirection, d)]
+            model.rankSeparation = rs
+            model.nodeSeparation = ns
+        else:
+            model.rankDirection = map_rank_direction[cast(_RankDirection, auto_layout)]
+
+    if model.rankSeparation is None:
+        model.rankSeparation = 300
+    if model.nodeSeparation is None:
+        model.nodeSeparation = 300
+    if model.edgeSeparation is None:
+        model.edgeSeparation = 0
+    if model.implementation is None:
+        model.implementation = buildzr.models.Implementation.Graphviz
+    if model.vertices is None:
+        model.vertices = False
+
+    return model
+
+class SystemLandscapeView:
+
+    from buildzr.dsl.expression import Expression, Element, Relationship
+
+    @property
+    def model(self) -> buildzr.models.SystemLandscapeView:
+        return self._m
+
+    @property
+    def parent(self) -> Optional['Views']:
+        return self._parent
+
+    def __init__(
+        self,
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout='tb',
+        title: Optional[str]=None,
+        include_elements: List[Callable[[Workspace, Element], bool]]=[],
+        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
+        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        properties: Optional[Dict[str, str]]=None,
+    ) -> None:
+        self._m = buildzr.models.SystemLandscapeView()
+        self._parent: Optional['Views'] = None
+
+        self._m.key = key
+        self._m.description = description
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
+        self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
+
+    def _on_added(self) -> None:
+
+        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.models import ElementView, RelationshipView
+
+        expression = Expression(
+            include_elements=self._include_elements,
+            exclude_elements=self._exclude_elements,
+            include_relationships=self._include_relationships,
+            exclude_relationships=self._exclude_relationships,
+        )
+
+        workspace = self._parent._parent
+
+        include_view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+            lambda w, e: e.type == Person,
+            lambda w, e: e.type == SoftwareSystem
+        ]
+
+        exclude_view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+            lambda w, e: e.type == Container,
+            lambda w, e: e.type == Component,
+        ]
+
+        include_view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+            lambda w, r: r.source.type == Person,
+            lambda w, r: r.source.type == SoftwareSystem,
+            lambda w, r: r.destination.type == Person,
+            lambda w, r: r.destination.type == SoftwareSystem,
+        ]
+
+        expression = Expression(
+            include_elements=self._include_elements + include_view_elements_filter,
+            exclude_elements=self._exclude_elements + exclude_view_elements_filter,
+            include_relationships=self._include_relationships + include_view_relationships_filter,
+            exclude_relationships=self._exclude_relationships,
+        )
+
+        element_ids = map(
+            lambda x: str(x.model.id),
+            expression.elements(workspace)
+        )
+
+        relationship_ids = map(
+            lambda x: str(x.model.id),
+            expression.relationships(workspace)
+        )
+
+        self._m.elements = []
+        for element_id in element_ids:
+            self._m.elements.append(ElementView(id=element_id))
+
+        self._m.relationships = []
+        for relationship_id in relationship_ids:
+            self._m.relationships.append(RelationshipView(id=relationship_id))
+
+class SystemContextView:
+
+    """
+    If no filter is applied, this view includes all elements that have a direct
+    relationship with the selected `SoftwareSystem`.
+    """
+
+    from buildzr.dsl.expression import Expression, Element, Relationship
+
+    @property
+    def model(self) -> buildzr.models.SystemContextView:
+        return self._m
+
+    @property
+    def parent(self) -> Optional['Views']:
+        return self._parent
+
+    def __init__(
+        self,
+        software_system_selector: Callable[[Workspace], SoftwareSystem],
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout='tb',
+        title: Optional[str]=None,
+        include_elements: List[Callable[[Workspace, Element], bool]]=[],
+        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
+        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        properties: Optional[Dict[str, str]]=None,
+    ) -> None:
+        self._m = buildzr.models.SystemContextView()
+        self._parent: Optional['Views'] = None
+
+        self._m.key = key
+        self._m.description = description
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        self._selector = software_system_selector
+        self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
+        self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
+
+    def _on_added(self) -> None:
+
+        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.models import ElementView, RelationshipView
+
+        # TODO: Refactor below codes. Similar patterns may exists for other views.
+        # Maybe make the views a subclass of some abstract `BaseView` class?
+
+        software_system = self._selector(self._parent._parent)
+        self._m.softwareSystemId = software_system.model.id
+        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+            lambda w, e: e == software_system,
+            lambda w, e: software_system.model.id in e.sources.ids,
+            lambda w, e: software_system.model.id in e.destinations.ids,
+        ]
+
+        # TODO: (Or, TOTHINK?) The code below includes all sources and all
+        # destinations of the subject software system. What if we want to
+        # exclude a source? Maybe the predicates in `elements` and
+        # `relationships` should be ANDed together afterall?
+        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+            lambda w, r: software_system == r.source,
+            lambda w, r: software_system == r.destination,
+        ]
+
+        expression = Expression(
+            include_elements=self._include_elements + view_elements_filter,
+            exclude_elements=self._exclude_elements,
+            include_relationships=self._include_relationships + view_relationships_filter,
+            exclude_relationships=self._exclude_relationships,
+        )
+
+        workspace = self._parent._parent
+
+        element_ids = map(
+            lambda x: str(x.model.id),
+            expression.elements(workspace)
+        )
+
+        relationship_ids = map(
+            lambda x: str(x.model.id),
+            expression.relationships(workspace)
+        )
+
+        self._m.elements = []
+        for element_id in element_ids:
+            self._m.elements.append(ElementView(id=element_id))
+
+        self._m.relationships = []
+        for relationship_id in relationship_ids:
+            self._m.relationships.append(RelationshipView(id=relationship_id))
+
+class ContainerView:
+
+    from buildzr.dsl.expression import Expression, Element, Relationship
+
+    @property
+    def model(self) -> buildzr.models.ContainerView:
+        return self._m
+
+    @property
+    def parent(self) -> Optional['Views']:
+        return self._parent
+
+    def __init__(
+        self,
+        software_system_selector: Callable[[Workspace], SoftwareSystem],
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout='tb',
+        title: Optional[str]=None,
+        include_elements: List[Callable[[Workspace, Element], bool]]=[],
+        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
+        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        properties: Optional[Dict[str, str]]=None,
+    ) -> None:
+        self._m = buildzr.models.ContainerView()
+        self._parent: Optional['Views'] = None
+
+        self._m.key = key
+        self._m.description = description
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        self._selector = software_system_selector
+        self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
+        self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
+
+    def _on_added(self) -> None:
+
+        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.models import ElementView, RelationshipView
+
+        software_system = self._selector(self._parent._parent)
+        self._m.softwareSystemId = software_system.model.id
+
+        container_ids = { container.model.id for container in software_system.children}
+
+        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+            lambda w, e: e.parent == software_system,
+            lambda w, e: any(container_ids.intersection({ id for id in e.sources.ids })),
+            lambda w, e: any(container_ids.intersection({ id for id in e.destinations.ids })),
+        ]
+
+        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+            lambda w, r: software_system == r.source.parent,
+            lambda w, r: software_system == r.destination.parent,
+        ]
+
+        expression = Expression(
+            include_elements=self._include_elements + view_elements_filter,
+            exclude_elements=self._exclude_elements,
+            include_relationships=self._include_relationships + view_relationships_filter,
+            exclude_relationships=self._exclude_relationships,
+        )
+
+        workspace = self._parent._parent
+
+        element_ids = map(
+            lambda x: str(x.model.id),
+            expression.elements(workspace)
+        )
+
+        relationship_ids = map(
+            lambda x: str(x.model.id),
+            expression.relationships(workspace)
+        )
+
+        self._m.elements = []
+        for element_id in element_ids:
+            self._m.elements.append(ElementView(id=element_id))
+
+        self._m.relationships = []
+        for relationship_id in relationship_ids:
+            self._m.relationships.append(RelationshipView(id=relationship_id))
+
+class ComponentView:
+
+    from buildzr.dsl.expression import Expression, Element, Relationship
+
+    @property
+    def model(self) -> buildzr.models.ComponentView:
+        return self._m
+
+    @property
+    def parent(self) -> Optional['Views']:
+        return self._parent
+
+    def __init__(
+        self,
+        container_selector: Callable[[Workspace], Container],
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout='tb',
+        title: Optional[str]=None,
+        include_elements: List[Callable[[Workspace, Element], bool]]=[],
+        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
+        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        properties: Optional[Dict[str, str]]=None,
+    ) -> None:
+        self._m = buildzr.models.ComponentView()
+        self._parent: Optional['Views'] = None
+
+        self._m.key = key
+        self._m.description = description
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        self._selector = container_selector
+        self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
+        self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
+
+    def _on_added(self) -> None:
+
+        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.models import ElementView, RelationshipView
+
+        container = self._selector(self._parent._parent)
+        self._m.containerId = container.model.id
+
+        component_ids = { component.model.id for component in container.children }
+
+        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+            lambda w, e: e.parent == container,
+            lambda w, e: any(component_ids.intersection({ id for id in e.sources.ids })),
+            lambda w, e: any(component_ids.intersection({ id for id in e.destinations.ids })),
+        ]
+
+        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+            lambda w, r: container == r.source.parent,
+            lambda w, r: container == r.destination.parent,
+        ]
+
+        expression = Expression(
+            include_elements=self._include_elements + view_elements_filter,
+            exclude_elements=self._exclude_elements,
+            include_relationships=self._include_relationships + view_relationships_filter,
+            exclude_relationships=self._exclude_relationships,
+        )
+
+        workspace = self._parent._parent
+
+        element_ids = map(
+            lambda x: str(x.model.id),
+            expression.elements(workspace)
+        )
+
+        relationship_ids = map(
+            lambda x: str(x.model.id),
+            expression.relationships(workspace)
+        )
+
+        self._m.elements = []
+        for element_id in element_ids:
+            self._m.elements.append(ElementView(id=element_id))
+
+        self._m.relationships = []
+        for relationship_id in relationship_ids:
+            self._m.relationships.append(RelationshipView(id=relationship_id))
+
+class Views(DslViewsElement):
+
+    @property
+    def model(self) -> buildzr.models.Views:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    def __init__(
+        self,
+        workspace: Workspace,
+    ) -> None:
+        self._m = buildzr.models.Views()
+        self._parent = workspace
+        self._parent._m.views = self._m
+
+    def contains(
+        self,
+        *views: Union[
+            SystemLandscapeView,
+            SystemContextView,
+            ContainerView,
+            ComponentView,
+        ]) -> Self:
+
+        for view in views:
+            view._parent = self
+            if isinstance(view, SystemLandscapeView):
+                view._on_added()
+                if self._m.systemLandscapeViews:
+                    self._m.systemLandscapeViews.append(view.model)
+                else:
+                    self._m.systemLandscapeViews = [view.model]
+            elif isinstance(view, SystemContextView):
+                view._on_added()
+                if self._m.systemContextViews:
+                    self._m.systemContextViews.append(view.model)
+                else:
+                    self._m.systemContextViews = [view.model]
+            elif isinstance(view, ContainerView):
+                view._on_added()
+                if self._m.containerViews:
+                    self._m.containerViews.append(view.model)
+                else:
+                    self._m.containerViews = [view.model]
+            elif isinstance(view, ComponentView):
+                view._on_added()
+                if self._m.componentViews:
+                    self._m.componentViews.append(view.model)
+                else:
+                    self._m.componentViews = [view.model]
+            else:
+                raise NotImplementedError("The view {0} is currently not supported", type(view))
+
+        return self
+
+    def get_workspace(self) -> Workspace:
+        """
+        Get the `Workspace` which contain this views definition.
+        """
+        return self._parent

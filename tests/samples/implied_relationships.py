@@ -32,6 +32,14 @@ class SampleImpliedRelationships(AbstractBuilder):
                 )\
                 .where(lambda u, s: [
                     u >> "Runs SQL queries" >> s.database,
-                ], implied=True)
+                ], implied=True)\
+                .with_views(
+                    SystemContextView(
+                        key='sample-implied-relationships',
+                        software_system_selector=lambda w: cast(SoftwareSystem, w.s),
+                        description="Sample Implied Relationships"
+                    )
+                )\
+                .get_workspace()
 
         return w.model

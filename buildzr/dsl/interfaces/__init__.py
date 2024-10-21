@@ -3,6 +3,7 @@ from .interfaces import (
     DslFluentRelationship,
     DslRelationship,
     DslWorkspaceElement,
+    DslViewsElement,
     BindLeft,
     BindRight,
     TSrc,

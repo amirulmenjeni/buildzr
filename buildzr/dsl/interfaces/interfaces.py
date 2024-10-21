@@ -162,3 +162,15 @@ class DslFluentRelationship(ABC, Generic[TParent, TChild]):
     @abstractmethod
     def get(self) -> TParent:
         pass
+
+class DslViewsElement(ABC):
+
+    @property
+    @abstractmethod
+    def model(self) -> buildzr.models.Views:
+        pass
+
+    @property
+    @abstractmethod
+    def parent(self) -> DslWorkspaceElement:
+        pass
