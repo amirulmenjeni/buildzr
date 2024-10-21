@@ -5,10 +5,54 @@ from buildzr.dsl import (
     SoftwareSystem,
     Container,
     Component,
+    SystemLandscapeView,
     SystemContextView,
     ContainerView,
     ComponentView,
 )
+
+def test_system_landscape_view() -> Optional[None]:
+
+    w = Workspace('workspace', scope='landscape')\
+        .contains(
+            Person("User"),
+            SoftwareSystem("System A"),
+            SoftwareSystem("System B"),
+        )\
+        .where(lambda user, system_a, system_b: [
+            user >> "Uses" >> system_a,
+            system_a >> "Interacts with" >> system_b,
+        ], implied=True)\
+        .with_views(
+            SystemLandscapeView(
+                key="system_landscape_view_00",
+                description="System Landscape View Test",
+            ),
+        )\
+        .get_workspace()
+
+    assert any(w.model.views.systemLandscapeViews)
+    assert len(w.model.views.systemLandscapeViews) == 1
+
+    user = w.person().user
+    system_a = w.software_system().system_a
+    system_b = w.software_system().system_b
+
+    element_ids = list(map(lambda x: x.id, w.model.views.systemLandscapeViews[0].elements))
+    relationship_ids = list(map(lambda x: x.id, w.model.views.systemLandscapeViews[0].relationships))
+
+    assert len(element_ids) == 3
+    assert {
+        user.model.id,
+        system_a.model.id,
+        system_b.model.id,
+    }.issubset(set(element_ids))
+
+    assert len(relationship_ids) == 2
+    assert {
+        user.model.relationships[0].id,
+        system_a.model.relationships[0].id,
+    }.issubset(set(relationship_ids))
 
 def test_system_context_view() -> Optional[None]:
 

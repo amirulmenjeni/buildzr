@@ -14,7 +14,7 @@ from buildzr.dsl.dsl import (
 )
 
 import buildzr
-from typing import Set, Union, Optional, List, Dict, Any, Callable, Tuple, Sequence, Iterable, cast
+from typing import Set, Union, Optional, List, Dict, Any, Callable, Tuple, Sequence, Iterable, cast, Type
 from typing_extensions import TypeIs
 
 def _has_technology_attribute(obj: DslElement) -> TypeIs[Union[Container, Component]]:
@@ -55,6 +55,10 @@ class Element:
     @property
     def id(self) -> str:
         return cast(str, self._element.model.id)
+
+    @property
+    def type(self) -> Type:
+        return type(self._element)
 
     @property
     def tags(self) -> Set[str]:
