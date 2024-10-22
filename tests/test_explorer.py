@@ -26,18 +26,18 @@ def workspace() -> Workspace:
                                 Component("API layer"),
                                 Component("UI layer"),
                             )\
-                            .where(lambda db, api, ui: [
-                                ui >> ("Calls HTTP API from", "http/api") >> api,
-                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            .where(lambda app: [
+                                app.ui_layer >> ("Calls HTTP API from", "http/api") >> app.api_layer,
+                                app.api_layer >> ("Runs queries from", "sql/sqlite") >> app.database_layer
                             ]),\
                         Container("database"),
                     )\
-                    .where(lambda webapp, database: [
-                        webapp >> "Uses" >> database
+                    .where(lambda s: [
+                        s.webapp >> "Uses" >> s.database
                     ])
             )\
-            .where(lambda u, s: [
-                u >> "Runs SQL queries" >> s.database
+            .where(lambda w: [
+                w.person().u >> "Runs SQL queries" >> w.software_system().s.database
             ], implied=True)
 
     return w

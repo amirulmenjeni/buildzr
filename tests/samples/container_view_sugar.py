@@ -14,8 +14,8 @@ class ViewSugar(AbstractBuilder):
                 Person("u"),
                 SoftwareSystem("s"),
             )\
-            .where(lambda u, s: [
-                u >> "Uses" >> s
+            .where(lambda w: [
+                w.u >> "Uses" >> w.s
             ])
 
         print(w.model)

@@ -17,16 +17,16 @@ class SampleContainerView(AbstractBuilder):
                             Container('web_application'),
                             Container('database'),
                         )
-                        .where(lambda web_application, database: [
-                            web_application >> "Reads from and writes to" >> database,
+                        .where(lambda app: [
+                            app.web_application >> "Reads from and writes to" >> app.database,
                         ]),
                     SoftwareSystem('git_repo'), # Unrelated!
                     SoftwareSystem('external_system'), # Also unrelated!
                 )\
-                .where(lambda user, app, git_repo, external_system: [
-                    user >> "Uses" >> app.web_application,
-                    user >> "Hacks" >> git_repo,
-                    git_repo >> "Uses" >> external_system,
+                .where(lambda w: [
+                    w.user >> "Uses" >> w.software_system().app.web_application,
+                    w.user >> "Hacks" >> w.git_repo,
+                    w.git_repo >> "Uses" >> w.external_system,
                 ])\
                 .with_views(
                     ContainerView(

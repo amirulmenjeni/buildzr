@@ -24,18 +24,18 @@ def workspace() -> Workspace:
                 Container('app'),
                 Container('db', technology='mssql'),
             )\
-            .where(lambda app, db: [
-                app >> "Uses" >> db | With(tags={'backend-interface', 'mssql'}),
+            .where(lambda s: [
+                s.app >> "Uses" >> s.db | With(tags={'backend-interface', 'mssql'}),
             ])
         )\
-        .where(lambda u, s:
-            u >> "Uses" >> s | With(
+        .where(lambda w: [
+            w.person().u >> "Uses" >> w.software_system().s | With(
                 tags={'frontend-interface'},
                 properties={
                     'url': 'http://example.com/docs/api/endpoint',
                 }
             )
-        )
+        ])
 
     return w
 
