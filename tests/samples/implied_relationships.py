@@ -20,18 +20,18 @@ class SampleImpliedRelationships(AbstractBuilder):
                                     Component("API layer"),
                                     Component("UI layer"),
                                 )\
-                                .where(lambda db, api, ui: [
-                                    ui >> ("Calls HTTP API from", "http/api") >> api,
-                                    api >> ("Runs queries from", "sql/sqlite") >> db,
+                                .where(lambda webapp: [
+                                    webapp.ui_layer >> ("Calls HTTP API from", "http/api") >> webapp.api_layer,
+                                    webapp.api_layer >> ("Runs queries from", "sql/sqlite") >> webapp.database_layer,
                                 ]),\
                             Container("database"),
                         )\
-                        .where(lambda webapp, database: [
-                            webapp >> "Uses" >> database
+                        .where(lambda s: [
+                            s.webapp >> "Uses" >> s.database
                         ], implied=True)
                 )\
-                .where(lambda u, s: [
-                    u >> "Runs SQL queries" >> s.database,
+                .where(lambda w: [
+                    w.person().u >> "Runs SQL queries" >> w.software_system().s.database,
                 ], implied=True)\
                 .with_views(
                     SystemContextView(

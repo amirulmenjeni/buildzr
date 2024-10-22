@@ -21,17 +21,17 @@ class SampleComponentView(AbstractBuilder):
                         Component("Component 1"),
                         Component("Component 2"),
                     )\
-                    .where(lambda c1, c2: [
-                        c1 >> "Uses" >> c2,
+                    .where(lambda app: [
+                        app.component_1 >> "Uses" >> app.component_2,
                     ]),
                     Container("Database"),
                 )\
-                .where(lambda web_application, database: [
-                    web_application.component_2 >> "Reads from and writes to" >> database,
+                .where(lambda s: [
+                    s.web_application.component_2 >> "Reads from and writes to" >> s.database,
                 ]),
             )\
-            .where(lambda user, software_system: [
-                user >> "Uses" >> software_system.web_application.component_1,
+            .where(lambda w: [
+                w.person().user >> "Uses" >> w.software_system().software_system.web_application.component_1,
             ])\
             .with_views(
                 ComponentView(

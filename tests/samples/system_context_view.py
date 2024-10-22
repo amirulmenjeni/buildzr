@@ -22,9 +22,9 @@ class SystemContextViewSample(AbstractBuilder):
                         ),
                     SoftwareSystem('email_system'),
                 )\
-                .where(lambda user, web_app, email_system: [
-                    user >> "uses" >> web_app,
-                    web_app >> "sends notification using" >> email_system,
+                .where(lambda w: [
+                    w.person().user >> "uses" >> w.software_system().web_app,
+                    w.software_system().web_app >> "sends notification using" >> w.software_system().email_system,
                 ])\
                 .with_views(
                     SystemContextView(

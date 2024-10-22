@@ -19,9 +19,9 @@ def test_system_landscape_view() -> Optional[None]:
             SoftwareSystem("System A"),
             SoftwareSystem("System B"),
         )\
-        .where(lambda user, system_a, system_b: [
-            user >> "Uses" >> system_a,
-            system_a >> "Interacts with" >> system_b,
+        .where(lambda w: [
+            w.person().user >> "Uses" >> w.software_system().system_a,
+            w.software_system().system_a >> "Interacts with" >> w.software_system().system_b,
         ], implied=True)\
         .with_views(
             SystemLandscapeView(
@@ -64,25 +64,25 @@ def test_system_context_view() -> Optional[None]:
                         Container('email_c1'),
                         Container('email_c2'),
                     )\
-                    .where(lambda c1, c2: [
-                        c1 >> "Uses" >> c2,
+                    .where(lambda s: [
+                        s.email_c1 >> "Uses" >> s.email_c2,
                     ]),
                 SoftwareSystem('business_app')
                     .contains(
                         Container('business_app_c1'),
                         Container('business_app_c2'),
                     )
-                    .where(lambda c1, c2: [
-                        c1 >> "Gets data from" >> c2,
+                    .where(lambda s: [
+                        s.business_app_c1 >> "Gets data from" >> s.business_app_c2,
                     ]),
                 SoftwareSystem('git_repo'), # Unrelated!
                 SoftwareSystem('external_system'), # Also unrelated!
             )\
-            .where(lambda u, email_system, business_app, git_repo, external_system: [
-                u >> "Uses" >> business_app,
-                u >> "Hacks" >> git_repo,
-                business_app >> "Notifies users using" >> email_system,
-                git_repo >> "Uses" >> external_system,
+            .where(lambda w: [
+                w.person().u >> "Uses" >> w.software_system().business_app,
+                w.person().u >> "Hacks" >> w.software_system().git_repo,
+                w.software_system().business_app >> "Notifies users using" >> w.software_system().email_system,
+                w.software_system().git_repo >> "Uses" >> w.software_system().external_system,
             ])\
             .with_views(
                 SystemContextView(
@@ -131,25 +131,25 @@ def test_system_context_view_with_exclude_user() -> Optional[None]:
                         Container('email_c1'),
                         Container('email_c2'),
                     )\
-                    .where(lambda c1, c2: [
-                        c1 >> "Uses" >> c2,
+                    .where(lambda s: [
+                        s.email_c1 >> "Uses" >> s.email_c2,
                     ]),
                 SoftwareSystem('business_app')
                     .contains(
                         Container('business_app_c1'),
                         Container('business_app_c2'),
                     )
-                    .where(lambda c1, c2: [
-                        c1 >> "Gets data from" >> c2,
+                    .where(lambda s: [
+                        s.business_app_c1 >> "Gets data from" >> s.business_app_c2,
                     ]),
                 SoftwareSystem('git_repo'), # Unrelated!
                 SoftwareSystem('external_system'), # Also unrelated!
             )\
-            .where(lambda u, email_system, business_app, git_repo, external_system: [
-                u >> "Uses" >> business_app,
-                u >> "Hacks" >> git_repo,
-                business_app >> "Notifies users using" >> email_system,
-                git_repo >> "Uses" >> external_system,
+            .where(lambda w: [
+                w.person().u >> "Uses" >> w.software_system().business_app,
+                w.person().u >> "Hacks" >> w.software_system().git_repo,
+                w.software_system().business_app >> "Notifies users using" >> w.software_system().email_system,
+                w.software_system().git_repo >> "Uses" >> w.software_system().external_system,
             ])\
             .with_views(
                 SystemContextView(
@@ -204,16 +204,16 @@ def test_container_view() -> Optional[None]:
                         Container('web_application'),
                         Container('database'),
                     )
-                    .where(lambda web_application, database: [
-                        web_application >> "Reads from and writes to" >> database,
+                    .where(lambda app: [
+                        app.web_application >> "Reads from and writes to" >> app.database,
                     ]),
                 SoftwareSystem('git_repo'), # Unrelated!
                 SoftwareSystem('external_system'), # Also unrelated!
             )\
-            .where(lambda user, app, git_repo, external_system: [
-                user >> "Uses" >> app.web_application,
-                user >> "Hacks" >> git_repo,
-                git_repo >> "Uses" >> external_system,
+            .where(lambda w: [
+                w.person().user >> "Uses" >> w.software_system().app.web_application,
+                w.person().user >> "Hacks" >> w.software_system().git_repo,
+                w.software_system().git_repo >> "Uses" >> w.software_system().external_system,
             ])\
             .with_views(
                 ContainerView(
@@ -258,17 +258,17 @@ def test_component_view() -> Optional[None]:
                     Component("Component 1"),
                     Component("Component 2"),
                 )\
-                .where(lambda c1, c2: [
-                    c1 >> "Uses" >> c2,
+                .where(lambda app: [
+                    app.component_1 >> "Uses" >> app.component_2,
                 ]),
                 Container("Database"),
             )\
-            .where(lambda web_application, database: [
-                web_application.component_2 >> "Reads from and writes to" >> database,
+            .where(lambda s: [
+                s.web_application.component_2 >> "Reads from and writes to" >> s.database,
             ]),
         )\
-        .where(lambda user, software_system: [
-            user >> "Uses" >> software_system.web_application.component_1,
+        .where(lambda w: [
+            w.person().user >> "Uses" >> w.software_system().software_system.web_application.component_1,
         ])\
         .with_views(
             ComponentView(
@@ -317,17 +317,17 @@ def test_component_view_with_exclude_user() -> Optional[None]:
                     Component("Component 1"),
                     Component("Component 2"),
                 )\
-                .where(lambda c1, c2: [
-                    c1 >> "Uses" >> c2,
+                .where(lambda app: [
+                    app.component_1 >> "Uses" >> app.component_2,
                 ]),
                 Container("Database"),
             )\
-            .where(lambda web_application, database: [
-                web_application.component_2 >> "Reads from and writes to" >> database,
+            .where(lambda s: [
+                s.web_application.component_2 >> "Reads from and writes to" >> s.database,
             ]),
         )\
-        .where(lambda user, software_system: [
-            user >> "Uses" >> software_system.web_application.component_1,
+        .where(lambda w: [
+            w.person().user >> "Uses" >> w.software_system().software_system.web_application.component_1,
         ])\
         .with_views(
             ComponentView(
@@ -380,8 +380,8 @@ def test_container_view_with_multiple_software_systems() -> Optional[None]:
                 Container("c2"),
             )
         )\
-        .where(lambda app1, app2: [
-            app1.c1 >> "uses" >> app2.c2,
+        .where(lambda w: [
+            w.software_system().app1.c1 >> "uses" >> w.software_system().app2.c2,
         ])\
         .with_views(
             ContainerView(

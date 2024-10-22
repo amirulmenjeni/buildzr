@@ -202,14 +202,14 @@ def test_accessing_child_elements(dsl: DslHolder) -> Optional[None]:
                                 Component("API layer"),
                                 Component("UI layer"),
                             )\
-                            .where(lambda db, api, ui: [
-                                ui >> ("Calls HTTP API from", "http/api") >> api,
-                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            .where(lambda webapp: [
+                                webapp.database_layer >> ("Calls HTTP API from", "http/api") >> webapp.api_layer,
+                                webapp.api_layer >> ("Runs queries from", "sql/sqlite") >> webapp.ui_layer,
                             ]),\
                         Container("database"),
                     )\
-                    .where(lambda webapp, database: [
-                        webapp >> "Uses" >> database
+                    .where(lambda s: [
+                        s.webapp >> "Uses" >> s.database
                     ])
             )\
             .get()
@@ -292,14 +292,14 @@ def test_fluent_workspace_definition() -> Optional[None]:
                                 Component("API layer"),
                                 Component("UI layer"),
                             )\
-                            .where(lambda db, api, ui: [
-                                ui >> ("Calls HTTP API from", "http/api") >> api,
-                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            .where(lambda webapp: [
+                                webapp.ui_layer >> ("Calls HTTP API from", "http/api") >> webapp.api_layer,
+                                webapp.api_layer >> ("Runs queries from", "sql/sqlite") >> webapp.database_layer,
                             ]),\
                         Container("database"),
                     )\
-                    .where(lambda webapp, database: [
-                        webapp >> "Uses" >> database | With(
+                    .where(lambda s: [
+                        s.webapp >> "Uses" >> s.database | With(
                             tags={
                                 'api'
                             },
@@ -309,8 +309,8 @@ def test_fluent_workspace_definition() -> Optional[None]:
                         )
                     ])
             )\
-            .where(lambda u, s: [
-                u >> "Uses" >> s | With(
+            .where(lambda w: [
+                w.person().u >> "Uses" >> w.person().s | With(
                     tags={"5g-network"},
                 )
             ])
@@ -350,8 +350,8 @@ def test_fluent_workspace_definition_without_contains_where() -> Optional[None]:
                 )
             )
         )\
-        .where(lambda u, s: [
-            u >> "Makes API calls" >> s.app.api_layer,
+        .where(lambda w: [
+            w.person().u >> "Makes API calls" >> w.software_system().s.app.api_layer,
         ])
 
     assert isinstance(w.u, Person)
@@ -396,18 +396,18 @@ def test_implied_relationship() -> Optional[None]:
                                 Component("API layer"),
                                 Component("UI layer"),
                             )\
-                            .where(lambda db, api, ui: [
-                                ui >> ("Calls HTTP API from", "http/api") >> api,
-                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            .where(lambda webapp: [
+                                webapp.ui_layer >> ("Calls HTTP API from", "http/api") >> webapp.api_layer,
+                                webapp.api_layer >> ("Runs queries from", "sql/sqlite") >> webapp.database_layer,
                             ]),\
                         Container("database"),
                     )\
-                    .where(lambda webapp, database: [
-                        webapp >> "Uses" >> database
+                    .where(lambda s: [
+                        s.webapp >> "Uses" >> s.database
                     ], implied=True)
             )\
-            .where(lambda u, s: [
-                u >> "Runs SQL queries" >> s.database
+            .where(lambda w: [
+                w.person().u >> "Runs SQL queries" >> w.software_system().s.database
             ], implied=True)
 
     assert isinstance(w.u, Person)
@@ -474,18 +474,18 @@ def test_source_destinations_in_dsl_elements() -> Optional[None]:
                                 Component("API layer"),
                                 Component("UI layer"),
                             )\
-                            .where(lambda db, api, ui: [
-                                ui >> ("Calls HTTP API from", "http/api") >> api,
-                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            .where(lambda webapp: [
+                                webapp.ui_layer >> ("Calls HTTP API from", "http/api") >> webapp.api_layer,
+                                webapp.api_layer >> ("Runs queries from", "sql/sqlite") >> webapp.database_layer,
                             ]),\
                         Container("database"),
                     )\
-                    .where(lambda webapp, database: [
-                        webapp >> "Uses" >> database
+                    .where(lambda s: [
+                        s.webapp >> "Uses" >> s.database
                     ])
             )\
-            .where(lambda u, s: [
-                u >> "Runs SQL queries" >> s.database
+            .where(lambda w: [
+                w.person().u >> "Runs SQL queries" >> w.software_system().s.database
             ], implied=True)
 
     assert isinstance(w.u, Person)
@@ -521,18 +521,18 @@ def test_contains_operator() -> Optional[None]:
                                 Component("API layer"),
                                 Component("UI layer"),
                             )\
-                            .where(lambda db, api, ui: [
-                                ui >> ("Calls HTTP API from", "http/api") >> api,
-                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            .where(lambda webapp: [
+                                webapp.ui_layer >> ("Calls HTTP API from", "http/api") >> webapp.api_layer,
+                                webapp.api_layer >> ("Runs queries from", "sql/sqlite") >> webapp.database_layer,
                             ]),\
                         Container("database"),
                     )\
-                    .where(lambda webapp, database: [
-                        webapp >> "Uses" >> database
+                    .where(lambda s: [
+                        s.webapp >> "Uses" >> s.database
                     ])
             )\
-            .where(lambda u, s: [
-                u >> "Runs SQL queries" >> s.database
+            .where(lambda w: [
+                w.person().u >> "Runs SQL queries" >> w.software_system().s.database
             ], implied=True)
 
     assert isinstance(w.u, Person)
@@ -565,18 +565,18 @@ def test_accessing_typed_dynamic_attributes() -> Optional[None]:
                                 Component("API layer"),
                                 Component("UI layer"),
                             )\
-                            .where(lambda db, api, ui: [
-                                ui >> ("Calls HTTP API from", "http/api") >> api,
-                                api >> ("Runs queries from", "sql/sqlite") >> db,
+                            .where(lambda webapp: [
+                                webapp.ui_layer >> ("Calls HTTP API from", "http/api") >> webapp.api_layer,
+                                webapp.api_layer >> ("Runs queries from", "sql/sqlite") >> webapp.database_layer,
                             ]),\
                         Container("database"),
                     )\
-                    .where(lambda webapp, database: [
-                        webapp >> "Uses" >> database
+                    .where(lambda s: [
+                        s.webapp >> "Uses" >> s.database
                     ])
             )\
-            .where(lambda u, s: [
-                u >> "Runs SQL queries" >> s.database
+            .where(lambda w: [
+                w.person().u >> "Runs SQL queries" >> w.software_system().s.database
             ], implied=True)
 
     assert 'Person' in w.person().u.tags
