@@ -155,8 +155,17 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
 
 class DslFluentRelationship(ABC, Generic[TParent, TChild]):
 
-    @abstractmethod
+    @overload
     def where(self, func: Callable[..., List[DslRelationship]]) -> TParent:
+        pass
+
+    @overload
+    def where(self, func: Callable[[DslWorkspaceElement], List[DslRelationship]]) -> TParent:
+        pass
+
+    @abstractmethod
+    @overload
+    def where(self, func: Union[Callable[..., List[DslRelationship]], Callable[[DslWorkspaceElement], List[DslRelationship]]]) -> TParent:
         pass
 
     @abstractmethod

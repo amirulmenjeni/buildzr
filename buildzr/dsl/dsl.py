@@ -193,8 +193,32 @@ class _FluentRelationship(DslFluentRelationship[TParent, TChild]):
         self._children: Tuple[TChild, ...] = children
         self._parent: TParent = parent
 
+    @overload
+    def where(self, func: Callable[[TParent], List[DslRelationship]], implied: bool=False) -> TParent:
+        ...
+
+    @overload
     def where(self, func: Callable[..., List[DslRelationship]], implied:bool=False) -> TParent:
-        relationships = func(*self._children)
+        ...
+
+    def where(
+        self,
+        func: Union[Callable[..., List[DslRelationship]], Callable[['Workspace'], List[DslRelationship]]],
+        implied: bool=False
+    ) -> TParent:
+        import inspect
+
+        sig = inspect.signature(func)
+        params = sig.parameters
+
+        relationships: List[DslRelationship] = []
+
+        if len(params) == 1:
+            func = cast(Callable[[TParent], List[DslRelationship]], func)
+            relationships = func(self._parent)
+        else:
+            func = cast(Callable[..., List[DslRelationship]], func)
+            relationships = func(*self._children)
 
         # If we have relationship s >> do >> a.b, then create s >> do >> a.
         # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.

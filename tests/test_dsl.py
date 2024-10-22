@@ -583,3 +583,27 @@ def test_accessing_typed_dynamic_attributes() -> Optional[None]:
     assert 'Software System' in w.software_system().s.tags
     assert 'Container' in w.software_system().s.container().webapp.tags
     assert 'Component' in w.software_system().s.container().webapp.component().ui_layer.tags
+
+def test_dsl_where_with_workspace() -> Optional[None]:
+
+    print("test: test_dsl_where_with_workspace")
+
+    w = Workspace("w")\
+        .contains(
+            Person("User"),
+            SoftwareSystem("Software")\
+            .contains(
+                Container("UI"),
+                Container("Database")
+            )\
+            .where(lambda s: [
+                s.ui >> "Reads from and writes to" >> s.database
+            ])
+        )\
+        .where(lambda w: [
+            w.person().user >> "Uses" >> w.software_system().software
+        ])
+
+    assert len(w.children) == 2
+    assert w.software_system().software.ui.model.relationships[0].description == "Reads from and writes to"
+    assert w.person().user.model.relationships[0].description == "Uses"
