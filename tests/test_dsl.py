@@ -12,6 +12,7 @@ from buildzr.dsl import (
     DslRelationship,
     With,
     SystemContextView,
+    desc,
 )
 from buildzr.encoders import JsonEncoder
 
@@ -607,3 +608,25 @@ def test_dsl_where_with_workspace() -> Optional[None]:
     assert len(w.children) == 2
     assert w.software_system().software.ui.model.relationships[0].description == "Reads from and writes to"
     assert w.person().user.model.relationships[0].description == "Uses"
+
+def test_one_source_to_many_destinations_relationships() -> Optional[None]:
+
+    w = Workspace("w")
+
+    person = Person("User")
+    s1 = SoftwareSystem("Software 1")
+    s2 = SoftwareSystem("Software 1")
+
+    relationships = person >> [
+        desc("Uses") >> s1,
+        desc("Gets data", "SQL") >> s2
+    ]
+
+    assert len(relationships) == 2
+    assert relationships[0].model.description == "Uses"
+
+    assert relationships[1].model.description == "Gets data"
+    assert relationships[1].model.technology == "SQL"
+
+# TODO: test create relationship with the new `desc` method.
+# TODO: test similar one to test_one_source_to_many_destinations_relationships but with tags
