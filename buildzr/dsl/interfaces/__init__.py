@@ -6,6 +6,7 @@ from .interfaces import (
     DslViewsElement,
     BindLeft,
     BindRight,
+    BindLeftLate,
     TSrc,
     TDst,
     TParent,

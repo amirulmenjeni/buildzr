@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import (
+    Any,
     Optional,
     Union,
     TypeVar,
@@ -31,6 +32,16 @@ TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
 TParent = TypeVar('TParent', bound=Union['DslWorkspaceElement', 'DslElement'], covariant=True)
 TChild = TypeVar('TChild', bound='DslElement', contravariant=True)
 
+class BindLeftLate(ABC, Generic[TDst]):
+
+    @abstractmethod
+    def set_source(self, source: Any) -> None:
+        pass
+
+    @abstractmethod
+    def get_relationship(self) -> 'Optional[DslRelationship[Any, TDst]]':
+        pass
+
 class BindLeft(ABC, Generic[TSrc, TDst]):
 
     # Note: an abstraction of _UsesFrom
@@ -38,7 +49,6 @@ class BindLeft(ABC, Generic[TSrc, TDst]):
     @abstractmethod
     def __rshift__(self, destination: TDst) -> 'DslRelationship[TSrc, TDst]':
         pass
-
 
 class BindRight(ABC, Generic[TSrc, TDst]):
 
@@ -52,9 +62,14 @@ class BindRight(ABC, Generic[TSrc, TDst]):
     def __rshift__(self, description: str) -> BindLeft[TSrc, TDst]:
         ...
 
+    @overload
     @abstractmethod
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> BindLeft[TSrc, TDst]:
-        pass
+    def __rshift__(self, multiple_destinations: List[BindLeftLate[TDst]]) -> 'List[DslRelationship[TSrc, TDst]]':
+        ...
+
+    @abstractmethod
+    def __rshift__(self, other: Union[str, Tuple[str, str], List[BindLeftLate[TDst]]]) -> Union[BindLeft[TSrc, TDst], 'List[DslRelationship[TSrc, TDst]]']:
+        ...
 
 class DslWorkspaceElement(ABC):
 
@@ -156,7 +171,17 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
 class DslFluentRelationship(ABC, Generic[TParent, TChild]):
 
     @abstractmethod
-    def where(self, func: Callable[[TParent], List[DslRelationship]]) -> TParent:
+    def where(
+        self,
+        func: Callable[
+            [TParent],
+            Sequence[
+                Union[
+                    DslRelationship,
+                    Sequence[DslRelationship]
+                ]
+            ]
+        ]) -> TParent:
         pass
 
     @abstractmethod

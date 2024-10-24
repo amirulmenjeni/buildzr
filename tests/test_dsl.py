@@ -12,6 +12,7 @@ from buildzr.dsl import (
     DslRelationship,
     With,
     SystemContextView,
+    desc,
 )
 from buildzr.encoders import JsonEncoder
 
@@ -607,3 +608,116 @@ def test_dsl_where_with_workspace() -> Optional[None]:
     assert len(w.children) == 2
     assert w.software_system().software.ui.model.relationships[0].description == "Reads from and writes to"
     assert w.person().user.model.relationships[0].description == "Uses"
+
+def test_one_source_to_many_destinations_relationships_for_person() -> Optional[None]:
+
+    w = Workspace("w")
+
+    person = Person("User")
+    s1 = SoftwareSystem("Software 1")
+    s2 = SoftwareSystem("Software 1")
+
+    relationships = person >> [
+        desc("Uses") >> s1,
+        desc("Gets data", "SQL") >> s2
+    ]
+
+    assert len(relationships) == 2
+    assert relationships[0].model.description == "Uses"
+
+    assert relationships[1].model.description == "Gets data"
+    assert relationships[1].model.technology == "SQL"
+
+def test_one_source_to_many_destinations_relationships_in_where_method() -> Optional[None]:
+
+    w = Workspace('w', scope='landscape')\
+        .contains(
+            Person('Personal Banking Customer'),
+            Person('Customer Service Staff'),
+            Person('Back Office Staff'),
+            SoftwareSystem('ATM'),
+            SoftwareSystem('Internet Banking System'),
+            SoftwareSystem('Email System'),
+            SoftwareSystem('Mainframe Banking System'),
+        )\
+        .where(lambda w: [
+            w.person().personal_banking_customer >> [
+                desc("Withdraws cash using") >> w.software_system().atm,
+                desc("Views account balance, and makes payments using") >> w.software_system().internet_banking_system,
+                desc("Ask questions to") >> w.person().customer_service_staff,
+            ],
+            w.person().customer_service_staff >> "Uses" >> w.software_system().mainframe_banking_system,
+            w.person().back_office_staff >> "Uses" >> w.software_system().mainframe_banking_system,
+            w.software_system().atm >> "Uses" >> w.software_system().mainframe_banking_system,
+            w.software_system().email_system >> "Sends e-mail to" >> w.person().personal_banking_customer,
+            w.software_system().internet_banking_system >> [
+                desc("Gets account information from, and makes payments using") >> w.software_system().mainframe_banking_system,
+                desc("Sends e-mail using") >> w.software_system().email_system,
+            ],
+        ])
+
+    relationships = w.person().personal_banking_customer.model.relationships
+    assert len(relationships) == 3
+    assert relationships[0].description == "Withdraws cash using"
+    assert relationships[0].destinationId == w.software_system().atm.model.id
+    assert relationships[1].description == "Views account balance, and makes payments using"
+    assert relationships[1].destinationId == w.software_system().internet_banking_system.model.id
+    assert relationships[2].description == "Ask questions to"
+    assert relationships[2].destinationId == w.person().customer_service_staff.model.id
+
+def test_one_to_one_relationship_creation_with_desc() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+            Person("User"),
+
+            SoftwareSystem("Software 1")\
+            .contains(
+                Container("Container 1"),
+                Container("Container 2"),
+            )\
+            .where(lambda s: [
+                s.container_1 >> desc("Uses", "HTTP") >> s.container_2
+            ]),
+
+            SoftwareSystem("Software 2")\
+            .contains(
+                Container("Container 3")\
+                .contains(
+                    Component("Component 1"),
+                    Component("Component 2"),
+                )\
+                .where(lambda c: [
+                    c.component_1 >> desc("Uses", "TCP") >> c.component_2
+                ])
+            )
+        )\
+        .where(lambda w: [
+            w.person().user >> desc("Uses", "CLI") >> w.software_system().software_1,
+            w.software_system().software_1 >> desc("Uses", "SSH") >> w.software_system().software_2,
+        ])\
+
+    assert w.person().user.model.relationships[0].description == "Uses"
+    assert w.software_system().software_1.model.relationships[0].technology == "SSH"
+    assert w.software_system().software_1.container().container_1.model.relationships[0].technology == "HTTP"
+    assert w.software_system().software_2.container().container_3.component_1.model.relationships[0].technology == "TCP"
+
+def test_one_to_many_relationship_with_tags() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+            Person("User"),
+            SoftwareSystem("Software 1"),
+            SoftwareSystem("Software 2"),
+        )\
+        .where(lambda w: [
+            w.person().user >> [
+                desc("Uses") >> w.software_system().software_1 | With(tags={"CLI"}),
+                desc("Uses") >> w.software_system().software_2 | With(tags={"UI"}),
+            ]
+        ])
+
+    relationships = w.person().user.model.relationships
+    assert len(relationships) == 2
+    assert set(relationships[0].tags.split(',')) == {"CLI", "Relationship"}
+    assert set(relationships[1].tags.split(',')) == {"UI", "Relationship"}

@@ -33,6 +33,7 @@ from buildzr.dsl.interfaces import (
     DslFluentRelationship,
     DslViewsElement,
     BindLeft,
+    BindLeftLate,
     TSrc, TDst,
     TParent, TChild,
 )
@@ -87,6 +88,111 @@ class TypedDynamicAttribute(Generic[TypedModel]):
 
     def __getattr__(self, name: str) -> TypedModel:
         return cast(TypedModel, self._dynamic_attributes.get(name))
+
+def desc(value: str, tech: Optional[str]=None) -> '_RelationshipDescription[Union[Person, SoftwareSystem, Container, Component]]':
+    if tech is None:
+        return _RelationshipDescription(value)
+    else:
+        return _RelationshipDescription(value, tech)
+
+class _RelationshipDescription(Generic[TDst]):
+
+    def __init__(self, description: str, technology: Optional[str]=None) -> None:
+        self._description = description
+        self._technology = technology
+
+    def __rshift__(self, destination: TDst) -> '_UsesFromLate[TDst]':
+        if self._technology:
+            return _UsesFromLate(
+                description=(self._description, self._technology),
+                destination=destination,
+            )
+        return _UsesFromLate(
+            description=self._description,
+            destination=destination,
+        )
+
+class _UsesFromLate(BindLeftLate[TDst]):
+    """
+    This method is used to create a relationship between one source element with
+    multiple destination elements, like so:
+
+    ```python
+    u = Person("user")
+    s1 = SoftwareSystem("software1")
+    s2 = SoftwareSystem("software2")
+
+    # Each element in the following list is a `_UsesFromLate` object.
+    u >> [
+        "Uses" >> s1 | With(tags={"linux", "rules"}),
+        ("Reads from", "SQL") >> s1,
+    ]
+    ```
+
+    This requires late left binding (i.e., the source element is bound after the
+    the destination elements in the list are bounded. This is in contrast to how
+    `_UsesFrom` works, where `u >> "Uses >> s1` binds the source element `u`
+    first (i.e., in `u >> "Uses"` into `_UsesFrom` before finally binding `s1`
+    in `((u >> "Uses) >> s2)`).
+    """
+
+    PossibleSourceType = Union['Person', 'SoftwareSystem', 'Container', 'Component', None]
+
+    @dataclass
+    class _LateBindData:
+        tags: Optional[Set[str]] = None
+        properties: Optional[Dict[str, str]] = None
+        url: Optional[str] = None
+
+    def __init__(self, description: Union[str, Tuple[str, str]], destination: TDst) -> None:
+        if isinstance(description, str):
+            self._description = description
+            self._technology: Optional[str] = None
+        elif isinstance(description, tuple) and len(description) == 2:
+            self._description = description[0]
+            self._technology = description[1]
+        self._source: Optional[_UsesFromLate.PossibleSourceType] = None
+        self._destination = destination
+        self._relationship: Optional[_Relationship[_UsesFromLate.PossibleSourceType, TDst]] = None
+        self._late_bind_data: _UsesFromLate._LateBindData = _UsesFromLate._LateBindData()
+
+    def set_source(self, source: PossibleSourceType) -> None:
+        self._source = source
+        self._relationship =  _Relationship(
+            uses_data=_UsesData(
+                relationship=buildzr.models.Relationship(
+                    id=GenerateId.for_relationship(),
+                    description=self._description,
+                    technology=self._technology,
+                    sourceId=str(self._source.model.id),
+                ),
+                source=self._source,
+            ),
+            destination=self._destination,
+        )
+        self._late_bind_with()
+
+    def get_relationship(self) -> Optional['_Relationship[PossibleSourceType, TDst]']:
+        return self._relationship
+
+    def _late_bind_with(self) -> None:
+        """
+        Binds tags, properties, url to the relationship.
+        Called once the relationship is set.
+        """
+        self._relationship = self._relationship.has(
+            tags=self._late_bind_data.tags,
+            properties=self._late_bind_data.properties,
+            url=self._late_bind_data.url,
+        )
+
+
+    def __or__(self, other: With) -> Self:
+        self._late_bind_data.tags = other.tags
+        self._late_bind_data.properties = other.properties
+        self._late_bind_data.url = other.url
+
+        return self
 
 class _UsesFrom(BindLeft[TSrc, TDst]):
 
@@ -193,12 +299,29 @@ class _FluentRelationship(DslFluentRelationship[TParent, TChild]):
         self._children: Tuple[TChild, ...] = children
         self._parent: TParent = parent
 
-    def where(self, func: Callable[[TParent], List[DslRelationship]], implied: bool=False) -> TParent:
+    def where(
+        self,
+        func: Callable[
+            [TParent],
+            Sequence[
+                Union[
+                    DslRelationship,
+                    Sequence[DslRelationship]
+                ]
+            ]
+        ], implied: bool=False) -> TParent:
 
-        relationships: List[DslRelationship] = []
+        relationships: Sequence[DslRelationship] = []
 
-        func = cast(Callable[[TParent], List[DslRelationship]], func)
-        relationships = func(self._parent)
+        func = cast(Callable[[TParent], Sequence[Union[DslRelationship, Sequence[DslRelationship]]]], func)
+
+        # Flatten the resulting relationship list.
+        relationships = [
+            rel for sublist in func(self._parent)
+            for rel in (
+                sublist if isinstance(sublist, list) else [sublist]
+            )
+        ]
 
         # If we have relationship s >> do >> a.b, then create s >> do >> a.
         # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
@@ -418,7 +541,7 @@ class SoftwareSystem(DslElement):
     def container(self) -> TypedDynamicAttribute['Container']:
         return TypedDynamicAttribute['Container'](self._dynamic_attrs)
 
-    @overload
+    @overload # type: ignore[override]
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
         ...
 
@@ -426,11 +549,34 @@ class SoftwareSystem(DslElement):
     def __rshift__(self, description: str) -> _UsesFrom[Self, _Affectee]:
         ...
 
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _UsesFrom[Self, _Affectee]:
+    @overload
+    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[_Affectee]) -> _UsesFrom[Self, _Affectee]:
+        ...
+
+    @overload
+    def __rshift__(self, multiple_destinations: List[_UsesFromLate[_Affectee]]) -> List[_Relationship[Self, _Affectee]]:
+        ...
+
+    def __rshift__(
+            self,
+            other: Union[
+                str,
+                Tuple[str, str],
+                _RelationshipDescription[_Affectee],
+                List[_UsesFromLate[_Affectee]]
+            ]) -> Union[_UsesFrom[Self, _Affectee], List[_Relationship[Self, _Affectee]]]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
+        elif isinstance(other, _RelationshipDescription):
+            return _UsesFrom(self, description=other._description, technology=other._technology)
+        elif isinstance(other, list):
+            relationships = []
+            for dest in other:
+                dest.set_source(self)
+                relationships.append(dest.get_relationship())
+            return cast(List[_Relationship[Self, SoftwareSystem._Affectee]], relationships)
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
 
@@ -512,7 +658,7 @@ class Person(DslElement):
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
-    @overload
+    @overload # type: ignore[override]
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
         ...
 
@@ -520,11 +666,35 @@ class Person(DslElement):
     def __rshift__(self, description: str) -> _UsesFrom[Self, _Affectee]:
         ...
 
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _UsesFrom[Self, _Affectee]:
+    @overload
+    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[_Affectee]) -> _UsesFrom[Self, _Affectee]:
+        ...
+
+    @overload
+    def __rshift__(self, multiple_destinations: List[_UsesFromLate[_Affectee]]) -> List[_Relationship[Self, _Affectee]]:
+        ...
+
+    def __rshift__(
+        self,
+        other: Union[
+            str,
+            Tuple[str, str],
+            _RelationshipDescription[_Affectee],
+            List[_UsesFromLate[_Affectee]]]
+        ) -> Union[_UsesFrom[Self, _Affectee], List[_Relationship[Self, _Affectee]]]:
+
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
+        elif isinstance(other, _RelationshipDescription):
+            return _UsesFrom(self, description=other._description, technology=other._technology)
+        elif isinstance(other, list):
+            relationships = []
+            for dest in other:
+                dest.set_source(self)
+                relationships.append(dest.get_relationship())
+            return cast(List[_Relationship[Self, Person._Affectee]], relationships)
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
 
@@ -609,7 +779,7 @@ class Container(DslElement):
     def component(self) -> TypedDynamicAttribute['Component']:
         return TypedDynamicAttribute['Component'](self._dynamic_attrs)
 
-    @overload
+    @overload # type: ignore[override]
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
         ...
 
@@ -617,11 +787,34 @@ class Container(DslElement):
     def __rshift__(self, description: str) -> _UsesFrom[Self, _Affectee]:
         ...
 
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _UsesFrom[Self, _Affectee]:
+    @overload
+    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[_Affectee]) -> _UsesFrom[Self, _Affectee]:
+        ...
+
+    @overload
+    def __rshift__(self, multiple_destinations: List[_UsesFromLate[_Affectee]]) -> List[_Relationship[Self, _Affectee]]:
+        ...
+
+    def __rshift__(
+            self,
+            other: Union[
+                str,
+                Tuple[str, str],
+                _RelationshipDescription[_Affectee],
+                List[_UsesFromLate[_Affectee]]
+            ]) -> Union[_UsesFrom[Self, _Affectee], List[_Relationship[Self, _Affectee]]]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
+        elif isinstance(other, _RelationshipDescription):
+            return _UsesFrom(self, description=other._description, technology=other._technology)
+        elif isinstance(other, list):
+            relationships = []
+            for dest in other:
+                dest.set_source(self)
+                relationships.append(dest.get_relationship())
+            return cast(List[_Relationship[Self, Container._Affectee]], relationships)
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
 
@@ -700,7 +893,7 @@ class Component(DslElement):
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
-    @overload
+    @overload # type: ignore[override]
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, _Affectee]:
         ...
 
@@ -708,11 +901,34 @@ class Component(DslElement):
     def __rshift__(self, description: str) -> _UsesFrom[Self, _Affectee]:
         ...
 
-    def __rshift__(self, other: Union[str, Tuple[str, str]]) -> _UsesFrom[Self, _Affectee]:
+    @overload
+    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[_Affectee]) -> _UsesFrom[Self, _Affectee]:
+        ...
+
+    @overload
+    def __rshift__(self, multiple_destinations: List[_UsesFromLate[_Affectee]]) -> List[_Relationship[Self, _Affectee]]:
+        ...
+
+    def __rshift__(
+            self,
+            other: Union[
+                str,
+                Tuple[str, str],
+                _RelationshipDescription[_Affectee],
+                List[_UsesFromLate[_Affectee]]
+            ]) -> Union[_UsesFrom[Self, _Affectee], List[_Relationship[Self, _Affectee]]]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
+        elif isinstance(other, _RelationshipDescription):
+            return _UsesFrom(self, description=other._description, technology=other._technology)
+        elif isinstance(other, list):
+            relationships = []
+            for dest in other:
+                dest.set_source(self)
+                relationships.append(dest.get_relationship())
+            return cast(List[_Relationship[Self, Component._Affectee]], relationships)
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
 
