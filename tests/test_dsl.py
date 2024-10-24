@@ -656,6 +656,15 @@ def test_one_source_to_many_destinations_relationships_in_where_method() -> Opti
             ],
         ])
 
+    relationships = w.person().personal_banking_customer.model.relationships
+    assert len(relationships) == 3
+    assert relationships[0].description == "Withdraws cash using"
+    assert relationships[0].destinationId == w.software_system().atm.model.id
+    assert relationships[1].description == "Views account balance, and makes payments using"
+    assert relationships[1].destinationId == w.software_system().internet_banking_system.model.id
+    assert relationships[2].description == "Ask questions to"
+    assert relationships[2].destinationId == w.person().customer_service_staff.model.id
+
 def test_one_to_one_relationship_creation_with_desc() -> Optional[None]:
 
     w = Workspace("w")\
