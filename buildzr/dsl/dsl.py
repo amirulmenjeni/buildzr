@@ -532,6 +532,10 @@ class SoftwareSystem(DslElement):
         ...
 
     @overload
+    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[_Affectee]) -> _UsesFrom[Self, _Affectee]:
+        ...
+
+    @overload
     def __rshift__(self, multiple_destinations: List[_UsesFromLate[_Affectee]]) -> List[_Relationship[Self, _Affectee]]:
         ...
 
@@ -540,12 +544,15 @@ class SoftwareSystem(DslElement):
             other: Union[
                 str,
                 Tuple[str, str],
+                _RelationshipDescription[_Affectee],
                 List[_UsesFromLate[_Affectee]]
             ]) -> Union[_UsesFrom[Self, _Affectee], List[_Relationship[Self, _Affectee]]]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
+        elif isinstance(other, _RelationshipDescription):
+            return _UsesFrom(self, description=other._description, technology=other._technology)
         elif isinstance(other, list):
             relationships = []
             for dest in other:
@@ -642,6 +649,10 @@ class Person(DslElement):
         ...
 
     @overload
+    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[_Affectee]) -> _UsesFrom[Self, _Affectee]:
+        ...
+
+    @overload
     def __rshift__(self, multiple_destinations: List[_UsesFromLate[_Affectee]]) -> List[_Relationship[Self, _Affectee]]:
         ...
 
@@ -650,6 +661,7 @@ class Person(DslElement):
         other: Union[
             str,
             Tuple[str, str],
+            _RelationshipDescription[_Affectee],
             List[_UsesFromLate[_Affectee]]]
         ) -> Union[_UsesFrom[Self, _Affectee], List[_Relationship[Self, _Affectee]]]:
 
@@ -657,6 +669,8 @@ class Person(DslElement):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
+        elif isinstance(other, _RelationshipDescription):
+            return _UsesFrom(self, description=other._description, technology=other._technology)
         elif isinstance(other, list):
             relationships = []
             for dest in other:
@@ -756,6 +770,10 @@ class Container(DslElement):
         ...
 
     @overload
+    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[_Affectee]) -> _UsesFrom[Self, _Affectee]:
+        ...
+
+    @overload
     def __rshift__(self, multiple_destinations: List[_UsesFromLate[_Affectee]]) -> List[_Relationship[Self, _Affectee]]:
         ...
 
@@ -764,12 +782,15 @@ class Container(DslElement):
             other: Union[
                 str,
                 Tuple[str, str],
+                _RelationshipDescription[_Affectee],
                 List[_UsesFromLate[_Affectee]]
             ]) -> Union[_UsesFrom[Self, _Affectee], List[_Relationship[Self, _Affectee]]]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
+        elif isinstance(other, _RelationshipDescription):
+            return _UsesFrom(self, description=other._description, technology=other._technology)
         elif isinstance(other, list):
             relationships = []
             for dest in other:
@@ -863,6 +884,10 @@ class Component(DslElement):
         ...
 
     @overload
+    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[_Affectee]) -> _UsesFrom[Self, _Affectee]:
+        ...
+
+    @overload
     def __rshift__(self, multiple_destinations: List[_UsesFromLate[_Affectee]]) -> List[_Relationship[Self, _Affectee]]:
         ...
 
@@ -871,12 +896,15 @@ class Component(DslElement):
             other: Union[
                 str,
                 Tuple[str, str],
+                _RelationshipDescription[_Affectee],
                 List[_UsesFromLate[_Affectee]]
             ]) -> Union[_UsesFrom[Self, _Affectee], List[_Relationship[Self, _Affectee]]]:
         if isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
+        elif isinstance(other, _RelationshipDescription):
+            return _UsesFrom(self, description=other._description, technology=other._technology)
         elif isinstance(other, list):
             relationships = []
             for dest in other:

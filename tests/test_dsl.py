@@ -656,5 +656,41 @@ def test_one_source_to_many_destinations_relationships_in_where_method() -> Opti
             ],
         ])
 
-# TODO: test create relationship with the new `desc` method.
+def test_one_to_one_relationship_creation_with_desc() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+            Person("User"),
+
+            SoftwareSystem("Software 1")\
+            .contains(
+                Container("Container 1"),
+                Container("Container 2"),
+            )\
+            .where(lambda s: [
+                s.container_1 >> desc("Uses", "HTTP") >> s.container_2
+            ]),
+
+            SoftwareSystem("Software 2")\
+            .contains(
+                Container("Container 3")\
+                .contains(
+                    Component("Component 1"),
+                    Component("Component 2"),
+                )\
+                .where(lambda c: [
+                    c.component_1 >> desc("Uses", "TCP") >> c.component_2
+                ])
+            )
+        )\
+        .where(lambda w: [
+            w.person().user >> desc("Uses", "CLI") >> w.software_system().software_1,
+            w.software_system().software_1 >> desc("Uses", "SSH") >> w.software_system().software_2,
+        ])\
+
+    assert w.person().user.model.relationships[0].description == "Uses"
+    assert w.software_system().software_1.model.relationships[0].technology == "SSH"
+    assert w.software_system().software_1.container().container_1.model.relationships[0].technology == "HTTP"
+    assert w.software_system().software_2.container().container_3.component_1.model.relationships[0].technology == "TCP"
+
 # TODO: test similar one to test_one_source_to_many_destinations_relationships but with tags
