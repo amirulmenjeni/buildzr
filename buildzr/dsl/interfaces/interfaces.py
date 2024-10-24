@@ -171,7 +171,17 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
 class DslFluentRelationship(ABC, Generic[TParent, TChild]):
 
     @abstractmethod
-    def where(self, func: Callable[[TParent], List[DslRelationship]]) -> TParent:
+    def where(
+        self,
+        func: Callable[
+            [TParent],
+            Sequence[
+                Union[
+                    DslRelationship,
+                    Sequence[DslRelationship]
+                ]
+            ]
+        ]) -> TParent:
         pass
 
     @abstractmethod

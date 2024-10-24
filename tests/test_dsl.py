@@ -609,7 +609,7 @@ def test_dsl_where_with_workspace() -> Optional[None]:
     assert w.software_system().software.ui.model.relationships[0].description == "Reads from and writes to"
     assert w.person().user.model.relationships[0].description == "Uses"
 
-def test_one_source_to_many_destinations_relationships() -> Optional[None]:
+def test_one_source_to_many_destinations_relationships_for_person() -> Optional[None]:
 
     w = Workspace("w")
 
@@ -627,6 +627,34 @@ def test_one_source_to_many_destinations_relationships() -> Optional[None]:
 
     assert relationships[1].model.description == "Gets data"
     assert relationships[1].model.technology == "SQL"
+
+def test_one_source_to_many_destinations_relationships_in_where_method() -> Optional[None]:
+
+    w = Workspace('w', scope='landscape')\
+        .contains(
+            Person('Personal Banking Customer'),
+            Person('Customer Service Staff'),
+            Person('Back Office Staff'),
+            SoftwareSystem('ATM'),
+            SoftwareSystem('Internet Banking System'),
+            SoftwareSystem('Email System'),
+            SoftwareSystem('Mainframe Banking System'),
+        )\
+        .where(lambda w: [
+            w.person().personal_banking_customer >> [
+                desc("Withdraws cash using") >> w.software_system().atm,
+                desc("Views account balance, and makes payments using") >> w.software_system().internet_banking_system,
+                desc("Ask questions to") >> w.person().customer_service_staff,
+            ],
+            w.person().customer_service_staff >> "Uses" >> w.software_system().mainframe_banking_system,
+            w.person().back_office_staff >> "Uses" >> w.software_system().mainframe_banking_system,
+            w.software_system().atm >> "Uses" >> w.software_system().mainframe_banking_system,
+            w.software_system().email_system >> "Sends e-mail to" >> w.person().personal_banking_customer,
+            w.software_system().internet_banking_system >> [
+                desc("Gets account information from, and makes payments using") >> w.software_system().mainframe_banking_system,
+                desc("Sends e-mail using") >> w.software_system().email_system,
+            ],
+        ])
 
 # TODO: test create relationship with the new `desc` method.
 # TODO: test similar one to test_one_source_to_many_destinations_relationships but with tags

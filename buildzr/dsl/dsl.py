@@ -281,12 +281,29 @@ class _FluentRelationship(DslFluentRelationship[TParent, TChild]):
         self._children: Tuple[TChild, ...] = children
         self._parent: TParent = parent
 
-    def where(self, func: Callable[[TParent], List[DslRelationship]], implied: bool=False) -> TParent:
+    def where(
+        self,
+        func: Callable[
+            [TParent],
+            Sequence[
+                Union[
+                    DslRelationship,
+                    Sequence[DslRelationship]
+                ]
+            ]
+        ], implied: bool=False) -> TParent:
 
-        relationships: List[DslRelationship] = []
+        relationships: Sequence[DslRelationship] = []
 
-        func = cast(Callable[[TParent], List[DslRelationship]], func)
-        relationships = func(self._parent)
+        func = cast(Callable[[TParent], Sequence[Union[DslRelationship, Sequence[DslRelationship]]]], func)
+
+        # Flatten the resulting relationship list.
+        relationships = [
+            rel for sublist in func(self._parent)
+            for rel in (
+                sublist if isinstance(sublist, list) else [sublist]
+            )
+        ]
 
         # If we have relationship s >> do >> a.b, then create s >> do >> a.
         # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
