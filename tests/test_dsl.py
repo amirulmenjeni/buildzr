@@ -721,5 +721,3 @@ def test_one_to_many_relationship_with_tags() -> Optional[None]:
     assert len(relationships) == 2
     assert set(relationships[0].tags.split(',')) == {"CLI", "Relationship"}
     assert set(relationships[1].tags.split(',')) == {"UI", "Relationship"}
-
-# TODO: test similar one to test_one_source_to_many_destinations_relationships but with tags
