@@ -702,4 +702,24 @@ def test_one_to_one_relationship_creation_with_desc() -> Optional[None]:
     assert w.software_system().software_1.container().container_1.model.relationships[0].technology == "HTTP"
     assert w.software_system().software_2.container().container_3.component_1.model.relationships[0].technology == "TCP"
 
+def test_one_to_many_relationship_with_tags() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+            Person("User"),
+            SoftwareSystem("Software 1"),
+            SoftwareSystem("Software 2"),
+        )\
+        .where(lambda w: [
+            w.person().user >> [
+                desc("Uses") >> w.software_system().software_1 | With(tags={"CLI"}),
+                desc("Uses") >> w.software_system().software_2 | With(tags={"UI"}),
+            ]
+        ])
+
+    relationships = w.person().user.model.relationships
+    assert len(relationships) == 2
+    assert set(relationships[0].tags.split(',')) == {"CLI", "Relationship"}
+    assert set(relationships[1].tags.split(',')) == {"UI", "Relationship"}
+
 # TODO: test similar one to test_one_source_to_many_destinations_relationships but with tags

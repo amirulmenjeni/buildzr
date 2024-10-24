@@ -138,6 +138,12 @@ class _UsesFromLate(BindLeftLate[TDst]):
 
     PossibleSourceType = Union['Person', 'SoftwareSystem', 'Container', 'Component', None]
 
+    @dataclass
+    class _LateBindData:
+        tags: Optional[Set[str]] = None
+        properties: Optional[Dict[str, str]] = None
+        url: Optional[str] = None
+
     def __init__(self, description: Union[str, Tuple[str, str]], destination: TDst) -> None:
         if isinstance(description, str):
             self._description = description
@@ -148,6 +154,7 @@ class _UsesFromLate(BindLeftLate[TDst]):
         self._source: Optional[_UsesFromLate.PossibleSourceType] = None
         self._destination = destination
         self._relationship: Optional[_Relationship[_UsesFromLate.PossibleSourceType, TDst]] = None
+        self._late_bind_data: _UsesFromLate._LateBindData = _UsesFromLate._LateBindData()
 
     def set_source(self, source: PossibleSourceType) -> None:
         self._source = source
@@ -163,16 +170,27 @@ class _UsesFromLate(BindLeftLate[TDst]):
             ),
             destination=self._destination,
         )
+        self._late_bind_with()
 
     def get_relationship(self) -> Optional['_Relationship[PossibleSourceType, TDst]']:
         return self._relationship
 
-    def __or__(self, other: With) -> Self:
+    def _late_bind_with(self) -> None:
+        """
+        Binds tags, properties, url to the relationship.
+        Called once the relationship is set.
+        """
         self._relationship = self._relationship.has(
-            tags=other.tags,
-            properties=other.properties,
-            url=other.url,
+            tags=self._late_bind_data.tags,
+            properties=self._late_bind_data.properties,
+            url=self._late_bind_data.url,
         )
+
+
+    def __or__(self, other: With) -> Self:
+        self._late_bind_data.tags = other.tags
+        self._late_bind_data.properties = other.properties
+        self._late_bind_data.url = other.url
 
         return self
 
