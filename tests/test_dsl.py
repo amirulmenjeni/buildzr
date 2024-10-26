@@ -721,3 +721,35 @@ def test_one_to_many_relationship_with_tags() -> Optional[None]:
     assert len(relationships) == 2
     assert set(relationships[0].tags.split(',')) == {"CLI", "Relationship"}
     assert set(relationships[1].tags.split(',')) == {"UI", "Relationship"}
+
+def test_dynamic_attribute_access_with_labels() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+            Person("Long Long Name").labeled('u'),
+            SoftwareSystem("Boring Software").labeled('b'),
+            SoftwareSystem("Tedious Software").labeled('t')\
+            .contains(
+                Container('Web User Interface').labeled('web')\
+                .contains(
+                    Component('Database Layer').labeled('db'),
+                    Component('API Layer').labeled('api'),
+                    Component('UI Layer').labeled('ui'),
+                ),
+                Container('SQL Server Database').labeled('mssql'),
+            )
+        )\
+        .where(lambda w: [
+            w.person().u >> [
+                desc("Uses", "CLI") >> w.software_system().boring_software,
+                desc("Uses", "UI") >> w.software_system().t,
+            ]
+        ])
+
+    assert w.person().u.model.name == "Long Long Name"
+    assert w.software_system().b.model.name == "Boring Software"
+    assert w.software_system().t.web.model.name == "Web User Interface"
+    assert w.software_system().t.container().web.db.model.name == "Database Layer"
+    assert w.software_system().t.container().web.api.model.name == "API Layer"
+    assert w.software_system().t.container().web.ui.model.name == "UI Layer"
+    assert w.software_system().t.container().mssql.model.name == "SQL Server Database"
