@@ -123,29 +123,38 @@ class Workspace(DslWorkspaceElement):
 
         args: List[Union[Person, SoftwareSystem]] = []
 
+        # TODO: Refactor this segment. It's too long.
         for model in models:
             if isinstance(model, Person):
                 self._m.model.people.append(model._m)
                 model._parent = self
                 self._dynamic_attrs[_child_name_transform(model.model.name)] = model
+                if model._label:
+                    self._dynamic_attrs[_child_name_transform(model._label)] = model
                 args.append(model)
                 self._children.append(model)
             elif isinstance(model, SoftwareSystem):
                 self._m.model.softwareSystems.append(model._m)
                 model._parent = self
                 self._dynamic_attrs[_child_name_transform(model.model.name)] = model
+                if model._label:
+                    self._dynamic_attrs[_child_name_transform(model._label)] = model
                 args.append(model)
                 self._children.append(model)
             elif _is_software_container_fluent_relationship(model):
                 self._m.model.softwareSystems.append(model._parent._m)
                 model._parent._parent = self
                 self._dynamic_attrs[_child_name_transform(model._parent.model.name)] = model._parent
+                if model._parent._label:
+                    self._dynamic_attrs[_child_name_transform(model._parent._label)] = model._parent
                 args.append(model._parent)
                 self._children.append(model._parent)
             elif _is_container_component_fluent_relationship(model):
                 self._m.model.softwareSystems.append(model._parent._parent._m)
                 model._parent._parent._parent = self
                 self._dynamic_attrs[_child_name_transform(model._parent._parent.model.name)] = model._parent._parent
+                if model._parent._parent._label:
+                    self._dynamic_attrs[_child_name_transform(model._parent._parent._label)] = model._parent._parent
                 args.append(model._parent._parent)
                 self._children.append(model._parent._parent)
         return _FluentRelationship['Workspace', Union['Person', 'SoftwareSystem']](self, tuple(args))
@@ -213,6 +222,7 @@ class SoftwareSystem(DslElementRelationOverrides):
         self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Software System'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Container'] = {}
+        self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
@@ -233,15 +243,23 @@ class SoftwareSystem(DslElementRelationOverrides):
                 self.model.containers.append(child.model)
                 child._parent = self
                 self._dynamic_attrs[_child_name_transform(child.model.name)] = child
+                if child._label:
+                    self._dynamic_attrs[_child_name_transform(child._label)] = child
                 args.append(child)
                 self._children.append(child)
             elif _is_container_component_fluent_relationship(child):
                 self._m.containers.append(child._parent._m)
                 child._parent._parent = self
                 self._dynamic_attrs[_child_name_transform(child._parent.model.name)] = child._parent
+                if child._parent._label:
+                    self._dynamic_attrs[_child_name_transform(child._parent._label)] = child._parent
                 args.append(child._parent)
                 self._children.append(child._parent)
         return _FluentRelationship['SoftwareSystem', 'Container'](self, tuple(args))
+
+    def labeled(self, label: str) -> 'SoftwareSystem':
+        self._label = label
+        return self
 
     def container(self) -> TypedDynamicAttribute['Container']:
         return TypedDynamicAttribute['Container'](self._dynamic_attrs)
@@ -294,12 +312,17 @@ class Person(DslElementRelationOverrides):
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Person'}.union(tags)
+        self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
+
+    def labeled(self, label: str) -> 'Person':
+        self._label = label
+        return self
 
 class Container(DslElementRelationOverrides):
     """
@@ -337,6 +360,8 @@ class Container(DslElementRelationOverrides):
             self.model.components.append(component.model)
             component._parent = self
             self._dynamic_attrs[_child_name_transform(component.model.name)] = component
+            if component._label:
+                self._dynamic_attrs[_child_name_transform(component._label)] = component
             self._children.append(component)
         return _FluentRelationship['Container', 'Component'](self, components)
 
@@ -348,6 +373,7 @@ class Container(DslElementRelationOverrides):
         self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Container'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Component'] = {}
+        self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
@@ -355,6 +381,10 @@ class Container(DslElementRelationOverrides):
         self.model.technology = technology
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
+
+    def labeled(self, label: str) -> 'Container':
+        self._label = label
+        return self
 
     def component(self) -> TypedDynamicAttribute['Component']:
         return TypedDynamicAttribute['Component'](self._dynamic_attrs)
@@ -403,6 +433,7 @@ class Component(DslElementRelationOverrides):
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._tags = {'Element', 'Component'}.union(tags)
+        self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
@@ -410,6 +441,10 @@ class Component(DslElementRelationOverrides):
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
+
+    def labeled(self, label: str) -> 'Component':
+        self._label = label
+        return self
 
 _RankDirection = Literal['tb', 'bt', 'lr', 'rl']
 
