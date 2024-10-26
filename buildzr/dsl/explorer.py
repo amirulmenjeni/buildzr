@@ -3,6 +3,9 @@ from buildzr.dsl.dsl import (
     SoftwareSystem,
     Container,
     Component,
+)
+
+from buildzr.dsl.relations import (
     _Relationship,
     _UsesData,
 )
