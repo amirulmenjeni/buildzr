@@ -27,19 +27,15 @@ from buildzr.dsl.interfaces import (
 from buildzr.dsl.factory import GenerateId
 import buildzr
 
-def _is_software_container_fluent_relationship(
-    obj: '_FluentRelationship[Any, Any]'
-) -> TypeIs['_FluentRelationship[buildzr.dsl.SoftwareSystem, buildzr.dsl.Container]']:
-    return isinstance(obj._parent, buildzr.dsl.SoftwareSystem) and all([
-        isinstance(child, buildzr.dsl.Container) for child in obj._children
-    ])
+def _is_software_fluent_relationship(
+    obj: '_FluentRelationship[Any]'
+) -> TypeIs['_FluentRelationship[buildzr.dsl.SoftwareSystem]']:
+    return isinstance(obj._parent, buildzr.dsl.SoftwareSystem)
 
-def _is_container_component_fluent_relationship(
-    obj: '_FluentRelationship[Any, Any]'
-) -> TypeIs['_FluentRelationship[buildzr.dsl.Container, buildzr.dsl.Component]']:
-    return isinstance(obj._parent, buildzr.dsl.Container) and all([
-        isinstance(child, buildzr.dsl.Component) for child in obj._children
-    ])
+def _is_container_fluent_relationship(
+    obj: '_FluentRelationship[Any]'
+) -> TypeIs['_FluentRelationship[buildzr.dsl.Container]']:
+    return isinstance(obj._parent, buildzr.dsl.Container)
 
 @dataclass
 class With:
@@ -151,7 +147,7 @@ class _Relationship(DslRelationship[TSrc, TDst]):
             self._ref[0].relationship.url = url
         return self
 
-class _FluentRelationship(DslFluentRelationship[TParent, TChild]):
+class _FluentRelationship(DslFluentRelationship[TParent]):
 
     """
     A hidden class used in the fluent DSL syntax after specifying a model (i.e.,
@@ -159,8 +155,7 @@ class _FluentRelationship(DslFluentRelationship[TParent, TChild]):
     specified model.
     """
 
-    def __init__(self, parent: TParent, children: Tuple[TChild, ...]) -> None:
-        self._children: Tuple[TChild, ...] = children
+    def __init__(self, parent: TParent) -> None:
         self._parent: TParent = parent
 
     def where(
