@@ -168,7 +168,13 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
     def __contains__(self, other: 'DslElement') -> bool:
         return self.source.model.id == other.model.id or self.destination.model.id == other.model.id
 
-class DslFluentRelationship(ABC, Generic[TParent, TChild]):
+class DslFluentRelationship(ABC, Generic[TParent]):
+
+    """
+    The abstract class that defines the interface for the fluent relationship
+    definition, where the one or more relationships between elements accessible
+    from the `TParent` element.
+    """
 
     @abstractmethod
     def where(
