@@ -5,6 +5,7 @@ import importlib
 from typing import Optional, cast
 from buildzr.dsl import (
     Workspace,
+    Group,
     SoftwareSystem,
     Person,
     Container,
@@ -753,3 +754,48 @@ def test_dynamic_attribute_access_with_labels() -> Optional[None]:
     assert w.software_system().t.container().web.api.model.name == "API Layer"
     assert w.software_system().t.container().web.ui.model.name == "UI Layer"
     assert w.software_system().t.container().mssql.model.name == "SQL Server Database"
+
+def test_grouping() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+            Group(
+                "Company 1",
+                SoftwareSystem("A")\
+                .contains(
+                    Container("a1"),
+                    Container("a2"),
+                )
+            ),
+            Group(
+                "Company 2",
+                SoftwareSystem("B")\
+                .contains(
+                    Container("b1"),
+                    Container("b2")
+                    .contains(
+                        Component("c1"),
+                    )
+                )
+            ),
+            SoftwareSystem("C"),
+        )\
+        .where(lambda w: [
+            w.software_system().a >> "Uses" >> w.software_system().b,
+            w.software_system().a.container().a1 >> "Uses" >> w.software_system().b.container().b1,
+            w.software_system().a >> "Uses" >> w.software_system().c,
+        ])
+
+    a = w.software_system().a
+    b = w.software_system().b
+
+    assert a.model.group == "Company 1"
+    assert b.model.group == "Company 2"
+    assert a.container().a1.model.group == "Company 1"
+    assert a.container().a2.model.group == "Company 1"
+    assert b.container().b1.model.group == "Company 2"
+    assert b.container().b2.model.group == "Company 2"
+    assert a.model.relationships[0].destinationId == b.model.id
+    assert a.container().a1.model.relationships[0].destinationId == b.container().b1.model.id
+    assert b.container().b2.component().c1.model.group == "Company 2"
+    assert a.model.relationships[1].destinationId == w.software_system().c.model.id
