@@ -112,9 +112,40 @@ class Workspace(DslWorkspaceElement):
             scope=scope_mapper[scope],
         )
 
+    def _contains_group(
+        self,
+        name: str,
+        *models: Union[
+            'Person',
+            'SoftwareSystem',
+            _FluentRelationship['SoftwareSystem'],
+            _FluentRelationship['Container'],
+        ]
+    ) -> None:
+
+        def recursive_group_name_assign(software_system: 'SoftwareSystem') -> None:
+            software_system.model.group = name
+            for container in software_system.children:
+                container.model.group = name
+                for component in container.children:
+                    component.model.group = name
+
+        for model in models:
+            if isinstance(model, Person):
+                model.model.group = name
+            elif isinstance(model, SoftwareSystem):
+                recursive_group_name_assign(model)
+            elif _is_software_fluent_relationship(model):
+                recursive_group_name_assign(model._parent)
+            elif _is_container_fluent_relationship(model):
+                recursive_group_name_assign(model._parent._parent)
+
+        self.contains(*models)
+
     def contains(
         self,
         *models: Union[
+            'Group',
             'Person',
             'SoftwareSystem',
             _FluentRelationship['SoftwareSystem'],
@@ -122,7 +153,9 @@ class Workspace(DslWorkspaceElement):
         ]) -> _FluentRelationship['Workspace']:
 
         for model in models:
-            if isinstance(model, Person):
+            if isinstance(model, Group):
+                self._contains_group(model._name, *model._elements)
+            elif isinstance(model, Person):
                 self.add_element(model)
             elif isinstance(model, SoftwareSystem):
                 self.add_element(model)
@@ -439,6 +472,20 @@ class Component(DslElementRelationOverrides):
     def labeled(self, label: str) -> 'Component':
         self._label = label
         return self
+
+class Group:
+
+    def __init__(
+        self,
+        name: str,
+        *elements: Union[
+            Person,
+            SoftwareSystem,
+            _FluentRelationship[SoftwareSystem],
+            _FluentRelationship[Container],
+    ]) -> None:
+        self._name = name
+        self._elements = elements
 
 _RankDirection = Literal['tb', 'bt', 'lr', 'rl']
 
