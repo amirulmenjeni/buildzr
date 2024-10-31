@@ -1,17 +1,52 @@
 [project]
 name = "buildzr"
 version = "0.0.1"
-description = "Programmatically build C4 diagrams."
+description = "Structurizr for the `buildzr`s 🧱⚒️"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE.md" }
+authors = [
+    { name = "Amirul Menjeni", email = "amirulmenjeni@pm.me" },
+]
+keywords = [
+    "buildzr",
+    "structurizr",
+    "c4model",
+    "diagram",
+    "architecture",
+    "design",
+]
+dependencies = [
+    "pytest>=8.3.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy==1.11.2",
+    "mypy_extensions==1.0.0",
+    "pytest-mypy==0.10.3",
+    "jsondiff==2.0.0",
+    "yq==3.4.3",
+    "datamodel-code-generator==0.26.2",
+]
+
+[project.urls]
+homepage = "https://github.com/amirulmenjeni/buildzr"
 
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools]
-packages = [
+[tool.hatch.build.targets.sdist]
+include = [
+    "README.md",
+    "CONTRUNTING.md",
+    "tests",
     "buildzr",
-    "buildzr.encoders",
-    "buildzr.models",
+]
+exclude = [
+    "examples",
+    "buildzr/modes/generate.sh",
 ]
 
 [tool.mypy]
