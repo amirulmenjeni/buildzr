@@ -2,7 +2,7 @@ from __future__ import annotations
 import dataclasses, json
 import enum
 import humps
-from buildzr.dsl import DslElement, DslWorkspaceElement
+from buildzr.dsl.interfaces import DslElement, DslWorkspaceElement
 from typing import Union, List, TYPE_CHECKING, Type, Any
 from typing_extensions import TypeGuard
 

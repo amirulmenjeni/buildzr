@@ -1,15 +1,14 @@
 import pytest
-from typing import Optional
+from typing import Optional, cast
 from buildzr.dsl import (
     Workspace,
     SoftwareSystem,
     Person,
     Container,
     Component,
-    DslRelationship,
     With,
-    cast,
 )
+from buildzr.dsl.interfaces import DslRelationship
 from buildzr.dsl import Explorer
 
 @pytest.fixture
