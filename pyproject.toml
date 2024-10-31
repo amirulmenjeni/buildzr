@@ -18,6 +18,7 @@ keywords = [
 ]
 dependencies = [
     "pytest>=8.3.3",
+    "pyhumps==3.8.0",
 ]
 
 [project.optional-dependencies]
