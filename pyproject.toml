@@ -40,7 +40,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.sdist]
 include = [
     "README.md",
-    "CONTRUNTING.md",
+    "CONTRIBUTING.md",
     "tests",
     "buildzr",
 ]
