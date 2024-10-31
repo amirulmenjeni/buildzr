@@ -12,3 +12,4 @@ tests/structurizr_dsl_samples
 
 # Build artefacts.
 build
+dist

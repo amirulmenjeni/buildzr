@@ -1,12 +1,22 @@
 [project]
 name = "buildzr"
-version = "0.0.1"
+version = "0.0.1.dev3"
 description = "Structurizr for the `buildzr`s 🧱⚒️"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { file = "LICENSE.md" }
 authors = [
     { name = "Amirul Menjeni", email = "amirulmenjeni@pm.me" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
 ]
 keywords = [
     "buildzr",
@@ -33,6 +43,7 @@ dev = [
 
 [project.urls]
 homepage = "https://github.com/amirulmenjeni/buildzr"
+issues = "https://github.com/amirulmenjeni/buildzr/issues"
 
 [build-system]
 requires = ["hatchling"]
