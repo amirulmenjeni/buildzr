@@ -39,40 +39,9 @@ jobs:
     - name: Install hatch
       uses: pypa/hatch@install
 
-    - name: Determine version bump
-      id: version
+    - name: Release version
       run: |
-        # Note: May not work as expected if this repo has only one commit.
-        LAST_TAG=$(git describe --tags --abbrev=0 2&>/dev/null || echo HEAD~1)
-        COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s%n%b")
-
-        # -- MAJORS --
-        if echo "$COMMITS" | grep -q "BREAKING CHANGE:"; then
-          echo "major"
-          echo "major" >> $GITHUB_OUTPUT
-
-        # -- MINORS --
-        elif echo "$COMMITS" | grep -q "feat"; then
-          echo "minor"
-          echo "minor" >> $GITHUB_OUTPUT
-
-        # -- PATCHES --
-        elif echo "$COMMITS" | grep -q "fix"; then
-          echo "patch"
-          echo "patch" >> $GITHUB_OUTPUT
-        elif echo "$COMMITS" | grep -q "ci"; then
-          echo "patch"
-          echo "patch" >> $GITHUB_OUTPUT
-
-        # -- NO BUMP --
-        else
-          echo "No version bump keyword found."
-          exit 1
-        fi
-
-    - name: Bump release version
-      run: |
-        hatch version ${{ steps.version.outputs.version }}
+        hatch version release
         NEW_VERSION=`hatch version`
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
@@ -80,7 +49,7 @@ jobs:
         git commit -m "[skip-ci] Bump version to $NEW_VERSION"
         git tag $NEW_VERSION
         git push
-        git push --tags
+        git push origin:master --tags
 
     - name: Build package
       run: |

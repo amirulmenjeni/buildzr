@@ -49,16 +49,14 @@ jobs:
     - name: Install hatch
       uses: pypa/hatch@install
 
-    - name: Show commits
+    - name: Show commit message
       run: |
-        git --no-pager log master..HEAD --pretty=format:"%s"
+        echo ${{ github.event.pull_request.commits[0].message }}
 
     - name: Determine version bump
       id: version
       run: |
-        # Note: May not work as expected if this repo has only one commit.
-        LAST_TAG=$(git describe --tags --abbrev=0 2>&/dev/null || echo HEAD~1)
-        COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s%n%b")
+        COMMITS=${{ github.event.pull_request.commits[0].message }}
 
         # -- MAJORS --
         if echo "$COMMITS" | grep -q "BREAKING CHANGE:"; then
@@ -66,15 +64,15 @@ jobs:
           echo "major" >> $GITHUB_OUTPUT
 
         # -- MINORS --
-        elif echo "$COMMITS" | grep -q "feat"; then
+        elif echo "$COMMITS" | grep -q "feat:"; then
           echo "minor"
           echo "minor" >> $GITHUB_OUTPUT
 
         # -- PATCHES --
-        elif echo "$COMMITS" | grep -q "fix"; then
+        elif echo "$COMMITS" | grep -q "fix:"; then
           echo "patch"
           echo "patch" >> $GITHUB_OUTPUT
-        elif echo "$COMMITS" | grep -q "ci"; then
+        elif echo "$COMMITS" | grep -q "ci:"; then
           echo "patch"
           echo "patch" >> $GITHUB_OUTPUT
 
@@ -94,7 +92,7 @@ jobs:
         git commit -m "[skip-ci] Bump version to $NEW_VERSION"
         git tag $NEW_VERSION
         git push
-        git push --tags
+        git push origin:${GITHUB_HEAD_REF} --tags
 
     - name: Build package
       run: |
