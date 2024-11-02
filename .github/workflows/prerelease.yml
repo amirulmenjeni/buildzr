@@ -51,6 +51,8 @@ jobs:
       run: |
         hatch version b
         NEW_VERSION=`hatch version`
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
         git add buildzr/__about__.py
         git commit -m "[skip-ci] Bump version to $NEW_VERSION"
         git tag $NEW_VERSION
