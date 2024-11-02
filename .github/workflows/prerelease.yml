@@ -23,6 +23,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
 
     - name: Set up Python
       uses: actions/setup-python@v2
@@ -47,9 +49,40 @@ jobs:
     - name: Install hatch
       uses: pypa/hatch@install
 
+    - name: Determine version bump
+      id: version
+      run: |
+        # Note: May not work as expected if this repo has only one commit.
+        LAST_TAG=$(git describe --tags --abbrev=0 || echo HEAD~1)
+        COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s%n%b")
+
+        # -- MAJORS --
+        if echo "$COMMITS" | grep -q "BREAKING CHANGE:"; then
+          echo "major"
+          echo "major" >> $GITHUB_OUTPUT
+
+        # -- MINORS --
+        elif echo "$COMMITS" | grep -q "feat"; then
+          echo "minor"
+          echo "minor" >> $GITHUB_OUTPUT
+
+        # -- PATCHES --
+        elif echo "$COMMITS" | grep -q "fix"; then
+          echo "patch"
+          echo "patch" >> $GITHUB_OUTPUT
+        elif echo "$COMMITS" | grep -q "ci"; then
+          echo "patch"
+          echo "patch" >> $GITHUB_OUTPUT
+
+        # -- NO BUMP --
+        else
+          echo "No version bump keyword found."
+          exit 1
+        fi
+
     - name: Bump pre-release version
       run: |
-        hatch version b
+        hatch version ${{ steps.version.outputs.version }},b
         NEW_VERSION=`hatch version`
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
