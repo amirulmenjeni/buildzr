@@ -121,6 +121,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: build
+        path: dist/
         github-token: ${{ secrets.GITHUB_TOKEN }}
         run-id: ${{ github.run_id }}
 
