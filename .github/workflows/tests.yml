@@ -34,4 +34,7 @@ jobs:
         - name: Run tests
           shell: bash -l {0}
           run: |
-            pytest tests
+            # `test_workspaces.py` is useful during development, but not necessary for CI.
+            # Plus, it depends on Java and Structurizr CLI, which are not
+            # installed in the CI environment.
+            pytest --ignore tests/test_workspaces.py
