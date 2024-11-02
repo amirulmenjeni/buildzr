@@ -102,11 +102,6 @@ jobs:
         git push origin HEAD:${{ github.head_ref }}
         git push origin HEAD:${{ github.head_ref }} --tags
 
-    - name: Push tags
-      uses: mathieudutour/github-tag-action@v5
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-
     - name: Build package
       run: |
         python -m build
