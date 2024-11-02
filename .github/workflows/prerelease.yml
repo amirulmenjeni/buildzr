@@ -57,7 +57,7 @@ jobs:
     - name: Determine version bump
       id: version
       run: |
-        COMMITS=${{ steps.get_head_commit_message.outputs.HEAD_COMMIT_MESSAGE }}
+        COMMITS="${{ steps.get_head_commit_message.outputs.HEAD_COMMIT_MESSAGE }}"
 
         # -- MAJORS --
         if echo "$COMMITS" | grep -q "BREAKING CHANGE:"; then
