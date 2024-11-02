@@ -19,7 +19,8 @@
                 "ciarant.vscode-structurizr",
                 "jebbs.plantuml",
                 "ms-python.mypy-type-checker",
-                "tamasfe.even-better-toml"
+                "tamasfe.even-better-toml",
+                "github.vscode-github-actions"
             ]
         }
     }

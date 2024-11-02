@@ -6,7 +6,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && \
     apt install --no-install-recommends -y \
         openjdk-21-jdk \
-        graphviz
+        graphviz \
+        python3-hatchling
 
 COPY  deps/install_structurizr_cli.sh .
 RUN chmod +x install_structurizr_cli.sh

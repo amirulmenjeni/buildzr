@@ -1,6 +1,6 @@
 [project]
 name = "buildzr"
-version = "0.0.1.dev3"
+dynamic = ["version"]
 description = "Structurizr for the `buildzr`s 🧱⚒️"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -30,6 +30,9 @@ dependencies = [
     "pytest>=8.3.3",
     "pyhumps==3.8.0",
 ]
+
+[tool.hatch.version]
+path = "buildzr/__about__.py"
 
 [project.optional-dependencies]
 dev = [

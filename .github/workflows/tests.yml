@@ -1,0 +1,36 @@
+name: tests
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+    tests:
+        runs-on: ubuntu-latest
+
+        steps:
+        - name: Checkout code
+          uses: actions/checkout@v2
+
+        - name: Set up Python
+          uses: actions/setup-python@v2
+          with:
+            python-version: '3.x'
+
+        - name: Set up miniforge
+          uses: conda-incubator/setup-miniconda@v3
+          with:
+            miniforge-version: 'latest'
+            activate-environment: buildzr-dev
+            environment-file: environment.yml
+
+        - name: Verify environment
+          shell: bash -l {0}
+          run: |
+            conda info
+            conda list
+
+        - name: Run tests
+          run: |
+            pytest tests
