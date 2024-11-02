@@ -24,7 +24,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
       with:
-        ref: ${{ github.event.pull_request.head.ref }}
+        ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Set up Python
       uses: actions/setup-python@v2
@@ -49,32 +49,33 @@ jobs:
     - name: Install hatch
       uses: pypa/hatch@install
 
-    - name: Show commit message
+    - name: Get head commit message
+      id: get_head_commit_message
       run: |
-        echo ${{ github.event.pull_request.commits[0].message }}
+        echo "HEAD_COMMIT_MESSAGE=$(git show -s --format="%s%n%b")" >> $GITHUB_OUTPUT
 
     - name: Determine version bump
       id: version
       run: |
-        COMMITS=${{ github.event.pull_request.commits[0].message }}
+        COMMITS=${{ steps.get_head_commit_message.outputs.HEAD_COMMIT_MESSAGE }}
 
         # -- MAJORS --
         if echo "$COMMITS" | grep -q "BREAKING CHANGE:"; then
           echo "major"
-          echo "major" >> $GITHUB_OUTPUT
+          echo "BUMP=major" >> $GITHUB_OUTPUT
 
         # -- MINORS --
         elif echo "$COMMITS" | grep -q "feat:"; then
           echo "minor"
-          echo "minor" >> $GITHUB_OUTPUT
+          echo "BUMP=minor" >> $GITHUB_OUTPUT
 
         # -- PATCHES --
         elif echo "$COMMITS" | grep -q "fix:"; then
           echo "patch"
-          echo "patch" >> $GITHUB_OUTPUT
+          echo "BUMP=patch" >> $GITHUB_OUTPUT
         elif echo "$COMMITS" | grep -q "ci:"; then
           echo "patch"
-          echo "patch" >> $GITHUB_OUTPUT
+          echo "BUMP=patch" >> $GITHUB_OUTPUT
 
         # -- NO BUMP --
         else
@@ -84,7 +85,7 @@ jobs:
 
     - name: Bump pre-release version
       run: |
-        hatch version ${{ steps.version.outputs.version }},b
+        hatch version ${{ steps.version.outputs.BUMP }},b
         NEW_VERSION=`hatch version`
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
