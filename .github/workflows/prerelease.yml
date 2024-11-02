@@ -49,6 +49,10 @@ jobs:
     - name: Install hatch
       uses: pypa/hatch@install
 
+    - name: Show commits
+      run: |
+        git --no-pager log master..HEAD --pretty=format:"%s"
+
     - name: Determine version bump
       id: version
       run: |
