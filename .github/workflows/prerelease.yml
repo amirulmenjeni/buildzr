@@ -93,8 +93,7 @@ jobs:
         git commit -m "[skip-ci] Bump version to $NEW_VERSION"
         git tag $NEW_VERSION
         git push
-        echo "Push tags to HEAD:${GITHUB_HEAD_REF}"
-        git push origin HEAD:${GITHUB_HEAD_REF} --tags
+        git push origin HEAD:${{ github.head_ref }} --tags
 
     - name: Build package
       run: |
