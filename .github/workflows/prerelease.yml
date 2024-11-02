@@ -92,7 +92,7 @@ jobs:
         git add buildzr/__about__.py
         git commit -m "[skip-ci] Bump version to $NEW_VERSION"
         git tag $NEW_VERSION
-        git push
+        git push origin HEAD:${{ github.head_ref }}
         git push origin HEAD:${{ github.head_ref }} --tags
 
     - name: Build package
