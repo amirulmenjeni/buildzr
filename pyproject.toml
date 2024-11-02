@@ -27,7 +27,6 @@ keywords = [
     "design",
 ]
 dependencies = [
-    "pytest>=8.3.3",
     "pyhumps==3.8.0",
 ]
 
@@ -38,6 +37,7 @@ path = "buildzr/__about__.py"
 dev = [
     "mypy==1.11.2",
     "mypy_extensions==1.0.0",
+    "pytest>=8.3.3",
     "pytest-mypy==0.10.3",
     "jsondiff==2.0.0",
     "yq==3.4.3",
