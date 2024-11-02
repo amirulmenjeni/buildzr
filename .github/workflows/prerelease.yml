@@ -84,16 +84,28 @@ jobs:
         fi
 
     - name: Bump pre-release version
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN}}
       run: |
         hatch version ${{ steps.version.outputs.BUMP }},b
         NEW_VERSION=`hatch version`
+
+        git remote set-url --push origin https://amirulmenjeni:${GITHUB_TOKEN}@github.com/amirulmenjeni/buildzr.git
+
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
+
         git add buildzr/__about__.py
         git commit -m "[skip-ci] Bump version to $NEW_VERSION"
+
         git tag $NEW_VERSION
         git push origin HEAD:${{ github.head_ref }}
         git push origin HEAD:${{ github.head_ref }} --tags
+
+    - name: Push tags
+      uses: mathieudutour/github-tag-action@v5
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build package
       run: |
