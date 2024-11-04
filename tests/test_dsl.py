@@ -3,6 +3,7 @@ import inspect
 import pytest
 import importlib
 from typing import Optional, cast
+from buildzr.dsl.interfaces import DslRelationship
 from buildzr.dsl import (
     Workspace,
     Group,
@@ -10,7 +11,6 @@ from buildzr.dsl import (
     Person,
     Container,
     Component,
-    DslRelationship,
     With,
     SystemContextView,
     desc,

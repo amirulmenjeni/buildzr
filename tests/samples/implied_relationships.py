@@ -3,6 +3,7 @@
 
 import buildzr
 from buildzr.dsl import *
+from typing import cast
 from ..abstract_builder import AbstractBuilder
 
 class SampleImpliedRelationships(AbstractBuilder):

@@ -1,17 +1,67 @@
 [project]
 name = "buildzr"
-version = "0.0.1"
-description = "Programmatically build C4 diagrams."
+dynamic = ["version"]
+description = "Structurizr for the `buildzr`s 🧱⚒️"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    { name = "Amirul Menjeni", email = "amirulmenjeni@pm.me" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+keywords = [
+    "buildzr",
+    "structurizr",
+    "c4model",
+    "diagram",
+    "architecture",
+    "design",
+]
+dependencies = [
+    "pytest>=8.3.3",
+    "pyhumps==3.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy==1.11.2",
+    "mypy_extensions==1.0.0",
+    "pytest-mypy==0.10.3",
+    "jsondiff==2.0.0",
+    "yq==3.4.3",
+    "datamodel-code-generator==0.26.2",
+]
+
+[project.urls]
+homepage = "https://github.com/amirulmenjeni/buildzr"
+issues = "https://github.com/amirulmenjeni/buildzr/issues"
 
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools]
-packages = [
+[tool.hatch.version]
+path = "buildzr/__about__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "README.md",
+    "CONTRIBUTING.md",
+    "tests",
     "buildzr",
-    "buildzr.encoders",
-    "buildzr.models",
+]
+exclude = [
+    "examples",
+    "buildzr/modes/generate.sh",
 ]
 
 [tool.mypy]
