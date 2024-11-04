@@ -3,7 +3,7 @@ schema_url=https://raw.githubusercontent.com/structurizr/json/master/structurizr
 curl $schema_url > structurizr.yaml
 
 # Change from 'long' (unsupported) to 'integer'
-yq -i '.components.schemas.Workspace.properties.id.type = "integer"' structurizr.yaml
+yq -i -y '.components.schemas.Workspace.properties.id.type = "integer"' structurizr.yaml
 
 # Type 'integer' doesn't support 'number' type, but supports the following:
 # int32, int64, default, date-time, unix-time

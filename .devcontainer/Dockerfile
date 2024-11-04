@@ -19,4 +19,10 @@ RUN chmod +x install_structurizr_lite.sh && \
 
 USER vscode
 ENV PATH="/root/.local/bin:$PATH"
+
+# For building and versioning the package.
 RUN pipx install hatch
+
+# Required for the `buildzr/models/generate.sh` script, for generating `models.py`.
+RUN pipx install datamodel-code-generator
+RUN pipx install yq
