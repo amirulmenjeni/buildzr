@@ -33,7 +33,9 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
-    needs: check_skip_flags
+    needs:
+      - check_skip_flags
+      - commitlint
 
     if: ${{ !contains(needs.check_skip_flags.outputs.head-commit-message, '[skip-ci]') }}
 
