@@ -1,13 +1,12 @@
 name: prerelease
 
 on:
-  pull_request:
-    types:
-      - closed
+  push:
+    branches:
+      - test/version-bump
 
 jobs:
   release_version:
-    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     outputs:
       release_version: ${{ steps.get-release-version.outputs.release_version }}
@@ -22,7 +21,6 @@ jobs:
         echo "::set-output name=release_version::$(hatch version release)"
 
   publish:
-    if: github.event.pull_request.merged == true
     needs: release_version
     runs-on: ubuntu-latest
     steps:
