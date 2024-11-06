@@ -3,7 +3,7 @@ name: prerelease
 on:
   push:
     branches:
-      - master
+      - fix/release-workflow-target
 
 jobs:
   release_version:
@@ -59,7 +59,7 @@ jobs:
         name: build
         path: dist/
 
-    - name: Publish package to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+    # - name: Publish package to PyPI
+    #   uses: pypa/gh-action-pypi-publish@release/v1
+    #   with:
+    #     password: ${{ secrets.PYPI_API_TOKEN }}
