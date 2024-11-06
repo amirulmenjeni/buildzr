@@ -34,8 +34,8 @@ jobs:
         git commit -m "ci: [skip-ci] Update version to $NEW_VERSION"
 
         git tag $version
-        git push origin HEAD:${{ github.head_ref }}
-        git push origin HEAD:${{ github.head_ref }} --tags
+        git push origin ${{ github.ref}}
+        git push origin ${{ github.ref }} --tags
 
     - name: Build package
       run: |
