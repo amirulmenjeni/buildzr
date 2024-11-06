@@ -131,9 +131,7 @@ jobs:
         git add buildzr/__about__.py
         git commit -m "ci: [skip-ci] Update version to $NEW_VERSION"
 
-        git tag $NEW_VERSION
         git push origin HEAD:${{ github.head_ref }}
-        git push origin HEAD:${{ github.head_ref }} --tags
 
     - name: Build package
       run: |
