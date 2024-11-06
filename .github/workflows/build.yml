@@ -95,8 +95,6 @@ jobs:
       uses: paulhatch/semantic-version@v5.4.0
       id: semantic-version
       with:
-        tag_prefix: "v"
-
         # e.g., `feat(scope)!:` or `feat!:`
         major_pattern: "/^\\w+(\\(.+\\))?!:/"
         major_regexp_flags: ""
@@ -107,7 +105,7 @@ jobs:
         # Follow default hatch versioning format.
         # See: https://hatch.pypa.io/1.9/version/#supported-segments
         version_format: "${major}.${minor}.${patch}.dev${increment}"
-        bump_each_commit: false
+        bump_each_commit: true
         bump_each_commit_patch_pattern: ""
         search_commit_body: false
         user_format_type: "csv"
