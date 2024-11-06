@@ -15,6 +15,10 @@ jobs:
     outputs:
       src: ${{ steps.check-src-changed.outputs.changes.src }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
       - uses: dorny/paths-filter@v3
         id: check-src-changed
         with:
