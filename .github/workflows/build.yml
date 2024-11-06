@@ -55,9 +55,7 @@ jobs:
       - commitlint
       - check_changes
 
-    if: |
-       ${{ !contains(needs.check_skip_flags.outputs.head-commit-message, '[skip-ci]') }} &&
-       needs.check_changes.outputs.src == 'true'
+    if: ${{ !contains(needs.check_skip_flags.outputs.head-commit-message, '[skip-ci]') && needs.check_changes.outputs.src == 'true' }}
 
     steps:
     - name: Checkout code
