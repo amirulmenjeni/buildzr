@@ -38,6 +38,8 @@ jobs:
         git push origin ${{ github.ref}}
         git push origin ${{ github.ref }} --tags
 
+        # Do nothing. See how it behave.
+
     - name: Build package
       run: |
         python -m build
