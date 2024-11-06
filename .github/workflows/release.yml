@@ -37,6 +37,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         version: ${{ needs.release_version.outputs.release_version }}
       run: |
+        hatch version $version
         git remote set-url --push origin https://amirulmenjeni:${GITHUB_TOKEN}@github.com/amirulmenjeni/buildzr.git
 
         git config user.name "GitHub Actions"
