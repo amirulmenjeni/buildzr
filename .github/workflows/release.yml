@@ -30,10 +30,11 @@ jobs:
         git config user.email "actions@github.com"
 
         hatch version release
+        NEW_VERSION=$(hatch version)
         git add buildzr/__about__.py
         git commit -m "ci: [skip-ci] Update version to $NEW_VERSION"
 
-        git tag $version
+        git tag $NEW_VERSION
         git push origin ${{ github.ref}}
         git push origin ${{ github.ref }} --tags
 
