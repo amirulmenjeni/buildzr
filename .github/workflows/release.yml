@@ -1,0 +1,64 @@
+name: prerelease
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  release_version:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      release_version: ${{ steps.get-release-version.outputs.release_version }}
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Install Hatch
+      uses: pypa/hatch@install
+    - name: Get release version
+      id: get-release-version
+      run: |
+        echo "::set-output name=release_version::$(hatch version release)"
+
+  publish:
+    if: github.event.pull_request.merged == true
+    needs: release_version
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install dependencies for building the package
+      run: |
+        python -m pip install --upgrade pip
+        pip install --upgrade build
+
+    - name: Update Version
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        version: ${{ needs.release_version.outputs.release_version }}
+      run: |
+        git remote set-url --push origin https://amirulmenjeni:${GITHUB_TOKEN}@github.com/amirulmenjeni/buildzr.git
+
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
+
+        git add buildzr/__about__.py
+        git commit -m "ci: [skip-ci] Update version to $NEW_VERSION"
+
+        git tag $version
+        git push origin HEAD:${{ github.head_ref }}
+        git push origin HEAD:${{ github.head_ref }} --tags
+
+    - name: Build package
+      run: |
+        python -m build
+
+    - name: Upload build
+      uses: actions/upload-artifact@v4
+      with:
+        name: build
+        path: dist/
+
+    - name: Publish package to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
