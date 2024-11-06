@@ -10,7 +10,11 @@ If you're not familiar with Structurizr, it is both an open standard (see [Struc
 
 ## Installation
 
-_TODO_
+You can use `pip` to install the `buildzr` package.
+
+```bash
+pip install buildzr
+```
 
 ## Creating a workspace
 
