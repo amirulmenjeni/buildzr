@@ -6,22 +6,7 @@ on:
       - fix/release-workflow-target
 
 jobs:
-  release_version:
-    runs-on: ubuntu-latest
-    outputs:
-      release_version: ${{ steps.get-release-version.outputs.release_version }}
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-    - name: Install Hatch
-      uses: pypa/hatch@install
-    - name: Get release version
-      id: get-release-version
-      run: |
-        echo "::set-output name=release_version::$(hatch version release)"
-
   publish:
-    needs: release_version
     runs-on: ubuntu-latest
     steps:
     - name: Install dependencies for building the package
@@ -38,14 +23,13 @@ jobs:
     - name: Update Version
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        version: ${{ needs.release_version.outputs.release_version }}
       run: |
-        hatch version $version
         git remote set-url --push origin https://amirulmenjeni:${GITHUB_TOKEN}@github.com/amirulmenjeni/buildzr.git
 
         git config user.name "GitHub Actions"
         git config user.email "actions@github.com"
 
+        hatch version release
         git add buildzr/__about__.py
         git commit -m "ci: [skip-ci] Update version to $NEW_VERSION"
 
