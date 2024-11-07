@@ -1,4 +1,3 @@
-test: 1
 # Structurizr for the `buildzr`s 🧱⚒️
 
 `buildzr` is a [Structurizr](https://structurizr.com/) authoring tool for Python programmers.
