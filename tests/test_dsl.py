@@ -799,3 +799,43 @@ def test_grouping() -> Optional[None]:
     assert a.container().a1.model.relationships[0].destinationId == b.container().b1.model.id
     assert b.container().b2.component().c1.model.group == "Company 2"
     assert a.model.relationships[1].destinationId == w.software_system().c.model.id
+
+def test_dsl_relationship_without_desc() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+            Person("User"),
+            SoftwareSystem("Software 1"),
+            SoftwareSystem("Software 2"),
+        )\
+        .where(lambda w: [
+            # TODO: Check why mypy fails here.
+            w.person().user >> w.software_system().software_1,
+        ])
+
+    assert w.person().user.model.relationships[0].description == ""
+    assert w.person().user.model.relationships[0].technology == ""
+    assert w.person().user.model.relationships[0].destinationId == w.software_system().software_1.model.id
+
+def test_dsl_relationship_without_desc_multiple_dest() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+            Person("User"),
+            SoftwareSystem("Software 1"),
+            SoftwareSystem("Software 2"),
+        )\
+        .where(lambda w: [
+            w.person().user >> [
+                w.software_system().software_1,
+                w.software_system().software_2,
+            ]
+        ])
+
+    assert len(w.person().user.model.relationships) == 2
+    assert w.person().user.model.relationships[0].description == ""
+    assert w.person().user.model.relationships[0].technology == ""
+    assert w.person().user.model.relationships[1].description == ""
+    assert w.person().user.model.relationships[1].technology == ""
+    assert w.person().user.model.relationships[0].destinationId == w.software_system().software_1.model.id
+    assert w.person().user.model.relationships[1].destinationId == w.software_system().software_2.model.id

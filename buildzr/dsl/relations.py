@@ -37,6 +37,11 @@ def _is_container_fluent_relationship(
 ) -> TypeIs['_FluentRelationship[buildzr.dsl.Container]']:
     return isinstance(obj._parent, buildzr.dsl.Container)
 
+def _is_list_of_dsl_elements(
+    obj: Any
+) -> TypeIs[List[DslElement]]:
+    return isinstance(obj, list) and all([isinstance(x, DslElement) for x in obj])
+
 @dataclass
 class With:
     tags: Optional[Set[str]] = None
@@ -306,6 +311,26 @@ class DslElementRelationOverrides(DslElement):
     elements.
     """
 
+    @overload
+    def __rshift__(self, other: DslElement) -> _Relationship[Self, DslElement]:
+        """
+        Create a relationship between the source element and the destination
+        without specifying description or technology.
+
+        Example: `source >> destination`.
+        """
+        ...
+
+    @overload
+    def __rshift__(self, other: List[DslElement]) -> List[_Relationship[Self, DslElement]]:
+        """
+        Create relationships between the source element and multiple
+        destinations without specifying description or technology.
+
+        Example: `source >> [destination1, destination2]`.
+        """
+        ...
+
     @overload # type: ignore[override]
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, DslElement]:
         ...
@@ -325,12 +350,21 @@ class DslElementRelationOverrides(DslElement):
     def __rshift__(
             self,
             other: Union[
+                DslElement,
+                List[DslElement],
                 str,
                 Tuple[str, str],
                 _RelationshipDescription[DslElement],
                 List[_UsesFromLate[DslElement]]
             ]) -> Union[_UsesFrom[Self, DslElement], List[_Relationship[Self, DslElement]]]:
-        if isinstance(other, str):
+        if isinstance(other, DslElement):
+            return _UsesFrom(self) >> other
+        if _is_list_of_dsl_elements(other):
+            relationships = []
+            for dest in other:
+                relationships.append(_UsesFrom(self) >> dest)
+            return cast(List[_Relationship[Self, DslElement]], relationships)
+        elif isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])

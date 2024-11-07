@@ -54,6 +54,16 @@ class BindRight(ABC, Generic[TSrc, TDst]):
 
     @overload
     @abstractmethod
+    def __rshift__(self, other: TDst) -> 'DslRelationship[Self, TDst]':
+        ...
+
+    @overload
+    @abstractmethod
+    def __rshift__(self, other: List[TDst]) -> 'List[DslRelationship[Self, TDst]]':
+        ...
+
+    @overload
+    @abstractmethod
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> BindLeft[TSrc, TDst]:
         ...
 
