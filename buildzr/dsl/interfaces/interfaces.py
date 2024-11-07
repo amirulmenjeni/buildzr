@@ -54,12 +54,12 @@ class BindRight(ABC, Generic[TSrc, TDst]):
 
     @overload
     @abstractmethod
-    def __rshift__(self, other: TDst) -> 'DslRelationship[Self, TDst]':
+    def __rshift__(self, other: TDst) -> 'DslRelationship[TSrc, TDst]':
         ...
 
     @overload
     @abstractmethod
-    def __rshift__(self, other: List[TDst]) -> 'List[DslRelationship[Self, TDst]]':
+    def __rshift__(self, other: List[TDst]) -> 'List[DslRelationship[TSrc, TDst]]':
         ...
 
     @overload
@@ -78,7 +78,7 @@ class BindRight(ABC, Generic[TSrc, TDst]):
         ...
 
     @abstractmethod
-    def __rshift__(self, other: Union[str, Tuple[str, str], List[BindLeftLate[TDst]]]) -> Union[BindLeft[TSrc, TDst], 'List[DslRelationship[TSrc, TDst]]']:
+    def __rshift__(self, other: Union[TDst, List[TDst], str, Tuple[str, str], List[BindLeftLate[TDst]]]) -> Union[BindLeft[TSrc, TDst], 'DslRelationship[TSrc, TDst]', 'List[DslRelationship[TSrc, TDst]]']:
         ...
 
 class DslWorkspaceElement(ABC):

@@ -311,7 +311,8 @@ class DslElementRelationOverrides(DslElement):
     elements.
     """
 
-    @overload
+    # TODO: Check why need to ignore the override error here.
+    @overload  # type: ignore[override]
     def __rshift__(self, other: DslElement) -> _Relationship[Self, DslElement]:
         """
         Create a relationship between the source element and the destination
@@ -331,7 +332,7 @@ class DslElementRelationOverrides(DslElement):
         """
         ...
 
-    @overload # type: ignore[override]
+    @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, DslElement]:
         ...
 
@@ -356,13 +357,27 @@ class DslElementRelationOverrides(DslElement):
                 Tuple[str, str],
                 _RelationshipDescription[DslElement],
                 List[_UsesFromLate[DslElement]]
-            ]) -> Union[_UsesFrom[Self, DslElement], List[_Relationship[Self, DslElement]]]:
+            ]) -> Union[_UsesFrom[Self, DslElement], _Relationship[Self, DslElement], List[_Relationship[Self, DslElement]]]:
         if isinstance(other, DslElement):
-            return _UsesFrom(self) >> other
+            return cast(
+                _Relationship[Self, DslElement],
+                cast(
+                    _UsesFrom[Self, DslElement],
+                    _UsesFrom(self)
+                ) >> other
+            )
         if _is_list_of_dsl_elements(other):
             relationships = []
             for dest in other:
-                relationships.append(_UsesFrom(self) >> dest)
+                relationships.append(
+                    cast(
+                        _Relationship[Self, DslElement],
+                        cast(
+                            _UsesFrom[Self, DslElement],
+                            _UsesFrom(self)
+                        ) >> dest
+                    )
+                )
             return cast(List[_Relationship[Self, DslElement]], relationships)
         elif isinstance(other, str):
             return _UsesFrom(self, other)
