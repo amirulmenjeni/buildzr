@@ -1,16 +1,19 @@
+test: 1
 # Structurizr for the `buildzr`s 🧱⚒️
 
 `buildzr` is a [Structurizr](https://structurizr.com/) authoring tool for Python programmers.
 
 If you're not familiar with Structurizr, it is both an open standard (see [Structurizr JSON schema](https://github.com/structurizr/json)) and a [set of tools](https://docs.structurizr.com/usage) for building software architecture diagrams as code. Structurizr derive its architecture modeling paradigm based on the [C4 model](https://c4model.com/), the modeling language for visualizing software architecture.
 
-`buildzr` offers flexible and fluent APIs to write software architecture models based on the C4 model, leveraging the standard Structurizr JSON schema for interoperability with various rendering and authoring tools.
+`buildzr` offers flexible and fluent APIs to write software architecture models,
+leveraging the standard Structurizr JSON schema for interoperability with
+various rendering and authoring tools.
 
 # Quick Start 🚀
 
 ## Installation
 
-You can use `pip` to install the `buildzr` package.
+You can use `pip` to install the `buildzr` package:
 
 ```bash
 pip install buildzr
@@ -91,7 +94,10 @@ with open(os.path.join(os.path.curdir, f"{__file__.split('.')[0]}.json"), 'w', e
     json.dump(w.model, f, ensure_ascii=False, indent=4, cls=JsonEncoder)
 ```
 
-That's it 😊!
+Here's a short breakdown on what's happening:
+- In `Workspace(...).contains(...)` method, we define the _static_ C4 models (i.e., `Person`, `SoftwareSystem`, and the `Container`s in the software system).
+- In the `Workspace(...).contains(...).where(...)`, we define the relationships between the C4 models in the workspace. We access the models via the `w` parameter in the `lambda` function, and create the relationships using the `>>` operators.
+- Finally, once we have all the models and their relationships defined, we use (and re-use!) the static models to create multiple views to tell different stories and show various narrative to help document your software architecture.
 
 The JSON output can be found [here](examples/system_context_and_container_view.json). You can also try out https://structurizr.com/json to see how this workspace will be rendered.
 
@@ -105,7 +111,7 @@ The JSON output can be found [here](examples/system_context_and_container_view.j
 
 ✅ Writing architecture diagrams in Python allows you to integrate programmability and automation into your software architecture diagramming and documentation workflow.
 
-✅ Uses the familiar Python programming language to write predicates for including/excluding elements and relationships in views.
+✅ Uses the familiar Python programming language to write software architecture diagrams!
 
 # Contributing
 
