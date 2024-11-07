@@ -129,7 +129,7 @@ jobs:
         major_regexp_flags: ""
 
         # If PRERELEASE_MODE is true, then the minor version is bumped for `fix` and `docs` as well.
-        minor_pattern: ${{ env.PRERELEASE_MODE && '/^(feat|fix|docs)(?:\(.+\))?:/' || '/^feat(?:\(.+\))?:/' }}
+        minor_pattern: '/^feat(?:\(.+\))?:/'
         minor_regexp_flags: ""
 
         # Follow default hatch versioning format.
