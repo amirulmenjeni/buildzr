@@ -141,7 +141,7 @@ jobs:
         search_commit_body: false
         user_format_type: "csv"
         enable_prerelease_mode: ${{ env.PRERELEASE_MODE }}
-        debug: true
+        debug: false
         version_from_branch: false
 
     - name: Display semantic version debug output
