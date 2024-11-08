@@ -59,11 +59,6 @@ class BindRight(ABC, Generic[TSrc, TDst]):
 
     @overload
     @abstractmethod
-    def __rshift__(self, other: List[TDst]) -> 'List[DslRelationship[TSrc, TDst]]':
-        ...
-
-    @overload
-    @abstractmethod
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> BindLeft[TSrc, TDst]:
         ...
 
@@ -74,11 +69,11 @@ class BindRight(ABC, Generic[TSrc, TDst]):
 
     @overload
     @abstractmethod
-    def __rshift__(self, multiple_destinations: List[BindLeftLate[TDst]]) -> 'List[DslRelationship[TSrc, TDst]]':
+    def __rshift__(self, multiple_destinations: List[Union[TDst, BindLeftLate[TDst]]]) -> 'List[DslRelationship[TSrc, TDst]]':
         ...
 
     @abstractmethod
-    def __rshift__(self, other: Union[TDst, List[TDst], str, Tuple[str, str], List[BindLeftLate[TDst]]]) -> Union[BindLeft[TSrc, TDst], 'DslRelationship[TSrc, TDst]', 'List[DslRelationship[TSrc, TDst]]']:
+    def __rshift__(self, other: Union[TDst, str, Tuple[str, str], List[Union[TDst, BindLeftLate[TDst]]]]) -> Union[BindLeft[TSrc, TDst], 'DslRelationship[TSrc, TDst]', 'List[DslRelationship[TSrc, TDst]]']:
         ...
 
 class DslWorkspaceElement(ABC):

@@ -37,10 +37,13 @@ def _is_container_fluent_relationship(
 ) -> TypeIs['_FluentRelationship[buildzr.dsl.Container]']:
     return isinstance(obj._parent, buildzr.dsl.Container)
 
-def _is_list_of_dsl_elements(
-    obj: Any
-) -> TypeIs[List[DslElement]]:
-    return isinstance(obj, list) and all([isinstance(x, DslElement) for x in obj])
+def _is_list_of_dslelements_or_usesfromlates(
+    obj: list
+) -> TypeIs[List[Union[DslElement, '_UsesFromLate[DslElement]']]]:
+    return all(
+        isinstance(item, DslElement) or isinstance(item, _UsesFromLate)
+        for item in obj
+    )
 
 @dataclass
 class With:
@@ -323,16 +326,6 @@ class DslElementRelationOverrides(DslElement):
         ...
 
     @overload
-    def __rshift__(self, other: List[DslElement]) -> List[_Relationship[Self, DslElement]]:
-        """
-        Create relationships between the source element and multiple
-        destinations without specifying description or technology.
-
-        Example: `source >> [destination1, destination2]`.
-        """
-        ...
-
-    @overload
     def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, DslElement]:
         ...
 
@@ -345,18 +338,17 @@ class DslElementRelationOverrides(DslElement):
         ...
 
     @overload
-    def __rshift__(self, multiple_destinations: List[_UsesFromLate[DslElement]]) -> List[_Relationship[Self, DslElement]]:
+    def __rshift__(self, multiple_destinations: List[Union[DslElement, _UsesFromLate[DslElement]]]) -> List[_Relationship[Self, DslElement]]:
         ...
 
     def __rshift__(
             self,
             other: Union[
                 DslElement,
-                List[DslElement],
                 str,
                 Tuple[str, str],
                 _RelationshipDescription[DslElement],
-                List[_UsesFromLate[DslElement]]
+                List[Union[DslElement, _UsesFromLate[DslElement]]]
             ]) -> Union[_UsesFrom[Self, DslElement], _Relationship[Self, DslElement], List[_Relationship[Self, DslElement]]]:
         if isinstance(other, DslElement):
             return cast(
@@ -366,31 +358,29 @@ class DslElementRelationOverrides(DslElement):
                     _UsesFrom(self)
                 ) >> other
             )
-        if _is_list_of_dsl_elements(other):
-            relationships = []
-            for dest in other:
-                relationships.append(
-                    cast(
-                        _Relationship[Self, DslElement],
-                        cast(
-                            _UsesFrom[Self, DslElement],
-                            _UsesFrom(self)
-                        ) >> dest
-                    )
-                )
-            return cast(List[_Relationship[Self, DslElement]], relationships)
         elif isinstance(other, str):
             return _UsesFrom(self, other)
         elif isinstance(other, tuple):
             return _UsesFrom(self, description=other[0], technology=other[1])
         elif isinstance(other, _RelationshipDescription):
             return _UsesFrom(self, description=other._description, technology=other._technology)
-        elif isinstance(other, list):
-            relationships = []
+        elif _is_list_of_dslelements_or_usesfromlates(other):
+            relationships: List[_Relationship[Self, DslElement]] = []
             for dest in other:
-                dest.set_source(self)
-                relationships.append(dest.get_relationship())
-            return cast(List[_Relationship[Self, DslElement]], relationships)
+                if isinstance(dest, _UsesFromLate):
+                    dest.set_source(self)
+                    relationships.append(dest.get_relationship())
+                elif isinstance(dest, DslElement):
+                    relationships.append(
+                        cast(
+                            _Relationship[Self, DslElement],
+                            cast(
+                                _UsesFrom[Self, DslElement],
+                                _UsesFrom(self)
+                            ) >> dest
+                        )
+                    )
+            return relationships
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
 

@@ -824,18 +824,23 @@ def test_dsl_relationship_without_desc_multiple_dest() -> Optional[None]:
             Person("User"),
             SoftwareSystem("Software 1"),
             SoftwareSystem("Software 2"),
+            SoftwareSystem("Software 3"),
         )\
         .where(lambda w: [
             w.person().user >> [
                 w.software_system().software_1,
-                w.software_system().software_2,
+                desc("browses") >> w.software_system().software_2,
+                w.software_system().software_3,
             ]
         ])
 
-    assert len(w.person().user.model.relationships) == 2
-    assert w.person().user.model.relationships[0].description == ""
-    assert w.person().user.model.relationships[0].technology == ""
-    assert w.person().user.model.relationships[1].description == ""
-    assert w.person().user.model.relationships[1].technology == ""
+    assert len(w.person().user.model.relationships) == 3
+    assert not w.person().user.model.relationships[0].description
+    assert not w.person().user.model.relationships[0].technology
+    assert w.person().user.model.relationships[1].description == "browses"
+    assert not w.person().user.model.relationships[1].technology
+    assert not w.person().user.model.relationships[2].description
+    assert not w.person().user.model.relationships[2].technology
     assert w.person().user.model.relationships[0].destinationId == w.software_system().software_1.model.id
     assert w.person().user.model.relationships[1].destinationId == w.software_system().software_2.model.id
+    assert w.person().user.model.relationships[2].destinationId == w.software_system().software_3.model.id
