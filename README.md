@@ -88,15 +88,15 @@ w = Workspace('w')\
     )\
     .get_workspace()
 
-# Writes the Workspace model to a JSON file.
-with open(os.path.join(os.path.curdir, f"{__file__.split('.')[0]}.json"), 'w', encoding='utf-8') as f:
-    json.dump(w.model, f, ensure_ascii=False, indent=4, cls=JsonEncoder)
+# Save workspace to a JSON file following the Structurizr JSON schema.
+w.to_json('workspace.json')
 ```
 
 Here's a short breakdown on what's happening:
 - In `Workspace(...).contains(...)` method, we define the _static_ C4 models (i.e., `Person`, `SoftwareSystem`, and the `Container`s in the software system).
 - In the `Workspace(...).contains(...).where(...)`, we define the relationships between the C4 models in the workspace. We access the models via the `w` parameter in the `lambda` function, and create the relationships using the `>>` operators.
-- Finally, once we have all the models and their relationships defined, we use (and re-use!) the static models to create multiple views to tell different stories and show various narrative to help document your software architecture.
+- Once we have all the models and their relationships defined, we use (and re-use!) the static models to create multiple views to tell different stories and show various narrative to help document your software architecture.
+- Finally, we write the workspace definitions into a JSON file, which can be consumed by rendering tools, or used for further processing.
 
 The JSON output can be found [here](examples/system_context_and_container_view.json). You can also try out https://structurizr.com/json to see how this workspace will be rendered.
 

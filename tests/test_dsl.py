@@ -844,3 +844,68 @@ def test_dsl_relationship_without_desc_multiple_dest() -> Optional[None]:
     assert w.person().user.model.relationships[0].destinationId == w.software_system().software_1.model.id
     assert w.person().user.model.relationships[1].destinationId == w.software_system().software_2.model.id
     assert w.person().user.model.relationships[2].destinationId == w.software_system().software_3.model.id
+
+def test_fluent_json_sink() -> Optional[None]:
+
+    Workspace("w")\
+    .contains(
+        Person("User"),
+        SoftwareSystem("Software 1"),
+        SoftwareSystem("Software 2"),
+    )\
+    .where(lambda w: [
+        w.person().user >> [
+            desc("Uses") >> w.software_system().software_1,
+            desc("Uses") >> w.software_system().software_2,
+        ]
+    ])\
+    .with_views(
+        SystemContextView(
+            key="ss_01",
+            title="System Context",
+            description="A simple system context view for software 1",
+            software_system_selector=lambda w: w.software_system().software_1,
+        ),
+        SystemContextView(
+            key="ss_02",
+            title="System Context",
+            description="A simple system context view for software 2",
+            software_system_selector=lambda w: w.software_system().software_2,
+        ),
+    )\
+    .to_json(path="test.json")
+
+    with open("test.json", "r") as f:
+        data = f.read()
+
+    assert data
+
+    import os
+    os.remove("test.json")
+
+def test_fluent_json_sink_empty_views() -> Optional[None]:
+
+    # No views defined here.
+
+    Workspace("w")\
+    .contains(
+        Person("User"),
+        SoftwareSystem("Software 1"),
+        SoftwareSystem("Software 2"),
+    )\
+    .where(lambda w: [
+        w.person().user >> [
+            desc("Uses") >> w.software_system().software_1,
+            desc("Uses") >> w.software_system().software_2,
+        ]
+    ])\
+    .with_views()\
+    .to_json(path="test.json")
+
+    with open("test.json", "r") as f:
+        data = f.read()
+
+    assert data
+
+    import os
+    os.remove("test.json")
