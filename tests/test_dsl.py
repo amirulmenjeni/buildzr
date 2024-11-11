@@ -882,3 +882,30 @@ def test_fluent_json_sink() -> Optional[None]:
 
     import os
     os.remove("test.json")
+
+def test_fluent_json_sink_empty_views() -> Optional[None]:
+
+    # No views defined here.
+
+    Workspace("w")\
+    .contains(
+        Person("User"),
+        SoftwareSystem("Software 1"),
+        SoftwareSystem("Software 2"),
+    )\
+    .where(lambda w: [
+        w.person().user >> [
+            desc("Uses") >> w.software_system().software_1,
+            desc("Uses") >> w.software_system().software_2,
+        ]
+    ])\
+    .with_views()\
+    .to_json(path="test.json")
+
+    with open("test.json", "r") as f:
+        data = f.read()
+
+    assert data
+
+    import os
+    os.remove("test.json")
