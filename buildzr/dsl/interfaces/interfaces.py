@@ -199,6 +199,36 @@ class DslFluentRelationship(ABC, Generic[TParent]):
     def get(self) -> TParent:
         pass
 
+class DslFluentSink(ABC):
+
+    @abstractmethod
+    def to_json(self, path: str) -> None:
+        pass
+
+class DslViewElement(ABC):
+
+    ViewModel = Union[
+        buildzr.models.SystemLandscapeView,
+        buildzr.models.SystemContextView,
+        buildzr.models.ContainerView,
+        buildzr.models.ComponentView,
+        buildzr.models.DynamicView,
+        buildzr.models.DeploymentView,
+    ]
+
+    @property
+    @abstractmethod
+    def model(self) -> ViewModel:
+        pass
+
+    @property
+    @abstractmethod
+    def parent(self) -> 'DslViewsElement':
+        pass
+
+    def _on_added(self) -> None:
+        pass
+
 class DslViewsElement(ABC):
 
     @property
@@ -209,4 +239,11 @@ class DslViewsElement(ABC):
     @property
     @abstractmethod
     def parent(self) -> DslWorkspaceElement:
+        pass
+
+    @abstractmethod
+    def contains(
+        self,
+        *views: Union[DslViewElement],
+    ) -> DslFluentSink:
         pass

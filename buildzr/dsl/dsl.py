@@ -26,10 +26,14 @@ from typing import (
     Type,
 )
 
+from buildzr.sinks.interfaces import Sink
+
 from buildzr.dsl.interfaces import (
     DslWorkspaceElement,
     DslElement,
+    DslViewElement,
     DslViewsElement,
+    DslFluentSink,
     TSrc, TDst,
     TParent, TChild,
 )
@@ -44,20 +48,6 @@ from buildzr.dsl.relations import (
 
 def _child_name_transform(name: str) -> str:
     return name.lower().replace(' ', '_')
-
-# TODO: Remove, not used.
-# def _create_linked_relationship_from(
-#     relationship: '_Relationship[TSrc, TDst]') -> buildzr.models.Relationship:
-
-#     src = relationship.source
-#     dst = relationship.destination
-
-#     return buildzr.models.Relationship(
-#         id=GenerateId.for_relationship(),
-#         sourceId=str(src.model.id),
-#         destinationId=str(dst.parent.model.id),
-#         linkedRelationshipId=relationship.model.id,
-#     )
 
 TypedModel = TypeVar('TypedModel')
 class TypedDynamicAttribute(Generic[TypedModel]):
@@ -197,7 +187,7 @@ class Workspace(DslWorkspaceElement):
             'ContainerView',
             'ComponentView',
         ]
-    ) -> 'Views':
+    ) -> '_FluentSink':
         return Views(self).contains(*views)
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
@@ -487,6 +477,16 @@ class Group:
         self._name = name
         self._elements = elements
 
+class _FluentSink(DslFluentSink):
+
+    def __init__(self, workspace: Workspace) -> None:
+        self._workspace = workspace
+
+    def to_json(self, path: str) -> None:
+        from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
+        sink = JsonSink()
+        sink.write(workspace=self._workspace.model, config=JsonSinkConfig(path=path))
+
 _RankDirection = Literal['tb', 'bt', 'lr', 'rl']
 
 _AutoLayout = Optional[
@@ -554,7 +554,7 @@ def _auto_layout_to_model(auto_layout: _AutoLayout) -> buildzr.models.AutomaticL
 
     return model
 
-class SystemLandscapeView:
+class SystemLandscapeView(DslViewElement):
 
     from buildzr.dsl.expression import Expression, Element, Relationship
 
@@ -649,7 +649,7 @@ class SystemLandscapeView:
         for relationship_id in relationship_ids:
             self._m.relationships.append(RelationshipView(id=relationship_id))
 
-class SystemContextView:
+class SystemContextView(DslViewElement):
 
     """
     If no filter is applied, this view includes all elements that have a direct
@@ -700,9 +700,6 @@ class SystemContextView:
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
 
-        # TODO: Refactor below codes. Similar patterns may exists for other views.
-        # Maybe make the views a subclass of some abstract `BaseView` class?
-
         software_system = self._selector(self._parent._parent)
         self._m.softwareSystemId = software_system.model.id
         view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
@@ -711,10 +708,6 @@ class SystemContextView:
             lambda w, e: software_system.model.id in e.destinations.ids,
         ]
 
-        # TODO: (Or, TOTHINK?) The code below includes all sources and all
-        # destinations of the subject software system. What if we want to
-        # exclude a source? Maybe the predicates in `elements` and
-        # `relationships` should be ANDed together afterall?
         view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
             lambda w, r: software_system == r.source,
             lambda w, r: software_system == r.destination,
@@ -747,7 +740,7 @@ class SystemContextView:
         for relationship_id in relationship_ids:
             self._m.relationships.append(RelationshipView(id=relationship_id))
 
-class ContainerView:
+class ContainerView(DslViewElement):
 
     from buildzr.dsl.expression import Expression, Element, Relationship
 
@@ -836,7 +829,7 @@ class ContainerView:
         for relationship_id in relationship_ids:
             self._m.relationships.append(RelationshipView(id=relationship_id))
 
-class ComponentView:
+class ComponentView(DslViewElement):
 
     from buildzr.dsl.expression import Expression, Element, Relationship
 
@@ -945,34 +938,33 @@ class Views(DslViewsElement):
 
     def contains(
         self,
-        *views: Union[
-            SystemLandscapeView,
-            SystemContextView,
-            ContainerView,
-            ComponentView,
-        ]) -> Self:
+        *views: DslViewElement
+    ) -> _FluentSink:
 
         for view in views:
-            view._parent = self
             if isinstance(view, SystemLandscapeView):
+                view._parent = self
                 view._on_added()
                 if self._m.systemLandscapeViews:
                     self._m.systemLandscapeViews.append(view.model)
                 else:
                     self._m.systemLandscapeViews = [view.model]
             elif isinstance(view, SystemContextView):
+                view._parent = self
                 view._on_added()
                 if self._m.systemContextViews:
                     self._m.systemContextViews.append(view.model)
                 else:
                     self._m.systemContextViews = [view.model]
             elif isinstance(view, ContainerView):
+                view._parent = self
                 view._on_added()
                 if self._m.containerViews:
                     self._m.containerViews.append(view.model)
                 else:
                     self._m.containerViews = [view.model]
             elif isinstance(view, ComponentView):
+                view._parent = self
                 view._on_added()
                 if self._m.componentViews:
                     self._m.componentViews.append(view.model)
@@ -981,7 +973,7 @@ class Views(DslViewsElement):
             else:
                 raise NotImplementedError("The view {0} is currently not supported", type(view))
 
-        return self
+        return _FluentSink(self._parent)
 
     def get_workspace(self) -> Workspace:
         """

@@ -1,8 +1,10 @@
 from .interfaces import (
     DslElement,
     DslFluentRelationship,
+    DslFluentSink,
     DslRelationship,
     DslWorkspaceElement,
+    DslViewElement,
     DslViewsElement,
     BindLeft,
     BindRight,
