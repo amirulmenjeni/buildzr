@@ -204,6 +204,8 @@ class _FluentRelationship(DslFluentRelationship[TParent]):
 
         return self._parent
 
+    # TODO: Remove this and replace with something better.
+    # Doesn't feel "fluent."
     def get(self) -> TParent:
         return self._parent
 
@@ -224,7 +226,7 @@ class _RelationshipDescription(Generic[TDst]):
             destination=destination,
         )
 
-class _UsesFromLate(BindLeftLate[TDst]):
+class _UsesFromLate(Generic[TDst], BindLeftLate[TDst]):
     """
     This method is used to create a relationship between one source element with
     multiple destination elements, like so:
@@ -306,7 +308,7 @@ class _UsesFromLate(BindLeftLate[TDst]):
 
         return self
 
-class DslElementRelationOverrides(DslElement):
+class DslElementRelationOverrides(Generic[TSrc, TDst], DslElement[TSrc, TDst]):
 
     """
     Base class meant to be derived from to override the `__rshift__` method to
@@ -316,7 +318,7 @@ class DslElementRelationOverrides(DslElement):
 
     # TODO: Check why need to ignore the override error here.
     @overload  # type: ignore[override]
-    def __rshift__(self, other: DslElement) -> _Relationship[Self, DslElement]:
+    def __rshift__(self, other: TDst) -> _Relationship[Self, TDst]:
         """
         Create a relationship between the source element and the destination
         without specifying description or technology.
@@ -326,30 +328,30 @@ class DslElementRelationOverrides(DslElement):
         ...
 
     @overload
-    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, DslElement]:
+    def __rshift__(self, description_and_technology: Tuple[str, str]) -> _UsesFrom[Self, TDst]:
         ...
 
     @overload
-    def __rshift__(self, description: str) -> _UsesFrom[Self, DslElement]:
+    def __rshift__(self, description: str) -> _UsesFrom[Self, TDst]:
         ...
 
     @overload
-    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[DslElement]) -> _UsesFrom[Self, DslElement]:
+    def __rshift__(self, _RelationshipDescription: _RelationshipDescription[TDst]) -> _UsesFrom[Self, TDst]:
         ...
 
     @overload
-    def __rshift__(self, multiple_destinations: List[Union[DslElement, _UsesFromLate[DslElement]]]) -> List[_Relationship[Self, DslElement]]:
+    def __rshift__(self, multiple_destinations: List[Union[TDst, _UsesFromLate[TDst]]]) -> List[_Relationship[Self, TDst]]:
         ...
 
     def __rshift__(
             self,
             other: Union[
-                DslElement,
+                TDst,
                 str,
                 Tuple[str, str],
-                _RelationshipDescription[DslElement],
-                List[Union[DslElement, _UsesFromLate[DslElement]]]
-            ]) -> Union[_UsesFrom[Self, DslElement], _Relationship[Self, DslElement], List[_Relationship[Self, DslElement]]]:
+                _RelationshipDescription[TDst],
+                List[Union[TDst, _UsesFromLate[TDst]]]
+            ]) -> Union[_UsesFrom[Self, TDst], _Relationship[Self, TDst], List[_Relationship[Self, TDst]]]:
         if isinstance(other, DslElement):
             return cast(
                 _Relationship[Self, DslElement],
@@ -364,8 +366,8 @@ class DslElementRelationOverrides(DslElement):
             return _UsesFrom(self, description=other[0], technology=other[1])
         elif isinstance(other, _RelationshipDescription):
             return _UsesFrom(self, description=other._description, technology=other._technology)
-        elif _is_list_of_dslelements_or_usesfromlates(other):
-            relationships: List[_Relationship[Self, DslElement]] = []
+        elif isinstance(other, list):
+            relationships: List[_Relationship[Self, TDst]] = []
             for dest in other:
                 if isinstance(dest, _UsesFromLate):
                     dest.set_source(self)
@@ -373,14 +375,21 @@ class DslElementRelationOverrides(DslElement):
                 elif isinstance(dest, DslElement):
                     relationships.append(
                         cast(
-                            _Relationship[Self, DslElement],
+                            _Relationship[Self, DslElement[Self, TDst]],
                             cast(
-                                _UsesFrom[Self, DslElement],
+                                _UsesFrom[Self, DslElement[Self, TDst]],
                                 _UsesFrom(self)
                             ) >> dest
                         )
                     )
-            return relationships
+            return cast(
+                Union[
+                    List[_Relationship[Self, TDst]],
+                    _UsesFrom[Self, TDst],
+                    _Relationship[Self, TDst],
+                ],
+                relationships
+            )
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
 

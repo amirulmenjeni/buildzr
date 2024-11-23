@@ -41,7 +41,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Get HEAD commit message
         id: get-head-commit-message
-        run: echo "::set-output name=commit_message::$(git log --format=%B -n 1)"
+        run: echo "commit_message='$(git log --format=%B -n 1)'"
 
   commitlint:
     runs-on: ubuntu-latest
@@ -58,13 +58,17 @@ jobs:
       - commitlint
       - check_changes
 
-    if: ${{ !contains(needs.check_skip_flags.outputs.head-commit-message, '[skip-ci]') && needs.check_changes.outputs.src == 'true' }}
+    if: |
+      ${{
+        !contains(needs.check_skip_flags.outputs.head-commit-message, '[skip-ci]') &&
+        needs.check_changes.outputs.src == 'true'
+      }}
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
       with:
-        ref: ${{ github.event.pull_request.base.sha }}
+        ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Set up Python
       uses: actions/setup-python@v2
