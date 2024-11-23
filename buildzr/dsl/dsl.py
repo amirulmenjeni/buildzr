@@ -519,6 +519,9 @@ class _FluentSink(DslFluentSink):
         sink = JsonSink()
         sink.write(workspace=self._workspace.model, config=JsonSinkConfig(path=path))
 
+    def get_workspace(self) -> Workspace:
+        return self._workspace
+
 _RankDirection = Literal['tb', 'bt', 'lr', 'rl']
 
 _AutoLayout = Optional[
