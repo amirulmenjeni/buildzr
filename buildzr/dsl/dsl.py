@@ -199,7 +199,15 @@ class Workspace(DslWorkspaceElement):
     def __dir__(self) -> Iterable[str]:
         return list(super().__dir__()) + list(self._dynamic_attrs.keys())
 
-class SoftwareSystem(DslElementRelationOverrides):
+class SoftwareSystem(DslElementRelationOverrides[
+    'SoftwareSystem',
+    Union[
+        'Person',
+        'SoftwareSystem',
+        'Container',
+        'Component'
+    ]
+]):
     """
     A software system.
     """
@@ -284,7 +292,15 @@ class SoftwareSystem(DslElementRelationOverrides):
     def __dir__(self) -> Iterable[str]:
         return list(super().__dir__()) + list(self._dynamic_attrs.keys())
 
-class Person(DslElementRelationOverrides):
+class Person(DslElementRelationOverrides[
+    'Person',
+    Union[
+        'Person',
+        'SoftwareSystem',
+        'Container',
+        'Component'
+    ]
+]):
     """
     A person who uses a software system.
     """
@@ -335,7 +351,15 @@ class Person(DslElementRelationOverrides):
         self._label = label
         return self
 
-class Container(DslElementRelationOverrides):
+class Container(DslElementRelationOverrides[
+    'Container',
+    Union[
+        'Person',
+        'SoftwareSystem',
+        'Container',
+        'Component'
+    ]
+]):
     """
     A container (something that can execute code or host data).
     """
@@ -415,7 +439,15 @@ class Container(DslElementRelationOverrides):
     def __dir__(self) -> Iterable[str]:
         return list(super().__dir__()) + list(self._dynamic_attrs.keys())
 
-class Component(DslElementRelationOverrides):
+class Component(DslElementRelationOverrides[
+    'Component',
+    Union[
+        'Person',
+        'SoftwareSystem',
+        'Container',
+        'Component'
+    ]
+]):
     """
     A component (a grouping of related functionality behind an interface that runs inside a container).
     """
