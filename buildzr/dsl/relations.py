@@ -226,7 +226,7 @@ class _RelationshipDescription(Generic[TDst]):
             destination=destination,
         )
 
-class _UsesFromLate(BindLeftLate[TDst]):
+class _UsesFromLate(Generic[TDst], BindLeftLate[TDst]):
     """
     This method is used to create a relationship between one source element with
     multiple destination elements, like so:
@@ -366,8 +366,8 @@ class DslElementRelationOverrides(Generic[TSrc, TDst], DslElement[TSrc, TDst]):
             return _UsesFrom(self, description=other[0], technology=other[1])
         elif isinstance(other, _RelationshipDescription):
             return _UsesFrom(self, description=other._description, technology=other._technology)
-        elif _is_list_of_dslelements_or_usesfromlates(other):
-            relationships: List[_Relationship[Self, DslElement]] = []
+        elif isinstance(other, list):
+            relationships: List[_Relationship[Self, TDst]] = []
             for dest in other:
                 if isinstance(dest, _UsesFromLate):
                     dest.set_source(self)
@@ -375,14 +375,21 @@ class DslElementRelationOverrides(Generic[TSrc, TDst], DslElement[TSrc, TDst]):
                 elif isinstance(dest, DslElement):
                     relationships.append(
                         cast(
-                            _Relationship[Self, DslElement],
+                            _Relationship[Self, DslElement[Self, TDst]],
                             cast(
-                                _UsesFrom[Self, DslElement],
+                                _UsesFrom[Self, DslElement[Self, TDst]],
                                 _UsesFrom(self)
                             ) >> dest
                         )
                     )
-            return relationships
+            return cast(
+                Union[
+                    List[_Relationship[Self, TDst]],
+                    _UsesFrom[Self, TDst],
+                    _Relationship[Self, TDst],
+                ],
+                relationships
+            )
         else:
             raise TypeError(f"Unsupported operand type for >>: '{type(self).__name__}' and {type(other).__name__}")
 
