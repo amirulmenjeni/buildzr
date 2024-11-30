@@ -148,13 +148,15 @@ class Workspace(DslWorkspaceElement):
         self.contains(*models)
 
     def _recursive_bind_deployment_nodes_to_workspace(self, deployment_node: 'DeploymentNode') -> None:
-        for child in deployment_node.children:
-            if isinstance(child, DeploymentNode):
-                self._recursive_bind_deployment_nodes_to_workspace(child)
-            elif isinstance(child, SoftwareSystemInstance):
-                child._bind_workspace(self)
-            elif isinstance(child, ContainerInstance):
-                child._bind_workspace(self)
+
+        for instance in deployment_node.instances:
+            if isinstance(instance, SoftwareSystemInstance):
+                instance._bind_workspace(self)
+            elif isinstance(instance, ContainerInstance):
+                instance._bind_workspace(self)
+
+        for node in deployment_node.children:
+            self._recursive_bind_deployment_nodes_to_workspace(node)
 
     def contains(
         self,
@@ -1121,7 +1123,6 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
 
         for node in nodes:
             if isinstance(node, DeploymentNode):
-                node._workspace = self._parent
                 node.model.environment = self._name
                 node._parent = self._parent
                 self._children.append(node)
@@ -1175,7 +1176,8 @@ class DeploymentNode(DslElementRelationOverrides[
         self._destinations: List[DslElement] = []
         self._label: Optional[str] = None
         self._parent: Optional[Union[Workspace, 'DeploymentNode']] = None
-        self._children: List[Union['DeploymentNode', 'DslElement']] = None
+        self._children: Optional[List['DeploymentNode']] = None
+        self._instances: List[Union['SoftwareSystemInstance', 'ContainerInstance']] = []
         self._tags = {'Element', 'Deployment Node'}.union(tags)
 
     @property
@@ -1187,13 +1189,12 @@ class DeploymentNode(DslElementRelationOverrides[
         return self._parent
 
     @property
-    def children(self) -> Optional[List[
-        Union[
-            'DeploymentNode',
-            'DslElement',
-        ]
-    ]]:
+    def children(self) -> Optional[List['DeploymentNode']]:
         return self._children
+
+    @property
+    def instances(self) -> List[Union['SoftwareSystemInstance', 'ContainerInstance']]:
+        return self._instances
 
     @property
     def sources(self) -> List[DslElement]:
@@ -1221,6 +1222,12 @@ class DeploymentNode(DslElementRelationOverrides[
         ]
     ) -> _FluentRelationship['DeploymentNode']:
 
+        """
+        Note: `SoftwareSystemInstance` and `ContainerInstance` will not be added
+        to the `children` list. They can be accessed via the child
+        `DeploymentNode`s instead.
+        """
+
         if self._children is None:
             self._children = []
 
@@ -1231,14 +1238,14 @@ class DeploymentNode(DslElementRelationOverrides[
                     self._m.softwareSystemInstances.append(instance.model)
                 else:
                     self._m.softwareSystemInstances = [instance.model]
-                self._children.append(instance)
+                self._instances.append(instance)
             elif isinstance(instance, ContainerInstance):
                 if self._m.containerInstances:
                     self._m.containerInstances.append(instance.model)
                 else:
                     self._m.containerInstances = [instance.model]
+                self._instances.append(instance)
                 instance._parent = self
-                self._children.append(instance)
             elif isinstance(instance, DeploymentNode):
                 if self._m.children:
                     self._m.children.append(instance.model)
@@ -1291,13 +1298,13 @@ class SoftwareSystemInstance(DslElementRelationOverrides[
         properties: Optional[Dict[str, Any]]={},
     ) -> None:
         self._m = buildzr.models.SoftwareSystemInstance()
-        self._m.tags = ','.join({'Software System Instance'}.union(tags))
         self._m.properties = properties
         self._parent: Optional[DeploymentNode] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._selector = selector
         self._tags = {'Element', 'Software System Instance'}.union(tags)
+        self._m.tags = ','.join(self.tags)
 
     @property
     def model(self) -> buildzr.models.SoftwareSystemInstance:
@@ -1338,13 +1345,13 @@ class ContainerInstance(DslElementRelationOverrides[
         properties: Optional[Dict[str, Any]]={},
     ) -> None:
         self._m = buildzr.models.ContainerInstance()
-        self._m.tags = ','.join({'Container Instance'}.union(tags))
         self._m.properties = properties
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._parent: Optional[DeploymentNode] = None
         self._selector = selector
         self._tags = {'Element', 'Container Instance'}.union(tags)
+        self._m.tags = ','.join(self._tags)
 
     @property
     def model(self) -> buildzr.models.ContainerInstance:

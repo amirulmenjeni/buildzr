@@ -36,7 +36,7 @@ class FlattenElement:
 
     @property
     def names(self) -> Set[Union[str]]:
-        return set([str(element.model.name) for element in self._elements])
+        return set([str(element.model.name) for element in self._elements if element.model.name]) # type: ignore[union-attr]
 
     @property
     def tags(self) -> Set[Union[str]]:

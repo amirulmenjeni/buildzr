@@ -68,6 +68,7 @@ def test_filter_elements_by_technology(workspace: Workspace) -> Optional[None]:
     elements = filter.elements(workspace)
 
     assert len(elements) == 1
+    assert isinstance(elements[0], Container)
     assert elements[0].model.name == 'db'
 
 def test_filter_elements_by_sources_and_destinations(workspace: Workspace) -> Optional[None]:
@@ -82,6 +83,8 @@ def test_filter_elements_by_sources_and_destinations(workspace: Workspace) -> Op
     elements = filter.elements(workspace)
 
     assert len(elements) == 2
+    assert isinstance(elements[0], SoftwareSystem)
+    assert isinstance(elements[1], Container)
     assert elements[0].model.name == 's'
     assert elements[1].model.name == 'app'
 
@@ -96,6 +99,7 @@ def test_filter_elements_by_properties(workspace: Workspace) -> Optional[None]:
     elements = filter.elements(workspace)
 
     assert len(elements) == 1
+    assert isinstance(elements[0], SoftwareSystem)
     assert elements[0].model.name == 's'
 
 def test_filter_elements_by_equal_operator(workspace: Workspace) -> Optional[None]:
@@ -109,6 +113,7 @@ def test_filter_elements_by_equal_operator(workspace: Workspace) -> Optional[Non
     elements = filter.elements(workspace)
 
     assert len(elements) == 1
+    assert isinstance(elements[0], Container)
     assert elements[0].model.name == 'app'
 
 def test_include_all_elements(workspace: Workspace) -> Optional[None]:
@@ -135,6 +140,8 @@ def test_filter_relationships_by_tags(workspace: Workspace) -> Optional[None]:
 
     assert len(relationships) == 1
     assert len(elements) == len(all_elements)
+    assert isinstance(relationships[0].source, Person)
+    assert isinstance(relationships[0].destination, SoftwareSystem)
     assert relationships[0].source.model.name == 'u'
     assert relationships[0].destination.model.name == 's'
 
@@ -152,6 +159,8 @@ def test_filter_relationships_by_technology(workspace: Workspace) -> Optional[No
 
     assert len(relationships) == 1
     assert len(elements) == len(all_elements)
+    assert isinstance(relationships[0].source, Container)
+    assert isinstance(relationships[0].destination, Container)
     assert relationships[0].source.model.name == 'app'
     assert relationships[0].destination.model.name == 'db'
 
@@ -169,6 +178,8 @@ def test_filter_relationships_by_source(workspace: Workspace) -> Optional[None]:
 
     assert len(relationships) == 1
     assert len(elements) == len(all_elements)
+    assert isinstance(relationships[0].source, Container)
+    assert isinstance(relationships[0].destination, Container)
     assert relationships[0].source.model.name == 'app'
     assert relationships[0].destination.model.name == 'db'
 
@@ -186,6 +197,8 @@ def test_filter_relationships_by_destination(workspace: Workspace) -> Optional[N
 
     assert len(relationships) == 1
     assert len(elements) == len(all_elements)
+    assert isinstance(relationships[0].source, Container)
+    assert isinstance(relationships[0].destination, Container)
     assert relationships[0].source.model.name == 'app'
     assert relationships[0].destination.model.name == 'db'
 
