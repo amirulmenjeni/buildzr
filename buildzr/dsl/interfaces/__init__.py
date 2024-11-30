@@ -6,6 +6,7 @@ from .interfaces import (
     DslWorkspaceElement,
     DslViewElement,
     DslViewsElement,
+    DslDeploymentEnvironment,
     BindLeft,
     BindRight,
     BindLeftLate,

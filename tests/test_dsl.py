@@ -13,6 +13,12 @@ from buildzr.dsl import (
     Component,
     With,
     SystemContextView,
+    DeploymentEnvironment,
+    DeploymentNode,
+    SoftwareSystemInstance,
+    ContainerInstance,
+    # DeploymentEnvironment,
+    # DeploymentNode,
     desc,
 )
 from buildzr.encoders import JsonEncoder
@@ -909,3 +915,54 @@ def test_fluent_json_sink_empty_views() -> Optional[None]:
 
     import os
     os.remove("test.json")
+
+def test_deployment_environment() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+
+            SoftwareSystem("Software System").labeled('ss')
+            .contains(
+                Container("Database").labeled('database'),
+                Container("Service API").labeled('api'),
+            ),
+
+            DeploymentEnvironment("Development")
+            .contains(
+                DeploymentNode("Server 1", description="Server 1 Node").labeled('s1')
+                .contains(
+                    ContainerInstance(lambda w: w.software_system().ss.api),
+                    DeploymentNode("Database Server")
+                    .contains(
+                        ContainerInstance(lambda w: w.software_system().ss.database),
+                    )
+                ),
+                DeploymentNode("Server 2").labeled('s2')
+                .contains(
+                    ContainerInstance(lambda w: w.software_system().ss.api),
+                    DeploymentNode("Database Server")
+                    .contains(
+                        ContainerInstance(lambda w: w.software_system().ss.database),
+                    )
+                ),
+            )
+        )\
+        .where(lambda w: [
+            w.software_system().ss.database >> "Uses" >> w.software_system().ss.api,
+        ])
+
+    assert w.model.model.softwareSystems[0].id == w.software_system().ss.model.id
+    assert w.model.model.softwareSystems[0].containers[0].id == w.software_system().ss.database.model.id
+    assert w.model.model.softwareSystems[0].containers[1].id == w.software_system().ss.api.model.id
+
+    assert len(w.model.model.deploymentNodes) == 2
+
+    assert w.model.model.deploymentNodes[0].environment == "Development"
+    assert w.model.model.deploymentNodes[0].id == w.environment().development.s1.model.id
+    assert w.model.model.deploymentNodes[0].containerInstances[0].containerId == w.software_system().ss.api.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].containerId == w.software_system().ss.database.model.id
+
+    assert w.model.model.deploymentNodes[1].environment == "Development"
+    assert w.model.model.deploymentNodes[1].id == w.environment().development.s2.model.id
+    assert w.model.model.deploymentNodes[1].containerInstances[0].containerId == w.software_system().ss.api.model.id
+    assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].containerId == w.software_system().ss.database.model.id

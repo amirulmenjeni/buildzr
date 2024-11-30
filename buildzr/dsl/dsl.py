@@ -34,12 +34,15 @@ from buildzr.dsl.interfaces import (
     DslViewElement,
     DslViewsElement,
     DslFluentSink,
+    DslDeploymentEnvironment,
     TSrc, TDst,
     TParent, TChild,
 )
 from buildzr.dsl.relations import (
     _is_software_fluent_relationship,
     _is_container_fluent_relationship,
+    _is_deployment_environment_fluent_relationship,
+    _is_deployment_node_fluent_relationship,
     _Relationship,
     _RelationshipDescription,
     _FluentRelationship,
@@ -72,14 +75,26 @@ class Workspace(DslWorkspaceElement):
         return None
 
     @property
-    def children(self) -> Optional[List[Union['Person', 'SoftwareSystem']]]:
+    def children(self) -> Optional[List[Union[
+        'Person',
+        'SoftwareSystem',
+        'DeploymentNode',
+    ]]]:
         return self._children
 
     def __init__(self, name: str, description: str="", scope: Literal['landscape', 'software_system', None]='software_system') -> None:
         self._m = buildzr.models.Workspace()
         self._parent = None
-        self._children: Optional[List[Union['Person', 'SoftwareSystem']]] = []
-        self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem']] = {}
+        self._children: Optional[List[Union[
+            'Person',
+            'SoftwareSystem',
+            'DeploymentNode',
+        ]]] = []
+        self._dynamic_attrs: Dict[str, Union[
+            'Person',
+            'SoftwareSystem',
+            'DeploymentNode',
+        ]] = {}
         self.model.id = GenerateId.for_workspace()
         self.model.name = name
         self.model.description = description
@@ -132,6 +147,15 @@ class Workspace(DslWorkspaceElement):
 
         self.contains(*models)
 
+    def _recursive_bind_deployment_nodes_to_workspace(self, deployment_node: 'DeploymentNode') -> None:
+        for child in deployment_node.children:
+            if isinstance(child, DeploymentNode):
+                self._recursive_bind_deployment_nodes_to_workspace(child)
+            elif isinstance(child, SoftwareSystemInstance):
+                child._bind_workspace(self)
+            elif isinstance(child, ContainerInstance):
+                child._bind_workspace(self)
+
     def contains(
         self,
         *models: Union[
@@ -140,6 +164,7 @@ class Workspace(DslWorkspaceElement):
             'SoftwareSystem',
             _FluentRelationship['SoftwareSystem'],
             _FluentRelationship['Container'],
+            _FluentRelationship['DeploymentEnvironment'],
         ]) -> _FluentRelationship['Workspace']:
 
         for model in models:
@@ -153,6 +178,16 @@ class Workspace(DslWorkspaceElement):
                 self.add_element(model._parent)
             elif _is_container_fluent_relationship(model):
                 self.add_element(model._parent._parent)
+            elif _is_deployment_environment_fluent_relationship(model):
+                model._parent._parent = self
+                self._dynamic_attrs[_child_name_transform(model._parent.name)] = model._parent
+                for child in model._parent._children:
+                    self.add_element(child)
+
+        for child in self.children:
+            if isinstance(child, DeploymentNode):
+                self._recursive_bind_deployment_nodes_to_workspace(child)
+
         return _FluentRelationship['Workspace'](self)
 
     def person(self) -> TypedDynamicAttribute['Person']:
@@ -161,7 +196,17 @@ class Workspace(DslWorkspaceElement):
     def software_system(self) -> TypedDynamicAttribute['SoftwareSystem']:
         return TypedDynamicAttribute['SoftwareSystem'](self._dynamic_attrs)
 
-    def add_element(self, element: Union['Person', 'SoftwareSystem']) -> None:
+    def environment(self) -> TypedDynamicAttribute['DeploymentEnvironment']:
+        return TypedDynamicAttribute['DeploymentEnvironment'](self._dynamic_attrs)
+
+    def add_element(
+        self,
+        element: Union[
+            'Person',
+            'SoftwareSystem',
+            'DeploymentNode',
+    ]) -> None:
+
         if isinstance(element, Person):
             self._m.model.people.append(element._m)
             element._parent = self
@@ -171,6 +216,13 @@ class Workspace(DslWorkspaceElement):
             self._children.append(element)
         elif isinstance(element, SoftwareSystem):
             self._m.model.softwareSystems.append(element._m)
+            element._parent = self
+            self._dynamic_attrs[_child_name_transform(element.model.name)] = element
+            if element._label:
+                self._dynamic_attrs[_child_name_transform(element._label)] = element
+            self._children.append(element)
+        elif isinstance(element, DeploymentNode):
+            self._m.model.deploymentNodes.append(element._m)
             element._parent = self
             self._dynamic_attrs[_child_name_transform(element.model.name)] = element
             if element._label:
@@ -190,10 +242,18 @@ class Workspace(DslWorkspaceElement):
     ) -> '_FluentSink':
         return Views(self).contains(*views)
 
-    def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
+    def __getattr__(self, name: str) -> Union[
+        'Person',
+        'SoftwareSystem',
+        'DeploymentNode',
+    ]:
         return self._dynamic_attrs[name]
 
-    def __getitem__(self, name: str) -> Union['Person', 'SoftwareSystem']:
+    def __getitem__(self, name: str) -> Union[
+        'Person',
+        'SoftwareSystem',
+        'DeploymentNode',
+    ]:
         return self._dynamic_attrs[_child_name_transform(name)]
 
     def __dir__(self) -> Iterable[str]:
@@ -1015,3 +1075,300 @@ class Views(DslViewsElement):
         Get the `Workspace` which contain this views definition.
         """
         return self._parent
+
+class DeploymentEnvironment(DslDeploymentEnvironment):
+
+    """
+    Provides a way to define a deployment environment (e.g., development,
+    testing, staging, live, etc.).
+
+    Note that when software system or container instances are added to a
+    deployment environment, all of the relationships between these elements are
+    automatically replicated between all instances.
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._children: List[Union['DeploymentNode']] = []
+        self._label: Optional[str] = None
+        self._parent: Optional[Workspace] = None
+        self._dynamic_attrs: Dict[str, 'DeploymentNode'] = {}
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    @property
+    def children(self) -> Optional[List['DeploymentNode']]:
+        return self._children
+
+    def labeled(self, label: str) -> 'DeploymentEnvironment':
+        self._label = label
+        return self
+
+    # TODO: Allow group and deployment groups to be included as well.
+    def contains(
+        self,
+        *nodes: Union[
+            'DeploymentNode',
+            '_FluentRelationship[DeploymentNode]',
+        ],
+    ) -> _FluentRelationship['DeploymentEnvironment']:
+
+        for node in nodes:
+            if isinstance(node, DeploymentNode):
+                node._workspace = self._parent
+                node.model.environment = self._name
+                node._parent = self._parent
+                self._children.append(node)
+
+                if node._label:
+                    self._dynamic_attrs[_child_name_transform(node._label)] = node
+                self._dynamic_attrs[_child_name_transform(node.model.name)] = node
+
+            elif _is_deployment_node_fluent_relationship(node):
+                node._parent.model.environment = self._name
+                node._parent._parent = self._parent
+                self._children.append(node._parent)
+
+                if node._parent._label:
+                    self._dynamic_attrs[_child_name_transform(node._parent._label)] = node._parent
+                self._dynamic_attrs[_child_name_transform(node._parent.model.name)] = node._parent
+
+        return _FluentRelationship['DeploymentEnvironment'](self)
+
+    def __getattr__(self, name: str) -> 'DeploymentNode':
+        return self._dynamic_attrs[name]
+
+    def __getitem__(self, name: str) -> 'DeploymentNode':
+        return self._dynamic_attrs[_child_name_transform(name)]
+
+class DeploymentNode(DslElementRelationOverrides[
+    'DeploymentNode',
+    'DeploymentNode'
+]):
+
+    """
+    Used to define a deployment node (e.g., a physical server, virtual machine,
+    etc.).
+    """
+
+    def __init__(
+        self,
+        name: str,
+        description: str="",
+        technology: str="",
+        tags: Set[str]=set(),
+        properties: Dict[str, Any]={},
+    ) -> None:
+        self._m = buildzr.models.DeploymentNode()
+        self._m.name = name
+        self._m.description = description
+        self._m.technology = technology
+        self._m.tags = ','.join({'Element', 'Deployment Node'}.union(tags))
+        self._m.properties = properties
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
+        self._label: Optional[str] = None
+        self._parent: Optional[Union[Workspace, 'DeploymentNode']] = None
+        self._children: List[Union['DeploymentNode', 'DslElement']] = None
+        self._tags = {'Element', 'Deployment Node'}.union(tags)
+
+    @property
+    def model(self) -> buildzr.models.DeploymentNode:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Union[Workspace, 'DeploymentNode']]:
+        return self._parent
+
+    @property
+    def children(self) -> Optional[List[
+        Union[
+            'DeploymentNode',
+            'DslElement',
+        ]
+    ]]:
+        return self._children
+
+    @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
+    def tags(self) -> Set['str']:
+        return self._tags
+
+    def labeled(self, label: str) -> 'DeploymentNode':
+        self._label = label
+        return self
+
+    def contains(
+        self,
+        *instances: Union[
+            'DeploymentNode',
+            'SoftwareSystemInstance',
+            'ContainerInstance',
+            '_FluentRelationship[DeploymentNode]',
+        ]
+    ) -> _FluentRelationship['DeploymentNode']:
+
+        if self._children is None:
+            self._children = []
+
+        for instance in instances:
+            if isinstance(instance, SoftwareSystemInstance):
+                instance._parent = self
+                if self._m.softwareSystemInstances:
+                    self._m.softwareSystemInstances.append(instance.model)
+                else:
+                    self._m.softwareSystemInstances = [instance.model]
+                self._children.append(instance)
+            elif isinstance(instance, ContainerInstance):
+                if self._m.containerInstances:
+                    self._m.containerInstances.append(instance.model)
+                else:
+                    self._m.containerInstances = [instance.model]
+                instance._parent = self
+                self._children.append(instance)
+            elif isinstance(instance, DeploymentNode):
+                if self._m.children:
+                    self._m.children.append(instance.model)
+                else:
+                    self._m.children = [instance.model]
+                instance._parent = self
+                self._children.append(instance)
+            elif _is_deployment_node_fluent_relationship(instance):
+                if self._m.children:
+                    self._m.children.append(instance._parent.model)
+                else:
+                    self._m.children = [instance._parent.model]
+                instance._parent._parent = self
+                self._children.append(instance._parent)
+
+        return _FluentRelationship['DeploymentNode'](self)
+
+class InfrastructureNode(DslElementRelationOverrides[
+    'InfrastructureNode',
+    Union[
+        'DeploymentNode',
+        'InfrastructureNode',
+        'SoftwareSystemInstance',
+        'ContainerInstance',
+    ]
+]):
+
+    def __init__(
+        self,
+        description: str,
+        technology: str,
+        tags: Set[str],
+        properties: Optional[Dict[str, Any]],
+    ):
+        self._m = buildzr.models.InfrastructureNode()
+        self._m.description = description
+        self._m.technology = technology
+        self._m.tags = ','.join({'Element', 'Infrastructure Node'}.union(tags))
+        self._m.properties = properties
+
+class SoftwareSystemInstance(DslElementRelationOverrides[
+    'SoftwareSystemInstance',
+    'InfrastructureNode'
+]):
+
+    def __init__(
+        self,
+        selector: Callable[[Workspace], SoftwareSystem],
+        tags: Set[str]=set(),
+        properties: Optional[Dict[str, Any]]={},
+    ) -> None:
+        self._m = buildzr.models.SoftwareSystemInstance()
+        self._m.tags = ','.join({'Software System Instance'}.union(tags))
+        self._m.properties = properties
+        self._parent: Optional[DeploymentNode] = None
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
+        self._selector = selector
+        self._tags = {'Element', 'Software System Instance'}.union(tags)
+
+    @property
+    def model(self) -> buildzr.models.SoftwareSystemInstance:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[DeploymentNode]:
+        return self._parent
+
+    @property
+    def children(self) -> None:
+        return None
+
+    @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
+
+    def _bind_workspace(self, workspace: Workspace) -> None:
+        self._m.softwareSystemId = self._selector(workspace).model.id
+
+class ContainerInstance(DslElementRelationOverrides[
+    'ContainerInstance',
+    'InfrastructureNode'
+]):
+
+    def __init__(
+        self,
+        selector: Callable[[Workspace], Container],
+        tags: Set[str]=set(),
+        properties: Optional[Dict[str, Any]]={},
+    ) -> None:
+        self._m = buildzr.models.ContainerInstance()
+        self._m.tags = ','.join({'Container Instance'}.union(tags))
+        self._m.properties = properties
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
+        self._parent: Optional[DeploymentNode] = None
+        self._selector = selector
+        self._tags = {'Element', 'Container Instance'}.union(tags)
+
+    @property
+    def model(self) -> buildzr.models.ContainerInstance:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[DeploymentNode]:
+        return self._parent
+
+    @property
+    def children(self) -> None:
+        return None
+
+    @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
+
+    def _bind_workspace(self, workspace: Workspace) -> None:
+        self._m.containerId = self._selector(workspace).model.id

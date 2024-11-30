@@ -9,6 +9,10 @@ from .dsl import (
     SystemContextView,
     ContainerView,
     ComponentView,
+    DeploymentEnvironment,
+    DeploymentNode,
+    SoftwareSystemInstance,
+    ContainerInstance,
 )
 from .relations import (
     desc,

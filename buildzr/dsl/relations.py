@@ -37,6 +37,16 @@ def _is_container_fluent_relationship(
 ) -> TypeIs['_FluentRelationship[buildzr.dsl.Container]']:
     return isinstance(obj._parent, buildzr.dsl.Container)
 
+def _is_deployment_environment_fluent_relationship(
+    obj: '_FluentRelationship[Any]',
+) -> TypeIs['_FluentRelationship[buildzr.dsl.DeploymentEnvironment]']:
+    return isinstance(obj._parent, buildzr.dsl.DeploymentEnvironment)
+
+def _is_deployment_node_fluent_relationship(
+    obj: '_FluentRelationship[Any]',
+) -> TypeIs['_FluentRelationship[buildzr.dsl.DeploymentNode]']:
+    return isinstance(obj._parent, buildzr.dsl.DeploymentNode)
+
 def _is_list_of_dslelements_or_usesfromlates(
     obj: list
 ) -> TypeIs[List[Union[DslElement, '_UsesFromLate[DslElement]']]]:
