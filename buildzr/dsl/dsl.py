@@ -1303,7 +1303,7 @@ class SoftwareSystemInstance(DslElementRelationOverrides[
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._selector = selector
-        self._tags = {'Element', 'Software System Instance'}.union(tags)
+        self._tags = {'Software System Instance'}.union(tags)
         self._m.tags = ','.join(self.tags)
 
     @property
@@ -1350,7 +1350,7 @@ class ContainerInstance(DslElementRelationOverrides[
         self._destinations: List[DslElement] = []
         self._parent: Optional[DeploymentNode] = None
         self._selector = selector
-        self._tags = {'Element', 'Container Instance'}.union(tags)
+        self._tags = {'Container Instance'}.union(tags)
         self._m.tags = ','.join(self._tags)
 
     @property

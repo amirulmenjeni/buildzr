@@ -2,7 +2,7 @@ from dataclasses import dataclass, fields
 import inspect
 import pytest
 import importlib
-from typing import Optional, cast
+from typing import Optional, Set, cast
 from buildzr.dsl.interfaces import DslRelationship
 from buildzr.dsl import (
     Workspace,
@@ -966,3 +966,61 @@ def test_deployment_environment() -> Optional[None]:
     assert w.model.model.deploymentNodes[1].id == w.environment().development.s2.model.id
     assert w.model.model.deploymentNodes[1].containerInstances[0].containerId == w.software_system().ss.api.model.id
     assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].containerId == w.software_system().ss.database.model.id
+
+def test_correct_tags() -> Optional[None]:
+
+    w = Workspace("w")
+    person = Person("User")
+    software_system = SoftwareSystem("Software System")
+    container = Container("Container")
+    component = Component("Component")
+    deployment_node = DeploymentNode("Node")
+
+    w.contains(
+        person,
+        software_system\
+        .contains(
+            container\
+            .contains(
+                component
+            )
+        ),
+
+        DeploymentEnvironment("development")\
+        .contains(
+            deployment_node\
+            .contains(
+                SoftwareSystemInstance(lambda w: w.software_system().software_system),
+                ContainerInstance(lambda w: w.software_system().software_system.container().container),
+            )
+        )
+    )
+
+    from buildzr.dsl import Explorer
+
+    elements = Explorer(w).walk_elements()
+
+    def to_set(tags: str) -> Set[str]:
+        return set(tags.split(','))
+
+    for element in elements:
+        print(element)
+        tags_set = to_set(element.model.tags)
+        if isinstance(element, Person):
+            assert {'Element', 'Person'} == tags_set
+        elif isinstance(element, SoftwareSystem):
+            assert {'Element', 'Software System'} == tags_set
+        elif isinstance(element, Container):
+            assert {'Element', 'Container'} == tags_set
+        elif isinstance(element, Component):
+            assert {'Element', 'Component'} == tags_set
+        elif isinstance(element, DeploymentNode):
+            assert {'Element', 'Deployment Node'} == tags_set
+
+            for instance in element.instances:
+                print(instance._m)
+                tags_set = to_set(instance.model.tags)
+                if isinstance(instance, SoftwareSystemInstance):
+                    assert {'Software System Instance'} == tags_set
+                elif isinstance(instance, ContainerInstance):
+                    assert {'Container Instance'} == tags_set
