@@ -11,6 +11,7 @@ from .dsl import (
     ComponentView,
     DeploymentEnvironment,
     DeploymentNode,
+    InfrastructureNode,
     SoftwareSystemInstance,
     ContainerInstance,
 )

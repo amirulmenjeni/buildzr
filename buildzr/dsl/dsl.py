@@ -43,6 +43,7 @@ from buildzr.dsl.relations import (
     _is_container_fluent_relationship,
     _is_deployment_environment_fluent_relationship,
     _is_deployment_node_fluent_relationship,
+    _is_infrastructure_node_fluent_relationship,
     _Relationship,
     _RelationshipDescription,
     _FluentRelationship,
@@ -156,7 +157,8 @@ class Workspace(DslWorkspaceElement):
                 instance._bind_workspace(self)
 
         for node in deployment_node.children:
-            self._recursive_bind_deployment_nodes_to_workspace(node)
+            if isinstance(node, DeploymentNode):
+                self._recursive_bind_deployment_nodes_to_workspace(node)
 
     def contains(
         self,
@@ -183,6 +185,8 @@ class Workspace(DslWorkspaceElement):
             elif _is_deployment_environment_fluent_relationship(model):
                 model._parent._parent = self
                 self._dynamic_attrs[_child_name_transform(model._parent.name)] = model._parent
+                if model._parent._label:
+                    self._dynamic_attrs[_child_name_transform(model._parent._label)] = model._parent
                 for child in model._parent._children:
                     self.add_element(child)
 
@@ -1176,7 +1180,7 @@ class DeploymentNode(DslElementRelationOverrides[
         self._destinations: List[DslElement] = []
         self._label: Optional[str] = None
         self._parent: Optional[Union[Workspace, 'DeploymentNode']] = None
-        self._children: Optional[List['DeploymentNode']] = None
+        self._children: Optional[List[Union['DeploymentNode', 'InfrastructureNode']]] = None
         self._instances: List[Union['SoftwareSystemInstance', 'ContainerInstance']] = []
         self._tags = {'Element', 'Deployment Node'}.union(tags)
 
@@ -1189,7 +1193,7 @@ class DeploymentNode(DslElementRelationOverrides[
         return self._parent
 
     @property
-    def children(self) -> Optional[List['DeploymentNode']]:
+    def children(self) -> Optional[List[Union['DeploymentNode', 'InfrastructureNode']]]:
         return self._children
 
     @property
@@ -1216,9 +1220,11 @@ class DeploymentNode(DslElementRelationOverrides[
         self,
         *instances: Union[
             'DeploymentNode',
+            'InfrastructureNode',
             'SoftwareSystemInstance',
             'ContainerInstance',
             '_FluentRelationship[DeploymentNode]',
+            '_FluentRelationship[InfrastructureNode]',
         ]
     ) -> _FluentRelationship['DeploymentNode']:
 
@@ -1253,6 +1259,13 @@ class DeploymentNode(DslElementRelationOverrides[
                     self._m.children = [instance.model]
                 instance._parent = self
                 self._children.append(instance)
+            elif isinstance(instance, InfrastructureNode):
+                if self._m.infrastructureNodes:
+                    self._m.infrastructureNodes.append(instance.model)
+                else:
+                    self._m.infrastructureNodes = [instance.model]
+                instance._parent = self
+                self._children.append(instance)
             elif _is_deployment_node_fluent_relationship(instance):
                 if self._m.children:
                     self._m.children.append(instance._parent.model)
@@ -1260,6 +1273,13 @@ class DeploymentNode(DslElementRelationOverrides[
                     self._m.children = [instance._parent.model]
                 instance._parent._parent = self
                 self._children.append(instance._parent)
+            elif _is_infrastructure_node_fluent_relationship(instance):
+                if self._m.infrastructureNodes:
+                    self._m.infrastructureNodes.append(instance._parent.model)
+                else:
+                    self._m.infrastructureNodes = [instance._parent.model]
+                instance._parent._parent = self
+                self._children.infrastructureNodes.append(instance._parent)
 
         return _FluentRelationship['DeploymentNode'](self)
 
@@ -1278,13 +1298,43 @@ class InfrastructureNode(DslElementRelationOverrides[
         description: str,
         technology: str,
         tags: Set[str],
-        properties: Optional[Dict[str, Any]],
+        url: Optional[str]=None,
+        properties: Optional[Dict[str, Any]]={},
     ):
         self._m = buildzr.models.InfrastructureNode()
         self._m.description = description
         self._m.technology = technology
-        self._m.tags = ','.join({'Element', 'Infrastructure Node'}.union(tags))
         self._m.properties = properties
+        self._tags = {'Element', 'Infrastructure Node'}.union(tags)
+        self._m.tags = ','.join(self._tags)
+        self._m.url = url
+        self._parent: Optional[DeploymentNode] = None
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
+
+    @property
+    def model(self) -> buildzr.models.InfrastructureNode:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[DeploymentNode]:
+        return self._parent
+
+    @property
+    def children(self) -> None:
+        return None
+
+    @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
 
 class SoftwareSystemInstance(DslElementRelationOverrides[
     'SoftwareSystemInstance',

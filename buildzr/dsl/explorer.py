@@ -4,6 +4,7 @@ from buildzr.dsl.dsl import (
     Container,
     Component,
     DeploymentNode,
+    InfrastructureNode,
     SoftwareSystemInstance,
     ContainerInstance,
 )
@@ -32,6 +33,7 @@ class Explorer:
         Container,
         Component,
         DeploymentNode,
+        InfrastructureNode,
     ]):
         self._workspace_or_element = workspace_or_element
 
@@ -41,6 +43,7 @@ class Explorer:
         Container,
         Component,
         DeploymentNode,
+        InfrastructureNode,
     ], None, None]:
         if self._workspace_or_element.children:
             for child in self._workspace_or_element.children:

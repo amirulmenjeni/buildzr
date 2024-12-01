@@ -17,6 +17,7 @@ from buildzr.dsl import (
     DeploymentNode,
     SoftwareSystemInstance,
     ContainerInstance,
+    InfrastructureNode,
     # DeploymentEnvironment,
     # DeploymentNode,
     desc,
@@ -945,6 +946,27 @@ def test_deployment_environment() -> Optional[None]:
                         ContainerInstance(lambda w: w.software_system().ss.database),
                     )
                 ),
+            ),
+
+            DeploymentEnvironment("Production").labeled('prod')
+            .contains(
+                DeploymentNode("Amazon Web Services").labeled('aws')
+                .contains(
+                    DeploymentNode("Autoscaling Group")
+                    .contains(
+                        DeploymentNode("Amazon EC2")
+                        .contains(
+                            ContainerInstance(lambda w: w.software_system().ss.api),
+                        )
+                    ),
+                    DeploymentNode("Amazon RDS")
+                    .contains(
+                        DeploymentNode("MySQL")
+                        .contains(
+                            ContainerInstance(lambda w: w.software_system().ss.database),
+                        )
+                    )
+                ),
             )
         )\
         .where(lambda w: [
@@ -955,7 +977,7 @@ def test_deployment_environment() -> Optional[None]:
     assert w.model.model.softwareSystems[0].containers[0].id == w.software_system().ss.database.model.id
     assert w.model.model.softwareSystems[0].containers[1].id == w.software_system().ss.api.model.id
 
-    assert len(w.model.model.deploymentNodes) == 2
+    assert len(w.model.model.deploymentNodes) == 3
 
     assert w.model.model.deploymentNodes[0].environment == "Development"
     assert w.model.model.deploymentNodes[0].id == w.environment().development.s1.model.id
@@ -966,6 +988,15 @@ def test_deployment_environment() -> Optional[None]:
     assert w.model.model.deploymentNodes[1].id == w.environment().development.s2.model.id
     assert w.model.model.deploymentNodes[1].containerInstances[0].containerId == w.software_system().ss.api.model.id
     assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].containerId == w.software_system().ss.database.model.id
+
+    assert w.model.model.deploymentNodes[2].environment == "Production"
+    assert w.model.model.deploymentNodes[2].id == w.environment().prod.aws.model.id
+    assert w.model.model.deploymentNodes[2].children[0].name == "Autoscaling Group"
+    assert w.model.model.deploymentNodes[2].children[0].children[0].name == "Amazon EC2"
+    assert w.model.model.deploymentNodes[2].children[0].children[0].containerInstances[0].containerId == w.software_system().ss.api.model.id
+    assert w.model.model.deploymentNodes[2].children[1].name == "Amazon RDS"
+    assert w.model.model.deploymentNodes[2].children[1].children[0].name == "MySQL"
+    assert w.model.model.deploymentNodes[2].children[1].children[0].containerInstances[0].containerId == w.software_system().ss.database.model.id
 
 def test_correct_tags() -> Optional[None]:
 
@@ -1024,3 +1055,7 @@ def test_correct_tags() -> Optional[None]:
                     assert {'Software System Instance'} == tags_set
                 elif isinstance(instance, ContainerInstance):
                     assert {'Container Instance'} == tags_set
+
+            for child in element.children:
+                if isinstance(child, InfrastructureNode):
+                    assert {'Infrastructure Node'} == to_set(child.model.tags)
