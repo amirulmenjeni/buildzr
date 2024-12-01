@@ -24,9 +24,9 @@ class SampleContainerView(AbstractBuilder):
                     SoftwareSystem('external_system'), # Also unrelated!
                 )\
                 .where(lambda w: [
-                    w.user >> "Uses" >> w.software_system().app.web_application,
-                    w.user >> "Hacks" >> w.git_repo,
-                    w.git_repo >> "Uses" >> w.external_system,
+                    w.person().user >> "Uses" >> w.software_system().app.web_application,
+                    w.person().user >> "Hacks" >> w.software_system().git_repo,
+                    w.software_system().git_repo >> "Uses" >> w.software_system().external_system,
                 ])\
                 .with_views(
                     ContainerView(

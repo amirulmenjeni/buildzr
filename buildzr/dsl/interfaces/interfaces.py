@@ -24,12 +24,16 @@ Model = Union[
     buildzr.models.SoftwareSystem,
     buildzr.models.Container,
     buildzr.models.Component,
+    buildzr.models.DeploymentNode,
+    buildzr.models.InfrastructureNode,
+    buildzr.models.SoftwareSystemInstance,
+    buildzr.models.ContainerInstance,
 ]
 
 TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
 TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
 
-TParent = TypeVar('TParent', bound=Union['DslWorkspaceElement', 'DslElement'], covariant=True)
+TParent = TypeVar('TParent', bound=Union['DslWorkspaceElement', 'DslElement', 'DslDeploymentEnvironment'], covariant=True)
 TChild = TypeVar('TChild', bound='DslElement', contravariant=True)
 
 class BindLeftLate(ABC, Generic[TDst]):
@@ -226,6 +230,7 @@ class DslViewElement(ABC):
     def parent(self) -> 'DslViewsElement':
         pass
 
+    @abstractmethod
     def _on_added(self) -> None:
         pass
 
@@ -246,4 +251,21 @@ class DslViewsElement(ABC):
         self,
         *views: Union[DslViewElement],
     ) -> DslFluentSink:
+        pass
+
+class DslDeploymentEnvironment(ABC):
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def parent(self) -> DslWorkspaceElement:
+        pass
+
+    @property
+    @abstractmethod
+    def children(self) -> Optional[Sequence['DslElement']]:
         pass

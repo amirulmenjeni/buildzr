@@ -2,7 +2,7 @@ from dataclasses import dataclass, fields
 import inspect
 import pytest
 import importlib
-from typing import Optional, cast
+from typing import Optional, Set, cast
 from buildzr.dsl.interfaces import DslRelationship
 from buildzr.dsl import (
     Workspace,
@@ -13,6 +13,13 @@ from buildzr.dsl import (
     Component,
     With,
     SystemContextView,
+    DeploymentEnvironment,
+    DeploymentNode,
+    SoftwareSystemInstance,
+    ContainerInstance,
+    InfrastructureNode,
+    # DeploymentEnvironment,
+    # DeploymentNode,
     desc,
 )
 from buildzr.encoders import JsonEncoder
@@ -909,3 +916,146 @@ def test_fluent_json_sink_empty_views() -> Optional[None]:
 
     import os
     os.remove("test.json")
+
+def test_deployment_environment() -> Optional[None]:
+
+    w = Workspace("w")\
+        .contains(
+
+            SoftwareSystem("Software System").labeled('ss')
+            .contains(
+                Container("Database").labeled('database'),
+                Container("Service API").labeled('api'),
+            ),
+
+            DeploymentEnvironment("Development")
+            .contains(
+                DeploymentNode("Server 1", description="Server 1 Node").labeled('s1')
+                .contains(
+                    ContainerInstance(lambda w: w.software_system().ss.api),
+                    DeploymentNode("Database Server")
+                    .contains(
+                        ContainerInstance(lambda w: w.software_system().ss.database),
+                    )
+                ),
+                DeploymentNode("Server 2").labeled('s2')
+                .contains(
+                    ContainerInstance(lambda w: w.software_system().ss.api),
+                    DeploymentNode("Database Server")
+                    .contains(
+                        ContainerInstance(lambda w: w.software_system().ss.database),
+                    )
+                ),
+            ),
+
+            DeploymentEnvironment("Production").labeled('prod')
+            .contains(
+                DeploymentNode("Amazon Web Services").labeled('aws')
+                .contains(
+                    DeploymentNode("Autoscaling Group")
+                    .contains(
+                        DeploymentNode("Amazon EC2")
+                        .contains(
+                            ContainerInstance(lambda w: w.software_system().ss.api),
+                        )
+                    ),
+                    DeploymentNode("Amazon RDS")
+                    .contains(
+                        DeploymentNode("MySQL")
+                        .contains(
+                            ContainerInstance(lambda w: w.software_system().ss.database),
+                        )
+                    )
+                ),
+            )
+        )\
+        .where(lambda w: [
+            w.software_system().ss.database >> "Uses" >> w.software_system().ss.api,
+        ])
+
+    assert w.model.model.softwareSystems[0].id == w.software_system().ss.model.id
+    assert w.model.model.softwareSystems[0].containers[0].id == w.software_system().ss.database.model.id
+    assert w.model.model.softwareSystems[0].containers[1].id == w.software_system().ss.api.model.id
+
+    assert len(w.model.model.deploymentNodes) == 3
+
+    assert w.model.model.deploymentNodes[0].environment == "Development"
+    assert w.model.model.deploymentNodes[0].id == w.environment().development.s1.model.id
+    assert w.model.model.deploymentNodes[0].containerInstances[0].containerId == w.software_system().ss.api.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].containerId == w.software_system().ss.database.model.id
+
+    assert w.model.model.deploymentNodes[1].environment == "Development"
+    assert w.model.model.deploymentNodes[1].id == w.environment().development.s2.model.id
+    assert w.model.model.deploymentNodes[1].containerInstances[0].containerId == w.software_system().ss.api.model.id
+    assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].containerId == w.software_system().ss.database.model.id
+
+    assert w.model.model.deploymentNodes[2].environment == "Production"
+    assert w.model.model.deploymentNodes[2].id == w.environment().prod.aws.model.id
+    assert w.model.model.deploymentNodes[2].children[0].name == "Autoscaling Group"
+    assert w.model.model.deploymentNodes[2].children[0].children[0].name == "Amazon EC2"
+    assert w.model.model.deploymentNodes[2].children[0].children[0].containerInstances[0].containerId == w.software_system().ss.api.model.id
+    assert w.model.model.deploymentNodes[2].children[1].name == "Amazon RDS"
+    assert w.model.model.deploymentNodes[2].children[1].children[0].name == "MySQL"
+    assert w.model.model.deploymentNodes[2].children[1].children[0].containerInstances[0].containerId == w.software_system().ss.database.model.id
+
+def test_correct_tags() -> Optional[None]:
+
+    w = Workspace("w")
+    person = Person("User")
+    software_system = SoftwareSystem("Software System")
+    container = Container("Container")
+    component = Component("Component")
+    deployment_node = DeploymentNode("Node")
+
+    w.contains(
+        person,
+        software_system\
+        .contains(
+            container\
+            .contains(
+                component
+            )
+        ),
+
+        DeploymentEnvironment("development")\
+        .contains(
+            deployment_node\
+            .contains(
+                SoftwareSystemInstance(lambda w: w.software_system().software_system),
+                ContainerInstance(lambda w: w.software_system().software_system.container().container),
+            )
+        )
+    )
+
+    from buildzr.dsl import Explorer
+
+    elements = Explorer(w).walk_elements()
+
+    def to_set(tags: str) -> Set[str]:
+        return set(tags.split(','))
+
+    for element in elements:
+        print(element)
+        tags_set = to_set(element.model.tags)
+        if isinstance(element, Person):
+            assert {'Element', 'Person'} == tags_set
+        elif isinstance(element, SoftwareSystem):
+            assert {'Element', 'Software System'} == tags_set
+        elif isinstance(element, Container):
+            assert {'Element', 'Container'} == tags_set
+        elif isinstance(element, Component):
+            assert {'Element', 'Component'} == tags_set
+        elif isinstance(element, DeploymentNode):
+            assert {'Element', 'Deployment Node'} == tags_set
+
+            for instance in element.instances:
+                print(instance._m)
+                tags_set = to_set(instance.model.tags)
+                if isinstance(instance, SoftwareSystemInstance):
+                    assert {'Software System Instance'} == tags_set
+                elif isinstance(instance, ContainerInstance):
+                    assert {'Container Instance'} == tags_set
+
+            for child in element.children:
+                if isinstance(child, InfrastructureNode):
+                    assert {'Infrastructure Node'} == to_set(child.model.tags)
