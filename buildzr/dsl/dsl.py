@@ -25,7 +25,7 @@ from typing import (
     Sequence,
     Type,
 )
-
+from types import TracebackType
 from buildzr.sinks.interfaces import Sink
 
 from buildzr.dsl.interfaces import (
@@ -88,6 +88,7 @@ class Workspace(DslWorkspaceElement):
             softwareSystems=[],
             deploymentNodes=[],
         )
+        self._current_group = None
 
         scope_mapper: Dict[
             str,
@@ -101,6 +102,23 @@ class Workspace(DslWorkspaceElement):
         self.model.configuration = buildzr.models.WorkspaceConfiguration(
             scope=scope_mapper[scope],
         )
+
+    def __enter__(self) -> 'Workspace':
+        """Support for using Workspace as a context manager."""
+        return self
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                exc_val: Optional[BaseException],
+                exc_tb: Optional[TracebackType]) -> bool:
+        """Exit the context manager."""
+        return False
+
+    def add_to_current_group(self, element: Union['Person', 'SoftwareSystem']):
+        """Add an element to the current group if one exists."""
+        if self._current_group is not None:
+            self._current_group._collected_elements.append(element)
+        self.add_element(element)
+        return element
 
     def _contains_group(
         self,
@@ -131,6 +149,14 @@ class Workspace(DslWorkspaceElement):
                 recursive_group_name_assign(model._parent._parent)
 
         self.contains(*models)
+
+    def set_current_group(self, group: 'Group'):
+        """Set the current active group for adding elements."""
+        self._current_group = group
+
+    def clear_current_group(self):
+        """Clear the current active group."""
+        self._current_group = None
 
     def contains(
         self,
@@ -199,6 +225,13 @@ class Workspace(DslWorkspaceElement):
     def __dir__(self) -> Iterable[str]:
         return list(super().__dir__()) + list(self._dynamic_attrs.keys())
 
+    def get_workspace(self) -> 'Workspace':
+        """
+        Return self for compatibility with the old fluent API.
+        Used in the pattern: Workspace(...).contains(...).get_workspace()
+        """
+        return self
+
 class SoftwareSystem(DslElementRelationOverrides[
     'SoftwareSystem',
     Union[
@@ -250,6 +283,26 @@ class SoftwareSystem(DslElementRelationOverrides[
         self.model.description = description
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
+
+        # Auto-add to current workspace if in a Group context
+        from inspect import currentframe, getouterframes
+        for frame in getouterframes(currentframe()):
+            for obj in frame.frame.f_locals.values():
+                if isinstance(obj, Workspace):
+                    obj.add_to_current_group(self)
+                    break
+
+    def Container(self, name: str, description: str="", technology: str="",
+                 tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> 'Container':
+        """
+        Create a new container and automatically add it to this software system.
+        """
+        container = Container(name, description, technology, tags, properties)
+        if not self.model.containers:
+            self.model.containers = []
+
+        self.add_element(container)
+        return container
 
     def contains(
         self,
@@ -347,6 +400,14 @@ class Person(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
+        # Auto-add to current workspace if in a Group context
+        from inspect import currentframe, getouterframes
+        for frame in getouterframes(currentframe()):
+            for obj in frame.frame.f_locals.values():
+                if isinstance(obj, Workspace):
+                    obj.add_to_current_group(self)
+                    break
+
     def labeled(self, label: str) -> 'Person':
         self._label = label
         return self
@@ -388,6 +449,18 @@ class Container(DslElementRelationOverrides[
     def tags(self) -> Set[str]:
         return self._tags
 
+    def Component(self, name: str, description: str="", technology: str="",
+                 tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> 'Component':
+        """
+        Create a new component and automatically add it to this container.
+        """
+        component = Component(name, description, technology, tags, properties)
+        if not self.model.components:
+            self.model.components = []
+
+        self.add_element(component)
+        return component
+
     def contains(self, *components: 'Component') -> _FluentRelationship['Container']:
         if not self.model.components:
             self.model.components = []
@@ -421,6 +494,9 @@ class Container(DslElementRelationOverrides[
 
     def add_element(self, element: 'Component') -> None:
         if isinstance(element, Component):
+            if self.model.components is None:
+                self.model.components = []
+
             self.model.components.append(element.model)
             element._parent = self
             self._dynamic_attrs[_child_name_transform(element.model.name)] = element
@@ -491,6 +567,14 @@ class Component(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
+        # Auto-add to current container if in context
+        from inspect import currentframe, getouterframes
+        for frame in getouterframes(currentframe()):
+            for obj in frame.frame.f_locals.values():
+                if isinstance(obj, Container):
+                    obj.add_element(self)
+                    break
+
     def labeled(self, label: str) -> 'Component':
         self._label = label
         return self
@@ -508,6 +592,31 @@ class Group:
     ]) -> None:
         self._name = name
         self._elements = elements
+        self._workspace = None
+        self._collected_elements = []
+
+    def __enter__(self) -> 'Group':
+        """Support for using Group as a context manager."""
+        # Find the workspace from the call stack or context
+        from inspect import currentframe, getouterframes
+        for frame in getouterframes(currentframe()):
+            for obj in frame.frame.f_locals.values():
+                if isinstance(obj, Workspace):
+                    self._workspace = obj
+                    self._workspace.set_current_group(self)
+                    break
+            if self._workspace is not None:
+                break
+        return self
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                exc_val: Optional[BaseException],
+                exc_tb: Optional[TracebackType]) -> bool:
+        """Exit the context manager."""
+        if self._workspace is not None:
+            self._workspace.clear_current_group()
+            self._workspace._contains_group(self._name, *self._collected_elements)
+        return False
 
 class _FluentSink(DslFluentSink):
 
@@ -953,6 +1062,8 @@ class ComponentView(DslViewElement):
         for relationship_id in relationship_ids:
             self._m.relationships.append(RelationshipView(id=relationship_id))
 
+from buildzr.dsl.expression import Expression, Element, Relationship
+
 class Views(DslViewsElement):
 
     @property
@@ -965,11 +1076,71 @@ class Views(DslViewsElement):
 
     def __init__(
         self,
-        workspace: Workspace,
+        workspace: Workspace = None,
     ) -> None:
         self._m = buildzr.models.Views()
         self._parent = workspace
-        self._parent._m.views = self._m
+        self._collected_views = []
+
+        # Auto-detect workspace from context if not provided
+        if self._parent is None:
+            from inspect import currentframe, getouterframes
+            for frame in getouterframes(currentframe()):
+                for obj in frame.frame.f_locals.values():
+                    if isinstance(obj, Workspace):
+                        self._parent = obj
+                        break
+                if self._parent is not None:
+                    break
+
+        if self._parent:
+            self._parent._m.views = self._m
+
+    def __enter__(self) -> 'Views':
+        """Support for using Views as a context manager."""
+        return self
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]],
+                exc_val: Optional[BaseException],
+                exc_tb: Optional[TracebackType]) -> bool:
+        """Exit the context manager."""
+        if self._parent:
+            for view in self._collected_views:
+                self.add_view(view)
+        return False
+
+    def add_view(self, view: DslViewElement) -> None:
+        """Add a view to the views collection."""
+        if isinstance(view, SystemLandscapeView):
+            view._parent = self
+            view._on_added()
+            if self._m.systemLandscapeViews:
+                self._m.systemLandscapeViews.append(view.model)
+            else:
+                self._m.systemLandscapeViews = [view.model]
+        elif isinstance(view, SystemContextView):
+            view._parent = self
+            view._on_added()
+            if self._m.systemContextViews:
+                self._m.systemContextViews.append(view.model)
+            else:
+                self._m.systemContextViews = [view.model]
+        elif isinstance(view, ContainerView):
+            view._parent = self
+            view._on_added()
+            if self._m.containerViews:
+                self._m.containerViews.append(view.model)
+            else:
+                self._m.containerViews = [view.model]
+        elif isinstance(view, ComponentView):
+            view._parent = self
+            view._on_added()
+            if self._m.componentViews:
+                self._m.componentViews.append(view.model)
+            else:
+                self._m.componentViews = [view.model]
+        else:
+            raise NotImplementedError(f"The view {type(view)} is currently not supported")
 
     def contains(
         self,
@@ -977,36 +1148,7 @@ class Views(DslViewsElement):
     ) -> _FluentSink:
 
         for view in views:
-            if isinstance(view, SystemLandscapeView):
-                view._parent = self
-                view._on_added()
-                if self._m.systemLandscapeViews:
-                    self._m.systemLandscapeViews.append(view.model)
-                else:
-                    self._m.systemLandscapeViews = [view.model]
-            elif isinstance(view, SystemContextView):
-                view._parent = self
-                view._on_added()
-                if self._m.systemContextViews:
-                    self._m.systemContextViews.append(view.model)
-                else:
-                    self._m.systemContextViews = [view.model]
-            elif isinstance(view, ContainerView):
-                view._parent = self
-                view._on_added()
-                if self._m.containerViews:
-                    self._m.containerViews.append(view.model)
-                else:
-                    self._m.containerViews = [view.model]
-            elif isinstance(view, ComponentView):
-                view._parent = self
-                view._on_added()
-                if self._m.componentViews:
-                    self._m.componentViews.append(view.model)
-                else:
-                    self._m.componentViews = [view.model]
-            else:
-                raise NotImplementedError("The view {0} is currently not supported", type(view))
+            self.add_view(view)
 
         return _FluentSink(self._parent)
 
@@ -1015,3 +1157,81 @@ class Views(DslViewsElement):
         Get the `Workspace` which contain this views definition.
         """
         return self._parent
+
+    def SystemContextView(
+        self,
+        software_system: SoftwareSystem,
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout='tb',
+        title: Optional[str]=None,
+        include_elements: List[Callable[[Workspace, Element], bool]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        properties: Optional[Dict[str, str]]=None,
+    ) -> SystemContextView:
+        """Create a SystemContextView and add it to the Views collection."""
+        processed_exclude_elements = []
+
+        # Process any direct references to elements in exclude_elements
+        for item in exclude_elements:
+            if isinstance(item, DslElement):
+                processed_exclude_elements.append(lambda w, e: e == item)
+            else:
+                processed_exclude_elements.append(item)
+
+        view = SystemContextView(
+            lambda w: software_system, # Simplified selector
+            key=key,
+            description=description,
+            auto_layout=auto_layout,
+            title=title,
+            include_elements=include_elements,
+            exclude_elements=processed_exclude_elements,
+            include_relationships=include_relationships,
+            exclude_relationships=exclude_relationships,
+            properties=properties
+        )
+
+        self._collected_views.append(view)
+        return view
+
+    def ContainerView(
+        self,
+        software_system: SoftwareSystem,
+        key: str,
+        description: str,
+        auto_layout: _AutoLayout='tb',
+        title: Optional[str]=None,
+        include_elements: List[Callable[[Workspace, Element], bool]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        properties: Optional[Dict[str, str]]=None,
+    ) -> ContainerView:
+        """Create a ContainerView and add it to the Views collection."""
+        processed_exclude_elements = []
+
+        # Process any direct references to elements in exclude_elements
+        for item in exclude_elements:
+            if isinstance(item, DslElement):
+                processed_exclude_elements.append(lambda w, e: e == item)
+            else:
+                processed_exclude_elements.append(item)
+
+        view = ContainerView(
+            lambda w: software_system, # Simplified selector
+            key=key,
+            description=description,
+            auto_layout=auto_layout,
+            title=title,
+            include_elements=include_elements,
+            exclude_elements=processed_exclude_elements,
+            include_relationships=include_relationships,
+            exclude_relationships=exclude_relationships,
+            properties=properties
+        )
+
+        self._collected_views.append(view)
+        return view

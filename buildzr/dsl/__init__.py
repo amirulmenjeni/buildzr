@@ -5,6 +5,7 @@ from .dsl import (
     Container,
     Component,
     Group,
+    Views,
     SystemLandscapeView,
     SystemContextView,
     ContainerView,
