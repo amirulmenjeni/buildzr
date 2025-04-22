@@ -6,6 +6,7 @@ from typing_extensions import (
     TypeGuard,
     TypeIs,
 )
+from contextvars import ContextVar
 from typing import (
     Any,
     Union,
@@ -58,6 +59,11 @@ class TypedDynamicAttribute(Generic[TypedModel]):
     def __getattr__(self, name: str) -> TypedModel:
         return cast(TypedModel, self._dynamic_attributes.get(name))
 
+_current_workspace: ContextVar[Optional['Workspace']] = ContextVar('current_workspace', default=None)
+_current_group: ContextVar[Optional['Group']] = ContextVar('current_group', default=None)
+_current_software_system: ContextVar[Optional['SoftwareSystem']] = ContextVar('current_software_system', default=None)
+_current_container: ContextVar[Optional['Container']] = ContextVar('current_container', default=None)
+
 class Workspace(DslWorkspaceElement):
     """
     Represents a Structurizr workspace, which is a wrapper for a software architecture model, views, and documentation.
@@ -102,58 +108,12 @@ class Workspace(DslWorkspaceElement):
             scope=scope_mapper[scope],
         )
 
-    def _contains_group(
-        self,
-        name: str,
-        *models: Union[
-            'Person',
-            'SoftwareSystem',
-            _FluentRelationship['SoftwareSystem'],
-            _FluentRelationship['Container'],
-        ]
-    ) -> None:
+    def __enter__(self) -> Self:
+        self._token = _current_workspace.set(self)
+        return self
 
-        def recursive_group_name_assign(software_system: 'SoftwareSystem') -> None:
-            software_system.model.group = name
-            for container in software_system.children:
-                container.model.group = name
-                for component in container.children:
-                    component.model.group = name
-
-        for model in models:
-            if isinstance(model, Person):
-                model.model.group = name
-            elif isinstance(model, SoftwareSystem):
-                recursive_group_name_assign(model)
-            elif _is_software_fluent_relationship(model):
-                recursive_group_name_assign(model._parent)
-            elif _is_container_fluent_relationship(model):
-                recursive_group_name_assign(model._parent._parent)
-
-        self.contains(*models)
-
-    def contains(
-        self,
-        *models: Union[
-            'Group',
-            'Person',
-            'SoftwareSystem',
-            _FluentRelationship['SoftwareSystem'],
-            _FluentRelationship['Container'],
-        ]) -> _FluentRelationship['Workspace']:
-
-        for model in models:
-            if isinstance(model, Group):
-                self._contains_group(model._name, *model._elements)
-            elif isinstance(model, Person):
-                self.add_element(model)
-            elif isinstance(model, SoftwareSystem):
-                self.add_element(model)
-            elif _is_software_fluent_relationship(model):
-                self.add_element(model._parent)
-            elif _is_container_fluent_relationship(model):
-                self.add_element(model._parent._parent)
-        return _FluentRelationship['Workspace'](self)
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
+        _current_workspace.reset(self._token)
 
     def person(self) -> TypedDynamicAttribute['Person']:
         return TypedDynamicAttribute['Person'](self._dynamic_attrs)
@@ -161,7 +121,7 @@ class Workspace(DslWorkspaceElement):
     def software_system(self) -> TypedDynamicAttribute['SoftwareSystem']:
         return TypedDynamicAttribute['SoftwareSystem'](self._dynamic_attrs)
 
-    def add_element(self, element: Union['Person', 'SoftwareSystem']) -> None:
+    def add_model(self, element: Union['Person', 'SoftwareSystem']) -> None:
         if isinstance(element, Person):
             self._m.model.people.append(element._m)
             element._parent = self
@@ -238,6 +198,7 @@ class SoftwareSystem(DslElementRelationOverrides[
 
     def __init__(self, name: str, description: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
         self._m = buildzr.models.SoftwareSystem()
+        self.model.containers = []
         self._parent: Optional[Workspace] = None
         self._children: Optional[List['Container']] = []
         self._sources: List[DslElement] = []
@@ -251,37 +212,34 @@ class SoftwareSystem(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
-    def contains(
-        self,
-        *containers: Union['Container', _FluentRelationship['Container']]
-    ) -> _FluentRelationship['SoftwareSystem']:
-        if not self.model.containers:
-            self.model.containers = []
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.add_model(self)
 
-        for child in containers:
-            if isinstance(child, Container):
-                self.add_element(child)
-            elif _is_container_fluent_relationship(child):
-                self.add_element(child._parent)
-        return _FluentRelationship['SoftwareSystem'](self)
+        group = _current_group.get()
+        if group is not None:
+            group.add_model(self)
 
-    def labeled(self, label: str) -> 'SoftwareSystem':
-        self._label = label
+    def __enter__(self) -> Self:
+        self._token = _current_software_system.set(self)
         return self
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
+        _current_software_system.reset(self._token)
 
     def container(self) -> TypedDynamicAttribute['Container']:
         return TypedDynamicAttribute['Container'](self._dynamic_attrs)
 
-    def add_element(self, element: 'Container') -> None:
-        if isinstance(element, Container):
-            self.model.containers.append(element.model)
-            element._parent = self
-            self._dynamic_attrs[_child_name_transform(element.model.name)] = element
-            if element._label:
-                self._dynamic_attrs[_child_name_transform(element._label)] = element
-            self._children.append(element)
+    def add_container(self, container: 'Container') -> None:
+        if isinstance(container, Container):
+            self.model.containers.append(container.model)
+            container._parent = self
+            self._dynamic_attrs[_child_name_transform(container.model.name)] = container
+            if container._label:
+                self._dynamic_attrs[_child_name_transform(container._label)] = container
+            self._children.append(container)
         else:
-            raise ValueError('Invalid element type: Trying to add an element of type {} to a software system.'.format(type(element)))
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a software system.'.format(type(container)))
 
     def __getattr__(self, name: str) -> 'Container':
         return self._dynamic_attrs[name]
@@ -291,6 +249,10 @@ class SoftwareSystem(DslElementRelationOverrides[
 
     def __dir__(self) -> Iterable[str]:
         return list(super().__dir__()) + list(self._dynamic_attrs.keys())
+
+    def labeled(self, label: str) -> 'SoftwareSystem':
+        self._label = label
+        return self
 
 class Person(DslElementRelationOverrides[
     'Person',
@@ -347,6 +309,14 @@ class Person(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.add_model(self)
+
+        group = _current_group.get()
+        if group is not None:
+            group.add_model(self)
+
     def labeled(self, label: str) -> 'Person':
         self._label = label
         return self
@@ -388,15 +358,9 @@ class Container(DslElementRelationOverrides[
     def tags(self) -> Set[str]:
         return self._tags
 
-    def contains(self, *components: 'Component') -> _FluentRelationship['Container']:
-        if not self.model.components:
-            self.model.components = []
-        for component in components:
-            self.add_element(component)
-        return _FluentRelationship['Container'](self)
-
     def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
         self._m = buildzr.models.Container()
+        self.model.components = []
         self._parent: Optional[SoftwareSystem] = None
         self._children: Optional[List['Component']] = []
         self._sources: List[DslElement] = []
@@ -412,6 +376,17 @@ class Container(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
+        software_system = _current_software_system.get()
+        if software_system is not None:
+            software_system.add_container(self)
+
+    def __enter__(self) -> Self:
+        self._token = _current_container.set(self)
+        return self
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
+        _current_container.reset(self._token)
+
     def labeled(self, label: str) -> 'Container':
         self._label = label
         return self
@@ -419,16 +394,16 @@ class Container(DslElementRelationOverrides[
     def component(self) -> TypedDynamicAttribute['Component']:
         return TypedDynamicAttribute['Component'](self._dynamic_attrs)
 
-    def add_element(self, element: 'Component') -> None:
-        if isinstance(element, Component):
-            self.model.components.append(element.model)
-            element._parent = self
-            self._dynamic_attrs[_child_name_transform(element.model.name)] = element
-            if element._label:
-                self._dynamic_attrs[_child_name_transform(element._label)] = element
-            self._children.append(element)
+    def add_component(self, component: 'Component') -> None:
+        if isinstance(component, Component):
+            self.model.components.append(component.model)
+            component._parent = self
+            self._dynamic_attrs[_child_name_transform(component.model.name)] = component
+            if component._label:
+                self._dynamic_attrs[_child_name_transform(component._label)] = component
+            self._children.append(component)
         else:
-            raise ValueError('Invalid element type: Trying to add an element of type {} to a container.'.format(type(element)))
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a container.'.format(type(component)))
 
     def __getattr__(self, name: str) -> 'Component':
         return self._dynamic_attrs[name]
@@ -491,6 +466,10 @@ class Component(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
+        container = _current_container.get()
+        if container is not None:
+            container.add_component(self)
+
     def labeled(self, label: str) -> 'Component':
         self._label = label
         return self
@@ -500,14 +479,44 @@ class Group:
     def __init__(
         self,
         name: str,
-        *elements: Union[
-            Person,
-            SoftwareSystem,
-            _FluentRelationship[SoftwareSystem],
-            _FluentRelationship[Container],
-    ]) -> None:
+    ) -> None:
         self._name = name
-        self._elements = elements
+
+    def add_model(
+        self,
+        model: Union[
+            'Person',
+            'SoftwareSystem',
+        ]
+    ) -> None:
+
+        def recursive_group_name_assign(software_system: 'SoftwareSystem') -> None:
+            software_system.model.group = self._name
+            for container in software_system.children:
+                container.model.group = self._name
+                for component in container.children:
+                    component.model.group = self._name
+
+        if isinstance(model, Person):
+            model.model.group = self._name
+        elif isinstance(model, SoftwareSystem):
+            recursive_group_name_assign(model)
+        elif _is_software_fluent_relationship(model):
+            recursive_group_name_assign(model._parent)
+        elif _is_container_fluent_relationship(model):
+            recursive_group_name_assign(model._parent._parent)
+
+    def __enter__(self) -> Self:
+        self._token = _current_group.set(self)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[Any]
+    ) -> None:
+        _current_group.reset(self._token)
 
 class _FluentSink(DslFluentSink):
 
