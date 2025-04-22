@@ -6,6 +6,7 @@ from typing_extensions import (
     TypeGuard,
     TypeIs,
 )
+from collections import deque
 from contextvars import ContextVar
 from typing import (
     Any,
@@ -25,10 +26,10 @@ from typing import (
     overload,
     Sequence,
     Type,
+    Deque
 )
 
 from buildzr.sinks.interfaces import Sink
-
 from buildzr.dsl.interfaces import (
     DslWorkspaceElement,
     DslElement,
@@ -44,6 +45,7 @@ from buildzr.dsl.relations import (
     _Relationship,
     _RelationshipDescription,
     _FluentRelationship,
+    DslRelationship,
     DslElementRelationOverrides,
 )
 
@@ -81,11 +83,19 @@ class Workspace(DslWorkspaceElement):
     def children(self) -> Optional[List[Union['Person', 'SoftwareSystem']]]:
         return self._children
 
-    def __init__(self, name: str, description: str="", scope: Literal['landscape', 'software_system', None]='software_system') -> None:
+    def __init__(
+            self,
+            name: str,
+            description: str="",
+            scope: Literal['landscape', 'software_system', None]='software_system',
+            implied_relationships: bool=False,
+        ) -> None:
+
         self._m = buildzr.models.Workspace()
         self._parent = None
         self._children: Optional[List[Union['Person', 'SoftwareSystem']]] = []
         self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem']] = {}
+        self._use_implied_relationships = implied_relationships
         self.model.id = GenerateId.for_workspace()
         self.model.name = name
         self.model.description = description
@@ -113,6 +123,18 @@ class Workspace(DslWorkspaceElement):
         return self
 
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
+
+        from buildzr.dsl.explorer import Explorer
+
+        # TODO: Solve this.
+        # Process implied relationships:
+        #
+        # If we have relationship s >> do >> a.b, then create s >> do >> a.
+        # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
+        # And so on...
+        if self._use_implied_relationships:
+            pass
+
         _current_workspace.reset(self._token)
 
     def person(self) -> TypedDynamicAttribute['Person']:
@@ -121,23 +143,19 @@ class Workspace(DslWorkspaceElement):
     def software_system(self) -> TypedDynamicAttribute['SoftwareSystem']:
         return TypedDynamicAttribute['SoftwareSystem'](self._dynamic_attrs)
 
-    def add_model(self, element: Union['Person', 'SoftwareSystem']) -> None:
-        if isinstance(element, Person):
-            self._m.model.people.append(element._m)
-            element._parent = self
-            self._dynamic_attrs[_child_name_transform(element.model.name)] = element
-            if element._label:
-                self._dynamic_attrs[_child_name_transform(element._label)] = element
-            self._children.append(element)
-        elif isinstance(element, SoftwareSystem):
-            self._m.model.softwareSystems.append(element._m)
-            element._parent = self
-            self._dynamic_attrs[_child_name_transform(element.model.name)] = element
-            if element._label:
-                self._dynamic_attrs[_child_name_transform(element._label)] = element
-            self._children.append(element)
+    def add_model(self, model: Union['Person', 'SoftwareSystem']) -> None:
+        if isinstance(model, Person):
+            self._m.model.people.append(model._m)
+            model._parent = self
+            self._add_dynamic_attr(model.model.name, model)
+            self._children.append(model)
+        elif isinstance(model, SoftwareSystem):
+            self._m.model.softwareSystems.append(model._m)
+            model._parent = self
+            self._add_dynamic_attr(model.model.name, model)
+            self._children.append(model)
         else:
-            raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(element)))
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
     def with_views(
         self,
@@ -149,6 +167,18 @@ class Workspace(DslWorkspaceElement):
         ]
     ) -> '_FluentSink':
         return Views(self).contains(*views)
+
+    def _add_dynamic_attr(self, name: str, model: Union['Person', 'SoftwareSystem']) -> None:
+        if isinstance(model, Person):
+            self._dynamic_attrs[_child_name_transform(name)] = model
+            if model._label:
+                self._dynamic_attrs[_child_name_transform(model._label)] = model
+        elif isinstance(model, SoftwareSystem):
+            self._dynamic_attrs[_child_name_transform(name)] = model
+            if model._label:
+                self._dynamic_attrs[_child_name_transform(model._label)] = model
+        else:
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
         return self._dynamic_attrs[name]
@@ -215,10 +245,11 @@ class SoftwareSystem(DslElementRelationOverrides[
         workspace = _current_workspace.get()
         if workspace is not None:
             workspace.add_model(self)
+            workspace._add_dynamic_attr(self.model.name, self)
 
         group = _current_group.get()
-        if group is not None:
-            group.add_model(self)
+        if group:
+            group.add_element(self)
 
     def __enter__(self) -> Self:
         self._token = _current_software_system.set(self)
@@ -234,12 +265,18 @@ class SoftwareSystem(DslElementRelationOverrides[
         if isinstance(container, Container):
             self.model.containers.append(container.model)
             container._parent = self
-            self._dynamic_attrs[_child_name_transform(container.model.name)] = container
-            if container._label:
-                self._dynamic_attrs[_child_name_transform(container._label)] = container
+            self._add_dynamic_attr(container.model.name, container)
             self._children.append(container)
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a software system.'.format(type(container)))
+
+    def _add_dynamic_attr(self, name: str, model: 'Container') -> None:
+        if isinstance(model, Container):
+            self._dynamic_attrs[_child_name_transform(name)] = model
+            if model._label:
+                self._dynamic_attrs[_child_name_transform(model._label)] = model
+        else:
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a software system.'.format(type(model)))
 
     def __getattr__(self, name: str) -> 'Container':
         return self._dynamic_attrs[name]
@@ -252,6 +289,9 @@ class SoftwareSystem(DslElementRelationOverrides[
 
     def labeled(self, label: str) -> 'SoftwareSystem':
         self._label = label
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace._add_dynamic_attr(label, self)
         return self
 
 class Person(DslElementRelationOverrides[
@@ -314,11 +354,14 @@ class Person(DslElementRelationOverrides[
             workspace.add_model(self)
 
         group = _current_group.get()
-        if group is not None:
-            group.add_model(self)
+        if group:
+            group.add_element(self)
 
     def labeled(self, label: str) -> 'Person':
         self._label = label
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace._add_dynamic_attr(label, self)
         return self
 
 class Container(DslElementRelationOverrides[
@@ -379,6 +422,11 @@ class Container(DslElementRelationOverrides[
         software_system = _current_software_system.get()
         if software_system is not None:
             software_system.add_container(self)
+            software_system._add_dynamic_attr(self.model.name, self)
+
+        group = _current_group.get()
+        if group:
+            group.add_element(self)
 
     def __enter__(self) -> Self:
         self._token = _current_container.set(self)
@@ -389,6 +437,9 @@ class Container(DslElementRelationOverrides[
 
     def labeled(self, label: str) -> 'Container':
         self._label = label
+        software_system = _current_software_system.get()
+        if software_system is not None:
+            software_system._add_dynamic_attr(label, self)
         return self
 
     def component(self) -> TypedDynamicAttribute['Component']:
@@ -398,12 +449,18 @@ class Container(DslElementRelationOverrides[
         if isinstance(component, Component):
             self.model.components.append(component.model)
             component._parent = self
-            self._dynamic_attrs[_child_name_transform(component.model.name)] = component
-            if component._label:
-                self._dynamic_attrs[_child_name_transform(component._label)] = component
+            self._add_dynamic_attr(component.model.name, component)
             self._children.append(component)
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a container.'.format(type(component)))
+
+    def _add_dynamic_attr(self, name: str, model: 'Component') -> None:
+        if isinstance(model, Component):
+            self._dynamic_attrs[_child_name_transform(name)] = model
+            if model._label:
+                self._dynamic_attrs[_child_name_transform(model._label)] = model
+        else:
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a container.'.format(type(model)))
 
     def __getattr__(self, name: str) -> 'Component':
         return self._dynamic_attrs[name]
@@ -469,9 +526,17 @@ class Component(DslElementRelationOverrides[
         container = _current_container.get()
         if container is not None:
             container.add_component(self)
+            container._add_dynamic_attr(self.model.name, self)
+
+        group = _current_group.get()
+        if group:
+            group.add_element(self)
 
     def labeled(self, label: str) -> 'Component':
         self._label = label
+        container = _current_container.get()
+        if container is not None:
+            container._add_dynamic_attr(label, self)
         return self
 
 class Group:
@@ -482,29 +547,31 @@ class Group:
     ) -> None:
         self._name = name
 
-    def add_model(
+    def add_element(
         self,
         model: Union[
             'Person',
             'SoftwareSystem',
+            'Container',
+            'Component',
         ]
     ) -> None:
 
-        def recursive_group_name_assign(software_system: 'SoftwareSystem') -> None:
-            software_system.model.group = self._name
-            for container in software_system.children:
-                container.model.group = self._name
-                for component in container.children:
-                    component.model.group = self._name
+        # def recursive_group_name_assign(software_system: 'SoftwareSystem') -> None:
+        #     software_system.model.group = self._name
+        #     for container in software_system.children:
+        #         container.model.group = self._name
+        #         for component in container.children:
+        #             component.model.group = self._name
 
         if isinstance(model, Person):
             model.model.group = self._name
         elif isinstance(model, SoftwareSystem):
-            recursive_group_name_assign(model)
-        elif _is_software_fluent_relationship(model):
-            recursive_group_name_assign(model._parent)
-        elif _is_container_fluent_relationship(model):
-            recursive_group_name_assign(model._parent._parent)
+            model.model.group = self._name
+        elif isinstance(model, Container):
+            model.model.group = self._name
+        elif isinstance(model, Component):
+            model.model.group = self._name
 
     def __enter__(self) -> Self:
         self._token = _current_group.set(self)
