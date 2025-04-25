@@ -383,7 +383,7 @@ def test_implied_relationship() -> Optional[None]:
             app.api_layer >> ("Runs queries from", "sql/sqlite") >> app.model_layer
             app >> "Uses" >> db
 
-        u >> "Runs SQL queries" >> s
+        u >> "Runs SQL queries" >> s.db # `u >> "Runs SQL queries" >> s`` should be implied
 
     assert isinstance(w.u, Person)
     assert isinstance(w.s, SoftwareSystem)
@@ -391,7 +391,7 @@ def test_implied_relationship() -> Optional[None]:
 
     assert w.u.model.relationships[0].description == "Runs SQL queries"
     assert w.u.model.relationships[0].sourceId == w.u.model.id
-    assert w.u.model.relationships[0].destinationId == w.s.database.model.id
+    assert w.u.model.relationships[0].destinationId == w.s.db.model.id
 
     assert w.u.model.relationships[1].description == "Runs SQL queries"
     assert w.u.model.relationships[1].sourceId == w.u.model.relationships[0].sourceId
