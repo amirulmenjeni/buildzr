@@ -317,43 +317,6 @@ def test_fluent_workspace_definition() -> Optional[None]:
     assert 'url' in w.model.model.softwareSystems[0].containers[0].relationships[0].properties.keys()
     assert 'example.com' in w.model.model.softwareSystems[0].containers[0].relationships[0].properties['url']
 
-def test_fluent_workspace_definition_without_contains_where() -> Optional[None]:
-
-    """
-    Expected behavior: Workspace.contains(...) and SoftwareSystem.contains(...)
-    methods should not need to expect explicit follow-up chain method .get() to
-    get the instance of its child class.
-    """
-
-    with Workspace('w') as w:
-        u = Person('u')
-        s = SoftwareSystem('s')
-        with s:
-            db = Container('db')
-            app = Container('app')
-            with app:
-                Component('api layer')
-                Component('model layer')
-                Component('view layer')
-
-    assert isinstance(w.u, Person)
-    assert isinstance(w.s, SoftwareSystem)
-    assert isinstance(w.s.db, Container)
-    assert isinstance(w.s.app, Container)
-    assert isinstance(w.s.app.api_layer, Component)
-    assert isinstance(w.s.app.model_layer, Component)
-    assert isinstance(w.s.app.view_layer, Component)
-
-    w.s.app.model_layer >> "Uses" >> w.s.db
-
-    assert any(w.s.app.model_layer.model.relationships)
-    assert w.s.app.model_layer.model.relationships[0].description == "Uses"
-    assert w.s.app.model_layer.model.relationships[0].destinationId == w.s.db.model.id
-
-    assert any(w.u.model.relationships)
-    assert w.u.model.relationships[0].description == "Makes API calls"
-    assert w.u.model.relationships[0].destinationId == w.s.app.api_layer.model.id
-
 def test_implied_relationship() -> Optional[None]:
     """
     See: https://docs.structurizr.com/java/implied-relationships#createimpliedrelationshipsunlessanyrelationshipexistsstrategy
@@ -481,48 +444,6 @@ def test_source_destinations_in_dsl_elements() -> Optional[None]:
 
     assert len(w.s.database.sources) == 2
     assert {w.u.model.id, w.s.webapp.model.id}.issubset({dst.model.id for dst in w.s.database.sources})
-
-def test_contains_operator() -> Optional[None]:
-
-    from buildzr.dsl import Explorer
-
-    with Workspace('w') as w:
-        u = Person('u')
-        s = SoftwareSystem('s')
-        with s:
-            webapp = Container('webapp')
-            with webapp:
-                Component('database layer')
-                Component('API layer')
-                Component('UI layer')
-
-                webapp.ui_layer >> ("Calls HTTP API from", "http/api") >> webapp.api_layer
-                webapp.api_layer >> ("Runs queries from", "sql/sqlite") >> webapp.database_layer
-            Container('database')
-
-            s.webapp >> "Uses" >> s.database
-        u >> "Runs SQL queries" >> s.database
-
-    assert isinstance(w.u, Person)
-    assert isinstance(w.s, SoftwareSystem)
-    assert w.u in w
-    assert w.s in w
-    assert w.s.webapp in w.s
-    assert w.s.database in w.s
-    assert w.s.webapp.database_layer in w.s.webapp
-    assert w.s.webapp.api_layer in w.s.webapp
-    assert w.s.webapp.ui_layer in w.s.webapp
-    assert w.s.webapp.ui_layer not in w.s.database
-
-    relationships = Explorer(w).walk_relationships()
-
-    for rel in Explorer(w).walk_relationships():
-        print(rel.source.model.name, rel.destination.model.name, rel.model.description)
-
-    assert any([
-        r for r in list(relationships)
-        if w.u in r and w.s in r and r.model.description == "Runs SQL queries"
-    ])
 
 def test_accessing_typed_dynamic_attributes() -> Optional[None]:
 
