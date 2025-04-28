@@ -125,7 +125,7 @@ class Workspace(DslWorkspaceElement):
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
 
         from buildzr.dsl.explorer import Explorer
-        from buildzr.dsl.relations import _Relationship
+
         # Process implied relationships:
         # If we have relationship s >> do >> a.b, then create s >> do >> a.
         # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
@@ -159,7 +159,7 @@ class Workspace(DslWorkspaceElement):
                                 technology=relationship.model.technology,
                             )
                             r.model.linkedRelationshipId = relationship.model.id
-                    destination_parent = destination_parent.parent
+                        destination_parent = destination_parent.parent
 
         _current_workspace.reset(self._token)
 

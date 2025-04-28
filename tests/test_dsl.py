@@ -401,7 +401,7 @@ def test_tags_on_relationship_using_with() -> Optional[None]:
 
 def test_source_destinations_in_dsl_elements() -> Optional[None]:
 
-    with Workspace('w') as w:
+    with Workspace('w', implied_relationships=True) as w:
         u = Person('u')
         s = SoftwareSystem('s')
         with s:
@@ -423,7 +423,7 @@ def test_source_destinations_in_dsl_elements() -> Optional[None]:
                     'url': 'https://example.com/api'
                 }
             )
-        u >> "Uses" >> s | With(
+        u >> "Uses" >> s.database | With(
             tags={"5g-network"},
         )
 
@@ -432,6 +432,7 @@ def test_source_destinations_in_dsl_elements() -> Optional[None]:
 
     assert len(w.u.sources) == 0
 
+    print([source.model.name for source in w.s.sources])
     assert len(w.s.sources) == 1
     assert {w.u.model.id}.issubset({src.model.id for src in w.s.sources})
 
