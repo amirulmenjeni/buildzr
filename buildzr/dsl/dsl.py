@@ -143,16 +143,19 @@ class Workspace(DslWorkspaceElement):
                       not isinstance(source.model, buildzr.models.Workspace) and \
                       not isinstance(destination_parent, DslWorkspaceElement):
 
+                    if destination_parent is source.parent:
+                        break
+
                     rels = source.model.relationships
 
                     if rels:
-                        alread_exists = any(
+                        already_exists = any(
                             r.destinationId == destination_parent.model.id and
                             r.description == relationship.model.description and
                             r.technology == relationship.model.technology
                             for r in rels
                         )
-                        if not alread_exists:
+                        if not already_exists:
                             r = source.uses(
                                 destination_parent,
                                 description=relationship.model.description,

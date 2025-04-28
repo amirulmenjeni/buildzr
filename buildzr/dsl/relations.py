@@ -115,8 +115,13 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         uses_data.relationship.destinationId = str(destination.model.id)
 
         if not isinstance(uses_data.source.model, buildzr.models.Workspace):
-            uses_data.source.destinations.append(self._dst)
-            self._dst.sources.append(self._src)
+
+            # Prevent any duplicate sources/destinations, especially when creating implied relationships.
+            if not any([self._dst.model.id == dest.model.id for dest in uses_data.source.destinations]):
+                uses_data.source.destinations.append(self._dst)
+            if not any([self._src.model.id == src.model.id for src in self._dst.sources]):
+                self._dst.sources.append(self._src)
+
             if _include_in_model:
                 if uses_data.source.model.relationships:
                     uses_data.source.model.relationships.append(uses_data.relationship)
