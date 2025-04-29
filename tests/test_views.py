@@ -13,23 +13,20 @@ from buildzr.dsl import (
 
 def test_system_landscape_view() -> Optional[None]:
 
-    w = Workspace('workspace', scope='landscape')\
-        .contains(
-            Person("User"),
-            SoftwareSystem("System A"),
-            SoftwareSystem("System B"),
-        )\
-        .where(lambda w: [
-            w.person().user >> "Uses" >> w.software_system().system_a,
-            w.software_system().system_a >> "Interacts with" >> w.software_system().system_b,
-        ], implied=True)\
-        .with_views(
-            SystemLandscapeView(
-                key="system_landscape_view_00",
-                description="System Landscape View Test",
-            ),
-        )\
-        .get_workspace()
+    with Workspace('workspace', scope='landscape') as w:
+        user = Person("User")
+        system_a = SoftwareSystem("System A")
+        system_b = SoftwareSystem("System B")
+        user >> "Uses" >> system_a
+        system_a >> "Interacts with" >> system_b
+
+    # TODO: Use context-based syntax.
+    w.with_views(
+        SystemLandscapeView(
+            key="system_landscape_view_00",
+            description="System Landscape View Test",
+        ),
+    )
 
     assert any(w.model.views.systemLandscapeViews)
     assert len(w.model.views.systemLandscapeViews) == 1
@@ -55,43 +52,29 @@ def test_system_landscape_view() -> Optional[None]:
     }.issubset(set(relationship_ids))
 
 def test_system_context_view() -> Optional[None]:
-
-    w = Workspace('w')\
-            .contains(
-                Person('u'),
-                SoftwareSystem('email_system')\
-                    .contains(
-                        Container('email_c1'),
-                        Container('email_c2'),
-                    )\
-                    .where(lambda s: [
-                        s.email_c1 >> "Uses" >> s.email_c2,
-                    ]),
-                SoftwareSystem('business_app')
-                    .contains(
-                        Container('business_app_c1'),
-                        Container('business_app_c2'),
-                    )
-                    .where(lambda s: [
-                        s.business_app_c1 >> "Gets data from" >> s.business_app_c2,
-                    ]),
-                SoftwareSystem('git_repo'), # Unrelated!
-                SoftwareSystem('external_system'), # Also unrelated!
-            )\
-            .where(lambda w: [
-                w.person().u >> "Uses" >> w.software_system().business_app,
-                w.person().u >> "Hacks" >> w.software_system().git_repo,
-                w.software_system().business_app >> "Notifies users using" >> w.software_system().email_system,
-                w.software_system().git_repo >> "Uses" >> w.software_system().external_system,
-            ])\
-            .with_views(
-                SystemContextView(
-                    software_system_selector=lambda w: w.software_system().business_app,
-                    key="ss_business_app",
-                    description="The business app",
-                )
-            )\
-            .get_workspace()
+    with Workspace('w') as w:
+        Person('u')
+        with SoftwareSystem('email_system') as email_system:
+            Container('email_c1')
+            Container('email_c2')
+            email_system.email_c1 >> "Uses" >> email_system.email_c2
+        with SoftwareSystem('business_app') as business_app:
+            Container('business_app_c1')
+            Container('business_app_c2')
+            business_app.business_app_c1 >> "Gets data from" >> business_app.business_app_c2
+        SoftwareSystem('git_repo')
+        SoftwareSystem('external_system')
+        w.person().u >> "Uses" >> w.software_system().business_app
+        w.person().u >> "Hacks" >> w.software_system().git_repo
+        w.software_system().business_app >> "Notifies users using" >> w.software_system().email_system
+        w.software_system().git_repo >> "Uses" >> w.software_system().external_system
+        w.with_views(
+            SystemContextView(
+                software_system_selector=lambda w: w.software_system().business_app,
+                key="ss_business_app",
+                description="The business app",
+            )
+        )
 
     element_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].elements))
     relationship_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].relationships))
@@ -122,46 +105,32 @@ def test_system_context_view() -> Optional[None]:
     assert w.person().u.model.relationships[0].destinationId == w.software_system().business_app.model.id
 
 def test_system_context_view_with_exclude_user() -> Optional[None]:
-
-    w = Workspace('w')\
-            .contains(
-                Person('u'),
-                SoftwareSystem('email_system')\
-                    .contains(
-                        Container('email_c1'),
-                        Container('email_c2'),
-                    )\
-                    .where(lambda s: [
-                        s.email_c1 >> "Uses" >> s.email_c2,
-                    ]),
-                SoftwareSystem('business_app')
-                    .contains(
-                        Container('business_app_c1'),
-                        Container('business_app_c2'),
-                    )
-                    .where(lambda s: [
-                        s.business_app_c1 >> "Gets data from" >> s.business_app_c2,
-                    ]),
-                SoftwareSystem('git_repo'), # Unrelated!
-                SoftwareSystem('external_system'), # Also unrelated!
-            )\
-            .where(lambda w: [
-                w.person().u >> "Uses" >> w.software_system().business_app,
-                w.person().u >> "Hacks" >> w.software_system().git_repo,
-                w.software_system().business_app >> "Notifies users using" >> w.software_system().email_system,
-                w.software_system().git_repo >> "Uses" >> w.software_system().external_system,
-            ])\
-            .with_views(
-                SystemContextView(
-                    software_system_selector=lambda w: w.software_system().business_app,
-                    key="ss_business_app",
-                    description="The business app",
-                    exclude_elements=[
-                        lambda w, e: e == w.person().u,
-                    ]
-                )
-            )\
-            .get_workspace()
+    with Workspace('w') as w:
+        Person('u')
+        with SoftwareSystem('email_system') as email_system:
+            Container('email_c1')
+            Container('email_c2')
+            email_system.email_c1 >> "Uses" >> email_system.email_c2
+        with SoftwareSystem('business_app') as business_app:
+            Container('business_app_c1')
+            Container('business_app_c2')
+            business_app.business_app_c1 >> "Gets data from" >> business_app.business_app_c2
+        SoftwareSystem('git_repo')
+        SoftwareSystem('external_system')
+        w.person().u >> "Uses" >> w.software_system().business_app
+        w.person().u >> "Hacks" >> w.software_system().git_repo
+        w.software_system().business_app >> "Notifies users using" >> w.software_system().email_system
+        w.software_system().git_repo >> "Uses" >> w.software_system().external_system
+        w.with_views(
+            SystemContextView(
+                software_system_selector=lambda w: w.software_system().business_app,
+                key="ss_business_app",
+                description="The business app",
+                exclude_elements=[
+                    lambda w, e: e == w.person().u,
+                ]
+            )
+        )
 
     element_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].elements))
     relationship_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].relationships))
@@ -195,34 +164,24 @@ def test_system_context_view_with_exclude_user() -> Optional[None]:
     assert w.person().u.model.relationships[0].destinationId == w.software_system().business_app.model.id
 
 def test_container_view() -> Optional[None]:
-
-    w = Workspace('w')\
-            .contains(
-                Person('user'),
-                SoftwareSystem('app')
-                    .contains(
-                        Container('web_application'),
-                        Container('database'),
-                    )
-                    .where(lambda app: [
-                        app.web_application >> "Reads from and writes to" >> app.database,
-                    ]),
-                SoftwareSystem('git_repo'), # Unrelated!
-                SoftwareSystem('external_system'), # Also unrelated!
-            )\
-            .where(lambda w: [
-                w.person().user >> "Uses" >> w.software_system().app.web_application,
-                w.person().user >> "Hacks" >> w.software_system().git_repo,
-                w.software_system().git_repo >> "Uses" >> w.software_system().external_system,
-            ])\
-            .with_views(
-                ContainerView(
-                    software_system_selector=lambda w: w.software_system().app,
-                    key="ss_business_app",
-                    description="The business app",
-                )
-            )\
-            .get_workspace()
+    with Workspace('w') as w:
+        Person('user')
+        with SoftwareSystem('app') as app:
+            Container('web_application')
+            Container('database')
+            app.web_application >> "Reads from and writes to" >> app.database
+        SoftwareSystem('git_repo')
+        SoftwareSystem('external_system')
+        w.person().user >> "Uses" >> w.software_system().app.web_application
+        w.person().user >> "Hacks" >> w.software_system().git_repo
+        w.software_system().git_repo >> "Uses" >> w.software_system().external_system
+        w.with_views(
+            ContainerView(
+                software_system_selector=lambda w: w.software_system().app,
+                key="ss_business_app",
+                description="The business app",
+            )
+        )
 
     element_ids =  list(map(lambda x: x.id, w.model.views.containerViews[0].elements))
     relationship_ids =  list(map(lambda x: x.id, w.model.views.containerViews[0].relationships))
@@ -247,37 +206,23 @@ def test_container_view() -> Optional[None]:
     assert w.person().user.model.relationships[0].id in relationship_ids
 
 def test_component_view() -> Optional[None]:
-
-    w = Workspace('workspace')\
-        .contains(
-            Person('User'),
-            SoftwareSystem("Software System")\
-            .contains(
-                Container("Web Application")\
-                .contains(
-                    Component("Component 1"),
-                    Component("Component 2"),
-                )\
-                .where(lambda app: [
-                    app.component_1 >> "Uses" >> app.component_2,
-                ]),
-                Container("Database"),
-            )\
-            .where(lambda s: [
-                s.web_application.component_2 >> "Reads from and writes to" >> s.database,
-            ]),
-        )\
-        .where(lambda w: [
-            w.person().user >> "Uses" >> w.software_system().software_system.web_application.component_1,
-        ])\
-        .with_views(
+    with Workspace('workspace') as w:
+        Person('User')
+        with SoftwareSystem("Software System") as ss:
+            with Container("Web Application") as webapp:
+                Component("Component 1")
+                Component("Component 2")
+                webapp.component_1 >> "Uses" >> webapp.component_2
+            db = Container("Database")
+            webapp.component_2 >> "Reads from and writes to" >> db
+        w.person().user >> "Uses" >> w.software_system().software_system.web_application.component_1
+        w.with_views(
             ComponentView(
                 container_selector=lambda w: w.software_system().software_system.web_application,
                 key="web_application_container_00",
                 description="Component View Test",
             )
-        )\
-        .get_workspace()
+        )
 
     element_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].elements))
     relationship_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].relationships))
@@ -306,30 +251,17 @@ def test_component_view() -> Optional[None]:
     assert w.software_system().software_system.web_application.component_2.model.relationships[0].destinationId in element_ids
 
 def test_component_view_with_exclude_user() -> Optional[None]:
-
-    w = Workspace('workspace')\
-        .contains(
-            Person('User'),
-            SoftwareSystem("Software System")\
-            .contains(
-                Container("Web Application")\
-                .contains(
-                    Component("Component 1"),
-                    Component("Component 2"),
-                )\
-                .where(lambda app: [
-                    app.component_1 >> "Uses" >> app.component_2,
-                ]),
-                Container("Database"),
-            )\
-            .where(lambda s: [
-                s.web_application.component_2 >> "Reads from and writes to" >> s.database,
-            ]),
-        )\
-        .where(lambda w: [
-            w.person().user >> "Uses" >> w.software_system().software_system.web_application.component_1,
-        ])\
-        .with_views(
+    with Workspace('workspace') as w:
+        Person('User')
+        with SoftwareSystem("Software System") as ss:
+            with Container("Web Application") as webapp:
+                Component("Component 1")
+                Component("Component 2")
+                webapp.component_1 >> "Uses" >> webapp.component_2
+            db = Container("Database")
+            webapp.component_2 >> "Reads from and writes to" >> db
+        w.person().user >> "Uses" >> w.software_system().software_system.web_application.component_1
+        w.with_views(
             ComponentView(
                 container_selector=lambda w: w.software_system().software_system.web_application,
                 key="web_application_container_00",
@@ -338,8 +270,7 @@ def test_component_view_with_exclude_user() -> Optional[None]:
                     lambda w, e: e == w.person().user
                 ]
             )
-        )\
-        .get_workspace()
+        )
 
     element_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].elements))
     relationship_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].relationships))
@@ -368,29 +299,19 @@ def test_component_view_with_exclude_user() -> Optional[None]:
     assert w.software_system().software_system.web_application.component_2.model.relationships[0].destinationId in element_ids
 
 def test_container_view_with_multiple_software_systems() -> Optional[None]:
-
-    w = Workspace('workspace')\
-        .contains(
-            SoftwareSystem("App1")\
-            .contains(
-                Container("c1"),
-            ),
-            SoftwareSystem("App2")\
-            .contains(
-                Container("c2"),
-            )
-        )\
-        .where(lambda w: [
-            w.software_system().app1.c1 >> "uses" >> w.software_system().app2.c2,
-        ])\
-        .with_views(
+    with Workspace('workspace') as w:
+        with SoftwareSystem("App1") as app1:
+            Container("c1")
+        with SoftwareSystem("App2") as app2:
+            Container("c2")
+        w.software_system().app1.c1 >> "uses" >> w.software_system().app2.c2
+        w.with_views(
             ContainerView(
                 key="container_view_00",
                 description="Container View Test",
                 software_system_selector=lambda w: w.software_system().app1,
             ),
-        )\
-        .get_workspace()
+        )
 
     assert any(w.model.views.containerViews)
     assert len(w.model.views.containerViews) == 1
