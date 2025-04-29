@@ -10,8 +10,9 @@ from buildzr.dsl.dsl import (
     SoftwareSystem,
     Container,
     Component,
-    _Relationship,
 )
+
+from buildzr.dsl.relations import _Relationship
 
 import buildzr
 from typing import Set, Union, Optional, List, Dict, Any, Callable, Tuple, Sequence, Iterable, cast, Type

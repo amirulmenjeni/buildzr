@@ -27,24 +27,6 @@ from buildzr.dsl.interfaces import (
 from buildzr.dsl.factory import GenerateId
 import buildzr
 
-def _is_software_fluent_relationship(
-    obj: '_FluentRelationship[Any]'
-) -> TypeIs['_FluentRelationship[buildzr.dsl.SoftwareSystem]']:
-    return isinstance(obj._parent, buildzr.dsl.SoftwareSystem)
-
-def _is_container_fluent_relationship(
-    obj: '_FluentRelationship[Any]'
-) -> TypeIs['_FluentRelationship[buildzr.dsl.Container]']:
-    return isinstance(obj._parent, buildzr.dsl.Container)
-
-def _is_list_of_dslelements_or_usesfromlates(
-    obj: list
-) -> TypeIs[List[Union[DslElement, '_UsesFromLate[DslElement]']]]:
-    return all(
-        isinstance(item, DslElement) or isinstance(item, _UsesFromLate)
-        for item in obj
-    )
-
 @dataclass
 class With:
     tags: Optional[Set[str]] = None
@@ -159,60 +141,6 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         if url:
             self._ref[0].relationship.url = url
         return self
-
-class _FluentRelationship(DslFluentRelationship[TParent]):
-
-    """
-    A hidden class used in the fluent DSL syntax after specifying a model (i.e.,
-    Person, Software System, Container) to define relationship(s) within the
-    specified model.
-    """
-
-    def __init__(self, parent: TParent) -> None:
-        self._parent: TParent = parent
-
-    def where(
-        self,
-        func: Callable[
-            [TParent],
-            Sequence[
-                Union[
-                    DslRelationship,
-                    Sequence[DslRelationship]
-                ]
-            ]
-        ], implied: bool=False) -> TParent:
-
-        relationships: Sequence[DslRelationship] = []
-
-        func = cast(Callable[[TParent], Sequence[Union[DslRelationship, Sequence[DslRelationship]]]], func)
-
-        # Flatten the resulting relationship list.
-        relationships = [
-            rel for sublist in func(self._parent)
-            for rel in (
-                sublist if isinstance(sublist, list) else [sublist]
-            )
-        ]
-
-        # If we have relationship s >> do >> a.b, then create s >> do >> a.
-        # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
-        # And so on...
-        if implied:
-            for relationship in relationships:
-                source = relationship.source
-                parent = relationship.destination.parent
-                while parent is not None and not isinstance(parent, DslWorkspaceElement):
-                    r = source.uses(parent, description=relationship.model.description, technology=relationship.model.technology)
-                    r.model.linkedRelationshipId = relationship.model.id
-                    parent = parent.parent
-
-        return self._parent
-
-    # TODO: Remove this and replace with something better.
-    # Doesn't feel "fluent."
-    def get(self) -> TParent:
-        return self._parent
 
 class _RelationshipDescription(Generic[TDst]):
 
