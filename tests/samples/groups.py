@@ -6,36 +6,21 @@ from ..abstract_builder import AbstractBuilder
 class GroupsSample(AbstractBuilder):
 
     def build(self) -> buildzr.models.Workspace:
-
-        w = Workspace("w", scope=None)\
-            .contains(
-                Group(
-                    "Company 1",
-                    SoftwareSystem("A")\
-                    .contains(
-                        Container("a1"),
-                        Container("a2"),
-                    )
-                ),
-                Group(
-                    "Company 2",
-                    SoftwareSystem("B")\
-                    .contains(
-                        Container("b1"),
-                        Container("b2")
-                        .contains(
-                            Component("c1"),
-                        )
-                    )
-                ),
-                SoftwareSystem("C"),
-            )\
-            .where(lambda w: [
-                w.software_system().a >> "Uses" >> w.software_system().b,
-                w.software_system().a.container().a1 >> "Uses" >> w.software_system().b.container().b1,
-                w.software_system().a >> "Uses" >> w.software_system().c,
-            ])\
-            .with_views(
+        with Workspace("w", scope=None) as w:
+            with Group("Company 1"):
+                with SoftwareSystem("A") as a:
+                    Container("a1")
+                    Container("a2")
+            with Group("Company 2"):
+                with SoftwareSystem("B") as b:
+                    Container("b1")
+                    with Container("b2") as b2:
+                        Component("c1")
+            c = SoftwareSystem("C")
+            a >> "Uses" >> b
+            a.a1 >> "Uses" >> b.b1
+            a >> "Uses" >> c
+            w.with_views(
                 SystemLandscapeView(
                     key='groups-sample',
                     description="Groups Sample"
@@ -55,7 +40,5 @@ class GroupsSample(AbstractBuilder):
                     software_system_selector=lambda w: w.software_system().b,
                     description="Groups Sample - Container B2"
                 ),
-            )\
-            .get_workspace()
-
+            )
         return w.model
