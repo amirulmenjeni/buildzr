@@ -41,7 +41,8 @@
                         "name": "database",
                         "description": "",
                         "technology": "",
-                        "tags": "Container,Element",
+                        "tags": "Element,Container",
+                        "components": [],
                         "group": "My Company",
                         "properties": {},
                         "relationships": []
@@ -51,7 +52,8 @@
                         "name": "api",
                         "description": "",
                         "technology": "",
-                        "tags": "Container,Element",
+                        "tags": "Element,Container",
+                        "components": [],
                         "group": "My Company",
                         "properties": {},
                         "relationships": [
@@ -84,6 +86,7 @@
                 "name": "Microsoft 365",
                 "description": "",
                 "tags": "Software System,Element",
+                "containers": [],
                 "group": "Microsoft",
                 "properties": {}
             }
@@ -106,9 +109,6 @@
                 },
                 "elements": [
                     {
-                        "id": "1"
-                    },
-                    {
                         "id": "2"
                     },
                     {
@@ -116,9 +116,6 @@
                     }
                 ],
                 "relationships": [
-                    {
-                        "id": "8"
-                    },
                     {
                         "id": "9"
                     }
