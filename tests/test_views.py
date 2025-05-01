@@ -1,3 +1,4 @@
+import pytest
 from typing import Optional
 from buildzr.dsl import (
     Workspace,
@@ -11,7 +12,8 @@ from buildzr.dsl import (
     ComponentView,
 )
 
-def test_system_landscape_view() -> Optional[None]:
+@pytest.mark.parametrize("use_context", [True, False])
+def test_system_landscape_view(use_context: bool) -> Optional[None]:
 
     with Workspace('workspace', scope='landscape') as w:
         user = Person("User")
@@ -20,13 +22,19 @@ def test_system_landscape_view() -> Optional[None]:
         user >> "Uses" >> system_a
         system_a >> "Interacts with" >> system_b
 
-    # TODO: Use context-based syntax.
-    w.with_views(
-        SystemLandscapeView(
-            key="system_landscape_view_00",
-            description="System Landscape View Test",
-        ),
-    )
+        if use_context:
+            SystemLandscapeView(
+                key="system_landscape_view_00",
+                description="System Landscape View Test",
+            )
+
+    if not use_context:
+        w.with_views(
+            SystemLandscapeView(
+                key="system_landscape_view_00",
+                description="System Landscape View Test",
+            ),
+        )
 
     assert any(w.model.views.systemLandscapeViews)
     assert len(w.model.views.systemLandscapeViews) == 1
@@ -51,7 +59,8 @@ def test_system_landscape_view() -> Optional[None]:
         system_a.model.relationships[0].id,
     }.issubset(set(relationship_ids))
 
-def test_system_context_view() -> Optional[None]:
+@pytest.mark.parametrize("use_context", [True, False])
+def test_system_context_view(use_context: bool) -> Optional[None]:
     with Workspace('w') as w:
         Person('u')
         with SoftwareSystem('email_system') as email_system:
@@ -68,6 +77,15 @@ def test_system_context_view() -> Optional[None]:
         w.person().u >> "Hacks" >> w.software_system().git_repo
         w.software_system().business_app >> "Notifies users using" >> w.software_system().email_system
         w.software_system().git_repo >> "Uses" >> w.software_system().external_system
+
+        if use_context:
+            SystemContextView(
+                software_system_selector=business_app,
+                key="ss_business_app",
+                description="The business app",
+            )
+
+    if not use_context:
         w.with_views(
             SystemContextView(
                 software_system_selector=lambda w: w.software_system().business_app,
@@ -104,7 +122,8 @@ def test_system_context_view() -> Optional[None]:
     assert w.person().u.model.relationships[0].sourceId == w.person().u.model.id
     assert w.person().u.model.relationships[0].destinationId == w.software_system().business_app.model.id
 
-def test_system_context_view_with_exclude_user() -> Optional[None]:
+@pytest.mark.parametrize("use_context", [True, False])
+def test_system_context_view_with_exclude_user(use_context: bool) -> Optional[None]:
     with Workspace('w') as w:
         Person('u')
         with SoftwareSystem('email_system') as email_system:
@@ -121,6 +140,18 @@ def test_system_context_view_with_exclude_user() -> Optional[None]:
         w.person().u >> "Hacks" >> w.software_system().git_repo
         w.software_system().business_app >> "Notifies users using" >> w.software_system().email_system
         w.software_system().git_repo >> "Uses" >> w.software_system().external_system
+
+        if use_context:
+            SystemContextView(
+                software_system_selector=business_app,
+                key="ss_business_app",
+                description="The business app",
+                exclude_elements=[
+                    lambda w, e: e == w.person().u,
+                ]
+            )
+
+    if not use_context:
         w.with_views(
             SystemContextView(
                 software_system_selector=lambda w: w.software_system().business_app,
@@ -163,7 +194,8 @@ def test_system_context_view_with_exclude_user() -> Optional[None]:
     assert w.person().u.model.relationships[0].sourceId == w.person().u.model.id
     assert w.person().u.model.relationships[0].destinationId == w.software_system().business_app.model.id
 
-def test_container_view() -> Optional[None]:
+@pytest.mark.parametrize("use_context", [True, False])
+def test_container_view(use_context: bool) -> Optional[None]:
     with Workspace('w') as w:
         Person('user')
         with SoftwareSystem('app') as app:
@@ -175,6 +207,15 @@ def test_container_view() -> Optional[None]:
         w.person().user >> "Uses" >> w.software_system().app.web_application
         w.person().user >> "Hacks" >> w.software_system().git_repo
         w.software_system().git_repo >> "Uses" >> w.software_system().external_system
+
+        if use_context:
+            ContainerView(
+                software_system_selector=app,
+                key="ss_business_app",
+                description="The business app",
+            )
+
+    if not use_context:
         w.with_views(
             ContainerView(
                 software_system_selector=lambda w: w.software_system().app,
@@ -205,7 +246,8 @@ def test_container_view() -> Optional[None]:
     assert w.software_system().app.database.model.id in element_ids
     assert w.person().user.model.relationships[0].id in relationship_ids
 
-def test_component_view() -> Optional[None]:
+@pytest.mark.parametrize("use_context", [True, False])
+def test_component_view(use_context: bool) -> Optional[None]:
     with Workspace('workspace') as w:
         Person('User')
         with SoftwareSystem("Software System") as ss:
@@ -216,6 +258,15 @@ def test_component_view() -> Optional[None]:
             db = Container("Database")
             webapp.component_2 >> "Reads from and writes to" >> db
         w.person().user >> "Uses" >> w.software_system().software_system.web_application.component_1
+
+        if use_context:
+            ComponentView(
+                container_selector=webapp,
+                key="web_application_container_00",
+                description="Component View Test",
+            )
+
+    if not use_context:
         w.with_views(
             ComponentView(
                 container_selector=lambda w: w.software_system().software_system.web_application,
@@ -250,7 +301,8 @@ def test_component_view() -> Optional[None]:
     assert w.software_system().software_system.web_application.component_2.model.relationships[0].sourceId in element_ids
     assert w.software_system().software_system.web_application.component_2.model.relationships[0].destinationId in element_ids
 
-def test_component_view_with_exclude_user() -> Optional[None]:
+@pytest.mark.parametrize("use_context", [True, False])
+def test_component_view_with_exclude_user(use_context: bool) -> Optional[None]:
     with Workspace('workspace') as w:
         Person('User')
         with SoftwareSystem("Software System") as ss:
@@ -261,6 +313,18 @@ def test_component_view_with_exclude_user() -> Optional[None]:
             db = Container("Database")
             webapp.component_2 >> "Reads from and writes to" >> db
         w.person().user >> "Uses" >> w.software_system().software_system.web_application.component_1
+
+        if use_context:
+            ComponentView(
+                container_selector=webapp,
+                key="web_application_container_00",
+                description="Component View Test",
+                exclude_elements=[
+                    lambda w, e: e == w.person().user
+                ]
+            )
+
+    if not use_context:
         w.with_views(
             ComponentView(
                 container_selector=lambda w: w.software_system().software_system.web_application,
@@ -298,13 +362,23 @@ def test_component_view_with_exclude_user() -> Optional[None]:
     assert w.software_system().software_system.web_application.component_2.model.relationships[0].sourceId in element_ids
     assert w.software_system().software_system.web_application.component_2.model.relationships[0].destinationId in element_ids
 
-def test_container_view_with_multiple_software_systems() -> Optional[None]:
+@pytest.mark.parametrize("use_context", [True, False])
+def test_container_view_with_multiple_software_systems(use_context: bool) -> Optional[None]:
     with Workspace('workspace') as w:
         with SoftwareSystem("App1") as app1:
             Container("c1")
         with SoftwareSystem("App2") as app2:
             Container("c2")
         w.software_system().app1.c1 >> "uses" >> w.software_system().app2.c2
+
+        if use_context:
+            ContainerView(
+                key="container_view_00",
+                description="Container View Test",
+                software_system_selector=app1,
+            )
+
+    if not use_context:
         w.with_views(
             ContainerView(
                 key="container_view_00",

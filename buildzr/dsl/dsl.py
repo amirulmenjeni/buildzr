@@ -720,6 +720,10 @@ class SystemLandscapeView(DslViewElement):
         self._include_relationships = include_relationships
         self._exclude_relationships = exclude_relationships
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.with_views(self)
+
     def _on_added(self) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
@@ -795,7 +799,7 @@ class SystemContextView(DslViewElement):
 
     def __init__(
         self,
-        software_system_selector: Callable[[Workspace], SoftwareSystem],
+        software_system_selector: Union[SoftwareSystem, Callable[[Workspace], SoftwareSystem]],
         key: str,
         description: str,
         auto_layout: _AutoLayout='tb',
@@ -822,12 +826,19 @@ class SystemContextView(DslViewElement):
         self._include_relationships = include_relationships
         self._exclude_relationships = exclude_relationships
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.with_views(self)
+
     def _on_added(self) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
 
-        software_system = self._selector(self._parent._parent)
+        if isinstance(self._selector, SoftwareSystem):
+            software_system = self._selector
+        else:
+            software_system = self._selector(self._parent._parent)
         self._m.softwareSystemId = software_system.model.id
         view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
             lambda w, e: e == software_system,
@@ -881,7 +892,7 @@ class ContainerView(DslViewElement):
 
     def __init__(
         self,
-        software_system_selector: Callable[[Workspace], SoftwareSystem],
+        software_system_selector: Union[SoftwareSystem, Callable[[Workspace], SoftwareSystem]],
         key: str,
         description: str,
         auto_layout: _AutoLayout='tb',
@@ -908,12 +919,19 @@ class ContainerView(DslViewElement):
         self._include_relationships = include_relationships
         self._exclude_relationships = exclude_relationships
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.with_views(self)
+
     def _on_added(self) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
 
-        software_system = self._selector(self._parent._parent)
+        if isinstance(self._selector, SoftwareSystem):
+            software_system = self._selector
+        else:
+            software_system = self._selector(self._parent._parent)
         self._m.softwareSystemId = software_system.model.id
 
         container_ids = { container.model.id for container in software_system.children}
@@ -970,7 +988,7 @@ class ComponentView(DslViewElement):
 
     def __init__(
         self,
-        container_selector: Callable[[Workspace], Container],
+        container_selector: Union[Container, Callable[[Workspace], Container]],
         key: str,
         description: str,
         auto_layout: _AutoLayout='tb',
@@ -997,12 +1015,19 @@ class ComponentView(DslViewElement):
         self._include_relationships = include_relationships
         self._exclude_relationships = exclude_relationships
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.with_views(self)
+
     def _on_added(self) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
 
-        container = self._selector(self._parent._parent)
+        if isinstance(self._selector, Container):
+            container = self._selector
+        else:
+            container = self._selector(self._parent._parent)
         self._m.containerId = container.model.id
 
         component_ids = { component.model.id for component in container.children }
