@@ -29,7 +29,7 @@ def test_system_landscape_view(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.with_views(
+        w.apply_views(
             SystemLandscapeView(
                 key="system_landscape_view_00",
                 description="System Landscape View Test",
@@ -86,7 +86,7 @@ def test_system_context_view(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.with_views(
+        w.apply_views(
             SystemContextView(
                 software_system_selector=lambda w: w.software_system().business_app,
                 key="ss_business_app",
@@ -152,7 +152,7 @@ def test_system_context_view_with_exclude_user(use_context: bool) -> Optional[No
             )
 
     if not use_context:
-        w.with_views(
+        w.apply_views(
             SystemContextView(
                 software_system_selector=lambda w: w.software_system().business_app,
                 key="ss_business_app",
@@ -216,7 +216,7 @@ def test_container_view(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.with_views(
+        w.apply_views(
             ContainerView(
                 software_system_selector=lambda w: w.software_system().app,
                 key="ss_business_app",
@@ -267,7 +267,7 @@ def test_component_view(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.with_views(
+        w.apply_views(
             ComponentView(
                 container_selector=lambda w: w.software_system().software_system.web_application,
                 key="web_application_container_00",
@@ -325,7 +325,7 @@ def test_component_view_with_exclude_user(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.with_views(
+        w.apply_views(
             ComponentView(
                 container_selector=lambda w: w.software_system().software_system.web_application,
                 key="web_application_container_00",
@@ -379,7 +379,7 @@ def test_container_view_with_multiple_software_systems(use_context: bool) -> Opt
             )
 
     if not use_context:
-        w.with_views(
+        w.apply_views(
             ContainerView(
                 key="container_view_00",
                 description="Container View Test",

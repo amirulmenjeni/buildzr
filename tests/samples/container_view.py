@@ -19,7 +19,7 @@ class SampleContainerView(AbstractBuilder):
             user >> "Uses" >> web_application
             user >> "Hacks" >> git_repo
             git_repo >> "Uses" >> external_system
-            w.with_views(
+            w.apply_views(
                 ContainerView(
                     software_system_selector=lambda w: w.software_system().app,
                     key="ss_business_app",

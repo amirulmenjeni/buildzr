@@ -242,7 +242,7 @@ class DslViewsElement(ABC):
         pass
 
     @abstractmethod
-    def contains(
+    def add_views(
         self,
         *views: Union[DslViewElement],
     ) -> DslFluentSink:

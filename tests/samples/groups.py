@@ -20,7 +20,7 @@ class GroupsSample(AbstractBuilder):
             a >> "Uses" >> b
             a.a1 >> "Uses" >> b.b1
             a >> "Uses" >> c
-            w.with_views(
+            w.apply_views(
                 SystemLandscapeView(
                     key='groups-sample',
                     description="Groups Sample"

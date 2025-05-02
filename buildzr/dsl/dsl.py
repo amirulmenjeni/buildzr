@@ -173,13 +173,13 @@ class Workspace(DslWorkspaceElement):
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
-    def with_views( self, *views: Union[ 'SystemLandscapeView',
+    def apply_views( self, *views: Union[ 'SystemLandscapeView',
             'SystemContextView',
             'ContainerView',
             'ComponentView',
         ]
     ) -> '_FluentSink':
-        return Views(self).contains(*views)
+        return Views(self).add_views(*views)
 
     def _add_dynamic_attr(self, name: str, model: Union['Person', 'SoftwareSystem']) -> None:
         if isinstance(model, Person):
@@ -719,7 +719,7 @@ class SystemLandscapeView(DslViewElement):
 
         workspace = _current_workspace.get()
         if workspace is not None:
-            workspace.with_views(self)
+            workspace.apply_views(self)
 
     def _on_added(self) -> None:
 
@@ -825,7 +825,7 @@ class SystemContextView(DslViewElement):
 
         workspace = _current_workspace.get()
         if workspace is not None:
-            workspace.with_views(self)
+            workspace.apply_views(self)
 
     def _on_added(self) -> None:
 
@@ -918,7 +918,7 @@ class ContainerView(DslViewElement):
 
         workspace = _current_workspace.get()
         if workspace is not None:
-            workspace.with_views(self)
+            workspace.apply_views(self)
 
     def _on_added(self) -> None:
 
@@ -1014,7 +1014,7 @@ class ComponentView(DslViewElement):
 
         workspace = _current_workspace.get()
         if workspace is not None:
-            workspace.with_views(self)
+            workspace.apply_views(self)
 
     def _on_added(self) -> None:
 
@@ -1085,7 +1085,7 @@ class Views(DslViewsElement):
         self._parent = workspace
         self._parent._m.views = self._m
 
-    def contains(
+    def add_views(
         self,
         *views: DslViewElement
     ) -> _FluentSink:

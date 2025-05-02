@@ -31,7 +31,7 @@ with Workspace('w') as w:
     ]
     webapp >> "sends notification using" >> email_system
 
-    w.with_views(
+    w.apply_views(
         SystemContextView(
             lambda w: w.software_system().webapp,
             key='web_app_system_context_00',

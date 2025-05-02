@@ -692,7 +692,7 @@ def test_fluent_json_sink() -> Optional[None]:
         ]
 
     # TODO: Make this context-based.
-    w.with_views(
+    w.apply_views(
         SystemContextView(
             key="ss_01",
             title="System Context",
@@ -728,7 +728,7 @@ def test_fluent_json_sink_empty_views() -> Optional[None]:
             desc("Uses") >> s2,
         ]
 
-    w.with_views().to_json(path="test.json")
+    w.apply_views().to_json(path="test.json")
 
     with open("test.json", "r") as f:
         data = f.read()
