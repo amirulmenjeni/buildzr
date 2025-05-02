@@ -680,7 +680,7 @@ def test_dsl_relationship_without_desc_multiple_dest() -> Optional[None]:
     assert w.person().user.model.relationships[1].destinationId == w.software_system().software_2.model.id
     assert w.person().user.model.relationships[2].destinationId == w.software_system().software_3.model.id
 
-def test_fluent_json_sink() -> Optional[None]:
+def test_json_sink() -> Optional[None]:
 
     with Workspace("w") as w:
         u = Person("User")
@@ -691,21 +691,21 @@ def test_fluent_json_sink() -> Optional[None]:
             desc("Uses") >> s2,
         ]
 
-    # TODO: Make this context-based.
-    w.apply_views(
         SystemContextView(
             key="ss_01",
             title="System Context",
             description="A simple system context view for software 1",
             software_system_selector=lambda w: w.software_system().software_1,
-        ),
+        )
+
         SystemContextView(
             key="ss_02",
             title="System Context",
             description="A simple system context view for software 2",
             software_system_selector=lambda w: w.software_system().software_2,
         )
-    ).to_json(path="test.json")
+
+        w.to_json(path="test.json")
 
     with open("test.json", "r") as f:
         data = f.read()
@@ -715,7 +715,7 @@ def test_fluent_json_sink() -> Optional[None]:
     import os
     os.remove("test.json")
 
-def test_fluent_json_sink_empty_views() -> Optional[None]:
+def test_json_sink_empty_views() -> Optional[None]:
 
     # No views defined here.
 
@@ -728,7 +728,7 @@ def test_fluent_json_sink_empty_views() -> Optional[None]:
             desc("Uses") >> s2,
         ]
 
-    w.apply_views().to_json(path="test.json")
+        w.to_json(path="test.json")
 
     with open("test.json", "r") as f:
         data = f.read()

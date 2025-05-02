@@ -178,8 +178,13 @@ class Workspace(DslWorkspaceElement):
             'ContainerView',
             'ComponentView',
         ]
-    ) -> '_FluentSink':
-        return Views(self).add_views(*views)
+    ) -> None:
+        Views(self).add_views(*views)
+
+    def to_json(self, path: str) -> None:
+        from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
+        sink = JsonSink()
+        sink.write(workspace=self.model, config=JsonSinkConfig(path=path))
 
     def _add_dynamic_attr(self, name: str, model: Union['Person', 'SoftwareSystem']) -> None:
         if isinstance(model, Person):
@@ -602,14 +607,6 @@ class _FluentSink(DslFluentSink):
 
     def __init__(self, workspace: Workspace) -> None:
         self._workspace = workspace
-
-    def to_json(self, path: str) -> None:
-        from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
-        sink = JsonSink()
-        sink.write(workspace=self._workspace.model, config=JsonSinkConfig(path=path))
-
-    def get_workspace(self) -> Workspace:
-        return self._workspace
 
 _RankDirection = Literal['tb', 'bt', 'lr', 'rl']
 
@@ -1088,7 +1085,7 @@ class Views(DslViewsElement):
     def add_views(
         self,
         *views: DslViewElement
-    ) -> _FluentSink:
+    ) -> None:
 
         for view in views:
             if isinstance(view, SystemLandscapeView):
@@ -1121,8 +1118,6 @@ class Views(DslViewsElement):
                     self._m.componentViews = [view.model]
             else:
                 raise NotImplementedError("The view {0} is currently not supported", type(view))
-
-        return _FluentSink(self._parent)
 
     def get_workspace(self) -> Workspace:
         """
