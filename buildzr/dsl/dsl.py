@@ -173,10 +173,7 @@ class Workspace(DslWorkspaceElement):
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
-    def with_views(
-        self,
-        *views: Union[
-            'SystemLandscapeView',
+    def with_views( self, *views: Union[ 'SystemLandscapeView',
             'SystemContextView',
             'ContainerView',
             'ComponentView',
@@ -699,10 +696,10 @@ class SystemLandscapeView(DslViewElement):
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Callable[[Workspace, Element], bool]]=[],
-        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
-        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
-        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemLandscapeView()
@@ -738,17 +735,17 @@ class SystemLandscapeView(DslViewElement):
 
         workspace = self._parent._parent
 
-        include_view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        include_view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e.type == Person,
             lambda w, e: e.type == SoftwareSystem
         ]
 
-        exclude_view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        exclude_view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e.type == Container,
             lambda w, e: e.type == Component,
         ]
 
-        include_view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+        include_view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
             lambda w, r: r.source.type == Person,
             lambda w, r: r.source.type == SoftwareSystem,
             lambda w, r: r.destination.type == Person,
@@ -804,10 +801,10 @@ class SystemContextView(DslViewElement):
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Callable[[Workspace, Element], bool]]=[],
-        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
-        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
-        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemContextView()
@@ -840,13 +837,13 @@ class SystemContextView(DslViewElement):
         else:
             software_system = self._selector(self._parent._parent)
         self._m.softwareSystemId = software_system.model.id
-        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e == software_system,
             lambda w, e: software_system.model.id in e.sources.ids,
             lambda w, e: software_system.model.id in e.destinations.ids,
         ]
 
-        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+        view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
             lambda w, r: software_system == r.source,
             lambda w, r: software_system == r.destination,
         ]
@@ -897,10 +894,10 @@ class ContainerView(DslViewElement):
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Callable[[Workspace, Element], bool]]=[],
-        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
-        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
-        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ContainerView()
@@ -936,13 +933,13 @@ class ContainerView(DslViewElement):
 
         container_ids = { container.model.id for container in software_system.children}
 
-        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e.parent == software_system,
             lambda w, e: any(container_ids.intersection({ id for id in e.sources.ids })),
             lambda w, e: any(container_ids.intersection({ id for id in e.destinations.ids })),
         ]
 
-        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+        view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
             lambda w, r: software_system == r.source.parent,
             lambda w, r: software_system == r.destination.parent,
         ]
@@ -993,10 +990,10 @@ class ComponentView(DslViewElement):
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Callable[[Workspace, Element], bool]]=[],
-        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
-        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
-        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ComponentView()
@@ -1032,13 +1029,13 @@ class ComponentView(DslViewElement):
 
         component_ids = { component.model.id for component in container.children }
 
-        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e.parent == container,
             lambda w, e: any(component_ids.intersection({ id for id in e.sources.ids })),
             lambda w, e: any(component_ids.intersection({ id for id in e.destinations.ids })),
         ]
 
-        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+        view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
             lambda w, r: container == r.source.parent,
             lambda w, r: container == r.destination.parent,
         ]

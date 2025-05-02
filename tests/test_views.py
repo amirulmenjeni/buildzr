@@ -125,7 +125,7 @@ def test_system_context_view(use_context: bool) -> Optional[None]:
 @pytest.mark.parametrize("use_context", [True, False])
 def test_system_context_view_with_exclude_user(use_context: bool) -> Optional[None]:
     with Workspace('w') as w:
-        Person('u')
+        user = Person('u')
         with SoftwareSystem('email_system') as email_system:
             Container('email_c1')
             Container('email_c2')
@@ -147,7 +147,7 @@ def test_system_context_view_with_exclude_user(use_context: bool) -> Optional[No
                 key="ss_business_app",
                 description="The business app",
                 exclude_elements=[
-                    lambda w, e: e == w.person().u,
+                   user,
                 ]
             )
 

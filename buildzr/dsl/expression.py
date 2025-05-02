@@ -136,10 +136,10 @@ class Expression:
 
     def __init__(
         self,
-        include_elements: Iterable[Callable[[Workspace, Element], bool]]=[lambda w, e: True],
-        exclude_elements: Iterable[Callable[[Workspace, Element], bool]]=[],
-        include_relationships: Iterable[Callable[[Workspace, Relationship], bool]]=[lambda w, e: True],
-        exclude_relationships: Iterable[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: Iterable[Union[DslElement, Callable[[Workspace, Element], bool]]]=[lambda w, e: True],
+        exclude_elements: Iterable[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: Iterable[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[lambda w, e: True],
+        exclude_relationships: Iterable[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
     ) -> 'None':
         self._include_elements = include_elements
         self._exclude_elements = exclude_elements
@@ -155,9 +155,19 @@ class Expression:
 
         workspace_elements = buildzr.dsl.Explorer(workspace).walk_elements()
         for element in workspace_elements:
-            any_includes = any([f(workspace, Element(element)) for f in self._include_elements])
-            any_excludes = any([f(workspace, Element(element)) for f in self._exclude_elements])
-            if any_includes and not any_excludes:
+            includes: List[bool] = []
+            excludes: List[bool] = []
+            for f in self._include_elements:
+                if isinstance(f, DslElement):
+                    includes.append(f == element)
+                else:
+                    includes.append(f(workspace, Element(element)))
+            for f in self._exclude_elements:
+                if isinstance(f, DslElement):
+                    excludes.append(f == element)
+                else:
+                    excludes.append(f(workspace, Element(element)))
+            if any(includes) and not any(excludes):
                 filtered_elements.append(element)
 
         return filtered_elements
@@ -180,30 +190,47 @@ class Expression:
         def _is_relationship_of_excluded_elements(
             workspace: Workspace,
             relationship: Relationship,
-            exclude_element_predicates: Iterable[Callable[[Workspace, Element], bool]],
+            exclude_element_predicates: Iterable[Union[DslElement, Callable[[Workspace, Element], bool]]],
         ) -> bool:
-            return any([
-                f(workspace, relationship.source) for f in exclude_element_predicates
-            ] + [
-                f(workspace, relationship.destination) for f in exclude_element_predicates
-            ])
+            for f in exclude_element_predicates:
+                if isinstance(f, DslElement):
+                    if f == relationship.source or f == relationship.destination:
+                        return True
+                else:
+                    if f(workspace, relationship.source) or f(workspace, relationship.destination):
+                        return True
+            return False
 
         workspace_relationships = buildzr.dsl.Explorer(workspace).walk_relationships()
-        for relationship in workspace_relationships:
-            any_includes = any([f(workspace, Relationship(relationship)) for f in self._include_relationships])
 
-            # Also exclude relationships whose source or destination elements are excluded.
-            any_excludes = any([
-                f(workspace, Relationship(relationship))
-                for f in self._exclude_relationships
-            ] + [
+        for relationship in workspace_relationships:
+
+            includes: List[bool] = []
+            excludes: List[bool] = []
+
+            for f in self._include_relationships:
+                if isinstance(f, DslElement):
+                    includes.append(f == relationship)
+                else:
+                    includes.append(f(workspace, Relationship(relationship)))
+
+            for f in self._exclude_relationships:
+                if isinstance(f, DslElement):
+                    excludes.append(f == relationship)
+                else:
+                    excludes.append(f(workspace, Relationship(relationship)))
+
+            # Also exclude relationships whose source or destination elements
+            # are excluded.
+            excludes.append(
                 _is_relationship_of_excluded_elements(
                     workspace,
                     Relationship(relationship),
                     self._exclude_elements,
                 )
-            ])
-            if any_includes and not any_excludes:
+            )
+
+            if any(includes) and not any(excludes):
                 filtered_relationships.append(relationship)
 
         return filtered_relationships
