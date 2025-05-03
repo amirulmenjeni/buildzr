@@ -578,14 +578,17 @@ class Group:
         group_separator: str="/",
     ) -> None:
 
-        # Separator must be a single char.
-        assert len(group_separator) == 1
-
         separator = group_separator
 
         workspace = _current_workspace.get()
         if workspace is not None:
             separator = workspace._group_separator
+
+        if len(separator) > 1:
+            raise ValueError('Group separator must be a single character.')
+
+        if separator in self._name:
+            raise ValueError('Group name cannot contain the group separator.')
 
         stack = _current_group_stack.get()
         index = next((i for i, group in enumerate(stack) if group._name == self._name), -1)

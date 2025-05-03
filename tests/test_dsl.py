@@ -670,6 +670,37 @@ def test_nested_grouping(group_separator: str) -> Optional[None]:
     assert a.model.relationships[0].destinationId == b.model.id
     assert a.model.relationships[0].sourceId == a.model.id
 
+@pytest.mark.parametrize("group_separator", [".", "/"])
+def test_group_name_contain_separator_raise(group_separator: str) -> Optional[None]:
+
+    with pytest.raises(ValueError):
+        with Workspace("w", group_separator=group_separator) as w:
+            with Group(f"Company{group_separator}1") as comp1:
+                with Group("Department 1") as dept1:
+                    with SoftwareSystem("A") as a:
+                        with Container("a1"):
+                            pass
+                        with Container("a2"):
+                            pass
+                with Group(f"Department{group_separator}2") as dept2:
+                    with SoftwareSystem("B") as b:
+                        with Container("b1"):
+                            pass
+                        with Container("b2") as b2:
+                            Component("c1")
+
+@pytest.mark.parametrize("group_separator", [".", "/", "//"])
+def test_group_separator_must_be_a_single_character(group_separator: str) -> Optional[None]:
+    if len(group_separator) > 1:
+        with pytest.raises(ValueError):
+            with Workspace("w", group_separator=group_separator) as w:
+                with Group("Company 1") as comp1:
+                    with Group("Department 1") as dept1:
+                        a = SoftwareSystem("A")
+                    with Group("Department 2") as dept2:
+                        b = SoftwareSystem("B")
+                    a >> b
+
 def test_dsl_relationship_without_desc() -> Optional[None]:
 
     with Workspace("w") as w:
