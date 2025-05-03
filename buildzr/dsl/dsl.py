@@ -49,7 +49,7 @@ class TypedDynamicAttribute(Generic[TypedModel]):
         return cast(TypedModel, self._dynamic_attributes.get(name))
 
 _current_workspace: ContextVar[Optional['Workspace']] = ContextVar('current_workspace', default=None)
-_current_group: ContextVar[Optional['Group']] = ContextVar('current_group', default=None)
+_current_group_stack: ContextVar[List['Group']] = ContextVar('current_group', default=[])
 _current_software_system: ContextVar[Optional['SoftwareSystem']] = ContextVar('current_software_system', default=None)
 _current_container: ContextVar[Optional['Container']] = ContextVar('current_container', default=None)
 
@@ -76,6 +76,7 @@ class Workspace(DslWorkspaceElement):
             description: str="",
             scope: Literal['landscape', 'software_system', None]='software_system',
             implied_relationships: bool=False,
+            group_separator: str='/',
         ) -> None:
 
         self._m = buildzr.models.Workspace()
@@ -83,6 +84,7 @@ class Workspace(DslWorkspaceElement):
         self._children: Optional[List[Union['Person', 'SoftwareSystem']]] = []
         self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem']] = {}
         self._use_implied_relationships = implied_relationships
+        self._group_separator = group_separator
         self.model.id = GenerateId.for_workspace()
         self.model.name = name
         self.model.description = description
@@ -265,9 +267,9 @@ class SoftwareSystem(DslElementRelationOverrides[
             workspace.add_model(self)
             workspace._add_dynamic_attr(self.model.name, self)
 
-        group = _current_group.get()
-        if group:
-            group.add_element(self)
+        stack = _current_group_stack.get()
+        if stack:
+            stack[-1].add_element(self)
 
     def __enter__(self) -> Self:
         self._token = _current_software_system.set(self)
@@ -371,9 +373,9 @@ class Person(DslElementRelationOverrides[
         if workspace is not None:
             workspace.add_model(self)
 
-        group = _current_group.get()
-        if group:
-            group.add_element(self)
+        stack = _current_group_stack.get()
+        if stack:
+            stack[-1].add_element(self)
 
     def labeled(self, label: str) -> 'Person':
         self._label = label
@@ -442,9 +444,9 @@ class Container(DslElementRelationOverrides[
             software_system.add_container(self)
             software_system._add_dynamic_attr(self.model.name, self)
 
-        group = _current_group.get()
-        if group:
-            group.add_element(self)
+        stack = _current_group_stack.get()
+        if stack:
+            stack[-1].add_element(self)
 
     def __enter__(self) -> Self:
         self._token = _current_container.set(self)
@@ -546,9 +548,9 @@ class Component(DslElementRelationOverrides[
             container.add_component(self)
             container._add_dynamic_attr(self.model.name, self)
 
-        group = _current_group.get()
-        if group:
-            group.add_element(self)
+        stack = _current_group_stack.get()
+        if stack:
+            stack[-1].add_element(self)
 
     def labeled(self, label: str) -> 'Component':
         self._label = label
@@ -572,27 +574,28 @@ class Group:
             'SoftwareSystem',
             'Container',
             'Component',
-        ]
+        ],
+        group_separator: str="/",
     ) -> None:
 
-        # def recursive_group_name_assign(software_system: 'SoftwareSystem') -> None:
-        #     software_system.model.group = self._name
-        #     for container in software_system.children:
-        #         container.model.group = self._name
-        #         for component in container.children:
-        #             component.model.group = self._name
+        # Separator must be a single char.
+        assert len(group_separator) == 1
 
-        if isinstance(model, Person):
-            model.model.group = self._name
-        elif isinstance(model, SoftwareSystem):
-            model.model.group = self._name
-        elif isinstance(model, Container):
-            model.model.group = self._name
-        elif isinstance(model, Component):
-            model.model.group = self._name
+        separator = group_separator
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            separator = workspace._group_separator
+
+        stack = _current_group_stack.get()
+        index = next((i for i, group in enumerate(stack) if group._name == self._name), -1)
+        if index >= 0:
+            model.model.group = separator.join([group._name for group in stack[:index + 1]])
 
     def __enter__(self) -> Self:
-        self._token = _current_group.set(self)
+        stack = _current_group_stack.get() # stack: a/b
+        stack.extend([self]) # stack: a/b -> a/b/self
+        self._token = _current_group_stack.set(stack)
         return self
 
     def __exit__(
@@ -601,7 +604,9 @@ class Group:
         exc_value: Optional[BaseException],
         traceback: Optional[Any]
     ) -> None:
-        _current_group.reset(self._token)
+        stack = _current_group_stack.get()
+        stack.pop() # stack: a/b/self -> a/b
+        _current_group_stack.reset(self._token)
 
 class _FluentSink(DslFluentSink):
 

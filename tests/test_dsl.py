@@ -606,7 +606,6 @@ def test_dynamic_attribute_access_with_labels() -> Optional[None]:
     assert w.software_system().t.container().web.ui.model.name == "UI Layer"
     assert w.software_system().t.container().mssql.model.name == "SQL Server Database"
 
-# TODO: Also test for nested grouping.
 def test_grouping() -> Optional[None]:
 
     with Workspace("w") as w:
@@ -643,6 +642,33 @@ def test_grouping() -> Optional[None]:
     assert a.container().a1.model.relationships[0].destinationId == b.container().b1.model.id
     assert b.container().b2.component().c1.model.group == "Company 2"
     assert a.model.relationships[1].destinationId == w.software_system().c.model.id
+
+@pytest.mark.parametrize("group_separator", [".", "/"])
+def test_nested_grouping(group_separator: str) -> Optional[None]:
+    with Workspace("w", group_separator=group_separator) as w:
+        with Group("Company 1") as comp1:
+            with Group("Department 1") as dept1:
+                with SoftwareSystem("A") as a:
+                    with Container("a1"):
+                        pass
+                    with Container("a2"):
+                        pass
+            with Group("Department 2") as dept2:
+                with SoftwareSystem("B") as b:
+                    with Container("b1"):
+                        pass
+                    with Container("b2") as b2:
+                        Component("c1")
+
+            a >> b
+
+    assert a.model.group == f"Company 1{group_separator}Department 1"
+    assert b.model.group == f"Company 1{group_separator}Department 2"
+    assert a.a1.model.group == f"Company 1{group_separator}Department 1"
+    assert a.a2.model.group == f"Company 1{group_separator}Department 1"
+    assert b.b2.c1.model.group == f"Company 1{group_separator}Department 2"
+    assert a.model.relationships[0].destinationId == b.model.id
+    assert a.model.relationships[0].sourceId == a.model.id
 
 def test_dsl_relationship_without_desc() -> Optional[None]:
 
