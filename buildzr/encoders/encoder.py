@@ -3,7 +3,7 @@ import dataclasses, json
 import enum
 import humps
 from buildzr.dsl.interfaces import DslElement, DslWorkspaceElement
-from typing import Union, List, TYPE_CHECKING, Type, Any, cast
+from typing import Union, List, TYPE_CHECKING, Type, Any, Dict, cast
 from typing_extensions import TypeGuard
 
 if TYPE_CHECKING:
@@ -66,7 +66,7 @@ class JsonEncoder(json.JSONEncoder):
 
     def _encode_properties(self, props: dict) -> dict:
         # Recursively encode values in the properties dict
-        result = {}
+        result: Dict[str, Any] = {}
         for k, v in props.items():
             if _is_dataclass(v):
                 result[k] = humps.camelize(_remove_nones(dataclasses.asdict(v)))
