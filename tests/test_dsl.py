@@ -689,6 +689,16 @@ def test_group_name_contain_separator_raise(group_separator: str) -> Optional[No
                         with Container("b2") as b2:
                             Component("c1")
 
+@pytest.mark.parametrize("group_separator", [".", "/"])
+def test_group_separator_assigned_to_model_property(group_separator: str) -> Optional[None]:
+
+    with Workspace("w", group_separator=group_separator) as w:
+        with Group("Company 1") as comp1:
+            a = SoftwareSystem("A")
+
+    assert a.model.group == f"Company 1"
+    assert w.model.model.properties['structurizr.groupSeparator'] == group_separator
+
 @pytest.mark.parametrize("group_separator", [".", "/", "//"])
 def test_group_separator_must_be_a_single_character(group_separator: str) -> Optional[None]:
     if len(group_separator) > 1:

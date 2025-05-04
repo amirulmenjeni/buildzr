@@ -3,7 +3,7 @@ import dataclasses, json
 import enum
 import humps
 from buildzr.dsl.interfaces import DslElement, DslWorkspaceElement
-from typing import Union, List, TYPE_CHECKING, Type, Any
+from typing import Union, List, TYPE_CHECKING, Type, Any, cast
 from typing_extensions import TypeGuard
 
 if TYPE_CHECKING:
@@ -47,15 +47,35 @@ class JsonEncoder(json.JSONEncoder):
     def default(self, obj: JsonEncodable) -> Union[str, list, dict]:
         # Handle the default encoder the nicely wrapped DSL elements.
         if isinstance(obj, DslElement) or isinstance(obj, DslWorkspaceElement):
-            return humps.camelize(_remove_nones(dataclasses.asdict(obj.model)))
+            return cast(Union[str, list, dict], humps.camelize(_remove_nones(dataclasses.asdict(obj.model))))
 
         # Handle the default encoder for those `dataclass`es models generated in
         # `buildzr.model`
         elif _is_dataclass(obj):
-            return humps.camelize(_remove_nones(dataclasses.asdict(obj)))
+            d = dataclasses.asdict(obj)
+            # Special handling for 'properties' fields of type Dict[str, Any]
+            if 'properties' in d and isinstance(d['properties'], dict):
+                d['properties'] = self._encode_properties(d['properties'])
+            return cast(Union[str, list, dict], humps.camelize(_remove_nones(d)))
 
         # Handle the enums
         elif isinstance(obj, enum.Enum):
             return str(obj.value)
 
         return super().default(obj) #type: ignore[no-any-return]
+
+    def _encode_properties(self, props: dict) -> dict:
+        # Recursively encode values in the properties dict
+        result = {}
+        for k, v in props.items():
+            if _is_dataclass(v):
+                result[k] = humps.camelize(_remove_nones(dataclasses.asdict(v)))
+            elif isinstance(v, enum.Enum):
+                result[k] = str(v.value)
+            elif isinstance(v, dict):
+                result[k] = self._encode_properties(v)
+            elif isinstance(v, list):
+                result[k] = [self._encode_properties(i) if isinstance(i, dict) else i for i in v]
+            else:
+                result[k] = v
+        return result

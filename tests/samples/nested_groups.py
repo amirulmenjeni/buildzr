@@ -12,7 +12,14 @@ class NestedGroups(AbstractBuilder):
                     a = SoftwareSystem("A")
                 with Group("Department 2"):
                     b = SoftwareSystem("B")
+            with Group("Company 2"):
+                with Group("Department 1"):
+                    c = SoftwareSystem("C")
+                with Group("Department 2"):
+                    d = SoftwareSystem("D")
             a >> b
+            c >> d
+            b >> c
 
             # TODO: Add styles applied to each group.
             SystemLandscapeView(
