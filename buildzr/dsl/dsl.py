@@ -596,10 +596,6 @@ class Group:
 
         stack = _current_group_stack.get()
 
-        print(f"Element Name: {model.model.name}")
-        print(f"Group Name: {self._name}")
-        print(f"Stack: {[group._name for group in stack]}")
-
         index = next((i for i, group in enumerate(stack) if group._name == self._name), -1)
         if index >= 0:
             model.model.group = separator.join([group._name for group in stack[:index + 1]])
