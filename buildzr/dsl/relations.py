@@ -18,11 +18,9 @@ from buildzr.dsl.interfaces import (
     BindLeft,
     BindLeftLate,
     DslRelationship,
-    DslFluentRelationship,
     DslElement,
     DslWorkspaceElement,
     TSrc, TDst,
-    TParent, TChild,
 )
 from buildzr.dsl.factory import GenerateId
 import buildzr

@@ -30,7 +30,6 @@ from buildzr.dsl.interfaces import (
     DslElement,
     DslViewElement,
     DslViewsElement,
-    DslFluentSink,
 )
 from buildzr.dsl.relations import (
     DslElementRelationOverrides,
@@ -615,11 +614,6 @@ class Group:
         stack = _current_group_stack.get()
         stack.pop() # stack: a/b/self -> a/b
         _current_group_stack.reset(self._token)
-
-class _FluentSink(DslFluentSink):
-
-    def __init__(self, workspace: Workspace) -> None:
-        self._workspace = workspace
 
 _RankDirection = Literal['tb', 'bt', 'lr', 'rl']
 
