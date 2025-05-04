@@ -1,7 +1,5 @@
 from .interfaces import (
     DslElement,
-    DslFluentRelationship,
-    DslFluentSink,
     DslRelationship,
     DslWorkspaceElement,
     DslViewElement,
@@ -11,6 +9,4 @@ from .interfaces import (
     BindLeftLate,
     TSrc,
     TDst,
-    TParent,
-    TChild,
 )

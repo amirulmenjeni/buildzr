@@ -3,9 +3,10 @@ import buildzr
 from .factory import GenerateId
 from typing_extensions import (
     Self,
-    TypeGuard,
     TypeIs,
 )
+from collections import deque
+from contextvars import ContextVar
 from typing import (
     Any,
     Union,
@@ -16,33 +17,21 @@ from typing import (
     Optional,
     Generic,
     TypeVar,
-    Protocol,
     Callable,
     Iterable,
     Literal,
     cast,
-    overload,
-    Sequence,
     Type,
 )
 
 from buildzr.sinks.interfaces import Sink
-
 from buildzr.dsl.interfaces import (
     DslWorkspaceElement,
     DslElement,
     DslViewElement,
     DslViewsElement,
-    DslFluentSink,
-    TSrc, TDst,
-    TParent, TChild,
 )
 from buildzr.dsl.relations import (
-    _is_software_fluent_relationship,
-    _is_container_fluent_relationship,
-    _Relationship,
-    _RelationshipDescription,
-    _FluentRelationship,
     DslElementRelationOverrides,
 )
 
@@ -57,6 +46,11 @@ class TypedDynamicAttribute(Generic[TypedModel]):
 
     def __getattr__(self, name: str) -> TypedModel:
         return cast(TypedModel, self._dynamic_attributes.get(name))
+
+_current_workspace: ContextVar[Optional['Workspace']] = ContextVar('current_workspace', default=None)
+_current_group_stack: ContextVar[List['Group']] = ContextVar('current_group', default=[])
+_current_software_system: ContextVar[Optional['SoftwareSystem']] = ContextVar('current_software_system', default=None)
+_current_container: ContextVar[Optional['Container']] = ContextVar('current_container', default=None)
 
 class Workspace(DslWorkspaceElement):
     """
@@ -75,11 +69,21 @@ class Workspace(DslWorkspaceElement):
     def children(self) -> Optional[List[Union['Person', 'SoftwareSystem']]]:
         return self._children
 
-    def __init__(self, name: str, description: str="", scope: Literal['landscape', 'software_system', None]='software_system') -> None:
+    def __init__(
+            self,
+            name: str,
+            description: str="",
+            scope: Literal['landscape', 'software_system', None]='software_system',
+            implied_relationships: bool=False,
+            group_separator: str='/',
+        ) -> None:
+
         self._m = buildzr.models.Workspace()
         self._parent = None
         self._children: Optional[List[Union['Person', 'SoftwareSystem']]] = []
         self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem']] = {}
+        self._use_implied_relationships = implied_relationships
+        self._group_separator = group_separator
         self.model.id = GenerateId.for_workspace()
         self.model.name = name
         self.model.description = description
@@ -102,58 +106,57 @@ class Workspace(DslWorkspaceElement):
             scope=scope_mapper[scope],
         )
 
-    def _contains_group(
-        self,
-        name: str,
-        *models: Union[
-            'Person',
-            'SoftwareSystem',
-            _FluentRelationship['SoftwareSystem'],
-            _FluentRelationship['Container'],
-        ]
-    ) -> None:
+        self.model.model.properties = {
+            'structurizr.groupSeparator': group_separator,
+        }
 
-        def recursive_group_name_assign(software_system: 'SoftwareSystem') -> None:
-            software_system.model.group = name
-            for container in software_system.children:
-                container.model.group = name
-                for component in container.children:
-                    component.model.group = name
+    def __enter__(self) -> Self:
+        self._token = _current_workspace.set(self)
+        return self
 
-        for model in models:
-            if isinstance(model, Person):
-                model.model.group = name
-            elif isinstance(model, SoftwareSystem):
-                recursive_group_name_assign(model)
-            elif _is_software_fluent_relationship(model):
-                recursive_group_name_assign(model._parent)
-            elif _is_container_fluent_relationship(model):
-                recursive_group_name_assign(model._parent._parent)
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
 
-        self.contains(*models)
+        from buildzr.dsl.explorer import Explorer
 
-    def contains(
-        self,
-        *models: Union[
-            'Group',
-            'Person',
-            'SoftwareSystem',
-            _FluentRelationship['SoftwareSystem'],
-            _FluentRelationship['Container'],
-        ]) -> _FluentRelationship['Workspace']:
+        # Process implied relationships:
+        # If we have relationship s >> do >> a.b, then create s >> do >> a.
+        # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
+        # And so on...
+        if self._use_implied_relationships:
+            explorer = Explorer(self)
+            relationships = list(explorer.walk_relationships())
+            for relationship in relationships:
+                source = relationship.source
+                destination = relationship.destination
+                destination_parent = destination.parent
 
-        for model in models:
-            if isinstance(model, Group):
-                self._contains_group(model._name, *model._elements)
-            elif isinstance(model, Person):
-                self.add_element(model)
-            elif isinstance(model, SoftwareSystem):
-                self.add_element(model)
-            elif _is_software_fluent_relationship(model):
-                self.add_element(model._parent)
-            elif _is_container_fluent_relationship(model):
-                self.add_element(model._parent._parent)
-        return _FluentRelationship['Workspace'](self)
+                while destination_parent is not None and \
+                      isinstance(source, DslElement) and \
+                      not isinstance(source.model, buildzr.models.Workspace) and \
+                      not isinstance(destination_parent, DslWorkspaceElement):
+
+                    if destination_parent is source.parent:
+                        break
+
+                    rels = source.model.relationships
+
+                    if rels:
+                        already_exists = any(
+                            r.destinationId == destination_parent.model.id and
+                            r.description == relationship.model.description and
+                            r.technology == relationship.model.technology
+                            for r in rels
+                        )
+                        if not already_exists:
+                            r = source.uses(
+                                destination_parent,
+                                description=relationship.model.description,
+                                technology=relationship.model.technology,
+                            )
+                            r.model.linkedRelationshipId = relationship.model.id
+                        destination_parent = destination_parent.parent
+
+        _current_workspace.reset(self._token)
 
     def person(self) -> TypedDynamicAttribute['Person']:
         return TypedDynamicAttribute['Person'](self._dynamic_attrs)
@@ -161,34 +164,44 @@ class Workspace(DslWorkspaceElement):
     def software_system(self) -> TypedDynamicAttribute['SoftwareSystem']:
         return TypedDynamicAttribute['SoftwareSystem'](self._dynamic_attrs)
 
-    def add_element(self, element: Union['Person', 'SoftwareSystem']) -> None:
-        if isinstance(element, Person):
-            self._m.model.people.append(element._m)
-            element._parent = self
-            self._dynamic_attrs[_child_name_transform(element.model.name)] = element
-            if element._label:
-                self._dynamic_attrs[_child_name_transform(element._label)] = element
-            self._children.append(element)
-        elif isinstance(element, SoftwareSystem):
-            self._m.model.softwareSystems.append(element._m)
-            element._parent = self
-            self._dynamic_attrs[_child_name_transform(element.model.name)] = element
-            if element._label:
-                self._dynamic_attrs[_child_name_transform(element._label)] = element
-            self._children.append(element)
+    def add_model(self, model: Union['Person', 'SoftwareSystem']) -> None:
+        if isinstance(model, Person):
+            self._m.model.people.append(model._m)
+            model._parent = self
+            self._add_dynamic_attr(model.model.name, model)
+            self._children.append(model)
+        elif isinstance(model, SoftwareSystem):
+            self._m.model.softwareSystems.append(model._m)
+            model._parent = self
+            self._add_dynamic_attr(model.model.name, model)
+            self._children.append(model)
         else:
-            raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(element)))
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
-    def with_views(
-        self,
-        *views: Union[
-            'SystemLandscapeView',
+    def apply_views( self, *views: Union[ 'SystemLandscapeView',
             'SystemContextView',
             'ContainerView',
             'ComponentView',
         ]
-    ) -> '_FluentSink':
-        return Views(self).contains(*views)
+    ) -> None:
+        Views(self).add_views(*views)
+
+    def to_json(self, path: str) -> None:
+        from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
+        sink = JsonSink()
+        sink.write(workspace=self.model, config=JsonSinkConfig(path=path))
+
+    def _add_dynamic_attr(self, name: str, model: Union['Person', 'SoftwareSystem']) -> None:
+        if isinstance(model, Person):
+            self._dynamic_attrs[_child_name_transform(name)] = model
+            if model._label:
+                self._dynamic_attrs[_child_name_transform(model._label)] = model
+        elif isinstance(model, SoftwareSystem):
+            self._dynamic_attrs[_child_name_transform(name)] = model
+            if model._label:
+                self._dynamic_attrs[_child_name_transform(model._label)] = model
+        else:
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
         return self._dynamic_attrs[name]
@@ -238,6 +251,7 @@ class SoftwareSystem(DslElementRelationOverrides[
 
     def __init__(self, name: str, description: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
         self._m = buildzr.models.SoftwareSystem()
+        self.model.containers = []
         self._parent: Optional[Workspace] = None
         self._children: Optional[List['Container']] = []
         self._sources: List[DslElement] = []
@@ -251,37 +265,41 @@ class SoftwareSystem(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
-    def contains(
-        self,
-        *containers: Union['Container', _FluentRelationship['Container']]
-    ) -> _FluentRelationship['SoftwareSystem']:
-        if not self.model.containers:
-            self.model.containers = []
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.add_model(self)
+            workspace._add_dynamic_attr(self.model.name, self)
 
-        for child in containers:
-            if isinstance(child, Container):
-                self.add_element(child)
-            elif _is_container_fluent_relationship(child):
-                self.add_element(child._parent)
-        return _FluentRelationship['SoftwareSystem'](self)
+        stack = _current_group_stack.get()
+        if stack:
+            stack[-1].add_element(self)
 
-    def labeled(self, label: str) -> 'SoftwareSystem':
-        self._label = label
+    def __enter__(self) -> Self:
+        self._token = _current_software_system.set(self)
         return self
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
+        _current_software_system.reset(self._token)
 
     def container(self) -> TypedDynamicAttribute['Container']:
         return TypedDynamicAttribute['Container'](self._dynamic_attrs)
 
-    def add_element(self, element: 'Container') -> None:
-        if isinstance(element, Container):
-            self.model.containers.append(element.model)
-            element._parent = self
-            self._dynamic_attrs[_child_name_transform(element.model.name)] = element
-            if element._label:
-                self._dynamic_attrs[_child_name_transform(element._label)] = element
-            self._children.append(element)
+    def add_container(self, container: 'Container') -> None:
+        if isinstance(container, Container):
+            self.model.containers.append(container.model)
+            container._parent = self
+            self._add_dynamic_attr(container.model.name, container)
+            self._children.append(container)
         else:
-            raise ValueError('Invalid element type: Trying to add an element of type {} to a software system.'.format(type(element)))
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a software system.'.format(type(container)))
+
+    def _add_dynamic_attr(self, name: str, model: 'Container') -> None:
+        if isinstance(model, Container):
+            self._dynamic_attrs[_child_name_transform(name)] = model
+            if model._label:
+                self._dynamic_attrs[_child_name_transform(model._label)] = model
+        else:
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a software system.'.format(type(model)))
 
     def __getattr__(self, name: str) -> 'Container':
         return self._dynamic_attrs[name]
@@ -291,6 +309,13 @@ class SoftwareSystem(DslElementRelationOverrides[
 
     def __dir__(self) -> Iterable[str]:
         return list(super().__dir__()) + list(self._dynamic_attrs.keys())
+
+    def labeled(self, label: str) -> 'SoftwareSystem':
+        self._label = label
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace._add_dynamic_attr(label, self)
+        return self
 
 class Person(DslElementRelationOverrides[
     'Person',
@@ -347,8 +372,19 @@ class Person(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.add_model(self)
+
+        stack = _current_group_stack.get()
+        if stack:
+            stack[-1].add_element(self)
+
     def labeled(self, label: str) -> 'Person':
         self._label = label
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace._add_dynamic_attr(label, self)
         return self
 
 class Container(DslElementRelationOverrides[
@@ -388,15 +424,9 @@ class Container(DslElementRelationOverrides[
     def tags(self) -> Set[str]:
         return self._tags
 
-    def contains(self, *components: 'Component') -> _FluentRelationship['Container']:
-        if not self.model.components:
-            self.model.components = []
-        for component in components:
-            self.add_element(component)
-        return _FluentRelationship['Container'](self)
-
     def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
         self._m = buildzr.models.Container()
+        self.model.components = []
         self._parent: Optional[SoftwareSystem] = None
         self._children: Optional[List['Component']] = []
         self._sources: List[DslElement] = []
@@ -412,23 +442,48 @@ class Container(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
+        software_system = _current_software_system.get()
+        if software_system is not None:
+            software_system.add_container(self)
+            software_system._add_dynamic_attr(self.model.name, self)
+
+        stack = _current_group_stack.get()
+        if stack:
+            stack[-1].add_element(self)
+
+    def __enter__(self) -> Self:
+        self._token = _current_container.set(self)
+        return self
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
+        _current_container.reset(self._token)
+
     def labeled(self, label: str) -> 'Container':
         self._label = label
+        software_system = _current_software_system.get()
+        if software_system is not None:
+            software_system._add_dynamic_attr(label, self)
         return self
 
     def component(self) -> TypedDynamicAttribute['Component']:
         return TypedDynamicAttribute['Component'](self._dynamic_attrs)
 
-    def add_element(self, element: 'Component') -> None:
-        if isinstance(element, Component):
-            self.model.components.append(element.model)
-            element._parent = self
-            self._dynamic_attrs[_child_name_transform(element.model.name)] = element
-            if element._label:
-                self._dynamic_attrs[_child_name_transform(element._label)] = element
-            self._children.append(element)
+    def add_component(self, component: 'Component') -> None:
+        if isinstance(component, Component):
+            self.model.components.append(component.model)
+            component._parent = self
+            self._add_dynamic_attr(component.model.name, component)
+            self._children.append(component)
         else:
-            raise ValueError('Invalid element type: Trying to add an element of type {} to a container.'.format(type(element)))
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a container.'.format(type(component)))
+
+    def _add_dynamic_attr(self, name: str, model: 'Component') -> None:
+        if isinstance(model, Component):
+            self._dynamic_attrs[_child_name_transform(name)] = model
+            if model._label:
+                self._dynamic_attrs[_child_name_transform(model._label)] = model
+        else:
+            raise ValueError('Invalid element type: Trying to add an element of type {} to a container.'.format(type(model)))
 
     def __getattr__(self, name: str) -> 'Component':
         return self._dynamic_attrs[name]
@@ -491,8 +546,20 @@ class Component(DslElementRelationOverrides[
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
+        container = _current_container.get()
+        if container is not None:
+            container.add_component(self)
+            container._add_dynamic_attr(self.model.name, self)
+
+        stack = _current_group_stack.get()
+        if stack:
+            stack[-1].add_element(self)
+
     def labeled(self, label: str) -> 'Component':
         self._label = label
+        container = _current_container.get()
+        if container is not None:
+            container._add_dynamic_attr(label, self)
         return self
 
 class Group:
@@ -500,27 +567,53 @@ class Group:
     def __init__(
         self,
         name: str,
-        *elements: Union[
-            Person,
-            SoftwareSystem,
-            _FluentRelationship[SoftwareSystem],
-            _FluentRelationship[Container],
-    ]) -> None:
+    ) -> None:
         self._name = name
-        self._elements = elements
 
-class _FluentSink(DslFluentSink):
+    def add_element(
+        self,
+        model: Union[
+            'Person',
+            'SoftwareSystem',
+            'Container',
+            'Component',
+        ],
+        group_separator: str="/",
+    ) -> None:
 
-    def __init__(self, workspace: Workspace) -> None:
-        self._workspace = workspace
+        separator = group_separator
 
-    def to_json(self, path: str) -> None:
-        from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
-        sink = JsonSink()
-        sink.write(workspace=self._workspace.model, config=JsonSinkConfig(path=path))
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            separator = workspace._group_separator
 
-    def get_workspace(self) -> Workspace:
-        return self._workspace
+        if len(separator) > 1:
+            raise ValueError('Group separator must be a single character.')
+
+        if separator in self._name:
+            raise ValueError('Group name cannot contain the group separator.')
+
+        stack = _current_group_stack.get()
+
+        index = next((i for i, group in enumerate(stack) if group._name == self._name), -1)
+        if index >= 0:
+            model.model.group = separator.join([group._name for group in stack[:index + 1]])
+
+    def __enter__(self) -> Self:
+        stack = _current_group_stack.get() # stack: a/b
+        stack.extend([self]) # stack: a/b -> a/b/self
+        self._token = _current_group_stack.set(stack)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[Any]
+    ) -> None:
+        stack = _current_group_stack.get()
+        stack.pop() # stack: a/b/self -> a/b
+        _current_group_stack.reset(self._token)
 
 _RankDirection = Literal['tb', 'bt', 'lr', 'rl']
 
@@ -607,10 +700,10 @@ class SystemLandscapeView(DslViewElement):
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Callable[[Workspace, Element], bool]]=[],
-        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
-        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
-        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemLandscapeView()
@@ -628,6 +721,10 @@ class SystemLandscapeView(DslViewElement):
         self._include_relationships = include_relationships
         self._exclude_relationships = exclude_relationships
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_views(self)
+
     def _on_added(self) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
@@ -642,17 +739,17 @@ class SystemLandscapeView(DslViewElement):
 
         workspace = self._parent._parent
 
-        include_view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        include_view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e.type == Person,
             lambda w, e: e.type == SoftwareSystem
         ]
 
-        exclude_view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        exclude_view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e.type == Container,
             lambda w, e: e.type == Component,
         ]
 
-        include_view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+        include_view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
             lambda w, r: r.source.type == Person,
             lambda w, r: r.source.type == SoftwareSystem,
             lambda w, r: r.destination.type == Person,
@@ -703,15 +800,15 @@ class SystemContextView(DslViewElement):
 
     def __init__(
         self,
-        software_system_selector: Callable[[Workspace], SoftwareSystem],
+        software_system_selector: Union[SoftwareSystem, Callable[[Workspace], SoftwareSystem]],
         key: str,
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Callable[[Workspace, Element], bool]]=[],
-        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
-        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
-        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemContextView()
@@ -730,20 +827,27 @@ class SystemContextView(DslViewElement):
         self._include_relationships = include_relationships
         self._exclude_relationships = exclude_relationships
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_views(self)
+
     def _on_added(self) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
 
-        software_system = self._selector(self._parent._parent)
+        if isinstance(self._selector, SoftwareSystem):
+            software_system = self._selector
+        else:
+            software_system = self._selector(self._parent._parent)
         self._m.softwareSystemId = software_system.model.id
-        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e == software_system,
             lambda w, e: software_system.model.id in e.sources.ids,
             lambda w, e: software_system.model.id in e.destinations.ids,
         ]
 
-        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+        view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
             lambda w, r: software_system == r.source,
             lambda w, r: software_system == r.destination,
         ]
@@ -789,15 +893,15 @@ class ContainerView(DslViewElement):
 
     def __init__(
         self,
-        software_system_selector: Callable[[Workspace], SoftwareSystem],
+        software_system_selector: Union[SoftwareSystem, Callable[[Workspace], SoftwareSystem]],
         key: str,
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Callable[[Workspace, Element], bool]]=[],
-        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
-        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
-        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ContainerView()
@@ -816,23 +920,30 @@ class ContainerView(DslViewElement):
         self._include_relationships = include_relationships
         self._exclude_relationships = exclude_relationships
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_views(self)
+
     def _on_added(self) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
 
-        software_system = self._selector(self._parent._parent)
+        if isinstance(self._selector, SoftwareSystem):
+            software_system = self._selector
+        else:
+            software_system = self._selector(self._parent._parent)
         self._m.softwareSystemId = software_system.model.id
 
         container_ids = { container.model.id for container in software_system.children}
 
-        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e.parent == software_system,
             lambda w, e: any(container_ids.intersection({ id for id in e.sources.ids })),
             lambda w, e: any(container_ids.intersection({ id for id in e.destinations.ids })),
         ]
 
-        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+        view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
             lambda w, r: software_system == r.source.parent,
             lambda w, r: software_system == r.destination.parent,
         ]
@@ -878,15 +989,15 @@ class ComponentView(DslViewElement):
 
     def __init__(
         self,
-        container_selector: Callable[[Workspace], Container],
+        container_selector: Union[Container, Callable[[Workspace], Container]],
         key: str,
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Callable[[Workspace, Element], bool]]=[],
-        exclude_elements: List[Callable[[Workspace, Element], bool]]=[],
-        include_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
-        exclude_relationships: List[Callable[[Workspace, Relationship], bool]]=[],
+        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ComponentView()
@@ -905,23 +1016,30 @@ class ComponentView(DslViewElement):
         self._include_relationships = include_relationships
         self._exclude_relationships = exclude_relationships
 
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_views(self)
+
     def _on_added(self) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
 
-        container = self._selector(self._parent._parent)
+        if isinstance(self._selector, Container):
+            container = self._selector
+        else:
+            container = self._selector(self._parent._parent)
         self._m.containerId = container.model.id
 
         component_ids = { component.model.id for component in container.children }
 
-        view_elements_filter: List[Callable[[Workspace, Element], bool]] = [
+        view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e.parent == container,
             lambda w, e: any(component_ids.intersection({ id for id in e.sources.ids })),
             lambda w, e: any(component_ids.intersection({ id for id in e.destinations.ids })),
         ]
 
-        view_relationships_filter: List[Callable[[Workspace, Relationship], bool]] = [
+        view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
             lambda w, r: container == r.source.parent,
             lambda w, r: container == r.destination.parent,
         ]
@@ -971,10 +1089,10 @@ class Views(DslViewsElement):
         self._parent = workspace
         self._parent._m.views = self._m
 
-    def contains(
+    def add_views(
         self,
         *views: DslViewElement
-    ) -> _FluentSink:
+    ) -> None:
 
         for view in views:
             if isinstance(view, SystemLandscapeView):
@@ -1007,8 +1125,6 @@ class Views(DslViewsElement):
                     self._m.componentViews = [view.model]
             else:
                 raise NotImplementedError("The view {0} is currently not supported", type(view))
-
-        return _FluentSink(self._parent)
 
     def get_workspace(self) -> Workspace:
         """

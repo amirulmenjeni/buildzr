@@ -13,32 +13,18 @@ from buildzr.dsl import Explorer
 
 @pytest.fixture
 def workspace() -> Workspace:
-
-    w = Workspace("w")\
-            .contains(
-                Person("u"),
-                SoftwareSystem("s")\
-                    .contains(
-                        Container("webapp")\
-                            .contains(
-                                Component("database layer"),
-                                Component("API layer"),
-                                Component("UI layer"),
-                            )\
-                            .where(lambda app: [
-                                app.ui_layer >> ("Calls HTTP API from", "http/api") >> app.api_layer,
-                                app.api_layer >> ("Runs queries from", "sql/sqlite") >> app.database_layer
-                            ]),\
-                        Container("database"),
-                    )\
-                    .where(lambda s: [
-                        s.webapp >> "Uses" >> s.database
-                    ])
-            )\
-            .where(lambda w: [
-                w.person().u >> "Runs SQL queries" >> w.software_system().s.database
-            ], implied=True)
-
+    with Workspace("w", implied_relationships=True) as w:
+        u = Person("u")
+        with SoftwareSystem("s") as s:
+            with Container("webapp") as webapp:
+                Component("database layer")
+                Component("API layer")
+                Component("UI layer")
+                webapp.ui_layer >> ("Calls HTTP API from", "http/api") >> webapp.api_layer
+                webapp.api_layer >> ("Runs queries from", "sql/sqlite") >> webapp.database_layer
+            Container("database")
+            s.webapp >> "Uses" >> s.database
+        u >> "Runs SQL queries" >> s.database
     return w
 
 def test_walk_elements(workspace: Workspace) -> Optional[None]:

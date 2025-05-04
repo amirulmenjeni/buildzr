@@ -14,28 +14,25 @@ from typing import Optional, cast
 @pytest.fixture
 def workspace() -> Workspace:
 
-    w = Workspace('w')\
-        .contains(
-            Person('u', tags={'user'}),
-            SoftwareSystem('s', properties={
-                'repo': 'https://github.com/amirulmenjeni/buildzr',
-            })\
-            .contains(
-                Container('app'),
-                Container('db', technology='mssql'),
-            )\
-            .where(lambda s: [
-                s.app >> "Uses" >> s.db | With(tags={'backend-interface', 'mssql'}),
-            ])
-        )\
-        .where(lambda w: [
-            w.person().u >> "Uses" >> w.software_system().s | With(
-                tags={'frontend-interface'},
-                properties={
-                    'url': 'http://example.com/docs/api/endpoint',
-                }
+    with Workspace('w') as w:
+        u = Person('u', tags={'user'})
+        s = SoftwareSystem('s', properties={
+            'repo': 'https://github.com/amirulmenjeni/buildzr',
+        })
+        with s:
+            app = Container('app')
+            db = Container('db', technology='mssql')
+
+            app >> "Uses" >> db | With(
+                tags={'backend-interface', 'mssql'}
             )
-        ])
+
+        u >> "Uses" >> s | With(
+            tags={'frontend-interface'},
+            properties={
+                'url': 'http://example.com/docs/api/endpoint',
+            }
+        )
 
     return w
 

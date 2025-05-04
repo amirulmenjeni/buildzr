@@ -8,17 +8,10 @@ from ..abstract_builder import AbstractBuilder
 class ViewSugar(AbstractBuilder):
 
     def build(self) -> buildzr.models.Workspace:
-
-        w = Workspace("w")\
-            .contains(
-                Person("u"),
-                SoftwareSystem("s"),
-            )\
-            .where(lambda w: [
-                w.u >> "Uses" >> w.s
-            ])
-
+        with Workspace("w") as w:
+            u = Person("u")
+            s = SoftwareSystem("s")
+            u >> "Uses" >> s
         print(w.model)
-
         return w.model
 

@@ -8,33 +8,22 @@ from ..abstract_builder import AbstractBuilder
 class SampleContainerView(AbstractBuilder):
 
     def build(self) -> buildzr.models.Workspace:
-
-        w = Workspace('w', scope=None)\
-                .contains(
-                    Person('user'),
-                    SoftwareSystem('app')
-                        .contains(
-                            Container('web_application'),
-                            Container('database'),
-                        )
-                        .where(lambda app: [
-                            app.web_application >> "Reads from and writes to" >> app.database,
-                        ]),
-                    SoftwareSystem('git_repo'), # Unrelated!
-                    SoftwareSystem('external_system'), # Also unrelated!
-                )\
-                .where(lambda w: [
-                    w.user >> "Uses" >> w.software_system().app.web_application,
-                    w.user >> "Hacks" >> w.git_repo,
-                    w.git_repo >> "Uses" >> w.external_system,
-                ])\
-                .with_views(
-                    ContainerView(
-                        software_system_selector=lambda w: w.software_system().app,
-                        key="ss_business_app",
-                        description="The business app",
-                    )
-                )\
-                .get_workspace()
-
+        with Workspace('w', scope=None) as w:
+            user = Person('user')
+            with SoftwareSystem('app') as app:
+                web_application = Container('web_application')
+                database = Container('database')
+                web_application >> "Reads from and writes to" >> database
+            git_repo = SoftwareSystem('git_repo')  # Unrelated!
+            external_system = SoftwareSystem('external_system')  # Also unrelated!
+            user >> "Uses" >> web_application
+            user >> "Hacks" >> git_repo
+            git_repo >> "Uses" >> external_system
+            w.apply_views(
+                ContainerView(
+                    software_system_selector=lambda w: w.software_system().app,
+                    key="ss_business_app",
+                    description="The business app",
+                )
+            )
         return w.model

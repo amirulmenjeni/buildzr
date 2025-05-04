@@ -29,9 +29,6 @@ Model = Union[
 TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
 TDst = TypeVar('TDst', bound='DslElement', contravariant=True)
 
-TParent = TypeVar('TParent', bound=Union['DslWorkspaceElement', 'DslElement'], covariant=True)
-TChild = TypeVar('TChild', bound='DslElement', contravariant=True)
-
 class BindLeftLate(ABC, Generic[TDst]):
 
     @abstractmethod
@@ -173,38 +170,6 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
     def __contains__(self, other: 'DslElement') -> bool:
         return self.source.model.id == other.model.id or self.destination.model.id == other.model.id
 
-class DslFluentRelationship(ABC, Generic[TParent]):
-
-    """
-    The abstract class that defines the interface for the fluent relationship
-    definition, where the one or more relationships between elements accessible
-    from the `TParent` element.
-    """
-
-    @abstractmethod
-    def where(
-        self,
-        func: Callable[
-            [TParent],
-            Sequence[
-                Union[
-                    DslRelationship,
-                    Sequence[DslRelationship]
-                ]
-            ]
-        ]) -> TParent:
-        pass
-
-    @abstractmethod
-    def get(self) -> TParent:
-        pass
-
-class DslFluentSink(ABC):
-
-    @abstractmethod
-    def to_json(self, path: str) -> None:
-        pass
-
 class DslViewElement(ABC):
 
     ViewModel = Union[
@@ -242,8 +207,8 @@ class DslViewsElement(ABC):
         pass
 
     @abstractmethod
-    def contains(
+    def add_views(
         self,
         *views: Union[DslViewElement],
-    ) -> DslFluentSink:
+    ) -> None:
         pass
