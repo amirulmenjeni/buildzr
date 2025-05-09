@@ -130,6 +130,14 @@ class DslElement(BindRight[TSrc, TDst]):
     def tags(self) -> Set[str]:
         pass
 
+    def add_tags(self, *tags: str) -> None:
+        """
+        Add tags to the element.
+        """
+        self.tags.update(tags)
+        if not isinstance(self.model, buildzr.models.Workspace):
+            self.model.tags = ','.join(self.tags)
+
     def uses(
         self,
         other: 'DslElement',

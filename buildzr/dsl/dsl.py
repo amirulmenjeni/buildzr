@@ -34,6 +34,7 @@ from buildzr.dsl.interfaces import (
 from buildzr.dsl.relations import (
     DslElementRelationOverrides,
 )
+from buildzr.dsl.color import Color
 
 def _child_name_transform(name: str) -> str:
     return name.lower().replace(' ', '_')
@@ -185,6 +186,31 @@ class Workspace(DslWorkspaceElement):
         ]
     ) -> None:
         Views(self).add_views(*views)
+
+    def apply_style(
+        self,
+        style: Union['StyleElements', 'StyleRelationships'],
+    ) -> None:
+
+        style._parent = self
+
+        if not self.model.views:
+            self.model.views = buildzr.models.Views()
+        if not self.model.views.configuration:
+            self.model.views.configuration = buildzr.models.Configuration()
+        if not self.model.views.configuration.styles:
+            self.model.views.configuration.styles = buildzr.models.Styles()
+
+        if isinstance(style, StyleElements):
+            if self.model.views.configuration.styles.elements:
+                self.model.views.configuration.styles.elements.extend(style.model)
+            else:
+                self.model.views.configuration.styles.elements = style.model
+        elif isinstance(style, StyleRelationships):
+            if self.model.views.configuration.styles.relationships:
+                self.model.views.configuration.styles.relationships.append(style.model)
+            else:
+                self.model.views.configuration.styles.relationships = [style.model]
 
     def to_json(self, path: str) -> None:
         from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
@@ -567,8 +593,31 @@ class Group:
     def __init__(
         self,
         name: str,
+        workspace: Optional[Workspace]=None,
     ) -> None:
+
+        if not workspace:
+            workspace = _current_workspace.get()
+            if workspace is not None:
+                self._group_separator = workspace._group_separator
+
+        self._group_separator = workspace._group_separator
         self._name = name
+
+        if len(self._group_separator) > 1:
+            raise ValueError('Group separator must be a single character.')
+
+        if self._group_separator in self._name:
+            raise ValueError('Group name cannot contain the group separator.')
+
+        stack = _current_group_stack.get()
+        new_stack = stack.copy()
+        new_stack.extend([self])
+
+        self._full_name = self._group_separator.join([group._name for group in new_stack])
+
+    def full_name(self) -> str:
+        return self._full_name
 
     def add_element(
         self,
@@ -577,27 +626,11 @@ class Group:
             'SoftwareSystem',
             'Container',
             'Component',
-        ],
-        group_separator: str="/",
+        ]
     ) -> None:
 
-        separator = group_separator
 
-        workspace = _current_workspace.get()
-        if workspace is not None:
-            separator = workspace._group_separator
-
-        if len(separator) > 1:
-            raise ValueError('Group separator must be a single character.')
-
-        if separator in self._name:
-            raise ValueError('Group name cannot contain the group separator.')
-
-        stack = _current_group_stack.get()
-
-        index = next((i for i, group in enumerate(stack) if group._name == self._name), -1)
-        if index >= 0:
-            model.model.group = separator.join([group._name for group in stack[:index + 1]])
+        model.model.group = self._full_name
 
     def __enter__(self) -> Self:
         stack = _current_group_stack.get() # stack: a/b
@@ -1073,6 +1106,9 @@ class ComponentView(DslViewElement):
 
 class Views(DslViewsElement):
 
+    # TODO: Make this view a "hidden" class -- it's not a "first class citizen"
+    # in buildzr DSL.
+
     @property
     def model(self) -> buildzr.models.Views:
         return self._m
@@ -1131,3 +1167,213 @@ class Views(DslViewsElement):
         Get the `Workspace` which contain this views definition.
         """
         return self._parent
+
+class StyleElements:
+
+    from buildzr.dsl.expression import Element
+
+    Shapes = Union[
+        Literal['Box'],
+        Literal['RoundedBox'],
+        Literal['Circle'],
+        Literal['Ellipse'],
+        Literal['Hexagon'],
+        Literal['Cylinder'],
+        Literal['Pipe'],
+        Literal['Person'],
+        Literal['Robot'],
+        Literal['Folder'],
+        Literal['WebBrowser'],
+        Literal['MobileDevicePortrait'],
+        Literal['MobileDeviceLandscape'],
+        Literal['Component'],
+    ]
+
+    @property
+    def model(self) -> List[buildzr.models.ElementStyle]:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    # TODO: Validate arguments with pydantic.
+    def __init__(
+            self,
+            elements: List[Union[
+                DslElement,
+                Group,
+                Callable[[Workspace, Element], bool],
+                Type[Union['Person', 'SoftwareSystem', 'Container', 'Component']],
+                str
+            ]],
+            shape: Optional[Shapes]=None,
+            icon: Optional[str]=None,
+            width: Optional[int]=None,
+            height: Optional[int]=None,
+            background: Optional[Union['str', Tuple[int, int, int], Color]]=None,
+            color: Optional[Union['str', Tuple[int, int, int], Color]]=None,
+            stroke: Optional[Union[str, Tuple[int, int, int], Color]]=None,
+            stroke_width: Optional[int]=None,
+            font_size: Optional[int]=None,
+            border: Optional[Literal['solid', 'dashed', 'dotted']]=None,
+            opacity: Optional[int]=None,
+            metadata: Optional[bool]=None,
+            description: Optional[bool]=None,
+    ) -> None:
+
+        # How the tag is populated depends on each element type in the
+        # `elemenets`.
+        # - If the element is a `DslElement`, then we create a unique tag
+        #   specifically to help the stylizer identify that specific element.
+        #   For example, if the element has an id `3`, then we should create a
+        #   tag, say, `style-element-3`.
+        # - If the element is a `Group`, then we simply make create the tag
+        #   based on the group name and its nested path. For example,
+        #   `Group:Company 1/Department 1`.
+        # - If the element is a `Callable[[Workspace, Element], bool]`, we just
+        #   run the function to filter out all the elements that matches the
+        #   description, and create a unique tag for all of the filtered
+        #   elements.
+        # - If the element is a `Type[Union['Person', 'SoftwareSystem', 'Container', 'Component']]`,
+        #   we create a tag based on the class name. This is based on the fact
+        #   that the default tag for each element is the element's type.
+        # - If the element is a `str`, we just use the string as the tag.
+        #   This is useful for when you want to apply a style to all elements
+        #   with a specific tag, just like in the original Structurizr DSL.
+        #
+        # Note that a new `buildzr.models.ElementStyle` is created for each
+        # item, not for each of `StyleElements` instance. This makes the styling
+        # makes more concise and flexible.
+
+        from buildzr.dsl.expression import Element
+        from uuid import uuid4
+
+        if background:
+            assert Color.is_valid_color(background), "Invalid background color: {}".format(background)
+        if color:
+            assert Color.is_valid_color(color), "Invalid color: {}".format(color)
+        if stroke:
+            assert Color.is_valid_color(stroke), "Invalid stroke color: {}".format(stroke)
+
+        self._m: List[buildzr.models.ElementStyle] = []
+        self._parent: Optional[Workspace] = None
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            self._parent = workspace
+
+        self._elements = elements
+
+        border_enum: Dict[str, buildzr.models.Border] = {
+            'solid': buildzr.models.Border.Solid,
+            'dashed': buildzr.models.Border.Dashed,
+            'dotted': buildzr.models.Border.Dotted,
+        }
+
+        shape_enum: Dict[str, buildzr.models.Shape] = {
+            'Box': buildzr.models.Shape.Box,
+            'RoundedBox': buildzr.models.Shape.RoundedBox,
+            'Circle': buildzr.models.Shape.Circle,
+            'Ellipse': buildzr.models.Shape.Ellipse,
+            'Hexagon': buildzr.models.Shape.Hexagon,
+            'Cylinder': buildzr.models.Shape.Cylinder,
+            'Pipe': buildzr.models.Shape.Pipe,
+            'Person': buildzr.models.Shape.Person,
+            'Robot': buildzr.models.Shape.Robot,
+            'Folder': buildzr.models.Shape.Folder,
+            'WebBrowser': buildzr.models.Shape.WebBrowser,
+            'MobileDevicePortrait': buildzr.models.Shape.MobileDevicePortrait,
+            'MobileDeviceLandscape': buildzr.models.Shape.MobileDeviceLandscape,
+            'Component': buildzr.models.Shape.Component,
+        }
+
+        # A single unique element to be applied to all elements
+        # affected by this style.
+        element_tag = "buildzr-styleelements-{}".format(uuid4().hex)
+
+        for element in self._elements:
+
+            element_style = buildzr.models.ElementStyle()
+            element_style.shape = shape_enum[shape] if shape else None
+            element_style.icon = icon
+            element_style.width = width
+            element_style.height = height
+            element_style.background = Color(background).to_hex() if background else None
+            element_style.color = Color(color).to_hex() if color else None
+            element_style.stroke = Color(stroke).to_hex() if stroke else None
+            element_style.strokeWidth = stroke_width
+            element_style.fontSize = font_size
+            element_style.border = border_enum[border] if border else None
+            element_style.opacity = opacity
+            element_style.metadata = metadata
+            element_style.description = description
+
+            tags: Set[str] = set()
+            if isinstance(element, DslElement) and not isinstance(element.model, buildzr.models.Workspace):
+                element_style.tag = element_tag
+                element.add_tags(element_tag)
+            elif isinstance(element, Group):
+                element_style.tag = f"Group:{element.full_name()}"
+            elif isinstance(element, type):
+                element_style.tag = f"{element.__name__}"
+            elif isinstance(element, str):
+                element_style.tag = element
+            elif callable(element):
+                from buildzr.dsl.explorer import Explorer
+                if self._parent:
+                    matched_elems = Explorer(self._parent).walk_elements()
+                    for e in matched_elems:
+                        element_style.tag = element_tag
+                        e.add_tags(element_tag)
+                else:
+                    raise ValueError("Cannot use callable to select elements to style without a Workspace.")
+            self._m.append(element_style)
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_style(self)
+
+class StyleRelationships:
+
+    @property
+    def model(self) -> buildzr.models.RelationshipStyle:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    # TODO: Validate arguments with pydantic.
+    def __init__(
+        self,
+        thickness: int,
+        color: Union[str, Tuple[int, int, int], Color],
+        routing: Literal['Direct', 'Orthogonal', 'Curved'],
+        font_size: int,
+        width: int=0,
+        position: int=100,
+        opacity: int=100,
+    ) -> None:
+
+        assert Color.is_valid_color(color), "Invalid color: {}".format(color)
+
+        routing_enum: Dict[str, buildzr.models.Routing1] = {
+            'Direct': buildzr.models.Routing1.Direct,
+            'Orthogonal': buildzr.models.Routing1.Orthogonal,
+            'Curved': buildzr.models.Routing1.Curved,
+        }
+
+        self._m = buildzr.models.RelationshipStyle()
+        self._parent: Optional[Workspace] = None
+        self._m.thickness = thickness
+        self._m.color = Color(color).to_hex()
+        self._m.routing = routing_enum[routing]
+        self._m.fontSize = font_size
+        self._m.width = width
+        self._m.position = position
+        self._m.opacity = opacity
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_style(self)
