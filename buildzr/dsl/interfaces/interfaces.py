@@ -127,6 +127,11 @@ class DslElement(BindRight[TSrc, TDst]):
 
     @property
     @abstractmethod
+    def relationships(self) -> Set['DslRelationship']:
+        pass
+
+    @property
+    @abstractmethod
     def tags(self) -> Set[str]:
         pass
 

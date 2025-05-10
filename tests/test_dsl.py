@@ -579,6 +579,37 @@ def test_one_to_many_relationship_with_tags() -> Optional[None]:
     assert set(relationships[0].tags.split(',')) == {"CLI", "Relationship"}
     assert set(relationships[1].tags.split(',')) == {"UI", "Relationship"}
 
+def test_access_relationships_from_dslelements() -> Optional[None]:
+    with Workspace("w") as w:
+        u = Person("User")
+        with SoftwareSystem("Software 1") as s1:
+            with Container("Container 1") as c1:
+                Component("Component 1")
+                Component("Component 2")
+                c1.component_1 >> desc("Uses", "TCP") >> c1.component_2
+            pass
+        with SoftwareSystem("Software 2") as s2:
+            with Container("Container 2") as c2:
+                Component("Component 3")
+                Component("Component 4")
+                c2.component_3 >> desc("Uses", "HTTP") >> c2.component_4
+        u >> [
+            desc("Uses") >> s1,
+            desc("Uses") >> s2,
+        ]
+
+        s1 >> desc("Uses") >> s2
+
+    assert len(u.relationships) == 2
+    assert len(s1.relationships) == 2
+    assert len(s2.relationships) == 2
+    assert len(c1.relationships) == 0
+    assert len(c1.component_1.relationships) == 1
+    assert len(c1.component_2.relationships) == 1
+    assert len(c2.relationships) == 0
+    assert len(c2.component_3.relationships) == 1
+    assert len(c2.component_4.relationships) == 1
+
 def test_dynamic_attribute_access_with_labels() -> Optional[None]:
 
     with Workspace("w") as w:

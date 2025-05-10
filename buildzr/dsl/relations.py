@@ -102,6 +102,13 @@ class _Relationship(DslRelationship[TSrc, TDst]):
             if not any([self._src.model.id == src.model.id for src in self._dst.sources]):
                 self._dst.sources.append(self._src)
 
+            # Make this relationship accessible from the source element and
+            # destination element.
+            if not any([r.model.id == self.model.id for r in self._src.relationships]):
+                self._src.relationships.add(self)
+            if not any([r.model.id == self.model.id for r in self._dst.relationships]):
+                self._dst.relationships.add(self)
+
             if _include_in_model:
                 if uses_data.source.model.relationships:
                     uses_data.source.model.relationships.append(uses_data.relationship)

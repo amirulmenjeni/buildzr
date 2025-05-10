@@ -272,6 +272,10 @@ class SoftwareSystem(DslElementRelationOverrides[
         return self._destinations
 
     @property
+    def relationships(self) -> Set[DslRelationship]:
+        return self._relationships
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -282,6 +286,7 @@ class SoftwareSystem(DslElementRelationOverrides[
         self._children: Optional[List['Container']] = []
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
+        self._relationships: Set[DslRelationship] = set()
         self._tags = {'Element', 'Software System'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Container'] = {}
         self._label: Optional[str] = None
@@ -381,6 +386,10 @@ class Person(DslElementRelationOverrides[
         return self._destinations
 
     @property
+    def relationships(self) -> Set[DslRelationship]:
+        return self._relationships
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -389,6 +398,7 @@ class Person(DslElementRelationOverrides[
         self._parent: Optional[Workspace] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
+        self._relationships: Set[DslRelationship] = set()
         self._tags = {'Element', 'Person'}.union(tags)
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
@@ -447,6 +457,10 @@ class Container(DslElementRelationOverrides[
         return self._destinations
 
     @property
+    def relationships(self) -> Set[DslRelationship]:
+        return self._relationships
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -457,6 +471,7 @@ class Container(DslElementRelationOverrides[
         self._children: Optional[List['Component']] = []
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
+        self._relationships: Set[DslRelationship] = set()
         self._tags = {'Element', 'Container'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Component'] = {}
         self._label: Optional[str] = None
@@ -554,6 +569,10 @@ class Component(DslElementRelationOverrides[
         return self._destinations
 
     @property
+    def relationships(self) -> Set[DslRelationship]:
+        return self._relationships
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -562,6 +581,7 @@ class Component(DslElementRelationOverrides[
         self._parent: Optional[Container] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
+        self._relationships: Set[DslRelationship] = set()
         self._tags = {'Element', 'Component'}.union(tags)
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
