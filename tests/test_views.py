@@ -690,6 +690,13 @@ def test_style_elements_on_callable() -> Optional[None]:
     assert styles.elements[0].tag in w.software_system().s1.tags
     assert styles.elements[0].tag in w.software_system().s2.tags
 
+    assert styles.elements[0].tag not in w.software_system().s1.c1.tags
+    assert styles.elements[0].tag not in w.software_system().s2.c2.tags
+    assert styles.elements[0].tag not in w.software_system().s1.c1.comp1.tags
+    assert styles.elements[0].tag not in w.software_system().s1.c1.comp2.tags
+    assert styles.elements[0].tag not in w.software_system().s2.c2.comp3.tags
+    assert styles.elements[0].tag not in w.software_system().s2.c2.comp4.tags
+
 def test_style_elements_on_callable_without_workspace() -> Optional[None]:
 
     """

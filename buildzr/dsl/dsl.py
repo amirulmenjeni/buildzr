@@ -1320,9 +1320,9 @@ class StyleElements:
             elif isinstance(element, str):
                 element_style.tag = element
             elif callable(element):
-                from buildzr.dsl.explorer import Explorer
+                from buildzr.dsl.expression import Element, Expression
                 if self._parent:
-                    matched_elems = Explorer(self._parent).walk_elements()
+                    matched_elems = Expression(include_elements=[element]).elements(self._parent)
                     for e in matched_elems:
                         element_style.tag = element_tag
                         e.add_tags(element_tag)
