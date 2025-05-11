@@ -33,7 +33,10 @@ from buildzr.dsl.interfaces import (
 )
 from buildzr.dsl.relations import (
     DslElementRelationOverrides,
+    DslRelationship,
+    _Relationship,
 )
+from buildzr.dsl.color import Color
 
 def _child_name_transform(name: str) -> str:
     return name.lower().replace(' ', '_')
@@ -186,6 +189,30 @@ class Workspace(DslWorkspaceElement):
     ) -> None:
         Views(self).add_views(*views)
 
+    def apply_style( self,
+        style: Union['StyleElements', 'StyleRelationships'],
+    ) -> None:
+
+        style._parent = self
+
+        if not self.model.views:
+            self.model.views = buildzr.models.Views()
+        if not self.model.views.configuration:
+            self.model.views.configuration = buildzr.models.Configuration()
+        if not self.model.views.configuration.styles:
+            self.model.views.configuration.styles = buildzr.models.Styles()
+
+        if isinstance(style, StyleElements):
+            if self.model.views.configuration.styles.elements:
+                self.model.views.configuration.styles.elements.extend(style.model)
+            else:
+                self.model.views.configuration.styles.elements = style.model
+        elif isinstance(style, StyleRelationships):
+            if self.model.views.configuration.styles.relationships:
+                self.model.views.configuration.styles.relationships.extend(style.model)
+            else:
+                self.model.views.configuration.styles.relationships = style.model
+
     def to_json(self, path: str) -> None:
         from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
         sink = JsonSink()
@@ -246,6 +273,10 @@ class SoftwareSystem(DslElementRelationOverrides[
         return self._destinations
 
     @property
+    def relationships(self) -> Set[_Relationship]:
+        return self._relationships
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -256,6 +287,7 @@ class SoftwareSystem(DslElementRelationOverrides[
         self._children: Optional[List['Container']] = []
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
+        self._relationships: Set[_Relationship] = set()
         self._tags = {'Element', 'Software System'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Container'] = {}
         self._label: Optional[str] = None
@@ -355,6 +387,10 @@ class Person(DslElementRelationOverrides[
         return self._destinations
 
     @property
+    def relationships(self) -> Set[_Relationship]:
+        return self._relationships
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -363,6 +399,7 @@ class Person(DslElementRelationOverrides[
         self._parent: Optional[Workspace] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
+        self._relationships: Set[_Relationship] = set()
         self._tags = {'Element', 'Person'}.union(tags)
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
@@ -421,6 +458,10 @@ class Container(DslElementRelationOverrides[
         return self._destinations
 
     @property
+    def relationships(self) -> Set[_Relationship]:
+        return self._relationships
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -431,6 +472,7 @@ class Container(DslElementRelationOverrides[
         self._children: Optional[List['Component']] = []
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
+        self._relationships: Set[_Relationship] = set()
         self._tags = {'Element', 'Container'}.union(tags)
         self._dynamic_attrs: Dict[str, 'Component'] = {}
         self._label: Optional[str] = None
@@ -528,6 +570,10 @@ class Component(DslElementRelationOverrides[
         return self._destinations
 
     @property
+    def relationships(self) -> Set[_Relationship]:
+        return self._relationships
+
+    @property
     def tags(self) -> Set[str]:
         return self._tags
 
@@ -536,6 +582,7 @@ class Component(DslElementRelationOverrides[
         self._parent: Optional[Container] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
+        self._relationships: Set[_Relationship] = set()
         self._tags = {'Element', 'Component'}.union(tags)
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
@@ -567,8 +614,31 @@ class Group:
     def __init__(
         self,
         name: str,
+        workspace: Optional[Workspace]=None,
     ) -> None:
+
+        if not workspace:
+            workspace = _current_workspace.get()
+            if workspace is not None:
+                self._group_separator = workspace._group_separator
+
+        self._group_separator = workspace._group_separator
         self._name = name
+
+        if len(self._group_separator) > 1:
+            raise ValueError('Group separator must be a single character.')
+
+        if self._group_separator in self._name:
+            raise ValueError('Group name cannot contain the group separator.')
+
+        stack = _current_group_stack.get()
+        new_stack = stack.copy()
+        new_stack.extend([self])
+
+        self._full_name = self._group_separator.join([group._name for group in new_stack])
+
+    def full_name(self) -> str:
+        return self._full_name
 
     def add_element(
         self,
@@ -577,27 +647,11 @@ class Group:
             'SoftwareSystem',
             'Container',
             'Component',
-        ],
-        group_separator: str="/",
+        ]
     ) -> None:
 
-        separator = group_separator
 
-        workspace = _current_workspace.get()
-        if workspace is not None:
-            separator = workspace._group_separator
-
-        if len(separator) > 1:
-            raise ValueError('Group separator must be a single character.')
-
-        if separator in self._name:
-            raise ValueError('Group name cannot contain the group separator.')
-
-        stack = _current_group_stack.get()
-
-        index = next((i for i, group in enumerate(stack) if group._name == self._name), -1)
-        if index >= 0:
-            model.model.group = separator.join([group._name for group in stack[:index + 1]])
+        model.model.group = self._full_name
 
     def __enter__(self) -> Self:
         stack = _current_group_stack.get() # stack: a/b
@@ -1073,6 +1127,9 @@ class ComponentView(DslViewElement):
 
 class Views(DslViewsElement):
 
+    # TODO: Make this view a "hidden" class -- it's not a "first class citizen"
+    # in buildzr DSL.
+
     @property
     def model(self) -> buildzr.models.Views:
         return self._m
@@ -1131,3 +1188,277 @@ class Views(DslViewsElement):
         Get the `Workspace` which contain this views definition.
         """
         return self._parent
+
+class StyleElements:
+
+    from buildzr.dsl.expression import Element
+
+    Shapes = Union[
+        Literal['Box'],
+        Literal['RoundedBox'],
+        Literal['Circle'],
+        Literal['Ellipse'],
+        Literal['Hexagon'],
+        Literal['Cylinder'],
+        Literal['Pipe'],
+        Literal['Person'],
+        Literal['Robot'],
+        Literal['Folder'],
+        Literal['WebBrowser'],
+        Literal['MobileDevicePortrait'],
+        Literal['MobileDeviceLandscape'],
+        Literal['Component'],
+    ]
+
+    @property
+    def model(self) -> List[buildzr.models.ElementStyle]:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    # TODO: Validate arguments with pydantic.
+    def __init__(
+            self,
+            on: List[Union[
+                DslElement,
+                Group,
+                Callable[[Workspace, Element], bool],
+                Type[Union['Person', 'SoftwareSystem', 'Container', 'Component']],
+                str
+            ]],
+            shape: Optional[Shapes]=None,
+            icon: Optional[str]=None,
+            width: Optional[int]=None,
+            height: Optional[int]=None,
+            background: Optional[Union['str', Tuple[int, int, int], Color]]=None,
+            color: Optional[Union['str', Tuple[int, int, int], Color]]=None,
+            stroke: Optional[Union[str, Tuple[int, int, int], Color]]=None,
+            stroke_width: Optional[int]=None,
+            font_size: Optional[int]=None,
+            border: Optional[Literal['solid', 'dashed', 'dotted']]=None,
+            opacity: Optional[int]=None,
+            metadata: Optional[bool]=None,
+            description: Optional[bool]=None,
+    ) -> None:
+
+        # How the tag is populated depends on each element type in the
+        # `elemenets`.
+        # - If the element is a `DslElement`, then we create a unique tag
+        #   specifically to help the stylizer identify that specific element.
+        #   For example, if the element has an id `3`, then we should create a
+        #   tag, say, `style-element-3`.
+        # - If the element is a `Group`, then we simply make create the tag
+        #   based on the group name and its nested path. For example,
+        #   `Group:Company 1/Department 1`.
+        # - If the element is a `Callable[[Workspace, Element], bool]`, we just
+        #   run the function to filter out all the elements that matches the
+        #   description, and create a unique tag for all of the filtered
+        #   elements.
+        # - If the element is a `Type[Union['Person', 'SoftwareSystem', 'Container', 'Component']]`,
+        #   we create a tag based on the class name. This is based on the fact
+        #   that the default tag for each element is the element's type.
+        # - If the element is a `str`, we just use the string as the tag.
+        #   This is useful for when you want to apply a style to all elements
+        #   with a specific tag, just like in the original Structurizr DSL.
+        #
+        # Note that a new `buildzr.models.ElementStyle` is created for each
+        # item, not for each of `StyleElements` instance. This makes the styling
+        # makes more concise and flexible.
+
+        from buildzr.dsl.expression import Element
+        from uuid import uuid4
+
+        if background:
+            assert Color.is_valid_color(background), "Invalid background color: {}".format(background)
+        if color:
+            assert Color.is_valid_color(color), "Invalid color: {}".format(color)
+        if stroke:
+            assert Color.is_valid_color(stroke), "Invalid stroke color: {}".format(stroke)
+
+        self._m: List[buildzr.models.ElementStyle] = []
+        self._parent: Optional[Workspace] = None
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            self._parent = workspace
+
+        self._elements = on
+
+        border_enum: Dict[str, buildzr.models.Border] = {
+            'solid': buildzr.models.Border.Solid,
+            'dashed': buildzr.models.Border.Dashed,
+            'dotted': buildzr.models.Border.Dotted,
+        }
+
+        shape_enum: Dict[str, buildzr.models.Shape] = {
+            'Box': buildzr.models.Shape.Box,
+            'RoundedBox': buildzr.models.Shape.RoundedBox,
+            'Circle': buildzr.models.Shape.Circle,
+            'Ellipse': buildzr.models.Shape.Ellipse,
+            'Hexagon': buildzr.models.Shape.Hexagon,
+            'Cylinder': buildzr.models.Shape.Cylinder,
+            'Pipe': buildzr.models.Shape.Pipe,
+            'Person': buildzr.models.Shape.Person,
+            'Robot': buildzr.models.Shape.Robot,
+            'Folder': buildzr.models.Shape.Folder,
+            'WebBrowser': buildzr.models.Shape.WebBrowser,
+            'MobileDevicePortrait': buildzr.models.Shape.MobileDevicePortrait,
+            'MobileDeviceLandscape': buildzr.models.Shape.MobileDeviceLandscape,
+            'Component': buildzr.models.Shape.Component,
+        }
+
+        # A single unique element to be applied to all elements
+        # affected by this style.
+        element_tag = "buildzr-styleelements-{}".format(uuid4().hex)
+
+        for element in self._elements:
+
+            element_style = buildzr.models.ElementStyle()
+            element_style.shape = shape_enum[shape] if shape else None
+            element_style.icon = icon
+            element_style.width = width
+            element_style.height = height
+            element_style.background = Color(background).to_hex() if background else None
+            element_style.color = Color(color).to_hex() if color else None
+            element_style.stroke = Color(stroke).to_hex() if stroke else None
+            element_style.strokeWidth = stroke_width
+            element_style.fontSize = font_size
+            element_style.border = border_enum[border] if border else None
+            element_style.opacity = opacity
+            element_style.metadata = metadata
+            element_style.description = description
+
+            if isinstance(element, DslElement) and not isinstance(element.model, buildzr.models.Workspace):
+                element_style.tag = element_tag
+                element.add_tags(element_tag)
+            elif isinstance(element, Group):
+                element_style.tag = f"Group:{element.full_name()}"
+            elif isinstance(element, type):
+                element_style.tag = f"{element.__name__}"
+            elif isinstance(element, str):
+                element_style.tag = element
+            elif callable(element):
+                from buildzr.dsl.expression import Element, Expression
+                if self._parent:
+                    matched_elems = Expression(include_elements=[element]).elements(self._parent)
+                    for e in matched_elems:
+                        element_style.tag = element_tag
+                        e.add_tags(element_tag)
+                else:
+                    raise ValueError("Cannot use callable to select elements to style without a Workspace.")
+            self._m.append(element_style)
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_style(self)
+
+class StyleRelationships:
+
+    from buildzr.dsl.expression import Relationship
+
+    @property
+    def model(self) -> List[buildzr.models.RelationshipStyle]:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    def __init__(
+        self,
+        on: Optional[List[Union[
+            DslRelationship,
+            Group,
+            Callable[[Workspace, Relationship], bool],
+            str
+        ]]]=None,
+        thickness: Optional[int]=None,
+        color: Optional[Union[str, Tuple[int, int, int], Color]]=None,
+        routing: Optional[Literal['Direct', 'Orthogonal', 'Curved']]=None,
+        font_size: Optional[int]=None,
+        width: Optional[int]=None,
+        dashed: Optional[bool]=None,
+        position: Optional[int]=None,
+        opacity: Optional[int]=None,
+    ) -> None:
+
+        from uuid import uuid4
+
+        if color is not None:
+            assert Color.is_valid_color(color), "Invalid color: {}".format(color)
+
+        routing_enum: Dict[str, buildzr.models.Routing1] = {
+            'Direct': buildzr.models.Routing1.Direct,
+            'Orthogonal': buildzr.models.Routing1.Orthogonal,
+            'Curved': buildzr.models.Routing1.Curved,
+        }
+
+        self._m: List[buildzr.models.RelationshipStyle] = []
+        self._parent: Optional[Workspace] = None
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            self._parent = workspace
+
+        # A single unique tag to be applied to all relationships
+        # affected by this style.
+        relation_tag = "buildzr-stylerelationships-{}".format(uuid4().hex)
+
+        if on is None:
+            self._m.append(buildzr.models.RelationshipStyle(
+                thickness=thickness,
+                color=Color(color).to_hex() if color else None,
+                routing=routing_enum[routing] if routing else None,
+                fontSize=font_size,
+                width=width,
+                dashed=dashed,
+                position=position,
+                opacity=opacity,
+                tag="Relationship",
+            ))
+        else:
+            for relationship in on:
+
+                relationship_style = buildzr.models.RelationshipStyle()
+                relationship_style.thickness = thickness
+                relationship_style.color = Color(color).to_hex() if color else None
+                relationship_style.routing = routing_enum[routing] if routing else None
+                relationship_style.fontSize = font_size
+                relationship_style.width = width
+                relationship_style.dashed = dashed
+                relationship_style.position = position
+                relationship_style.opacity = opacity
+
+                if isinstance(relationship, DslRelationship):
+                    relationship.add_tags(relation_tag)
+                    relationship_style.tag = relation_tag
+                elif isinstance(relationship, Group):
+                    from buildzr.dsl.expression import Expression
+                    if self._parent:
+                        rels = Expression(include_relationships=[
+                            lambda w, r: r.source.group == relationship.full_name() and \
+                                         r.destination.group == relationship.full_name()
+                        ]).relationships(self._parent)
+                        for r in rels:
+                            r.add_tags(relation_tag)
+                        relationship_style.tag = relation_tag
+                    else:
+                        raise ValueError("Cannot use callable to select elements to style without a Workspace.")
+                elif isinstance(relationship, str):
+                    relationship_style.tag = relationship
+                elif callable(relationship):
+                    from buildzr.dsl.expression import Expression
+                    if self._parent:
+                        matched_rels = Expression(include_relationships=[relationship]).relationships(self._parent)
+                        for matched_rel in matched_rels:
+                            matched_rel.add_tags(relation_tag)
+                            relationship_style.tag = relation_tag
+                    else:
+                        raise ValueError("Cannot use callable to select elements to style without a Workspace.")
+                self._m.append(relationship_style)
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_style(self)

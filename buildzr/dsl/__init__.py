@@ -9,6 +9,8 @@ from .dsl import (
     SystemContextView,
     ContainerView,
     ComponentView,
+    StyleElements,
+    StyleRelationships,
 )
 from .relations import (
     desc,
@@ -16,3 +18,4 @@ from .relations import (
 )
 from .explorer import Explorer
 from .expression import Expression
+from .color import Color

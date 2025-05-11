@@ -11,6 +11,7 @@ from typing import (
     Callable,
     overload,
     Sequence,
+    MutableSet,
     cast,
 )
 from typing_extensions import (
@@ -127,8 +128,21 @@ class DslElement(BindRight[TSrc, TDst]):
 
     @property
     @abstractmethod
+    def relationships(self) -> MutableSet['DslRelationship']:
+        pass
+
+    @property
+    @abstractmethod
     def tags(self) -> Set[str]:
         pass
+
+    def add_tags(self, *tags: str) -> None:
+        """
+        Add tags to the element.
+        """
+        self.tags.update(tags)
+        if not isinstance(self.model, buildzr.models.Workspace):
+            self.model.tags = ','.join(self.tags)
 
     def uses(
         self,
@@ -166,6 +180,13 @@ class DslRelationship(ABC, Generic[TSrc, TDst]):
     @abstractmethod
     def destination(self) -> DslElement:
         pass
+
+    def add_tags(self, *tags: str) -> None:
+        """
+        Adds tags to the relationship.
+        """
+        self.tags.update(tags)
+        self.model.tags = ','.join(self.tags)
 
     def __contains__(self, other: 'DslElement') -> bool:
         return self.source.model.id == other.model.id or self.destination.model.id == other.model.id

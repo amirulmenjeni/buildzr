@@ -88,6 +88,16 @@ class Element:
     def properties(self) -> Dict[str, Any]:
         return self._element.model.properties
 
+    @property
+    def group(self) -> Optional[str]:
+        """
+        Returns the group of the element. The group is a string that is used to
+        group elements in the Structurizr DSL.
+        """
+        if not isinstance(self._element.model, buildzr.models.Workspace):
+            return self._element.model.group
+        return None
+
     def __eq__(self, element: object) -> bool:
         return isinstance(element, type(self._element)) and\
                element.model.id == self._element.model.id
