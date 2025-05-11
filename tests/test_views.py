@@ -445,22 +445,22 @@ def test_style_elements_on_dslelements() -> Optional[None]:
         )
 
         StyleElements(
-            elements=[user],
+            on=[user],
             shape='Person',
         )
 
         StyleElements(
-            elements=[s1, s2],
+            on=[s1, s2],
             shape='WebBrowser'
         )
 
         StyleElements(
-            elements=[comp1, comp4],
+            on=[comp1, comp4],
             shape='Circle',
         )
 
         StyleElements(
-            elements=[comp2, comp3],
+            on=[comp2, comp3],
             shape='Cylinder',
         )
 
@@ -524,22 +524,22 @@ def test_style_elements_on_groups() -> Optional[None]:
         )
 
         StyleElements(
-            elements=[company1],
+            on=[company1],
             shape='Box',
         )
 
         StyleElements(
-            elements=[company2],
+            on=[company2],
             shape='RoundedBox',
         )
 
         StyleElements(
-            elements=[c1d1, c1d2],
+            on=[c1d1, c1d2],
             color='green',
         )
 
         StyleElements(
-            elements=[c2d1, c2d2],
+            on=[c2d1, c2d2],
             color='red',
         )
 
@@ -586,17 +586,17 @@ def test_style_elements_on_dsltypes() -> Optional[None]:
         )
 
         StyleElements(
-            elements=[Person],
+            on=[Person],
             shape='Person',
         )
 
         StyleElements(
-            elements=[SoftwareSystem, Container],
+            on=[SoftwareSystem, Container],
             shape='Folder',
         )
 
         StyleElements(
-            elements=[Component],
+            on=[Component],
             shape='Circle',
         )
 
@@ -638,7 +638,7 @@ def test_style_elements_on_tags() -> Optional[None]:
         )
 
         StyleElements(
-            elements=['blue', 'red'],
+            on=['blue', 'red'],
             shape='Box',
         )
 
@@ -676,7 +676,7 @@ def test_style_elements_on_callable() -> Optional[None]:
         )
 
         StyleElements(
-            elements=[
+            on=[
                 lambda w, e: e == w.software_system().s1 or e == w.software_system().s2,
             ],
             shape='WebBrowser',
@@ -724,7 +724,7 @@ def test_style_elements_on_callable_without_workspace() -> Optional[None]:
 
     with pytest.raises(ValueError):
         StyleElements(
-            elements=[
+            on=[
                 lambda w, e: e == w.software_system().s1 or e == w.software_system().s2,
             ],
             shape='WebBrowser',
@@ -793,13 +793,13 @@ def test_style_relationships_on_specific_relations() -> Optional[None]:
         )
 
         StyleRelationships(
-            relationships=[r1],
+            on=[r1],
             color='green',
             dashed=False,
         )
 
         StyleRelationships(
-            relationships=[r2, r3],
+            on=[r2, r3],
             color='blue',
             dashed=True,
             thickness=5
@@ -848,7 +848,7 @@ def test_style_relationships_on_tags() -> Optional[None]:
         )
 
         StyleRelationships(
-            relationships=['mytag'],
+            on=['mytag'],
             color='green',
             dashed=False,
         )
@@ -907,12 +907,12 @@ def test_style_relationships_on_groups() -> Optional[None]:
         )
 
         StyleRelationships(
-            relationships=[g1],
+            on=[g1],
             color='green',
         )
 
         StyleRelationships(
-            relationships=[g2],
+            on=[g2],
             color='blue',
         )
 
@@ -968,7 +968,7 @@ def test_style_relationships_on_callables() -> Optional[None]:
         )
 
         StyleRelationships(
-            relationships=[
+            on=[
                 lambda w, r: r.source == user,
             ],
             color='green',
@@ -976,7 +976,7 @@ def test_style_relationships_on_callables() -> Optional[None]:
         )
 
         StyleRelationships(
-            relationships=[
+            on=[
                 lambda w, r: r.source.type == Component and r.destination.type == Component,
             ],
             color='blue',

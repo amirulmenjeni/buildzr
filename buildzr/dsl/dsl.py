@@ -1221,7 +1221,7 @@ class StyleElements:
     # TODO: Validate arguments with pydantic.
     def __init__(
             self,
-            elements: List[Union[
+            on: List[Union[
                 DslElement,
                 Group,
                 Callable[[Workspace, Element], bool],
@@ -1284,7 +1284,7 @@ class StyleElements:
         if workspace is not None:
             self._parent = workspace
 
-        self._elements = elements
+        self._elements = on
 
         border_enum: Dict[str, buildzr.models.Border] = {
             'solid': buildzr.models.Border.Solid,
@@ -1369,7 +1369,7 @@ class StyleRelationships:
 
     def __init__(
         self,
-        relationships: Optional[List[Union[
+        on: Optional[List[Union[
             DslRelationship,
             Group,
             Callable[[Workspace, Relationship], bool],
@@ -1407,7 +1407,7 @@ class StyleRelationships:
         # affected by this style.
         relation_tag = "buildzr-stylerelationships-{}".format(uuid4().hex)
 
-        if relationships is None:
+        if on is None:
             self._m.append(buildzr.models.RelationshipStyle(
                 thickness=thickness,
                 color=Color(color).to_hex() if color else None,
@@ -1420,7 +1420,7 @@ class StyleRelationships:
                 tag="Relationship",
             ))
         else:
-            for relationship in relationships:
+            for relationship in on:
 
                 relationship_style = buildzr.models.RelationshipStyle()
                 relationship_style.thickness = thickness

@@ -36,23 +36,23 @@ class NestedGroups(AbstractBuilder):
             )
 
             StyleElements(
-                elements=[a, b],
+                on=[a, b],
                 shape='Box',
             )
 
             StyleElements(
-                elements=[c, d],
+                on=[c, d],
                 shape='RoundedBox',
             )
 
             StyleElements(
-                elements=[company1],
+                on=[company1],
                 stroke='yellow',
                 border='dotted',
             )
 
             StyleElements(
-                elements=[c1d2, c2d2],
+                on=[c1d2, c2d2],
                 color='green',
             )
 
