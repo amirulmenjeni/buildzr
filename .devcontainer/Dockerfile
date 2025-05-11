@@ -9,11 +9,11 @@ RUN apt update && \
         graphviz \
         pipx
 
-COPY  deps/install_structurizr_cli.sh .
+COPY  deps/install_structurizr_cli.sh ./
 RUN chmod +x install_structurizr_cli.sh
 RUN ./install_structurizr_cli.sh
 
-COPY deps/install_structurizr_lite.sh deps/structurizr-lite.sh .
+COPY deps/install_structurizr_lite.sh deps/structurizr-lite.sh ./
 RUN chmod +x install_structurizr_lite.sh && \
     ./install_structurizr_lite.sh
 
