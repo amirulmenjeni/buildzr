@@ -2,6 +2,7 @@ import pytest
 from typing import Optional
 from buildzr.dsl import (
     Workspace,
+    With,
     Color,
     Group,
     Person,
@@ -465,6 +466,7 @@ def test_style_elements_on_dslelements() -> Optional[None]:
 
         styles = w.model.views.configuration.styles
 
+        # TODO: Avoid duplicating styles.
         assert len(styles.elements) == 7
 
         assert styles.elements[0].tag.startswith("buildzr-styleelements-")
@@ -727,3 +729,281 @@ def test_style_elements_on_callable_without_workspace() -> Optional[None]:
             ],
             shape='WebBrowser',
         )
+
+def test_style_relationships_empty() -> Optional[None]:
+
+    """
+    Apply relationships styles to all relationships when no specific
+    relationships are specified.
+    """
+
+    with Workspace('w') as w:
+        Person('u')
+        with SoftwareSystem('s1') as s1:
+            with Container('c1') as c1:
+                comp1 = Component('comp1')
+                comp2 = Component('comp2')
+        with SoftwareSystem('s2') as s2:
+            with Container('c2') as c2:
+                comp3 = Component('comp3')
+                comp4 = Component('comp4')
+
+        SystemLandscapeView(
+            key='landscape',
+            description="Landscape View",
+        )
+
+        StyleRelationships(
+            color='red',
+        )
+
+    styles = w.model.views.configuration.styles
+
+    assert len(styles.relationships) == 1
+
+    print(styles.relationships)
+
+    assert styles.relationships[0].tag == "Relationship"
+    assert styles.relationships[0].color == Color('red').to_hex()
+
+def test_style_relationships_on_specific_relations() -> Optional[None]:
+
+    """
+    Apply relationships styles to specific relationships.
+    """
+
+    with Workspace('w') as w:
+        user = Person('u')
+        with SoftwareSystem('s1') as s1:
+            with Container('c1') as c1:
+                comp1 = Component('comp1')
+                comp2 = Component('comp2')
+        with SoftwareSystem('s2') as s2:
+            with Container('c2') as c2:
+                comp3 = Component('comp3')
+                comp4 = Component('comp4')
+
+        r1 = user >> "Uses" >> s1
+        r2 = comp1 >> "Uses" >> comp2
+        r3 = comp3 >> "Uses" >> comp4
+
+        SystemLandscapeView(
+            key='landscape',
+            description="Landscape View",
+        )
+
+        StyleRelationships(
+            relationships=[r1],
+            color='green',
+            dashed=False,
+        )
+
+        StyleRelationships(
+            relationships=[r2, r3],
+            color='blue',
+            dashed=True,
+            thickness=5
+        )
+
+    styles = w.model.views.configuration.styles
+    print(styles.relationships)
+
+    assert len(styles.relationships) == 3
+
+    assert styles.relationships[0].tag.startswith("buildzr-stylerelationships-")
+    assert styles.relationships[0].color == Color('green').to_hex()
+    assert styles.relationships[0].dashed is False
+    assert styles.relationships[0].tag in user.model.relationships[0].tags.split(',')
+
+    assert styles.relationships[1].tag.startswith("buildzr-stylerelationships-")
+    assert styles.relationships[1].color == Color('blue').to_hex()
+    assert styles.relationships[1].dashed is True
+    assert styles.relationships[1].thickness == 5
+    assert styles.relationships[1].tag in comp1.model.relationships[0].tags.split(',')
+    assert styles.relationships[1].tag in comp3.model.relationships[0].tags.split(',')
+
+def test_style_relationships_on_tags() -> Optional[None]:
+    """
+    Apply relationships styles to specific relationships using tags.
+    """
+
+    with Workspace('w') as w:
+        user = Person('u')
+        with SoftwareSystem('s1') as s1:
+            with Container('c1') as c1:
+                comp1 = Component('comp1')
+                comp2 = Component('comp2')
+        with SoftwareSystem('s2') as s2:
+            with Container('c2') as c2:
+                comp3 = Component('comp3')
+                comp4 = Component('comp4')
+
+        r1 = user >> "Uses" >> s1
+        r2 = comp1 >> "Uses" >> comp2
+        r3 = comp3 >> "Uses" >> comp4 | With(tags={'mytag'})
+
+        SystemLandscapeView(
+            key='landscape',
+            description="Landscape View",
+        )
+
+        StyleRelationships(
+            relationships=['mytag'],
+            color='green',
+            dashed=False,
+        )
+
+    styles = w.model.views.configuration.styles
+
+    assert len(styles.relationships) == 1
+
+    assert styles.relationships[0].tag == 'mytag'
+    assert styles.relationships[0].color == Color('green').to_hex()
+    assert styles.relationships[0].dashed is False
+    assert styles.relationships[0].tag in r3.tags
+    assert styles.relationships[0].tag in comp3.model.relationships[0].tags.split(',')
+    assert styles.relationships[0].tag not in r1.tags
+    assert styles.relationships[0].tag not in r2.tags
+    assert styles.relationships[0].tag not in user.model.relationships[0].tags.split(',')
+    assert styles.relationships[0].tag not in comp1.model.relationships[0].tags.split(',')
+
+def test_style_relationships_on_groups() -> Optional[None]:
+    """
+    Apply relationships styles to specific relationships in the specified groups.
+    """
+
+    with Workspace('w') as w:
+        user = Person('u')
+        with Group('g1') as g1:
+            with SoftwareSystem('s1') as s1:
+                with Container('c1') as c1:
+                    comp1 = Component('comp1')
+                    comp2 = Component('comp2')
+        with Group('g2') as g2:
+            with SoftwareSystem('s2') as s2:
+                with Container('c2') as c2:
+                    comp3 = Component('comp3')
+                    comp4 = Component('comp4')
+                with Container('c22') as c22:
+                    comp33 = Component('comp33')
+                    comp44 = Component('comp44')
+        with Group('g3') as g3:
+            with SoftwareSystem('s3') as s3:
+                with Container('c3') as c3:
+                    comp5 = Component('comp5')
+                    comp6 = Component('comp6')
+            pass
+
+        r1 = user  >> "Uses" >> s1    # Not styled because only s1 is part of the group g1.
+        r2 = comp1 >> "Uses" >> comp2
+        r3 = comp3 >> "Uses" >> comp4
+        r4 = comp5 >> "Uses" >> comp6 # Not styled because g2 is not styled.
+
+        r22 = comp33 >> "Uses" >> comp44
+
+        SystemLandscapeView(
+            key='landscape',
+            description="Landscape View",
+        )
+
+        StyleRelationships(
+            relationships=[g1],
+            color='green',
+        )
+
+        StyleRelationships(
+            relationships=[g2],
+            color='blue',
+        )
+
+        styles = w.model.views.configuration.styles
+
+        assert len(styles.relationships) == 2
+        assert styles.relationships[0].tag.startswith("buildzr-stylerelationships-")
+        assert styles.relationships[0].color == Color('green').to_hex()
+        assert styles.relationships[0].tag in r2.tags
+        assert styles.relationships[0].tag in comp1.model.relationships[0].tags.split(',')
+
+        assert styles.relationships[1].tag.startswith("buildzr-stylerelationships-")
+        assert styles.relationships[1].color == Color('blue').to_hex()
+        assert styles.relationships[1].tag in r3.tags
+        assert styles.relationships[1].tag in comp3.model.relationships[0].tags.split(',')
+        assert styles.relationships[1].tag in r22.tags
+        assert styles.relationships[1].tag in comp33.model.relationships[0].tags.split(',')
+
+        # Should not be styled.
+        assert styles.relationships[0].tag not in r1.tags
+        assert styles.relationships[0].tag not in r4.tags
+        assert styles.relationships[1].tag not in r1.tags
+        assert styles.relationships[1].tag not in r4.tags
+        assert styles.relationships[0].tag not in user.model.relationships[0].tags.split(',')
+        assert styles.relationships[0].tag not in comp5.model.relationships[0].tags.split(',')
+        assert styles.relationships[1].tag not in user.model.relationships[0].tags.split(',')
+        assert styles.relationships[1].tag not in comp5.model.relationships[0].tags.split(',')
+
+def test_style_relationships_on_callables() -> Optional[None]:
+
+    """
+    Apply relationships styles to specific relationships using callables.
+    """
+
+    with Workspace('w') as w:
+        user = Person('u')
+        with SoftwareSystem('s1') as s1:
+            with Container('c1') as c1:
+                comp1 = Component('comp1')
+                comp2 = Component('comp2')
+        with SoftwareSystem('s2') as s2:
+            with Container('c2') as c2:
+                comp3 = Component('comp3')
+                comp4 = Component('comp4')
+
+        user >> "Uses" >> s1
+        comp1 >> "Uses" >> comp2
+        comp3 >> "Uses" >> comp4
+
+        SystemLandscapeView(
+            key='landscape',
+            description="Landscape View",
+        )
+
+        StyleRelationships(
+            relationships=[
+                lambda w, r: r.source == user,
+            ],
+            color='green',
+            dashed=False,
+        )
+
+        StyleRelationships(
+            relationships=[
+                lambda w, r: r.source.type == Component and r.destination.type == Component,
+            ],
+            color='blue',
+            dashed=True,
+            thickness=5
+        )
+
+        assert len(w.model.views.configuration.styles.relationships) == 2
+
+        styles = w.model.views.configuration.styles
+
+        assert styles.relationships[0].tag.startswith("buildzr-stylerelationships-")
+        assert styles.relationships[0].color == Color('green').to_hex()
+        assert styles.relationships[0].dashed is False
+        assert styles.relationships[0].tag in user.model.relationships[0].tags.split(',')
+
+        assert styles.relationships[1].tag.startswith("buildzr-stylerelationships-")
+        assert styles.relationships[1].color == Color('blue').to_hex()
+        assert styles.relationships[1].dashed is True
+        assert styles.relationships[1].thickness == 5
+        assert styles.relationships[1].tag in comp1.model.relationships[0].tags.split(',')
+        assert styles.relationships[1].tag in comp3.model.relationships[0].tags.split(',')
+        assert styles.relationships[1].tag not in user.model.relationships[0].tags.split(',')
+
+        assert styles.relationships[0].tag in [tag for r in user.relationships for tag in r.tags]
+        assert styles.relationships[0].tag in [tag for r in s1.relationships for tag in r.tags]
+        assert styles.relationships[1].tag in [tag for r in comp1.relationships for tag in r.tags]
+        assert styles.relationships[1].tag in [tag for r in comp2.relationships for tag in r.tags]
+        assert styles.relationships[1].tag in [tag for r in comp3.relationships for tag in r.tags]
+        assert styles.relationships[1].tag in [tag for r in comp4.relationships for tag in r.tags]

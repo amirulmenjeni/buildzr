@@ -189,8 +189,7 @@ class Workspace(DslWorkspaceElement):
     ) -> None:
         Views(self).add_views(*views)
 
-    def apply_style(
-        self,
+    def apply_style( self,
         style: Union['StyleElements', 'StyleRelationships'],
     ) -> None:
 
@@ -210,9 +209,9 @@ class Workspace(DslWorkspaceElement):
                 self.model.views.configuration.styles.elements = style.model
         elif isinstance(style, StyleRelationships):
             if self.model.views.configuration.styles.relationships:
-                self.model.views.configuration.styles.relationships.append(style.model)
+                self.model.views.configuration.styles.relationships.extend(style.model)
             else:
-                self.model.views.configuration.styles.relationships = [style.model]
+                self.model.views.configuration.styles.relationships = style.model
 
     def to_json(self, path: str) -> None:
         from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
@@ -1358,27 +1357,38 @@ class StyleElements:
 
 class StyleRelationships:
 
+    from buildzr.dsl.expression import Relationship
+
     @property
-    def model(self) -> buildzr.models.RelationshipStyle:
+    def model(self) -> List[buildzr.models.RelationshipStyle]:
         return self._m
 
     @property
     def parent(self) -> Optional[Workspace]:
         return self._parent
 
-    # TODO: Validate arguments with pydantic.
     def __init__(
         self,
-        thickness: int,
-        color: Union[str, Tuple[int, int, int], Color],
-        routing: Literal['Direct', 'Orthogonal', 'Curved'],
-        font_size: int,
-        width: int=0,
-        position: int=100,
-        opacity: int=100,
+        relationships: Optional[List[Union[
+            DslRelationship,
+            Group,
+            Callable[[Workspace, Relationship], bool],
+            str
+        ]]]=None,
+        thickness: Optional[int]=None,
+        color: Optional[Union[str, Tuple[int, int, int], Color]]=None,
+        routing: Optional[Literal['Direct', 'Orthogonal', 'Curved']]=None,
+        font_size: Optional[int]=None,
+        width: Optional[int]=None,
+        dashed: Optional[bool]=None,
+        position: Optional[int]=None,
+        opacity: Optional[int]=None,
     ) -> None:
 
-        assert Color.is_valid_color(color), "Invalid color: {}".format(color)
+        from uuid import uuid4
+
+        if color is not None:
+            assert Color.is_valid_color(color), "Invalid color: {}".format(color)
 
         routing_enum: Dict[str, buildzr.models.Routing1] = {
             'Direct': buildzr.models.Routing1.Direct,
@@ -1386,15 +1396,69 @@ class StyleRelationships:
             'Curved': buildzr.models.Routing1.Curved,
         }
 
-        self._m = buildzr.models.RelationshipStyle()
+        self._m: List[buildzr.models.RelationshipStyle] = []
         self._parent: Optional[Workspace] = None
-        self._m.thickness = thickness
-        self._m.color = Color(color).to_hex()
-        self._m.routing = routing_enum[routing]
-        self._m.fontSize = font_size
-        self._m.width = width
-        self._m.position = position
-        self._m.opacity = opacity
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            self._parent = workspace
+
+        # A single unique tag to be applied to all relationships
+        # affected by this style.
+        relation_tag = "buildzr-stylerelationships-{}".format(uuid4().hex)
+
+        if relationships is None:
+            self._m.append(buildzr.models.RelationshipStyle(
+                thickness=thickness,
+                color=Color(color).to_hex() if color else None,
+                routing=routing_enum[routing] if routing else None,
+                fontSize=font_size,
+                width=width,
+                dashed=dashed,
+                position=position,
+                opacity=opacity,
+                tag="Relationship",
+            ))
+        else:
+            for relationship in relationships:
+
+                relationship_style = buildzr.models.RelationshipStyle()
+                relationship_style.thickness = thickness
+                relationship_style.color = Color(color).to_hex() if color else None
+                relationship_style.routing = routing_enum[routing] if routing else None
+                relationship_style.fontSize = font_size
+                relationship_style.width = width
+                relationship_style.dashed = dashed
+                relationship_style.position = position
+                relationship_style.opacity = opacity
+
+                if isinstance(relationship, DslRelationship):
+                    relationship.add_tags(relation_tag)
+                    relationship_style.tag = relation_tag
+                elif isinstance(relationship, Group):
+                    from buildzr.dsl.expression import Expression
+                    if self._parent:
+                        rels = Expression(include_relationships=[
+                            lambda w, r: r.source.group == relationship.full_name() and \
+                                         r.destination.group == relationship.full_name()
+                        ]).relationships(self._parent)
+                        for r in rels:
+                            r.add_tags(relation_tag)
+                        relationship_style.tag = relation_tag
+                    else:
+                        raise ValueError("Cannot use callable to select elements to style without a Workspace.")
+                elif isinstance(relationship, str):
+                    relationship_style.tag = relationship
+                elif callable(relationship):
+                    from buildzr.dsl.expression import Expression
+                    if self._parent:
+                        matched_rels = Expression(include_relationships=[relationship]).relationships(self._parent)
+                        for matched_rel in matched_rels:
+                            matched_rel.add_tags(relation_tag)
+                            relationship_style.tag = relation_tag
+                    else:
+                        raise ValueError("Cannot use callable to select elements to style without a Workspace.")
+                self._m.append(relationship_style)
 
         workspace = _current_workspace.get()
         if workspace is not None:
