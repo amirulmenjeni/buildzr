@@ -1330,7 +1330,6 @@ class StyleElements:
             element_style.metadata = metadata
             element_style.description = description
 
-            tags: Set[str] = set()
             if isinstance(element, DslElement) and not isinstance(element.model, buildzr.models.Workspace):
                 element_style.tag = element_tag
                 element.add_tags(element_tag)

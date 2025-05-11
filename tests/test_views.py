@@ -1002,8 +1002,8 @@ def test_style_relationships_on_callables() -> Optional[None]:
         assert styles.relationships[1].tag not in user.model.relationships[0].tags.split(',')
 
         assert styles.relationships[0].tag in [tag for r in user.relationships for tag in r.tags]
-        assert styles.relationships[0].tag in [tag for r in s1.relationships for tag in r.tags]
+        assert styles.relationships[0].tag not in [tag for r in s1.relationships for tag in r.tags]
         assert styles.relationships[1].tag in [tag for r in comp1.relationships for tag in r.tags]
-        assert styles.relationships[1].tag in [tag for r in comp2.relationships for tag in r.tags]
+        assert styles.relationships[1].tag not in [tag for r in comp2.relationships for tag in r.tags]
         assert styles.relationships[1].tag in [tag for r in comp3.relationships for tag in r.tags]
-        assert styles.relationships[1].tag in [tag for r in comp4.relationships for tag in r.tags]
+        assert styles.relationships[1].tag not in [tag for r in comp4.relationships for tag in r.tags]

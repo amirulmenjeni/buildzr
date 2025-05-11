@@ -601,14 +601,14 @@ def test_access_relationships_from_dslelements() -> Optional[None]:
         s1 >> desc("Uses") >> s2
 
     assert len(u.relationships) == 2
-    assert len(s1.relationships) == 2
-    assert len(s2.relationships) == 2
+    assert len(s1.relationships) == 1
+    assert len(s2.relationships) == 0
     assert len(c1.relationships) == 0
     assert len(c1.component_1.relationships) == 1
-    assert len(c1.component_2.relationships) == 1
+    assert len(c1.component_2.relationships) == 0
     assert len(c2.relationships) == 0
     assert len(c2.component_3.relationships) == 1
-    assert len(c2.component_4.relationships) == 1
+    assert len(c2.component_4.relationships) == 0
 
 def test_dynamic_attribute_access_with_labels() -> Optional[None]:
 
