@@ -11,7 +11,7 @@ from typing import (
     Callable,
     overload,
     Sequence,
-    AbstractSet,
+    MutableSet,
     cast,
 )
 from typing_extensions import (
@@ -128,7 +128,7 @@ class DslElement(BindRight[TSrc, TDst]):
 
     @property
     @abstractmethod
-    def relationships(self) -> AbstractSet['DslRelationship']:
+    def relationships(self) -> MutableSet['DslRelationship']:
         pass
 
     @property
