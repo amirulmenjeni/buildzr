@@ -1,5 +1,8 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
+ARG USER_UID
+RUN usermod -u "${USER_UID}" vscode
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 # openjdk-21-jdk will be needed for Structurizr's C4 DSL language server.

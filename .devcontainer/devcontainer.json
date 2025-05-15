@@ -1,7 +1,17 @@
 {
     "build": {
-        "dockerfile": "Dockerfile"
+        "dockerfile": "Dockerfile",
+        "args": {
+            "USER_UID": "${env:USER_UID}"
+        }
     },
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/buildzr,type=bind",
+    "workspaceFolder": "/workspace/buildzr",
+    "mounts": [
+        "source=${env:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
+   ],
+   "remoteUser": "vscode",
+    "postStartCommand": "chmod 700 /home/vscode/.ssh && chmod 600 /home/vscode/.ssh/*",
 
     "features": {
         "ghcr.io/rocker-org/devcontainer-features/miniforge:2": {},
