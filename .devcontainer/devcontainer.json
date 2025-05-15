@@ -9,10 +9,9 @@
     "workspaceFolder": "/workspace/buildzr",
     "mounts": [
         "source=${env:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
-   ],
-   "remoteUser": "vscode",
+    ],
+    "remoteUser": "vscode",
     "postStartCommand": "chmod 700 /home/vscode/.ssh && chmod 600 /home/vscode/.ssh/*",
-
     "features": {
         "ghcr.io/rocker-org/devcontainer-features/miniforge:2": {},
         "ghcr.io/devcontainers/features/sshd:1": {
@@ -20,7 +19,6 @@
         },
         "ghcr.io/devcontainers/features/github-cli:1": {}
     },
-
     "customizations": {
         "vscode": {
             "extensions": [
