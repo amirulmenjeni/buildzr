@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
 ARG USER_UID
-RUN if [[ -z "$USER_UID" ]]; then usermod -u "${USER_UID}" vscode; fi
+RUN if [ -n "$USER_UID" ]; then usermod -u "${USER_UID}" vscode; fi
 
 ENV DEBIAN_FRONTEND=noninteractive
 
