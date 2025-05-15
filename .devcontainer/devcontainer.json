@@ -8,7 +8,7 @@
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/buildzr,type=bind",
     "workspaceFolder": "/workspace/buildzr",
     "mounts": [
-        "source=${env:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
+        "source=${env:HOME}/.ssh,target=/home/vscode/.ssh,type=bind"
     ],
     "remoteUser": "vscode",
     "postStartCommand": "chmod 700 /home/vscode/.ssh && chmod 600 /home/vscode/.ssh/*",
