@@ -29,7 +29,6 @@ from buildzr.dsl.interfaces import (
     DslWorkspaceElement,
     DslElement,
     DslViewElement,
-    DslViewsElement,
 )
 from buildzr.dsl.relations import (
     DslElementRelationOverrides,
@@ -181,13 +180,43 @@ class Workspace(DslWorkspaceElement):
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
-    def apply_views( self, *views: Union[ 'SystemLandscapeView',
+    def apply_view(
+        self,
+        view: Union[
+            'SystemLandscapeView',
             'SystemContextView',
             'ContainerView',
             'ComponentView',
         ]
     ) -> None:
-        Views(self).add_views(*views)
+
+        view._on_added(self)
+
+        if not self.model.views:
+            self.model.views = buildzr.models.Views()
+
+        if isinstance(view, SystemLandscapeView):
+            if not self.model.views.systemLandscapeViews:
+                self.model.views.systemLandscapeViews = [view.model]
+            else:
+                self.model.views.systemLandscapeViews.append(view.model)
+        elif isinstance(view, SystemContextView):
+            if not self.model.views.systemContextViews:
+                self.model.views.systemContextViews = [view.model]
+            else:
+                self.model.views.systemContextViews.append(view.model)
+        elif isinstance(view, ContainerView):
+            if not self.model.views.containerViews:
+                self.model.views.containerViews = [view.model]
+            else:
+                self.model.views.containerViews.append(view.model)
+        elif isinstance(view, ComponentView):
+            if not self.model.views.componentViews:
+                self.model.views.componentViews = [view.model]
+            else:
+                self.model.views.componentViews.append(view.model)
+        else:
+            raise NotImplementedError("The view {0} is currently not supported", type(view))
 
     def apply_style( self,
         style: Union['StyleElements', 'StyleRelationships'],
@@ -744,10 +773,6 @@ class SystemLandscapeView(DslViewElement):
     def model(self) -> buildzr.models.SystemLandscapeView:
         return self._m
 
-    @property
-    def parent(self) -> Optional['Views']:
-        return self._parent
-
     def __init__(
         self,
         key: str,
@@ -761,7 +786,6 @@ class SystemLandscapeView(DslViewElement):
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemLandscapeView()
-        self._parent: Optional['Views'] = None
 
         self._m.key = key
         self._m.description = description
@@ -777,9 +801,9 @@ class SystemLandscapeView(DslViewElement):
 
         workspace = _current_workspace.get()
         if workspace is not None:
-            workspace.apply_views(self)
+            workspace.apply_view(self)
 
-    def _on_added(self) -> None:
+    def _on_added(self, workspace: Workspace) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
@@ -790,8 +814,6 @@ class SystemLandscapeView(DslViewElement):
             include_relationships=self._include_relationships,
             exclude_relationships=self._exclude_relationships,
         )
-
-        workspace = self._parent._parent
 
         include_view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e.type == Person,
@@ -848,10 +870,6 @@ class SystemContextView(DslViewElement):
     def model(self) -> buildzr.models.SystemContextView:
         return self._m
 
-    @property
-    def parent(self) -> Optional['Views']:
-        return self._parent
-
     def __init__(
         self,
         software_system_selector: Union[SoftwareSystem, Callable[[Workspace], SoftwareSystem]],
@@ -866,7 +884,6 @@ class SystemContextView(DslViewElement):
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemContextView()
-        self._parent: Optional['Views'] = None
 
         self._m.key = key
         self._m.description = description
@@ -883,9 +900,9 @@ class SystemContextView(DslViewElement):
 
         workspace = _current_workspace.get()
         if workspace is not None:
-            workspace.apply_views(self)
+            workspace.apply_view(self)
 
-    def _on_added(self) -> None:
+    def _on_added(self, workspace: Workspace) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
@@ -893,7 +910,7 @@ class SystemContextView(DslViewElement):
         if isinstance(self._selector, SoftwareSystem):
             software_system = self._selector
         else:
-            software_system = self._selector(self._parent._parent)
+            software_system = self._selector(workspace)
         self._m.softwareSystemId = software_system.model.id
         view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
             lambda w, e: e == software_system,
@@ -912,8 +929,6 @@ class SystemContextView(DslViewElement):
             include_relationships=self._include_relationships + view_relationships_filter,
             exclude_relationships=self._exclude_relationships,
         )
-
-        workspace = self._parent._parent
 
         element_ids = map(
             lambda x: str(x.model.id),
@@ -941,10 +956,6 @@ class ContainerView(DslViewElement):
     def model(self) -> buildzr.models.ContainerView:
         return self._m
 
-    @property
-    def parent(self) -> Optional['Views']:
-        return self._parent
-
     def __init__(
         self,
         software_system_selector: Union[SoftwareSystem, Callable[[Workspace], SoftwareSystem]],
@@ -959,7 +970,6 @@ class ContainerView(DslViewElement):
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ContainerView()
-        self._parent: Optional['Views'] = None
 
         self._m.key = key
         self._m.description = description
@@ -976,9 +986,9 @@ class ContainerView(DslViewElement):
 
         workspace = _current_workspace.get()
         if workspace is not None:
-            workspace.apply_views(self)
+            workspace.apply_view(self)
 
-    def _on_added(self) -> None:
+    def _on_added(self, workspace: Workspace) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
@@ -986,7 +996,7 @@ class ContainerView(DslViewElement):
         if isinstance(self._selector, SoftwareSystem):
             software_system = self._selector
         else:
-            software_system = self._selector(self._parent._parent)
+            software_system = self._selector(workspace)
         self._m.softwareSystemId = software_system.model.id
 
         container_ids = { container.model.id for container in software_system.children}
@@ -1008,8 +1018,6 @@ class ContainerView(DslViewElement):
             include_relationships=self._include_relationships + view_relationships_filter,
             exclude_relationships=self._exclude_relationships,
         )
-
-        workspace = self._parent._parent
 
         element_ids = map(
             lambda x: str(x.model.id),
@@ -1037,10 +1045,6 @@ class ComponentView(DslViewElement):
     def model(self) -> buildzr.models.ComponentView:
         return self._m
 
-    @property
-    def parent(self) -> Optional['Views']:
-        return self._parent
-
     def __init__(
         self,
         container_selector: Union[Container, Callable[[Workspace], Container]],
@@ -1055,7 +1059,6 @@ class ComponentView(DslViewElement):
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ComponentView()
-        self._parent: Optional['Views'] = None
 
         self._m.key = key
         self._m.description = description
@@ -1072,9 +1075,9 @@ class ComponentView(DslViewElement):
 
         workspace = _current_workspace.get()
         if workspace is not None:
-            workspace.apply_views(self)
+            workspace.apply_view(self)
 
-    def _on_added(self) -> None:
+    def _on_added(self, workspace: Workspace) -> None:
 
         from buildzr.dsl.expression import Expression, Element, Relationship
         from buildzr.models import ElementView, RelationshipView
@@ -1082,7 +1085,7 @@ class ComponentView(DslViewElement):
         if isinstance(self._selector, Container):
             container = self._selector
         else:
-            container = self._selector(self._parent._parent)
+            container = self._selector(workspace)
         self._m.containerId = container.model.id
 
         component_ids = { component.model.id for component in container.children }
@@ -1105,8 +1108,6 @@ class ComponentView(DslViewElement):
             exclude_relationships=self._exclude_relationships,
         )
 
-        workspace = self._parent._parent
-
         element_ids = map(
             lambda x: str(x.model.id),
             expression.elements(workspace)
@@ -1124,70 +1125,6 @@ class ComponentView(DslViewElement):
         self._m.relationships = []
         for relationship_id in relationship_ids:
             self._m.relationships.append(RelationshipView(id=relationship_id))
-
-class Views(DslViewsElement):
-
-    # TODO: Make this view a "hidden" class -- it's not a "first class citizen"
-    # in buildzr DSL.
-
-    @property
-    def model(self) -> buildzr.models.Views:
-        return self._m
-
-    @property
-    def parent(self) -> Optional[Workspace]:
-        return self._parent
-
-    def __init__(
-        self,
-        workspace: Workspace,
-    ) -> None:
-        self._m = buildzr.models.Views()
-        self._parent = workspace
-        self._parent._m.views = self._m
-
-    def add_views(
-        self,
-        *views: DslViewElement
-    ) -> None:
-
-        for view in views:
-            if isinstance(view, SystemLandscapeView):
-                view._parent = self
-                view._on_added()
-                if self._m.systemLandscapeViews:
-                    self._m.systemLandscapeViews.append(view.model)
-                else:
-                    self._m.systemLandscapeViews = [view.model]
-            elif isinstance(view, SystemContextView):
-                view._parent = self
-                view._on_added()
-                if self._m.systemContextViews:
-                    self._m.systemContextViews.append(view.model)
-                else:
-                    self._m.systemContextViews = [view.model]
-            elif isinstance(view, ContainerView):
-                view._parent = self
-                view._on_added()
-                if self._m.containerViews:
-                    self._m.containerViews.append(view.model)
-                else:
-                    self._m.containerViews = [view.model]
-            elif isinstance(view, ComponentView):
-                view._parent = self
-                view._on_added()
-                if self._m.componentViews:
-                    self._m.componentViews.append(view.model)
-                else:
-                    self._m.componentViews = [view.model]
-            else:
-                raise NotImplementedError("The view {0} is currently not supported", type(view))
-
-    def get_workspace(self) -> Workspace:
-        """
-        Get the `Workspace` which contain this views definition.
-        """
-        return self._parent
 
 class StyleElements:
 

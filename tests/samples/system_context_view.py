@@ -19,7 +19,7 @@ class SystemContextViewSample(AbstractBuilder):
             email_system = SoftwareSystem('email_system')
             user >> "uses" >> web_app
             web_app >> "sends notification using" >> email_system
-            w.apply_views(
+            w.apply_view(
                 SystemContextView(
                     lambda w: w.software_system().web_app,
                     key='web_app_system_context_00',
