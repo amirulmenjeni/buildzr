@@ -477,6 +477,10 @@ def test_multiple_views() -> Optional[None]:
     assert len(w.model.views.systemLandscapeViews) == 1
     assert len(w.model.views.systemContextViews) == 2
 
+    assert w.model.views.systemLandscapeViews[0].key == 'nested-groups'
+    assert w.model.views.systemContextViews[0].key == 'nested-groups-context-0'
+    assert w.model.views.systemContextViews[1].key == 'nested-groups-context-1'
+
 def test_style_elements_on_dslelements() -> Optional[None]:
 
     """
