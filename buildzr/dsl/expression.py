@@ -104,7 +104,7 @@ class Element:
 
 class Relationship:
 
-    def __init__(self, relationship: _Relationship):
+    def __init__(self, relationship: DslRelationship):
         self._relationship = relationship
 
     # TODO: Make a test for this in `tests/test_expression.py`

@@ -14,10 +14,15 @@ from typing import (
     Union,
     Generator,
     Iterable,
+    cast,
 )
 
 from buildzr.dsl.dsl import (
     Workspace,
+)
+
+from buildzr.dsl.interfaces import (
+    DslRelationship,
 )
 
 class Explorer:
@@ -32,7 +37,7 @@ class Explorer:
                 yield child
                 yield from explorer
 
-    def walk_relationships(self) -> Generator[_Relationship, None, None]:
+    def walk_relationships(self) -> Generator[DslRelationship, None, None]:
 
         if self._workspace_or_element.children:
 
@@ -40,7 +45,7 @@ class Explorer:
 
                 if child.relationships:
                     for relationship in child.relationships:
-                        yield relationship
+                        yield cast(_Relationship, relationship) # TODO: Temporary fix. Use a better approach - Generics?
 
                 explorer = Explorer(child).walk_relationships()
                 yield from explorer
