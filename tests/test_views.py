@@ -34,7 +34,7 @@ def test_system_landscape_view(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.apply_views(
+        w.apply_view(
             SystemLandscapeView(
                 key="system_landscape_view_00",
                 description="System Landscape View Test",
@@ -48,8 +48,8 @@ def test_system_landscape_view(use_context: bool) -> Optional[None]:
     system_a = w.software_system().system_a
     system_b = w.software_system().system_b
 
-    element_ids = list(map(lambda x: x.id, w.model.views.systemLandscapeViews[0].elements))
-    relationship_ids = list(map(lambda x: x.id, w.model.views.systemLandscapeViews[0].relationships))
+    element_ids = [x.id for x in w.model.views.systemLandscapeViews[0].elements]
+    relationship_ids = [x.id for x in w.model.views.systemLandscapeViews[0].relationships]
 
     assert len(element_ids) == 3
     assert {
@@ -91,7 +91,7 @@ def test_system_context_view(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.apply_views(
+        w.apply_view(
             SystemContextView(
                 software_system_selector=lambda w: w.software_system().business_app,
                 key="ss_business_app",
@@ -99,8 +99,8 @@ def test_system_context_view(use_context: bool) -> Optional[None]:
             )
         )
 
-    element_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].elements))
-    relationship_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].relationships))
+    element_ids =  [x.id for x in w.model.views.systemContextViews[0].elements]
+    relationship_ids =  [x.id for x in w.model.views.systemContextViews[0].relationships]
 
     print('element ids:', element_ids)
     print('person id:', w.person().u.model.id)
@@ -157,7 +157,7 @@ def test_system_context_view_with_exclude_user(use_context: bool) -> Optional[No
             )
 
     if not use_context:
-        w.apply_views(
+        w.apply_view(
             SystemContextView(
                 software_system_selector=lambda w: w.software_system().business_app,
                 key="ss_business_app",
@@ -168,8 +168,8 @@ def test_system_context_view_with_exclude_user(use_context: bool) -> Optional[No
             )
         )
 
-    element_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].elements))
-    relationship_ids =  list(map(lambda x: x.id, w.model.views.systemContextViews[0].relationships))
+    element_ids = [x.id for x in w.model.views.systemContextViews[0].elements]
+    relationship_ids = [x.id for x in w.model.views.systemContextViews[0].relationships]
 
     print('element ids:', element_ids)
     print('person id:', w.person().u.model.id)
@@ -221,7 +221,7 @@ def test_container_view(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.apply_views(
+        w.apply_view(
             ContainerView(
                 software_system_selector=lambda w: w.software_system().app,
                 key="ss_business_app",
@@ -229,8 +229,8 @@ def test_container_view(use_context: bool) -> Optional[None]:
             )
         )
 
-    element_ids =  list(map(lambda x: x.id, w.model.views.containerViews[0].elements))
-    relationship_ids =  list(map(lambda x: x.id, w.model.views.containerViews[0].relationships))
+    element_ids = [x.id for x in w.model.views.containerViews[0].elements]
+    relationship_ids = [x.id for x in w.model.views.containerViews[0].relationships]
 
     print('element ids:', element_ids)
     print('person id:', w.person().user.model.id)
@@ -272,7 +272,7 @@ def test_component_view(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.apply_views(
+        w.apply_view(
             ComponentView(
                 container_selector=lambda w: w.software_system().software_system.web_application,
                 key="web_application_container_00",
@@ -280,8 +280,8 @@ def test_component_view(use_context: bool) -> Optional[None]:
             )
         )
 
-    element_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].elements))
-    relationship_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].relationships))
+    element_ids = [x.id for x in w.model.views.componentViews[0].elements]
+    relationship_ids = [x.id for x in w.model.views.componentViews[0].relationships]
 
     print("user id:", w.person().user.model.id)
     print("software system id", w.software_system().software_system.model.id)
@@ -330,7 +330,7 @@ def test_component_view_with_exclude_user(use_context: bool) -> Optional[None]:
             )
 
     if not use_context:
-        w.apply_views(
+        w.apply_view(
             ComponentView(
                 container_selector=lambda w: w.software_system().software_system.web_application,
                 key="web_application_container_00",
@@ -341,8 +341,8 @@ def test_component_view_with_exclude_user(use_context: bool) -> Optional[None]:
             )
         )
 
-    element_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].elements))
-    relationship_ids =  list(map(lambda x: x.id, w.model.views.componentViews[0].relationships))
+    element_ids = [x.id for x in w.model.views.componentViews[0].elements]
+    relationship_ids = [x.id for x in w.model.views.componentViews[0].relationships]
 
     print("user id:", w.person().user.model.id)
     print("software system id", w.software_system().software_system.model.id)
@@ -384,7 +384,7 @@ def test_container_view_with_multiple_software_systems(use_context: bool) -> Opt
             )
 
     if not use_context:
-        w.apply_views(
+        w.apply_view(
             ContainerView(
                 key="container_view_00",
                 description="Container View Test",
@@ -400,8 +400,8 @@ def test_container_view_with_multiple_software_systems(use_context: bool) -> Opt
     c1 = app1.c1
     c2 = app2.c2
 
-    element_ids =  list(map(lambda x: x.id, w.model.views.containerViews[0].elements))
-    relationship_ids =  list(map(lambda x: x.id, w.model.views.containerViews[0].relationships))
+    element_ids = [x.id for x in w.model.views.containerViews[0].elements]
+    relationship_ids = [x.id for x in w.model.views.containerViews[0].relationships]
 
     assert len(element_ids) == 2
     assert {
@@ -414,9 +414,72 @@ def test_container_view_with_multiple_software_systems(use_context: bool) -> Opt
         c1.model.relationships[0].id,
     }.issubset(set(relationship_ids))
 
-# TODO: Soon.
 def test_multiple_views() -> Optional[None]:
-    pass
+
+    with Workspace("w", scope='landscape', group_separator="/") as w:
+        with Group("Company 1") as company1:
+            with Group("Department 1"):
+                a = SoftwareSystem("A")
+            with Group("Department 2") as c1d2:
+                b = SoftwareSystem("B")
+        with Group("Company 2") as company2:
+            with Group("Department 1"):
+                c = SoftwareSystem("C")
+            with Group("Department 2") as c2d2:
+                d = SoftwareSystem("D")
+        a >> b
+        c >> d
+        b >> c
+
+        SystemLandscapeView(
+            key='nested-groups',
+            description="Nested Groups Sample"
+        )
+
+        SystemContextView(
+            software_system_selector=b,
+            key='nested-groups-context-0',
+            description="Nested Groups Sample Context",
+            include_elements=[c, d],
+        )
+
+        SystemContextView(
+            software_system_selector=c,
+            key='nested-groups-context-1',
+            description="Nested Groups Sample Context",
+            include_elements=[b, d],
+        )
+
+        StyleElements(
+            on=[a, b],
+            shape='Box',
+        )
+
+        StyleElements(
+            on=[c, d],
+            shape='RoundedBox',
+        )
+
+        StyleElements(
+            on=[company1],
+            stroke='yellow',
+            border='dotted',
+        )
+
+        StyleElements(
+            on=[c1d2, c2d2],
+            color='green',
+        )
+
+    assert w.model.views.systemLandscapeViews is not None
+    assert w.model.views.systemContextViews is not None
+
+    assert len(w.model.views.systemLandscapeViews) == 1
+    assert len(w.model.views.systemContextViews) == 2
+
+    assert w.model.views.systemLandscapeViews[0].key == 'nested-groups'
+    assert w.model.views.systemContextViews[0].key == 'nested-groups-context-0'
+    assert w.model.views.systemContextViews[1].key == 'nested-groups-context-1'
 
 def test_style_elements_on_dslelements() -> Optional[None]:
 

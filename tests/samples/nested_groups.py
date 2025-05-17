@@ -21,8 +21,6 @@ class NestedGroups(AbstractBuilder):
             c >> d
             b >> c
 
-            # TODO: Ensure multiple views work.
-
             SystemLandscapeView(
                 key='nested-groups',
                 description="Nested Groups Sample"

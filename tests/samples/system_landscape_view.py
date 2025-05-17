@@ -32,7 +32,7 @@ class SystemLandscapeViewSample(AbstractBuilder):
             internet_banking_system >> "Gets account information from, and makes payments using" >> mainframe_banking_system
             internet_banking_system >> "Sends e-mail using" >> email_system
 
-            w.apply_views(
+            w.apply_view(
                 SystemLandscapeView(
                     key='landscape_00',
                     description="System Landscape",

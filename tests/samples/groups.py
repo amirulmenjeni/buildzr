@@ -20,25 +20,25 @@ class GroupsSample(AbstractBuilder):
             a >> "Uses" >> b
             a.a1 >> "Uses" >> b.b1
             a >> "Uses" >> c
-            w.apply_views(
-                SystemLandscapeView(
-                    key='groups-sample',
-                    description="Groups Sample"
-                ),
-                SystemContextView(
-                    key='groups-sample-a',
-                    software_system_selector=lambda w: cast(SoftwareSystem, w.a),
-                    description="Groups Sample - Software System A"
-                ),
-                SystemContextView(
-                    key='groups-sample-b',
-                    software_system_selector=lambda w: cast(SoftwareSystem, w.b),
-                    description="Groups Sample - Software System B"
-                ),
-                ContainerView(
-                    key='groups-sample-b2',
-                    software_system_selector=lambda w: w.software_system().b,
-                    description="Groups Sample - Container B2"
-                ),
+
+            SystemLandscapeView(
+                key='groups-sample',
+                description="Groups Sample"
             )
+            SystemContextView(
+                key='groups-sample-a',
+                software_system_selector=lambda w: cast(SoftwareSystem, w.a),
+                description="Groups Sample - Software System A"
+            )
+            SystemContextView(
+                key='groups-sample-b',
+                software_system_selector=lambda w: cast(SoftwareSystem, w.b),
+                description="Groups Sample - Software System B"
+            )
+            ContainerView(
+                key='groups-sample-b2',
+                software_system_selector=lambda w: w.software_system().b,
+                description="Groups Sample - Container B2"
+            )
+
         return w.model

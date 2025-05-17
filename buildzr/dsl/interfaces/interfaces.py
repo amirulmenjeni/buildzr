@@ -206,30 +206,3 @@ class DslViewElement(ABC):
     @abstractmethod
     def model(self) -> ViewModel:
         pass
-
-    @property
-    @abstractmethod
-    def parent(self) -> 'DslViewsElement':
-        pass
-
-    def _on_added(self) -> None:
-        pass
-
-class DslViewsElement(ABC):
-
-    @property
-    @abstractmethod
-    def model(self) -> buildzr.models.Views:
-        pass
-
-    @property
-    @abstractmethod
-    def parent(self) -> DslWorkspaceElement:
-        pass
-
-    @abstractmethod
-    def add_views(
-        self,
-        *views: Union[DslViewElement],
-    ) -> None:
-        pass
