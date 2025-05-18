@@ -24,7 +24,7 @@ class SampleImpliedRelationships(AbstractBuilder):
             w.apply_view(
                 SystemContextView(
                     key='sample-implied-relationships',
-                    software_system_selector=lambda w: cast(SoftwareSystem, w.s),
+                    software_system_selector=lambda w: w.software_system().s,
                     description="Sample Implied Relationships"
                 )
             )

@@ -10,6 +10,7 @@ from buildzr.dsl.dsl import (
     SoftwareSystem,
     Container,
     Component,
+    TypedDynamicAttribute,
 )
 
 from buildzr.dsl.relations import _Relationship
@@ -47,12 +48,37 @@ class FlattenElement:
             all_tags = all_tags.union(tags)
         return all_tags
 
-class Element:
+class WorkspaceExpression:
+
+    """
+    A class used to filter the allowable methods and properties of the
+    `Structurizr DSL` workspace. This is used to filter the elements and
+    relationships in the workspace.
+    """
+
+    def __init__(self, workspace: Workspace):
+        self._workspace = workspace
+        self._dynamic_attributes = self._workspace._dynamic_attrs
+
+    def software_system(self) -> TypedDynamicAttribute['SoftwareSystem']:
+        """
+        Returns the software system of the workspace. This is used to filter the
+        elements and relationships in the workspace.
+        """
+        return TypedDynamicAttribute['SoftwareSystem'](self._dynamic_attributes)
+
+    def person(self) -> TypedDynamicAttribute['Person']:
+        """
+        Returns the person of the workspace. This is used to filter the elements
+        and relationships in the workspace.
+        """
+        return TypedDynamicAttribute['Person'](self._dynamic_attributes)
+
+class ElementExpression:
 
     def __init__(self, element: DslElement):
         self._element = element
 
-    # TODO: Make a test for this in `tests/test_expression.py`
     @property
     def id(self) -> str:
         return cast(str, self._element.model.id)
@@ -102,7 +128,7 @@ class Element:
         return isinstance(element, type(self._element)) and\
                element.model.id == self._element.model.id
 
-class Relationship:
+class RelationshipExpression:
 
     def __init__(self, relationship: DslRelationship):
         self._relationship = relationship
@@ -121,12 +147,12 @@ class Relationship:
         return self._relationship.model.technology
 
     @property
-    def source(self) -> Element:
-        return Element(self._relationship.source)
+    def source(self) -> ElementExpression:
+        return ElementExpression(self._relationship.source)
 
     @property
-    def destination(self) -> Element:
-        return Element(self._relationship.destination)
+    def destination(self) -> ElementExpression:
+        return ElementExpression(self._relationship.destination)
 
     @property
     def properties(self) -> Dict[str, Any]:
@@ -146,10 +172,10 @@ class Expression:
 
     def __init__(
         self,
-        include_elements: Iterable[Union[DslElement, Callable[[Workspace, Element], bool]]]=[lambda w, e: True],
-        exclude_elements: Iterable[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
-        include_relationships: Iterable[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[lambda w, e: True],
-        exclude_relationships: Iterable[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        include_elements: Iterable[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[lambda w, e: True],
+        exclude_elements: Iterable[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        include_relationships: Iterable[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[lambda w, e: True],
+        exclude_relationships: Iterable[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
     ) -> 'None':
         self._include_elements = include_elements
         self._exclude_elements = exclude_elements
@@ -171,12 +197,12 @@ class Expression:
                 if isinstance(f, DslElement):
                     includes.append(f == element)
                 else:
-                    includes.append(f(workspace, Element(element)))
+                    includes.append(f(WorkspaceExpression(workspace), ElementExpression(element)))
             for f in self._exclude_elements:
                 if isinstance(f, DslElement):
                     excludes.append(f == element)
                 else:
-                    excludes.append(f(workspace, Element(element)))
+                    excludes.append(f(WorkspaceExpression(workspace), ElementExpression(element)))
             if any(includes) and not any(excludes):
                 filtered_elements.append(element)
 
@@ -198,9 +224,9 @@ class Expression:
         filtered_relationships: List[DslRelationship] = []
 
         def _is_relationship_of_excluded_elements(
-            workspace: Workspace,
-            relationship: Relationship,
-            exclude_element_predicates: Iterable[Union[DslElement, Callable[[Workspace, Element], bool]]],
+            workspace: WorkspaceExpression,
+            relationship: RelationshipExpression,
+            exclude_element_predicates: Iterable[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]],
         ) -> bool:
             for f in exclude_element_predicates:
                 if isinstance(f, DslElement):
@@ -222,20 +248,20 @@ class Expression:
                 if isinstance(f, DslElement):
                     includes.append(f == relationship)
                 else:
-                    includes.append(f(workspace, Relationship(relationship)))
+                    includes.append(f(WorkspaceExpression(workspace), RelationshipExpression(relationship)))
 
             for f in self._exclude_relationships:
                 if isinstance(f, DslElement):
                     excludes.append(f == relationship)
                 else:
-                    excludes.append(f(workspace, Relationship(relationship)))
+                    excludes.append(f(WorkspaceExpression(workspace), RelationshipExpression(relationship)))
 
             # Also exclude relationships whose source or destination elements
             # are excluded.
             excludes.append(
                 _is_relationship_of_excluded_elements(
-                    workspace,
-                    Relationship(relationship),
+                    WorkspaceExpression(workspace),
+                    RelationshipExpression(relationship),
                     self._exclude_elements,
                 )
             )
