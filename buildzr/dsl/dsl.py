@@ -767,7 +767,7 @@ def _auto_layout_to_model(auto_layout: _AutoLayout) -> buildzr.models.AutomaticL
 
 class SystemLandscapeView(DslViewElement):
 
-    from buildzr.dsl.expression import Expression, Element, Relationship
+    from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
 
     @property
     def model(self) -> buildzr.models.SystemLandscapeView:
@@ -779,10 +779,10 @@ class SystemLandscapeView(DslViewElement):
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
-        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
-        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
-        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        include_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemLandscapeView()
@@ -805,7 +805,7 @@ class SystemLandscapeView(DslViewElement):
 
     def _on_added(self, workspace: Workspace) -> None:
 
-        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
         from buildzr.models import ElementView, RelationshipView
 
         expression = Expression(
@@ -815,17 +815,17 @@ class SystemLandscapeView(DslViewElement):
             exclude_relationships=self._exclude_relationships,
         )
 
-        include_view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
+        include_view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [
             lambda w, e: e.type == Person,
             lambda w, e: e.type == SoftwareSystem
         ]
 
-        exclude_view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
+        exclude_view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [
             lambda w, e: e.type == Container,
             lambda w, e: e.type == Component,
         ]
 
-        include_view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
+        include_view_relationships_filter: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = [
             lambda w, r: r.source.type == Person,
             lambda w, r: r.source.type == SoftwareSystem,
             lambda w, r: r.destination.type == Person,
@@ -864,7 +864,7 @@ class SystemContextView(DslViewElement):
     relationship with the selected `SoftwareSystem`.
     """
 
-    from buildzr.dsl.expression import Expression, Element, Relationship
+    from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
 
     @property
     def model(self) -> buildzr.models.SystemContextView:
@@ -872,15 +872,15 @@ class SystemContextView(DslViewElement):
 
     def __init__(
         self,
-        software_system_selector: Union[SoftwareSystem, Callable[[Workspace], SoftwareSystem]],
+        software_system_selector: Union[SoftwareSystem, Callable[[WorkspaceExpression], SoftwareSystem]],
         key: str,
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
-        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
-        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
-        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        include_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.SystemContextView()
@@ -904,21 +904,21 @@ class SystemContextView(DslViewElement):
 
     def _on_added(self, workspace: Workspace) -> None:
 
-        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
         from buildzr.models import ElementView, RelationshipView
 
         if isinstance(self._selector, SoftwareSystem):
             software_system = self._selector
         else:
-            software_system = self._selector(workspace)
+            software_system = self._selector(WorkspaceExpression(workspace))
         self._m.softwareSystemId = software_system.model.id
-        view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
+        view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [
             lambda w, e: e == software_system,
             lambda w, e: software_system.model.id in e.sources.ids,
             lambda w, e: software_system.model.id in e.destinations.ids,
         ]
 
-        view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
+        view_relationships_filter: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = [
             lambda w, r: software_system == r.source,
             lambda w, r: software_system == r.destination,
         ]
@@ -950,7 +950,7 @@ class SystemContextView(DslViewElement):
 
 class ContainerView(DslViewElement):
 
-    from buildzr.dsl.expression import Expression, Element, Relationship
+    from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
 
     @property
     def model(self) -> buildzr.models.ContainerView:
@@ -958,15 +958,15 @@ class ContainerView(DslViewElement):
 
     def __init__(
         self,
-        software_system_selector: Union[SoftwareSystem, Callable[[Workspace], SoftwareSystem]],
+        software_system_selector: Union[SoftwareSystem, Callable[[WorkspaceExpression], SoftwareSystem]],
         key: str,
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
-        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
-        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
-        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        include_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ContainerView()
@@ -990,24 +990,24 @@ class ContainerView(DslViewElement):
 
     def _on_added(self, workspace: Workspace) -> None:
 
-        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
         from buildzr.models import ElementView, RelationshipView
 
         if isinstance(self._selector, SoftwareSystem):
             software_system = self._selector
         else:
-            software_system = self._selector(workspace)
+            software_system = self._selector(WorkspaceExpression(workspace))
         self._m.softwareSystemId = software_system.model.id
 
         container_ids = { container.model.id for container in software_system.children}
 
-        view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
+        view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [
             lambda w, e: e.parent == software_system,
             lambda w, e: any(container_ids.intersection({ id for id in e.sources.ids })),
             lambda w, e: any(container_ids.intersection({ id for id in e.destinations.ids })),
         ]
 
-        view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
+        view_relationships_filter: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = [
             lambda w, r: software_system == r.source.parent,
             lambda w, r: software_system == r.destination.parent,
         ]
@@ -1039,7 +1039,7 @@ class ContainerView(DslViewElement):
 
 class ComponentView(DslViewElement):
 
-    from buildzr.dsl.expression import Expression, Element, Relationship
+    from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
 
     @property
     def model(self) -> buildzr.models.ComponentView:
@@ -1047,15 +1047,15 @@ class ComponentView(DslViewElement):
 
     def __init__(
         self,
-        container_selector: Union[Container, Callable[[Workspace], Container]],
+        container_selector: Union[Container, Callable[[WorkspaceExpression], Container]],
         key: str,
         description: str,
         auto_layout: _AutoLayout='tb',
         title: Optional[str]=None,
-        include_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
-        exclude_elements: List[Union[DslElement, Callable[[Workspace, Element], bool]]]=[],
-        include_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
-        exclude_relationships: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]]=[],
+        include_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
         properties: Optional[Dict[str, str]]=None,
     ) -> None:
         self._m = buildzr.models.ComponentView()
@@ -1079,24 +1079,24 @@ class ComponentView(DslViewElement):
 
     def _on_added(self, workspace: Workspace) -> None:
 
-        from buildzr.dsl.expression import Expression, Element, Relationship
+        from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
         from buildzr.models import ElementView, RelationshipView
 
         if isinstance(self._selector, Container):
             container = self._selector
         else:
-            container = self._selector(workspace)
+            container = self._selector(WorkspaceExpression(workspace))
         self._m.containerId = container.model.id
 
         component_ids = { component.model.id for component in container.children }
 
-        view_elements_filter: List[Union[DslElement, Callable[[Workspace, Element], bool]]] = [
+        view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [
             lambda w, e: e.parent == container,
             lambda w, e: any(component_ids.intersection({ id for id in e.sources.ids })),
             lambda w, e: any(component_ids.intersection({ id for id in e.destinations.ids })),
         ]
 
-        view_relationships_filter: List[Union[DslElement, Callable[[Workspace, Relationship], bool]]] = [
+        view_relationships_filter: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = [
             lambda w, r: container == r.source.parent,
             lambda w, r: container == r.destination.parent,
         ]
@@ -1128,7 +1128,7 @@ class ComponentView(DslViewElement):
 
 class StyleElements:
 
-    from buildzr.dsl.expression import Element
+    from buildzr.dsl.expression import WorkspaceExpression, ElementExpression
 
     Shapes = Union[
         Literal['Box'],
@@ -1161,7 +1161,7 @@ class StyleElements:
             on: List[Union[
                 DslElement,
                 Group,
-                Callable[[Workspace, Element], bool],
+                Callable[[WorkspaceExpression, ElementExpression], bool],
                 Type[Union['Person', 'SoftwareSystem', 'Container', 'Component']],
                 str
             ]],
@@ -1204,7 +1204,7 @@ class StyleElements:
         # item, not for each of `StyleElements` instance. This makes the styling
         # makes more concise and flexible.
 
-        from buildzr.dsl.expression import Element
+        from buildzr.dsl.expression import ElementExpression
         from uuid import uuid4
 
         if background:
@@ -1277,7 +1277,7 @@ class StyleElements:
             elif isinstance(element, str):
                 element_style.tag = element
             elif callable(element):
-                from buildzr.dsl.expression import Element, Expression
+                from buildzr.dsl.expression import ElementExpression, Expression
                 if self._parent:
                     matched_elems = Expression(include_elements=[element]).elements(self._parent)
                     for e in matched_elems:
@@ -1293,7 +1293,7 @@ class StyleElements:
 
 class StyleRelationships:
 
-    from buildzr.dsl.expression import Relationship
+    from buildzr.dsl.expression import WorkspaceExpression, RelationshipExpression
 
     @property
     def model(self) -> List[buildzr.models.RelationshipStyle]:
@@ -1308,7 +1308,7 @@ class StyleRelationships:
         on: Optional[List[Union[
             DslRelationship,
             Group,
-            Callable[[Workspace, Relationship], bool],
+            Callable[[WorkspaceExpression, RelationshipExpression], bool],
             str
         ]]]=None,
         thickness: Optional[int]=None,

@@ -27,12 +27,12 @@ class GroupsSample(AbstractBuilder):
             )
             SystemContextView(
                 key='groups-sample-a',
-                software_system_selector=lambda w: cast(SoftwareSystem, w.a),
+                software_system_selector=lambda w: w.software_system().a,
                 description="Groups Sample - Software System A"
             )
             SystemContextView(
                 key='groups-sample-b',
-                software_system_selector=lambda w: cast(SoftwareSystem, w.b),
+                software_system_selector=lambda w: w.software_system().b,
                 description="Groups Sample - Software System B"
             )
             ContainerView(
