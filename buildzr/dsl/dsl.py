@@ -29,6 +29,10 @@ from buildzr.dsl.interfaces import (
     DslWorkspaceElement,
     DslElement,
     DslViewElement,
+    DslDeploymentEnvironment,
+    DslInfrastructureNode,
+    DslDeploymentNode,
+    DslElementInstance,
 )
 from buildzr.dsl.relations import (
     DslElementRelationOverrides,
@@ -53,6 +57,8 @@ _current_workspace: ContextVar[Optional['Workspace']] = ContextVar('current_work
 _current_group_stack: ContextVar[List['Group']] = ContextVar('current_group', default=[])
 _current_software_system: ContextVar[Optional['SoftwareSystem']] = ContextVar('current_software_system', default=None)
 _current_container: ContextVar[Optional['Container']] = ContextVar('current_container', default=None)
+_current_deployment_environment: ContextVar[Optional['DeploymentEnvironment']] = ContextVar('current_deployment_environment', default=None)
+_current_deployment_node_stack: ContextVar[List['DeploymentNode']] = ContextVar('current_deployment_node', default=[])
 
 class Workspace(DslWorkspaceElement):
     """
@@ -166,7 +172,12 @@ class Workspace(DslWorkspaceElement):
     def software_system(self) -> TypedDynamicAttribute['SoftwareSystem']:
         return TypedDynamicAttribute['SoftwareSystem'](self._dynamic_attrs)
 
-    def add_model(self, model: Union['Person', 'SoftwareSystem']) -> None:
+    def add_model(
+        self, model: Union[
+            'Person',
+            'SoftwareSystem',
+            'DeploymentNode',
+        ]) -> None:
         if isinstance(model, Person):
             self._m.model.people.append(model._m)
             model._parent = self
@@ -177,6 +188,9 @@ class Workspace(DslWorkspaceElement):
             model._parent = self
             self._add_dynamic_attr(model.model.name, model)
             self._children.append(model)
+        elif isinstance(model, DeploymentNode):
+            self._m.model.deploymentNodes.append(model._m)
+            model._parent = self
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
@@ -707,6 +721,157 @@ _AutoLayout = Optional[
         Tuple[_RankDirection, float, float]
     ]
 ]
+
+class DeploymentEnvironment(DslDeploymentEnvironment):
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._parent: Optional[Workspace] = None
+        self._children: Optional[List['DeploymentNode']] = []
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            self._parent = workspace
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    @property
+    def children(self) -> Optional[List['DeploymentNode']]:
+        return self._children
+
+    def add_deployment_node(self, node: 'DeploymentNode') -> None:
+        node._m.environment = self._name
+
+    def __enter__(self) -> Self:
+        self._token = _current_deployment_environment.set(self)
+        return self
+
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
+        _current_deployment_environment.reset(self._token)
+
+class DeploymentNode(DslDeploymentNode):
+
+    def __init__(self, name: str, description: str="", instances: str="1") -> None:
+        self._m = buildzr.models.DeploymentNode()
+        self._m.instances = instances
+        self._m.id = GenerateId.for_element()
+        self._m.name = name
+        self._m.children = []
+        self._m.containerInstances = []
+        self._m.infrastructureNodes = []
+        self._m.description = description
+        self._parent: Optional[Workspace] = None
+        self._children: Optional[List[
+            Union[
+                'SoftwareSystemInstance',
+                'ContainerInstance',
+                'InfrastructureNode',
+                'DeploymentNode']]
+            ] = []
+        self._m.tags = ','.join({"Element", "Deployment Node"})
+
+        # If the deployment stack is not empty, then we're inside the context of
+        # another deployment node. Otherwise, we're at the root of the
+        # workspace.
+        stack = _current_deployment_node_stack.get()
+        if stack:
+            stack[-1].add_deployment_node(self)
+        else:
+            workspace = _current_workspace.get()
+            if workspace:
+                self._parent = workspace
+                workspace.add_model(self)
+
+        deployment_environment = _current_deployment_environment.get()
+        if deployment_environment is not None:
+            self._m.environment = deployment_environment.name
+            deployment_environment.add_deployment_node(self)
+
+    @property
+    def model(self) -> buildzr.models.DeploymentNode:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    @property
+    def children(self) -> Optional[List[Union['SoftwareSystemInstance', 'ContainerInstance', 'InfrastructureNode', 'DeploymentNode']]]:
+        return self._children
+
+    def __enter__(self) -> Self:
+        stack = _current_deployment_node_stack.get()
+        stack.extend([self])
+        self._token = _current_deployment_node_stack.set(stack)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_value: Optional[BaseException],
+        traceback: Optional[Any]
+    ) -> None:
+        stack = _current_deployment_node_stack.get()
+        stack.pop()
+        _current_deployment_node_stack.reset(self._token)
+
+    def add_infrastructure_node(self, node: 'InfrastructureNode') -> None:
+        self._m.infrastructureNodes.append(node.model)
+        self._children.append(node)
+
+    def add_element_instance(self, instance: Union['SoftwareSystemInstance', 'ContainerInstance']) -> None:
+        if isinstance(instance, SoftwareSystemInstance):
+            pass
+        elif isinstance(instance, ContainerInstance):
+            self._m.containerInstances.append(instance.model)
+        self._children.append(instance)
+
+    def add_deployment_node(self, node: 'DeploymentNode') -> None:
+        self._m.children.append(node.model)
+        self._children.append(node)
+
+class InfrastructureNode(DslInfrastructureNode):
+    pass
+
+class SoftwareSystemInstance(DslElementInstance):
+    pass
+
+class ContainerInstance(DslElementInstance):
+
+    def __init__(self, container: 'Container') -> None:
+        self._m = buildzr.models.ContainerInstance()
+        self._m.id = GenerateId.for_element()
+        self._m.containerId = container.model.id
+        self._parent: Optional[DeploymentNode] = None
+        self._element = container
+        self._m.tags = ','.join({"Container Instance"})
+
+        stack = _current_deployment_node_stack.get()
+        if stack:
+            self._parent = stack[-1]
+            self._parent.add_element_instance(self)
+
+        deployment_environment = _current_deployment_environment.get()
+        if deployment_environment is not None:
+            self._m.environment = deployment_environment.name
+
+    @property
+    def model(self) -> buildzr.models.ContainerInstance:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[DeploymentNode]:
+        return self._parent
+
+    @property
+    def element(self) -> DslElement:
+        return self._element
 
 def _auto_layout_to_model(auto_layout: _AutoLayout) -> buildzr.models.AutomaticLayout:
     """
