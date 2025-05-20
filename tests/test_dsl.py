@@ -13,6 +13,10 @@ from buildzr.dsl import (
     Component,
     With,
     SystemContextView,
+    DeploymentEnvironment,
+    DeploymentNode,
+    SoftwareSystemInstance,
+    ContainerInstance,
     desc,
 )
 from buildzr.encoders import JsonEncoder
@@ -777,6 +781,54 @@ def test_dsl_relationship_without_desc_multiple_dest() -> Optional[None]:
     assert w.person().user.model.relationships[0].destinationId == w.software_system().software_1.model.id
     assert w.person().user.model.relationships[1].destinationId == w.software_system().software_2.model.id
     assert w.person().user.model.relationships[2].destinationId == w.software_system().software_3.model.id
+
+def test_deployment_groups_on_container_instances() -> Optional[None]:
+
+    with Workspace("w", scope=None) as w:
+        with SoftwareSystem("Software System") as software_system:
+            database = Container("Database")
+            api = Container("Service API")
+            api >> "Uses" >> database
+
+        with DeploymentEnvironment("Production") as production:
+            with DeploymentNode("Server 1") as server_1:
+                ContainerInstance(api)
+                with DeploymentNode("Database Server"):
+                    ContainerInstance(database)
+            with DeploymentNode("Server 2") as server_2:
+                ContainerInstance(api)
+                with DeploymentNode("Database Server"):
+                    ContainerInstance(database)
+
+    assert len(w.model.model.deploymentNodes) == 2
+    assert len(w.model.model.deploymentNodes[0].containerInstances) == 1
+
+    assert w.model.model.deploymentNodes[0].name == "Server 1"
+    assert w.model.model.deploymentNodes[0].environment == "Production"
+    assert w.model.model.deploymentNodes[0].containerInstances[0].containerId == w.software_system().software_system.service_api.model.id
+    assert w.model.model.deploymentNodes[0].containerInstances[0].environment == "Production"
+    assert w.model.model.deploymentNodes[0].children[0].name == "Database Server"
+    assert w.model.model.deploymentNodes[0].children[0].environment == "Production"
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].containerId == w.software_system().software_system.database.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].environment == "Production"
+
+    assert w.model.model.deploymentNodes[1].name == "Server 2"
+    assert w.model.model.deploymentNodes[1].environment == "Production"
+    assert w.model.model.deploymentNodes[1].containerInstances[0].containerId == w.software_system().software_system.service_api.model.id
+    assert w.model.model.deploymentNodes[1].containerInstances[0].environment == "Production"
+    assert w.model.model.deploymentNodes[1].children[0].name == "Database Server"
+    assert w.model.model.deploymentNodes[1].children[0].environment == "Production"
+    assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].containerId == w.software_system().software_system.database.model.id
+    assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].environment == "Production"
+
+    assert set(w.model.model.deploymentNodes[0].tags.split(',')) == {"Element", "Deployment Node"}
+    assert set(w.model.model.deploymentNodes[1].tags.split(',')) == {"Element", "Deployment Node"}
+    assert set(w.model.model.deploymentNodes[0].children[0].tags.split(',')) == {"Element", "Deployment Node"}
+    assert set(w.model.model.deploymentNodes[1].children[0].tags.split(',')) == {"Element", "Deployment Node"}
+    assert set(w.model.model.deploymentNodes[0].containerInstances[0].tags.split(',')) == {"Container Instance"}
+    assert set(w.model.model.deploymentNodes[1].containerInstances[0].tags.split(',')) == {"Container Instance"}
+    assert set(w.model.model.deploymentNodes[0].children[0].containerInstances[0].tags.split(',')) == {"Container Instance"}
+    assert set(w.model.model.deploymentNodes[1].children[0].containerInstances[0].tags.split(',')) == {"Container Instance"}
 
 def test_json_sink() -> Optional[None]:
 
