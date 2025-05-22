@@ -47,7 +47,8 @@ def test_walk_relationships(workspace: Workspace) -> Optional[None]:
     }
 
     for relationship in relationships:
-        print(f"{relationship.source.model.name} >> {relationship.model.description} >> {relationship.destination.model.name}")
+        if hasattr(relationship.source.model, 'name') and hasattr(relationship.destination.model, 'name'):
+            print(f"{relationship.source.model.name} >> {relationship.model.description} >> {relationship.destination.model.name}")
 
     assert len(relationships) == 5 # Including one additional implied relationship
 

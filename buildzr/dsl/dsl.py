@@ -30,8 +30,8 @@ from buildzr.dsl.interfaces import (
     DslElement,
     DslViewElement,
     DslDeploymentEnvironment,
-    DslInfrastructureNode,
-    DslDeploymentNode,
+    DslInfrastructureNodeElement,
+    DslDeploymentNodeElement,
     DslElementInstance,
 )
 from buildzr.dsl.relations import (
@@ -755,7 +755,10 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
         _current_deployment_environment.reset(self._token)
 
-class DeploymentNode(DslDeploymentNode):
+class DeploymentNode(DslDeploymentNodeElement, DslElementRelationOverrides[
+    'DeploymentNode',
+    'DeploymentNode'
+]):
 
     def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), instances: str="1") -> None:
         self._m = buildzr.models.DeploymentNode()
@@ -777,6 +780,10 @@ class DeploymentNode(DslDeploymentNode):
                 'DeploymentNode']]
             ] = []
         self._m.tags = ','.join({"Element", "Deployment Node"}.union(tags))
+
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
+        self._relationships: Set[DslRelationship] = set()
 
         # If the deployment stack is not empty, then we're inside the context of
         # another deployment node. Otherwise, we're at the root of the
@@ -806,6 +813,18 @@ class DeploymentNode(DslDeploymentNode):
     @property
     def children(self) -> Optional[List[Union['SoftwareSystemInstance', 'ContainerInstance', 'InfrastructureNode', 'DeploymentNode']]]:
         return self._children
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def relationships(self) -> Set[DslRelationship]:
+        return self._relationships
 
     def __enter__(self) -> Self:
         stack = _current_deployment_node_stack.get()
@@ -838,7 +857,15 @@ class DeploymentNode(DslDeploymentNode):
         self._m.children.append(node.model)
         self._children.append(node)
 
-class InfrastructureNode(DslInfrastructureNode):
+class InfrastructureNode(DslInfrastructureNodeElement, DslElementRelationOverrides[
+    'InfrastructureNode',
+    Union[
+        'DeploymentNode',
+        'InfrastructureNode',
+        'SoftwareSystemInstance',
+        'ContainerInstance',
+    ]
+]):
 
     def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
         self._m = buildzr.models.InfrastructureNode()
@@ -849,6 +876,10 @@ class InfrastructureNode(DslInfrastructureNode):
         self._m.tags = ','.join({"Element", "Infrastructure Node"}.union(tags))
         self._m.properties = properties
         self._parent: Optional[DeploymentNode] = None
+
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
+        self._relationships: Set[DslRelationship] = set()
 
         stack = _current_deployment_node_stack.get()
         if stack:
@@ -866,7 +897,30 @@ class InfrastructureNode(DslInfrastructureNode):
     def parent(self) -> Optional[DeploymentNode]:
         return self._parent
 
-class SoftwareSystemInstance(DslElementInstance):
+    @property
+    def children(self) -> None:
+        """
+        The `InfrastructureNode` element does not have any children, and will always return
+        `None`.
+        """
+        return None
+
+    @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
+    def relationships(self) -> Set[DslRelationship]:
+        return self._relationships
+
+class SoftwareSystemInstance(DslElementInstance, DslElementRelationOverrides[
+    'SoftwareSystemInstance',
+    'InfrastructureNode',
+]):
 
     def __init__(
         self,
@@ -881,6 +935,10 @@ class SoftwareSystemInstance(DslElementInstance):
         self._element = software_system
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
         self._m.tags = ','.join({"Software System Instance"}.union(tags))
+
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
+        self._relationships: Set[DslRelationship] = set()
 
         stack = _current_deployment_node_stack.get()
         if stack:
@@ -900,10 +958,33 @@ class SoftwareSystemInstance(DslElementInstance):
         return self._parent
 
     @property
+    def children(self) -> None:
+        """
+        The `SoftwareSystemInstance` element does not have any children, and will always return
+        `None`.
+        """
+        return None
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def relationships(self) -> Set[DslRelationship]:
+        return self._relationships
+
+    @property
     def element(self) -> DslElement:
         return self._element
 
-class ContainerInstance(DslElementInstance):
+class ContainerInstance(DslElementInstance, DslElementRelationOverrides[
+    'ContainerInstance',
+    'InfrastructureNode',
+]):
 
     def __init__(
         self,
@@ -918,6 +999,10 @@ class ContainerInstance(DslElementInstance):
         self._element = container
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
         self._m.tags = ','.join({"Container Instance"}.union(tags))
+
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
+        self._relationships: Set[DslRelationship] = set()
 
         stack = _current_deployment_node_stack.get()
         if stack:
@@ -935,6 +1020,26 @@ class ContainerInstance(DslElementInstance):
     @property
     def parent(self) -> Optional[DeploymentNode]:
         return self._parent
+
+    @property
+    def children(self) -> None:
+        """
+        The `ContainerInstance` element does not have any children, and will always return
+        `None`.
+        """
+        return None
+
+    @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
+    def relationships(self) -> Set[DslRelationship]:
+        return self._relationships
 
     @property
     def element(self) -> DslElement:
