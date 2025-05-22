@@ -15,6 +15,8 @@ from buildzr.dsl import (
     SystemContextView,
     DeploymentEnvironment,
     DeploymentNode,
+    InfrastructureNode,
+    DeploymentGroup,
     SoftwareSystemInstance,
     ContainerInstance,
     desc,
@@ -791,14 +793,17 @@ def test_deployment_groups_on_container_instances() -> Optional[None]:
             api >> "Uses" >> database
 
         with DeploymentEnvironment("Production") as production:
+            service_instance_1 = DeploymentGroup("Service Instance 1")
+            service_instance_2 = DeploymentGroup("Service Instance 2")
+
             with DeploymentNode("Server 1") as server_1:
-                ContainerInstance(api)
+                ContainerInstance(api, [service_instance_1])
                 with DeploymentNode("Database Server"):
-                    ContainerInstance(database)
+                    ContainerInstance(database, [service_instance_1])
             with DeploymentNode("Server 2") as server_2:
-                ContainerInstance(api)
+                ContainerInstance(api, [service_instance_2])
                 with DeploymentNode("Database Server"):
-                    ContainerInstance(database)
+                    ContainerInstance(database, [service_instance_2])
 
     assert len(w.model.model.deploymentNodes) == 2
     assert len(w.model.model.deploymentNodes[0].containerInstances) == 1
@@ -821,6 +826,11 @@ def test_deployment_groups_on_container_instances() -> Optional[None]:
     assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].containerId == w.software_system().software_system.database.model.id
     assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].environment == "Production"
 
+    assert w.model.model.deploymentNodes[0].containerInstances[0].deploymentGroups[0] == "Service Instance 1"
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].deploymentGroups[0] == "Service Instance 1"
+    assert w.model.model.deploymentNodes[1].containerInstances[0].deploymentGroups[0] == "Service Instance 2"
+    assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].deploymentGroups[0] == "Service Instance 2"
+
     assert set(w.model.model.deploymentNodes[0].tags.split(',')) == {"Element", "Deployment Node"}
     assert set(w.model.model.deploymentNodes[1].tags.split(',')) == {"Element", "Deployment Node"}
     assert set(w.model.model.deploymentNodes[0].children[0].tags.split(',')) == {"Element", "Deployment Node"}
@@ -829,6 +839,94 @@ def test_deployment_groups_on_container_instances() -> Optional[None]:
     assert set(w.model.model.deploymentNodes[1].containerInstances[0].tags.split(',')) == {"Container Instance"}
     assert set(w.model.model.deploymentNodes[0].children[0].containerInstances[0].tags.split(',')) == {"Container Instance"}
     assert set(w.model.model.deploymentNodes[1].children[0].containerInstances[0].tags.split(',')) == {"Container Instance"}
+
+def test_deployments_on_software_and_container_instances() -> Optional[None]:
+
+    with Workspace("soa-example", scope=None) as w:
+        user = Person("User")
+
+        with SoftwareSystem("SOA System") as soa:
+            api = Container("API Service")
+            auth = Container("Authentication Service")
+            data = Container("Data Processing Service")
+            db = Container("Database")
+
+        user >> "Sends requests to" >> api
+        api >> "Authenticates via" >> auth
+        api >> "Sends data to process" >> data
+        data >> "Reads from and writes to" >> data
+        auth >> "Reads user credentials from" >> db
+
+        with DeploymentEnvironment("Development") as development:
+            with DeploymentNode(
+                "Developer Machine",
+                description="Local development environment",
+                technology="Docker Desktop",
+            ) as dev_host:
+                soa_system_instance = SoftwareSystemInstance(soa)
+                ContainerInstance(api)
+                ContainerInstance(auth)
+                ContainerInstance(data)
+                ContainerInstance(db)
+
+        with DeploymentEnvironment("Production") as production:
+            with DeploymentNode(
+                "Docker Host 1",
+                description="First production server",
+                technology="Ubuntu 20.04",
+            ) as prod_host:
+                with DeploymentNode(
+                    "Docker Engine",
+                    description="Container runtime",
+                    technology="Docker",
+                ) as docker_engine:
+                    soa_system_instance = SoftwareSystemInstance(soa)
+                    ContainerInstance(api)
+                    ContainerInstance(auth)
+                    ContainerInstance(data)
+                    ContainerInstance(db)
+
+        assert len(w.model.model.deploymentNodes) == 2
+        assert w.model.model.deploymentNodes[0].environment == "Development"
+        assert w.model.model.deploymentNodes[1].environment == "Production"
+
+        assert w.model.model.deploymentNodes[0].name == "Developer Machine"
+        assert w.model.model.deploymentNodes[0].description == "Local development environment"
+        assert w.model.model.deploymentNodes[0].technology == "Docker Desktop"
+
+        assert len(w.model.model.deploymentNodes[0].softwareSystemInstances) == 1
+        assert len(w.model.model.deploymentNodes[0].containerInstances) == 4
+        assert w.model.model.deploymentNodes[0].softwareSystemInstances[0].softwareSystemId == soa.model.id
+        assert w.model.model.deploymentNodes[0].softwareSystemInstances[0].environment == "Development"
+        assert w.model.model.deploymentNodes[0].containerInstances[0].containerId == api.model.id
+        assert w.model.model.deploymentNodes[0].containerInstances[0].environment == "Development"
+        assert w.model.model.deploymentNodes[0].containerInstances[1].containerId == auth.model.id
+        assert w.model.model.deploymentNodes[0].containerInstances[1].environment == "Development"
+        assert w.model.model.deploymentNodes[0].containerInstances[2].containerId == data.model.id
+        assert w.model.model.deploymentNodes[0].containerInstances[2].environment == "Development"
+        assert w.model.model.deploymentNodes[0].containerInstances[3].containerId == db.model.id
+        assert w.model.model.deploymentNodes[0].containerInstances[3].environment == "Development"
+
+        assert len(w.model.model.deploymentNodes[1].softwareSystemInstances) == 0
+        assert len(w.model.model.deploymentNodes[1].containerInstances) == 0
+        assert len(w.model.model.deploymentNodes[1].children) == 1
+        assert len(w.model.model.deploymentNodes[1].children[0].softwareSystemInstances) == 1
+        assert w.model.model.deploymentNodes[1].name == "Docker Host 1"
+        assert w.model.model.deploymentNodes[1].description == "First production server"
+        assert w.model.model.deploymentNodes[1].technology == "Ubuntu 20.04"
+        assert w.model.model.deploymentNodes[1].children[0].name == "Docker Engine"
+        assert w.model.model.deploymentNodes[1].children[0].description == "Container runtime"
+        assert w.model.model.deploymentNodes[1].children[0].technology == "Docker"
+        assert w.model.model.deploymentNodes[1].children[0].softwareSystemInstances[0].softwareSystemId == soa.model.id
+        assert w.model.model.deploymentNodes[1].children[0].softwareSystemInstances[0].environment == "Production"
+        assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].containerId == api.model.id
+        assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].environment == "Production"
+        assert w.model.model.deploymentNodes[1].children[0].containerInstances[1].containerId == auth.model.id
+        assert w.model.model.deploymentNodes[1].children[0].containerInstances[1].environment == "Production"
+        assert w.model.model.deploymentNodes[1].children[0].containerInstances[2].containerId == data.model.id
+        assert w.model.model.deploymentNodes[1].children[0].containerInstances[2].environment == "Production"
+        assert w.model.model.deploymentNodes[1].children[0].containerInstances[3].containerId == db.model.id
+        assert w.model.model.deploymentNodes[1].children[0].containerInstances[3].environment == "Production"
 
 def test_json_sink() -> Optional[None]:
 

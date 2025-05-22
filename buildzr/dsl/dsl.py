@@ -757,15 +757,17 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
 
 class DeploymentNode(DslDeploymentNode):
 
-    def __init__(self, name: str, description: str="", instances: str="1") -> None:
+    def __init__(self, name: str, description: str="", technology: str="", instances: str="1") -> None:
         self._m = buildzr.models.DeploymentNode()
         self._m.instances = instances
         self._m.id = GenerateId.for_element()
         self._m.name = name
         self._m.children = []
+        self._m.softwareSystemInstances = []
         self._m.containerInstances = []
         self._m.infrastructureNodes = []
         self._m.description = description
+        self._m.technology = technology
         self._parent: Optional[Workspace] = None
         self._children: Optional[List[
             Union[
@@ -827,7 +829,7 @@ class DeploymentNode(DslDeploymentNode):
 
     def add_element_instance(self, instance: Union['SoftwareSystemInstance', 'ContainerInstance']) -> None:
         if isinstance(instance, SoftwareSystemInstance):
-            pass
+            self._m.softwareSystemInstances.append(instance.model)
         elif isinstance(instance, ContainerInstance):
             self._m.containerInstances.append(instance.model)
         self._children.append(instance)
@@ -837,19 +839,82 @@ class DeploymentNode(DslDeploymentNode):
         self._children.append(node)
 
 class InfrastructureNode(DslInfrastructureNode):
-    pass
+
+    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
+        self._m = buildzr.models.InfrastructureNode()
+        self._m.id = GenerateId.for_element()
+        self._m.name = name
+        self._m.description = description
+        self._m.technology = technology
+        self._m.tags = ','.join({"Element", "Infrastructure Node"}.union(tags))
+        self._m.properties = properties
+        self._parent: Optional[DeploymentNode] = None
+
+        stack = _current_deployment_node_stack.get()
+        if stack:
+            stack[-1].add_infrastructure_node(self)
+
+        deployment_environment = _current_deployment_environment.get()
+        if deployment_environment is not None:
+            self._m.environment = deployment_environment.name
+
+    @property
+    def model(self) -> buildzr.models.InfrastructureNode:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[DeploymentNode]:
+        return self._parent
 
 class SoftwareSystemInstance(DslElementInstance):
-    pass
+
+    def __init__(
+        self,
+        software_system: 'SoftwareSystem',
+        deployment_groups: Optional[List['DeploymentGroup']]=None,
+    ) -> None:
+        self._m = buildzr.models.SoftwareSystemInstance()
+        self._m.id = GenerateId.for_element()
+        self._m.softwareSystemId = software_system.model.id
+        self._parent: Optional[DeploymentNode] = None
+        self._element = software_system
+        self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
+        self._m.tags = ','.join({"Software System Instance"})
+
+        stack = _current_deployment_node_stack.get()
+        if stack:
+            self._parent = stack[-1]
+            self._parent.add_element_instance(self)
+
+        deployment_environment = _current_deployment_environment.get()
+        if deployment_environment is not None:
+            self._m.environment = deployment_environment.name
+
+    @property
+    def model(self) -> buildzr.models.SoftwareSystemInstance:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[DeploymentNode]:
+        return self._parent
+
+    @property
+    def element(self) -> DslElement:
+        return self._element
 
 class ContainerInstance(DslElementInstance):
 
-    def __init__(self, container: 'Container') -> None:
+    def __init__(
+        self,
+        container: 'Container',
+        deployment_groups: Optional[List['DeploymentGroup']]=None,
+    ) -> None:
         self._m = buildzr.models.ContainerInstance()
         self._m.id = GenerateId.for_element()
         self._m.containerId = container.model.id
         self._parent: Optional[DeploymentNode] = None
         self._element = container
+        self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
         self._m.tags = ','.join({"Container Instance"})
 
         stack = _current_deployment_node_stack.get()
@@ -872,6 +937,15 @@ class ContainerInstance(DslElementInstance):
     @property
     def element(self) -> DslElement:
         return self._element
+
+class DeploymentGroup:
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    @property
+    def name(self) -> str:
+        return self._name
 
 def _auto_layout_to_model(auto_layout: _AutoLayout) -> buildzr.models.AutomaticLayout:
     """

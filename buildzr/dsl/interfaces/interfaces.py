@@ -256,11 +256,6 @@ class DslInfrastructureNode(ABC):
     def parent(self) -> Optional['DslDeploymentNode']:
         pass
 
-    @property
-    @abstractmethod
-    def children(self) -> Sequence[Union[DslElementInstance, 'DslInfrastructureNode']]:
-        pass
-
     def add_tags(self, *tags: str) -> None:
         """
         Adds tags to the infrastructure node.
