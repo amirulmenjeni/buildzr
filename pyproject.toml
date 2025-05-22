@@ -3,15 +3,13 @@ name = "buildzr"
 dynamic = ["version"]
 description = "Structurizr for the `buildzr`s 🧱⚒️"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [
     { name = "Amirul Menjeni", email = "amirulmenjeni@pm.me" },
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -65,7 +63,7 @@ exclude = [
 ]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true

@@ -25,6 +25,10 @@ Model = Union[
     buildzr.models.SoftwareSystem,
     buildzr.models.Container,
     buildzr.models.Component,
+    buildzr.models.DeploymentNode,
+    buildzr.models.InfrastructureNode,
+    buildzr.models.SoftwareSystemInstance,
+    buildzr.models.ContainerInstance,
 ]
 
 TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
@@ -205,4 +209,104 @@ class DslViewElement(ABC):
     @property
     @abstractmethod
     def model(self) -> ViewModel:
+        pass
+
+class DslElementInstance(DslElement):
+
+    Model = Union[
+        buildzr.models.SoftwareSystemInstance,
+        buildzr.models.ContainerInstance,
+    ]
+
+    @property
+    @abstractmethod
+    def model(self) -> Model:
+        pass
+
+    @property
+    def parent(self) -> Optional['DslDeploymentNodeElement']:
+        pass
+
+    @property
+    def tags(self) -> Set[str]:
+        pass
+
+    @property
+    def element(self) -> DslElement:
+        pass
+
+    def add_tags(self, *tags: str) -> None:
+        """
+        Adds tags to the relationship.
+        """
+        if self.tags == None:
+            return
+        self.tags.update(tags)
+        self.model.tags = ','.join(self.tags)
+
+class DslInfrastructureNodeElement(DslElement):
+
+    @property
+    @abstractmethod
+    def model(self) -> buildzr.models.InfrastructureNode:
+        pass
+
+    @property
+    def tags(self) -> Set[str]:
+        pass
+
+    @property
+    @abstractmethod
+    def parent(self) -> Optional['DslDeploymentNodeElement']:
+        pass
+
+    def add_tags(self, *tags: str) -> None:
+        """
+        Adds tags to the infrastructure node.
+        """
+        if self.tags == None:
+            return
+        self.tags.update(tags)
+        self.model.tags = ','.join(self.tags)
+
+class DslDeploymentNodeElement(DslElement):
+
+    @property
+    @abstractmethod
+    def model(self) -> buildzr.models.DeploymentNode:
+        pass
+
+    @property
+    def tags(self) -> Set[str]:
+        pass
+
+    @property
+    @abstractmethod
+    def parent(self) -> Optional['DslWorkspaceElement']:
+        pass
+
+    @property
+    @abstractmethod
+    def children(self) -> Optional[Sequence[Union[DslElementInstance, 'DslInfrastructureNodeElement', 'DslDeploymentNodeElement']]]:
+        pass
+
+    def add_tags(self, *tags: str) -> None:
+        """
+        Adds tags to the relationship.
+        """
+        if self.tags == None:
+            return
+        self.tags.update(tags)
+        self.model.tags = ','.join(self.tags)
+
+class DslDeploymentEnvironment(ABC):
+
+    @property
+    @abstractmethod
+    def parent(self) -> Optional[DslWorkspaceElement]:
+        pass
+
+    @property
+    @abstractmethod
+    def children(self) -> Sequence[DslDeploymentNodeElement]:
         pass
