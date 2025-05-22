@@ -881,12 +881,31 @@ def test_deployments_on_software_and_container_instances() -> Optional[None]:
                     technology="Docker",
                 ) as docker_engine:
                     soa_system_instance = SoftwareSystemInstance(soa)
+                    api_container_instance = ContainerInstance(api)
+                    ContainerInstance(auth)
+                    ContainerInstance(data)
+                    ContainerInstance(db)
+
+                prod_lb = InfrastructureNode("Load Balancer")
+                prod_lb >> "Distributes traffic to" >> api_container_instance
+
+            with DeploymentNode(
+                "Docker Host 2",
+                description="Second production server",
+                technology="Ubuntu 20.04",
+            ) as prod_host_2:
+                with DeploymentNode(
+                    "Docker Engine",
+                    description="Container runtime",
+                    technology="Docker",
+                ) as docker_engine_2:
+                    soa_system_instance = SoftwareSystemInstance(soa)
                     ContainerInstance(api)
                     ContainerInstance(auth)
                     ContainerInstance(data)
                     ContainerInstance(db)
 
-        assert len(w.model.model.deploymentNodes) == 2
+        assert len(w.model.model.deploymentNodes) == 3
         assert w.model.model.deploymentNodes[0].environment == "Development"
         assert w.model.model.deploymentNodes[1].environment == "Production"
 
@@ -911,6 +930,7 @@ def test_deployments_on_software_and_container_instances() -> Optional[None]:
         assert len(w.model.model.deploymentNodes[1].containerInstances) == 0
         assert len(w.model.model.deploymentNodes[1].children) == 1
         assert len(w.model.model.deploymentNodes[1].children[0].softwareSystemInstances) == 1
+        assert len(w.model.model.deploymentNodes[1].infrastructureNodes) == 1
         assert w.model.model.deploymentNodes[1].name == "Docker Host 1"
         assert w.model.model.deploymentNodes[1].description == "First production server"
         assert w.model.model.deploymentNodes[1].technology == "Ubuntu 20.04"
@@ -927,6 +947,33 @@ def test_deployments_on_software_and_container_instances() -> Optional[None]:
         assert w.model.model.deploymentNodes[1].children[0].containerInstances[2].environment == "Production"
         assert w.model.model.deploymentNodes[1].children[0].containerInstances[3].containerId == db.model.id
         assert w.model.model.deploymentNodes[1].children[0].containerInstances[3].environment == "Production"
+
+        assert len(w.model.model.deploymentNodes[2].softwareSystemInstances) == 0
+        assert len(w.model.model.deploymentNodes[2].containerInstances) == 0
+        assert len(w.model.model.deploymentNodes[2].children) == 1
+        assert len(w.model.model.deploymentNodes[2].children[0].softwareSystemInstances) == 1
+        assert len(w.model.model.deploymentNodes[2].infrastructureNodes) == 0
+        assert w.model.model.deploymentNodes[2].name == "Docker Host 2"
+        assert w.model.model.deploymentNodes[2].environment == "Production"
+        assert w.model.model.deploymentNodes[2].children[0].name == "Docker Engine"
+        assert w.model.model.deploymentNodes[2].children[0].description == "Container runtime"
+        assert w.model.model.deploymentNodes[2].children[0].technology == "Docker"
+        assert w.model.model.deploymentNodes[2].children[0].softwareSystemInstances[0].softwareSystemId == soa.model.id
+        assert w.model.model.deploymentNodes[2].children[0].softwareSystemInstances[0].environment == "Production"
+        assert w.model.model.deploymentNodes[2].children[0].containerInstances[0].containerId == api.model.id
+        assert w.model.model.deploymentNodes[2].children[0].containerInstances[0].environment == "Production"
+        assert w.model.model.deploymentNodes[2].children[0].containerInstances[1].containerId == auth.model.id
+        assert w.model.model.deploymentNodes[2].children[0].containerInstances[1].environment == "Production"
+        assert w.model.model.deploymentNodes[2].children[0].containerInstances[2].containerId == data.model.id
+        assert w.model.model.deploymentNodes[2].children[0].containerInstances[2].environment == "Production"
+        assert w.model.model.deploymentNodes[2].children[0].containerInstances[3].containerId == db.model.id
+        assert w.model.model.deploymentNodes[2].children[0].containerInstances[3].environment == "Production"
+
+        assert w.model.model.deploymentNodes[1].infrastructureNodes[0].name == "Load Balancer"
+        assert w.model.model.deploymentNodes[1].infrastructureNodes[0].environment == "Production"
+        assert w.model.model.deploymentNodes[1].infrastructureNodes[0].relationships[0].sourceId == prod_lb.model.id
+        assert w.model.model.deploymentNodes[1].infrastructureNodes[0].relationships[0].destinationId == api_container_instance.model.id
+        assert w.model.model.deploymentNodes[1].infrastructureNodes[0].relationships[0].description == "Distributes traffic to"
 
 def test_json_sink() -> Optional[None]:
 

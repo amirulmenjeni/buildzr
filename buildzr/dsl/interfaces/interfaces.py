@@ -25,6 +25,10 @@ Model = Union[
     buildzr.models.SoftwareSystem,
     buildzr.models.Container,
     buildzr.models.Component,
+    buildzr.models.DeploymentNode,
+    buildzr.models.InfrastructureNode,
+    buildzr.models.SoftwareSystemInstance,
+    buildzr.models.ContainerInstance,
 ]
 
 TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
@@ -207,7 +211,7 @@ class DslViewElement(ABC):
     def model(self) -> ViewModel:
         pass
 
-class DslElementInstance(ABC):
+class DslElementInstance(DslElement):
 
     Model = Union[
         buildzr.models.SoftwareSystemInstance,
@@ -220,7 +224,7 @@ class DslElementInstance(ABC):
         pass
 
     @property
-    def parent(self) -> Optional['DslDeploymentNode']:
+    def parent(self) -> Optional['DslDeploymentNodeElement']:
         pass
 
     @property
@@ -240,7 +244,7 @@ class DslElementInstance(ABC):
         self.tags.update(tags)
         self.model.tags = ','.join(self.tags)
 
-class DslInfrastructureNode(ABC):
+class DslInfrastructureNodeElement(DslElement):
 
     @property
     @abstractmethod
@@ -253,7 +257,7 @@ class DslInfrastructureNode(ABC):
 
     @property
     @abstractmethod
-    def parent(self) -> Optional['DslDeploymentNode']:
+    def parent(self) -> Optional['DslDeploymentNodeElement']:
         pass
 
     def add_tags(self, *tags: str) -> None:
@@ -265,7 +269,7 @@ class DslInfrastructureNode(ABC):
         self.tags.update(tags)
         self.model.tags = ','.join(self.tags)
 
-class DslDeploymentNode(ABC):
+class DslDeploymentNodeElement(DslElement):
 
     @property
     @abstractmethod
@@ -283,7 +287,7 @@ class DslDeploymentNode(ABC):
 
     @property
     @abstractmethod
-    def children(self) -> Optional[Sequence[Union[DslElementInstance, 'DslInfrastructureNode', 'DslDeploymentNode']]]:
+    def children(self) -> Optional[Sequence[Union[DslElementInstance, 'DslInfrastructureNodeElement', 'DslDeploymentNodeElement']]]:
         pass
 
     def add_tags(self, *tags: str) -> None:
@@ -304,5 +308,5 @@ class DslDeploymentEnvironment(ABC):
 
     @property
     @abstractmethod
-    def children(self) -> Sequence[DslDeploymentNode]:
+    def children(self) -> Sequence[DslDeploymentNodeElement]:
         pass
