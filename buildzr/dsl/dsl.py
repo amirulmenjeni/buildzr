@@ -757,7 +757,7 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
 
 class DeploymentNode(DslDeploymentNode):
 
-    def __init__(self, name: str, description: str="", technology: str="", instances: str="1") -> None:
+    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), instances: str="1") -> None:
         self._m = buildzr.models.DeploymentNode()
         self._m.instances = instances
         self._m.id = GenerateId.for_element()
@@ -776,7 +776,7 @@ class DeploymentNode(DslDeploymentNode):
                 'InfrastructureNode',
                 'DeploymentNode']]
             ] = []
-        self._m.tags = ','.join({"Element", "Deployment Node"})
+        self._m.tags = ','.join({"Element", "Deployment Node"}.union(tags))
 
         # If the deployment stack is not empty, then we're inside the context of
         # another deployment node. Otherwise, we're at the root of the
@@ -872,6 +872,7 @@ class SoftwareSystemInstance(DslElementInstance):
         self,
         software_system: 'SoftwareSystem',
         deployment_groups: Optional[List['DeploymentGroup']]=None,
+        tags: Set[str]=set(),
     ) -> None:
         self._m = buildzr.models.SoftwareSystemInstance()
         self._m.id = GenerateId.for_element()
@@ -879,7 +880,7 @@ class SoftwareSystemInstance(DslElementInstance):
         self._parent: Optional[DeploymentNode] = None
         self._element = software_system
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
-        self._m.tags = ','.join({"Software System Instance"})
+        self._m.tags = ','.join({"Software System Instance"}.union(tags))
 
         stack = _current_deployment_node_stack.get()
         if stack:
@@ -908,6 +909,7 @@ class ContainerInstance(DslElementInstance):
         self,
         container: 'Container',
         deployment_groups: Optional[List['DeploymentGroup']]=None,
+        tags: Set[str]=set(),
     ) -> None:
         self._m = buildzr.models.ContainerInstance()
         self._m.id = GenerateId.for_element()
@@ -915,7 +917,7 @@ class ContainerInstance(DslElementInstance):
         self._parent: Optional[DeploymentNode] = None
         self._element = container
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
-        self._m.tags = ','.join({"Container Instance"})
+        self._m.tags = ','.join({"Container Instance"}.union(tags))
 
         stack = _current_deployment_node_stack.get()
         if stack:
