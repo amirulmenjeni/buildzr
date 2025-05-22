@@ -7,6 +7,8 @@ from .dsl import (
     Group,
     DeploymentEnvironment,
     DeploymentNode,
+    InfrastructureNode,
+    DeploymentGroup,
     SoftwareSystemInstance,
     ContainerInstance,
     SystemLandscapeView,
