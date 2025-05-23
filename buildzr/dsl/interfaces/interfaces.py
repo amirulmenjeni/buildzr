@@ -235,15 +235,6 @@ class DslElementInstance(DslElement):
     def element(self) -> DslElement:
         pass
 
-    def add_tags(self, *tags: str) -> None:
-        """
-        Adds tags to the relationship.
-        """
-        if self.tags == None:
-            return
-        self.tags.update(tags)
-        self.model.tags = ','.join(self.tags)
-
 class DslInfrastructureNodeElement(DslElement):
 
     @property
@@ -259,15 +250,6 @@ class DslInfrastructureNodeElement(DslElement):
     @abstractmethod
     def parent(self) -> Optional['DslDeploymentNodeElement']:
         pass
-
-    def add_tags(self, *tags: str) -> None:
-        """
-        Adds tags to the infrastructure node.
-        """
-        if self.tags == None:
-            return
-        self.tags.update(tags)
-        self.model.tags = ','.join(self.tags)
 
 class DslDeploymentNodeElement(DslElement):
 
@@ -289,15 +271,6 @@ class DslDeploymentNodeElement(DslElement):
     @abstractmethod
     def children(self) -> Optional[Sequence[Union[DslElementInstance, 'DslInfrastructureNodeElement', 'DslDeploymentNodeElement']]]:
         pass
-
-    def add_tags(self, *tags: str) -> None:
-        """
-        Adds tags to the relationship.
-        """
-        if self.tags == None:
-            return
-        self.tags.update(tags)
-        self.model.tags = ','.join(self.tags)
 
 class DslDeploymentEnvironment(ABC):
 

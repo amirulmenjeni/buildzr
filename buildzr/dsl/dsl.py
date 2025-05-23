@@ -779,7 +779,8 @@ class DeploymentNode(DslDeploymentNodeElement, DslElementRelationOverrides[
                 'InfrastructureNode',
                 'DeploymentNode']]
             ] = []
-        self._m.tags = ','.join({"Element", "Deployment Node"}.union(tags))
+        self._tags = {'Element', 'Deployment Node'}.union(tags)
+        self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
@@ -805,6 +806,10 @@ class DeploymentNode(DslDeploymentNodeElement, DslElementRelationOverrides[
     @property
     def model(self) -> buildzr.models.DeploymentNode:
         return self._m
+
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
 
     @property
     def parent(self) -> Optional[Workspace]:
@@ -873,9 +878,10 @@ class InfrastructureNode(DslInfrastructureNodeElement, DslElementRelationOverrid
         self._m.name = name
         self._m.description = description
         self._m.technology = technology
-        self._m.tags = ','.join({"Element", "Infrastructure Node"}.union(tags))
         self._m.properties = properties
         self._parent: Optional[DeploymentNode] = None
+        self._tags = {'Element', 'Infrastructure Node'}.union(tags)
+        self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
@@ -892,6 +898,10 @@ class InfrastructureNode(DslInfrastructureNodeElement, DslElementRelationOverrid
     @property
     def model(self) -> buildzr.models.InfrastructureNode:
         return self._m
+
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
 
     @property
     def parent(self) -> Optional[DeploymentNode]:
@@ -934,7 +944,8 @@ class SoftwareSystemInstance(DslElementInstance, DslElementRelationOverrides[
         self._parent: Optional[DeploymentNode] = None
         self._element = software_system
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
-        self._m.tags = ','.join({"Software System Instance"}.union(tags))
+        self._tags = {'Software System Instance'}.union(tags)
+        self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
@@ -952,6 +963,10 @@ class SoftwareSystemInstance(DslElementInstance, DslElementRelationOverrides[
     @property
     def model(self) -> buildzr.models.SoftwareSystemInstance:
         return self._m
+
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
 
     @property
     def parent(self) -> Optional[DeploymentNode]:
@@ -998,7 +1013,8 @@ class ContainerInstance(DslElementInstance, DslElementRelationOverrides[
         self._parent: Optional[DeploymentNode] = None
         self._element = container
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
-        self._m.tags = ','.join({"Container Instance"}.union(tags))
+        self._tags = {'Container Instance'}.union(tags)
+        self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
@@ -1016,6 +1032,10 @@ class ContainerInstance(DslElementInstance, DslElementRelationOverrides[
     @property
     def model(self) -> buildzr.models.ContainerInstance:
         return self._m
+
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
 
     @property
     def parent(self) -> Optional[DeploymentNode]:
