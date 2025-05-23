@@ -74,7 +74,7 @@ class Workspace(DslWorkspaceElement):
         return None
 
     @property
-    def children(self) -> Optional[List[Union['Person', 'SoftwareSystem']]]:
+    def children(self) -> Optional[List[Union['Person', 'SoftwareSystem', 'DeploymentNode']]]:
         return self._children
 
     def __init__(
@@ -88,7 +88,7 @@ class Workspace(DslWorkspaceElement):
 
         self._m = buildzr.models.Workspace()
         self._parent = None
-        self._children: Optional[List[Union['Person', 'SoftwareSystem']]] = []
+        self._children: Optional[List[Union['Person', 'SoftwareSystem', 'DeploymentNode']]] = []
         self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem']] = {}
         self._use_implied_relationships = implied_relationships
         self._group_separator = group_separator
@@ -191,6 +191,7 @@ class Workspace(DslWorkspaceElement):
         elif isinstance(model, DeploymentNode):
             self._m.model.deploymentNodes.append(model._m)
             model._parent = self
+            self._children.append(model)
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 

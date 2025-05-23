@@ -6,6 +6,11 @@ from buildzr.dsl import (
     Person,
     Container,
     Component,
+    DeploymentEnvironment,
+    DeploymentNode,
+    InfrastructureNode,
+    SoftwareSystemInstance,
+    ContainerInstance,
     With,
 )
 from buildzr.dsl.interfaces import DslRelationship
@@ -25,18 +30,55 @@ def workspace() -> Workspace:
             Container("database")
             s.webapp >> "Uses" >> s.database
         u >> "Runs SQL queries" >> s.database
+
+        with DeploymentEnvironment('Production') as production:
+            with DeploymentNode("Server 1") as server_1:
+                SoftwareSystemInstance(s, tags={'si_1'})
+                ContainerInstance(webapp, tags={'ci_1'})
+                with DeploymentNode("Database Server"):
+                    ContainerInstance(s.database, tags={'ci_2'})
+            with DeploymentNode("Server 2") as server_2:
+                ContainerInstance(webapp, tags={'ci_3'})
+                with DeploymentNode("Database Server"):
+                    ContainerInstance(s.database, tags={'ci_4'})
+
+                load_balancer = InfrastructureNode("Load Balancer")
+                load_balancer >> "Routes to" >> server_1
+
     return w
 
 def test_walk_elements(workspace: Workspace) -> Optional[None]:
 
+    expected_element_and_value = [
+        (Person, 'u'),
+        (SoftwareSystem, 's'),
+        (Container, 'webapp'),
+        (Component, 'database layer'),
+        (Component, 'API layer'),
+        (Component, 'UI layer'),
+        (Container, 'database'),
+        (DeploymentNode, 'Server 1'),
+        (SoftwareSystemInstance, 'si_1'),
+        (ContainerInstance, 'ci_1'),
+        (DeploymentNode, 'Database Server'),
+        (ContainerInstance, 'ci_2'),
+        (DeploymentNode, 'Server 2'),
+        (ContainerInstance, 'ci_3'),
+        (DeploymentNode, 'Database Server'),
+        (ContainerInstance, 'ci_4'),
+        (InfrastructureNode, 'Load Balancer'),
+    ]
+
     explorer = Explorer(workspace).walk_elements()
-    assert next(explorer).model.name == 'u'
-    assert next(explorer).model.name == 's'
-    assert next(explorer).model.name == 'webapp'
-    assert next(explorer).model.name == 'database layer'
-    assert next(explorer).model.name == 'API layer'
-    assert next(explorer).model.name == 'UI layer'
-    assert next(explorer).model.name == 'database'
+    for expected_element, expected_value in expected_element_and_value:
+        model = next(explorer)
+        if isinstance(
+            model,
+            (Person, SoftwareSystem, Container, Component, DeploymentNode, InfrastructureNode)
+        ):
+            assert model.model.name == expected_value
+        else:
+            assert expected_value in model.tags
 
 def test_walk_relationships(workspace: Workspace) -> Optional[None]:
 
@@ -46,11 +88,7 @@ def test_walk_relationships(workspace: Workspace) -> Optional[None]:
         for relationship in relationships
     }
 
-    for relationship in relationships:
-        if hasattr(relationship.source.model, 'name') and hasattr(relationship.destination.model, 'name'):
-            print(f"{relationship.source.model.name} >> {relationship.model.description} >> {relationship.destination.model.name}")
-
-    assert len(relationships) == 5 # Including one additional implied relationship
+    assert len(relationships) == 6 # Including one additional implied relationship
 
     for relationship in relationships:
         relationship_set = (
