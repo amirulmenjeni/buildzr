@@ -2,7 +2,7 @@ from dataclasses import dataclass, fields
 import inspect
 import pytest
 import importlib
-from typing import Optional, cast
+from typing import Optional, Iterable, Set, cast
 from buildzr.dsl.interfaces import DslRelationship
 from buildzr.dsl import (
     Workspace,
@@ -974,6 +974,47 @@ def test_deployments_on_software_and_container_instances() -> Optional[None]:
         assert w.model.model.deploymentNodes[1].infrastructureNodes[0].relationships[0].sourceId == prod_lb.model.id
         assert w.model.model.deploymentNodes[1].infrastructureNodes[0].relationships[0].destinationId == api_container_instance.model.id
         assert w.model.model.deploymentNodes[1].infrastructureNodes[0].relationships[0].description == "Distributes traffic to"
+
+def test_element_tags_attribute() -> Optional[None]:
+
+    def to_set(tags: str) -> Set[str]:
+        tags_list = [tag for tag in tags.split(',')]
+        return {tag.strip() for tag in tags_list}
+
+    person = Person("User", tags={"abc"})
+    assert person.tags == {"Element", "Person", "abc"}
+    assert to_set(person.model.tags) == {"Element", "Person", "abc"}
+
+    software_system = SoftwareSystem("Software System", tags={"abc"})
+    assert software_system.tags == {"Element", "Software System", "abc"}
+    assert to_set(software_system.model.tags) == {"Element", "Software System", "abc"}
+
+    container = Container("Container", tags={"abc"})
+    assert container.tags == {"Element", "Container", "abc"}
+    assert to_set(container.model.tags) == {"Element", "Container", "abc"}
+
+    component = Component("Component", tags={"abc"})
+    assert component.tags == {"Element", "Component", "abc"}
+    assert to_set(component.model.tags) == {"Element", "Component", "abc"}
+
+    infrastructure_node = InfrastructureNode("Infrastructure Node", tags={"abc"})
+    assert infrastructure_node.tags == {"Element", "Infrastructure Node", "abc"}
+    assert to_set(infrastructure_node.model.tags) == {"Element", "Infrastructure Node", "abc"}
+
+    deployment_node = DeploymentNode("Deployment Node", tags={"abc"})
+    assert deployment_node.tags == {"Element", "Deployment Node", "abc"}
+    assert to_set(deployment_node.model.tags) == {"Element", "Deployment Node", "abc"}
+
+    infrastructure_node = InfrastructureNode("Infrastructure Node", tags={"abc"})
+    assert infrastructure_node.tags == {"Element", "Infrastructure Node", "abc"}
+
+    software_system_instance = SoftwareSystemInstance(software_system, tags={"abc"})
+    assert software_system_instance.tags == {"Software System Instance", "abc"}
+    assert to_set(software_system_instance.model.tags) == {"Software System Instance", "abc"}
+
+    container_instance = ContainerInstance(container, tags={"abc"})
+    assert container_instance.tags == {"Container Instance", "abc"}
+    assert to_set(container_instance.model.tags) == {"Container Instance", "abc"}
 
 def test_json_sink() -> Optional[None]:
 
