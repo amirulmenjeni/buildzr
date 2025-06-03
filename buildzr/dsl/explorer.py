@@ -3,6 +3,10 @@ from buildzr.dsl.dsl import (
     SoftwareSystem,
     Container,
     Component,
+    DeploymentNode,
+    InfrastructureNode,
+    SoftwareSystemInstance,
+    ContainerInstance,
 )
 
 from buildzr.dsl.relations import (
@@ -27,10 +31,32 @@ from buildzr.dsl.interfaces import (
 
 class Explorer:
 
-    def __init__(self, workspace_or_element: Union[Workspace, Person, SoftwareSystem, Container, Component]):
+    def __init__(
+        self,
+        workspace_or_element: Union[
+            Workspace,
+            Person,
+            SoftwareSystem,
+            Container,
+            Component,
+            DeploymentNode,
+            InfrastructureNode,
+            SoftwareSystemInstance,
+            ContainerInstance,
+        ]
+    ):
         self._workspace_or_element = workspace_or_element
 
-    def walk_elements(self) -> Generator[Union[Person, SoftwareSystem, Container, Component], None, None]:
+    def walk_elements(self) -> Generator[Union[
+        Person,
+        SoftwareSystem,
+        Container,
+        Component,
+        DeploymentNode,
+        InfrastructureNode,
+        SoftwareSystemInstance,
+        ContainerInstance
+    ], None, None]:
         if self._workspace_or_element.children:
             for child in self._workspace_or_element.children:
                 explorer = Explorer(child).walk_elements()

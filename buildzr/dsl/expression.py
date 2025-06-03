@@ -10,6 +10,10 @@ from buildzr.dsl.dsl import (
     SoftwareSystem,
     Container,
     Component,
+    DeploymentNode,
+    InfrastructureNode,
+    SoftwareSystemInstance,
+    ContainerInstance,
     TypedDynamicAttribute,
 )
 
@@ -20,7 +24,22 @@ from typing import Set, Union, Optional, List, Dict, Any, Callable, Tuple, Seque
 from typing_extensions import TypeIs
 
 def _has_technology_attribute(obj: DslElement) -> TypeIs[Union[Container, Component]]:
-    if isinstance(obj, (Person, SoftwareSystem, Workspace)):
+    if isinstance(obj, (Person, SoftwareSystem, Workspace, SoftwareSystemInstance, ContainerInstance)):
+        return False
+    return True
+
+def _has_group_attribute(obj: DslElement) -> TypeIs[Union[Person, SoftwareSystem, Container, Component]]:
+    if isinstance(obj, (Workspace, DeploymentNode, InfrastructureNode, SoftwareSystemInstance, ContainerInstance)):
+        return False
+    return True
+
+def _has_name_attribute(obj: DslElement) -> TypeIs[Union[Person, SoftwareSystem, Container, Component, DeploymentNode, InfrastructureNode]]:
+    if isinstance(obj, (Workspace, SoftwareSystemInstance, ContainerInstance)):
+        return False
+    return True
+
+def _has_environment_attribute(obj: DslElement) -> TypeIs[Union[ContainerInstance, SoftwareSystemInstance]]:
+    if isinstance(obj, (Workspace, Person, SoftwareSystem, Container, Component)):
         return False
     return True
 
@@ -38,7 +57,19 @@ class FlattenElement:
 
     @property
     def names(self) -> Set[Union[str]]:
-        return set([str(element.model.name) for element in self._elements])
+
+        """
+        Returns the names of the elements.
+
+        If the element is a `SoftwareSystemInstance` or `ContainerInstance`,
+        which has no name attribute, it will be excluded from the result.
+        """
+
+        name_set: Set[str] = set()
+        for element in self._elements:
+            if _has_name_attribute(element):
+                name_set.add(str(element.model.name))
+        return name_set
 
     @property
     def tags(self) -> Set[Union[str]]:
@@ -103,6 +134,10 @@ class ElementExpression:
         return self._element.parent
 
     @property
+    def children(self) -> FlattenElement:
+        return FlattenElement(self._element.children)
+
+    @property
     def sources(self) -> FlattenElement:
         return FlattenElement(self._element.sources)
 
@@ -112,17 +147,46 @@ class ElementExpression:
 
     @property
     def properties(self) -> Dict[str, Any]:
-        return self._element.model.properties
+        if self._element.model.properties is not None:
+            return self._element.model.properties
+        return dict()
 
     @property
     def group(self) -> Optional[str]:
+
         """
-        Returns the group of the element. The group is a string that is used to
+        Returns the group of the element (if applicable). The group is a string that is used to
         group elements in the Structurizr DSL.
         """
-        if not isinstance(self._element.model, buildzr.models.Workspace):
+
+        if _has_group_attribute(self._element):
             return self._element.model.group
         return None
+
+    @property
+    def environment(self) -> Optional[str]:
+
+        """
+        Returns the environment of the element (if applicable). The environment
+        is a string that is used to group deployment nodes and instances in the
+        Structurizr DSL.
+        """
+
+        if _has_environment_attribute(self._element):
+            return self._element.model.environment
+        return None
+
+    def is_instance_of(self, other: DslElement) -> bool:
+
+        """
+        Returns `True` if the element is an instance of the other element.
+        """
+
+        if isinstance(self._element, SoftwareSystemInstance):
+            return self._element.model.softwareSystemId == other.model.id
+        elif isinstance(self._element, ContainerInstance):
+            return self._element.model.containerId == other.model.id
+        return False
 
     def __eq__(self, element: object) -> bool:
         return isinstance(element, type(self._element)) and\
