@@ -202,6 +202,7 @@ class Workspace(DslWorkspaceElement):
             'SystemContextView',
             'ContainerView',
             'ComponentView',
+            'DeploymentView',
         ]
     ) -> None:
 
@@ -230,6 +231,11 @@ class Workspace(DslWorkspaceElement):
                 self.model.views.componentViews = [view.model]
             else:
                 self.model.views.componentViews.append(view.model)
+        elif isinstance(view, DeploymentView):
+            if not self.model.views.deploymentViews:
+                self.model.views.deploymentViews = [view.model]
+            else:
+                self.model.views.deploymentViews.append(view.model)
         else:
             raise NotImplementedError("The view {0} is currently not supported", type(view))
 
@@ -1492,6 +1498,202 @@ class ComponentView(DslViewElement):
         self._m.relationships = []
         for relationship_id in relationship_ids:
             self._m.relationships.append(RelationshipView(id=relationship_id))
+
+class DeploymentView(DslViewElement):
+
+    from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
+
+    @property
+    def model(self) -> buildzr.models.DeploymentView:
+        return self._m
+
+    def __init__(
+        self,
+        environment: DeploymentEnvironment,
+        key: str,
+        software_system_selector: Optional[Union[SoftwareSystem, Callable[[WorkspaceExpression], SoftwareSystem]]]=None,
+        description: str="",
+        auto_layout: _AutoLayout='tb',
+        title: Optional[str]=None,
+        include_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        exclude_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]]=[],
+        include_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
+        exclude_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]]=[],
+        properties: Optional[Dict[str, str]]=None,
+    ) -> None:
+        self._m = buildzr.models.DeploymentView()
+
+        self._selector = software_system_selector
+        self._environment = environment
+
+        self._m.key = key
+        self._m.description = description
+        self._m.environment = environment.name
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
+        self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_view(self)
+
+    def _on_added(self, workspace: Workspace) -> None:
+
+        from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
+        from buildzr.dsl.explorer import Explorer
+        from buildzr.models import ElementView, RelationshipView
+
+        print("environment: ", self._environment.name)
+        print("software_system_selector: ", self._selector)
+
+        software_system: Optional[SoftwareSystem] = None
+        if self._selector is not None:
+            if isinstance(self._selector, SoftwareSystem):
+                software_system = self._selector
+                self._m.softwareSystemId = software_system.model.id
+            else:
+                software_system = self._selector(WorkspaceExpression(workspace))
+                self._m.softwareSystemId = software_system.model.id
+
+        view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = []
+        view_elements_filter_excludes: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = []
+        view_relationships_filter: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = []
+
+        def is_software_system_contains_container(
+            software_system_id: str,
+            container_id: str,
+        ) -> bool:
+            for software_system in workspace.model.model.softwareSystems:
+                if software_system.id == software_system_id:
+                    for container in software_system.containers:
+                        if container.id == container_id:
+                            return True
+            return False
+
+        def recursive_includes(
+            deployment_node_ancestor_ids: List[str],
+            deployment_node: buildzr.models.DeploymentNode,
+            upstream_software_system_ids: Set[str],
+            environment: str,
+            include_ids: Set[str],
+            selected_software_system: Optional[buildzr.models.SoftwareSystem] = None,
+        ) -> None:
+
+            print("    deployment node id: ", deployment_node.id)
+
+            instance_ids: Set[str] = set()
+            for child in deployment_node.children:
+                if child.environment == environment:
+                    recursive_includes(
+                        deployment_node_ancestor_ids + [deployment_node.id],
+                        child,
+                        upstream_software_system_ids.union({
+                            software_system_instance.softwareSystemId
+                            for software_system_instance in deployment_node.softwareSystemInstances
+                        }),
+                        environment,
+                        include_ids,
+                        selected_software_system
+                    )
+
+            if selected_software_system is None:
+                software_instance_ids = {
+                    instance.id for instance in deployment_node.softwareSystemInstances
+                    if instance.environment == environment
+                }
+
+                sibling_software_system_ids = {
+                    instance.softwareSystemId for instance in deployment_node.softwareSystemInstances
+                    if instance.environment == environment
+                }
+
+                container_instance_ids = {
+                    instance.id for instance in deployment_node.containerInstances
+                    if instance.environment == environment and \
+                       not any({
+                            is_software_system_contains_container(
+                                software_system_id,
+                                instance.containerId
+                            ) for software_system_id in upstream_software_system_ids.union(sibling_software_system_ids)
+                       })
+                }
+
+                instance_ids.update(software_instance_ids)
+                instance_ids.update(container_instance_ids)
+
+            else:
+                container_instance_ids = {
+                    instance.id for instance in deployment_node.containerInstances
+                    if instance.environment == environment and \
+                        is_software_system_contains_container(
+                            selected_software_system.id,
+                            instance.containerId
+                        )
+                }
+
+                instance_ids.update(container_instance_ids)
+
+            # Only include this deployment node
+            # if there's anything to include at all.
+            if len(instance_ids) > 0:
+                for deployment_node_ancestor_id in deployment_node_ancestor_ids:
+                    include_ids.add(deployment_node_ancestor_id)
+                include_ids.add(deployment_node.id)
+                include_ids.update(instance_ids)
+
+        include_ids: Set[str] = set()
+        upstream_software_system_ids: Set[str] = set()
+
+        for root_deployment_node in workspace.model.model.deploymentNodes:
+            if root_deployment_node.environment == self._environment.name:
+                recursive_includes(
+                    [],
+                    root_deployment_node,
+                    upstream_software_system_ids,
+                    self._environment.name,
+                    include_ids,
+                    software_system.model if software_system else None
+                )
+
+        print("    include_ids: ", include_ids)
+
+        view_elements_filter = [
+            lambda w, e: (
+                e.id in include_ids
+            ),
+        ]
+
+        view_relationships_filter = [
+            lambda w, r: r.source.environment == self._environment.name,
+            lambda w, r: r.destination.environment == self._environment.name,
+        ]
+
+        # print("len view_relationships_filter: ", len(view_relationships_filter))
+
+        expression = Expression(
+            include_elements=self._include_elements + view_elements_filter,
+            exclude_elements=self._exclude_elements,
+            include_relationships=self._include_relationships + view_relationships_filter,
+            exclude_relationships=self._exclude_relationships,
+        )
+
+        element_ids = [str(element.model.id) for element in expression.elements(workspace)]
+        relationship_ids = [str(relationship.model.id) for relationship in expression.relationships(workspace)]
+
+        self._m.elements = []
+        for element_id in element_ids:
+            self._m.elements.append(ElementView(id=element_id))
+
+        self._m.relationships = []
+        for relationship_id in relationship_ids:
+            self._m.relationships.append(RelationshipView(id=relationship_id))
+
 
 class StyleElements:
 
