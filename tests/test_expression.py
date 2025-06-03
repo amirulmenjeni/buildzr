@@ -6,10 +6,15 @@ from buildzr.dsl import (
     Container,
     Component,
     expression,
+    DeploymentEnvironment,
+    DeploymentNode,
+    InfrastructureNode,
+    SoftwareSystemInstance,
+    ContainerInstance,
     With,
 )
 from buildzr.dsl import Explorer
-from typing import Optional, cast
+from typing import Optional, List, cast
 
 @pytest.fixture
 def workspace() -> Workspace:
@@ -33,6 +38,36 @@ def workspace() -> Workspace:
                 'url': 'http://example.com/docs/api/endpoint',
             }
         )
+
+        with DeploymentEnvironment('Development') as development:
+            with DeploymentNode('Developer Machine') as developer_machine:
+                s_instance = SoftwareSystemInstance(s)
+                ContainerInstance(app)
+                with DeploymentNode('Database Server'):
+                    ContainerInstance(db)
+
+                firewall = InfrastructureNode('Firewall')
+                firewall >> s_instance
+
+        with DeploymentEnvironment('Production') as production:
+            server_1 = DeploymentNode('Server 1')
+            server_2 = DeploymentNode('Server 2')
+
+            with server_1:
+                s_instance = SoftwareSystemInstance(s)
+                ContainerInstance(app)
+                with DeploymentNode('Database Server 1'):
+                    ContainerInstance(db)
+                firewall = InfrastructureNode('Firewall')
+                firewall >> s_instance
+
+            with server_2:
+                s_instance = SoftwareSystemInstance(s)
+                ContainerInstance(app)
+                with DeploymentNode('Database Server 2'):
+                    ContainerInstance(db)
+                firewall = InfrastructureNode('Firewall')
+                firewall >> s_instance
 
     return w
 
@@ -203,6 +238,44 @@ def test_filter_relationships_by_properties(workspace: Workspace) -> Optional[No
     assert 'url' in relationships[0].model.properties.keys()
     assert 'example.com' in relationships[0].model.properties['url']
 
+def test_filter_by_environment(workspace: Workspace) -> Optional[None]:
+
+    # Create an expression to get all the elements of a specific environment.
+
+    filter_development = expression.Expression(
+        include_elements=[
+            lambda w, e: (
+                e.environment == "Development" and
+                e.type in (ContainerInstance, SoftwareSystemInstance)
+            )
+        ],
+    )
+
+    filter_production = expression.Expression(
+        include_elements=[
+            lambda w, e: (
+                e.environment == "Production" and
+                e.type in (ContainerInstance, InfrastructureNode)
+            )
+        ],
+    )
+
+    elements = filter_development.elements(workspace)
+
+    assert len(elements) == 3
+    assert isinstance(elements[0], SoftwareSystemInstance)
+    assert isinstance(elements[1], ContainerInstance)
+    assert isinstance(elements[2], ContainerInstance)
+
+    elements = filter_production.elements(workspace)
+    assert len(elements) == 6
+    assert isinstance(elements[0], ContainerInstance)
+    assert isinstance(elements[1], ContainerInstance)
+    assert isinstance(elements[2], InfrastructureNode)
+    assert isinstance(elements[3], ContainerInstance)
+    assert isinstance(elements[4], ContainerInstance)
+    assert isinstance(elements[5], InfrastructureNode)
+
 def test_filter_element_with_workspace_path(workspace: Workspace) -> Optional[None]:
 
     filter = expression.Expression(
@@ -282,7 +355,7 @@ def test_filter_relationships_without_includes_only_excludes(workspace: Workspac
     )
 
     relationships = filter.relationships(workspace)
-    assert len(relationships) == 1
+    assert len(relationships) == 4
 
 def test_filter_type(workspace: Workspace) -> Optional[None]:
     # Create an expression with include_elements and exclude_elements
@@ -302,3 +375,101 @@ def test_filter_type(workspace: Workspace) -> Optional[None]:
         workspace.software_system().s.db.model.id,
     }.issubset({ id for id in map(lambda x: x.model.id, elements) })
     assert len(elements) == 3
+
+def test_filter_deployment_nodes(workspace: Workspace) -> Optional[None]:
+    # Create an expression with include_elements and exclude_elements
+
+    filter_development = expression.Expression(
+        include_elements=[
+            lambda w, e: e.type == DeploymentNode and e.environment == "Development",
+        ],
+    )
+
+    filter_production = expression.Expression(
+        include_elements=[
+            lambda w, e: e.type == DeploymentNode and e.environment == "Production",
+        ],
+    )
+
+    development_nodes = cast(List[DeploymentNode], filter_development.elements(workspace))
+    production_nodes = cast(List[DeploymentNode], filter_production.elements(workspace))
+
+    assert len(development_nodes) == 2
+    assert development_nodes[0].model.name == "Developer Machine"
+    assert development_nodes[1].model.name == "Database Server"
+
+    assert len(production_nodes) == 4
+    assert production_nodes[0].model.name == "Server 1"
+    assert production_nodes[1].model.name == "Database Server 1"
+    assert production_nodes[2].model.name == "Server 2"
+    assert production_nodes[3].model.name == "Database Server 2"
+
+def test_filter_infrastructure_nodes(workspace: Workspace) -> Optional[None]:
+
+    filter_development = expression.Expression(
+        include_elements=[
+            lambda w, e: e.type == InfrastructureNode and e.environment == "Development",
+        ],
+    )
+
+    filter_production = expression.Expression(
+        include_elements=[
+            lambda w, e: e.type == InfrastructureNode and e.environment == "Production",
+        ],
+    )
+
+    development_elements = cast(List[InfrastructureNode], filter_development.elements(workspace))
+    production_elements = cast(List[InfrastructureNode], filter_production.elements(workspace))
+
+    assert len(development_elements) == 1
+    assert development_elements[0].model.name == "Firewall"
+
+    assert len(production_elements) == 2
+    assert production_elements[0].model.name == "Firewall"
+    assert production_elements[1].model.name == "Firewall"
+
+def test_filter_software_system_instance_ids(workspace: Workspace) -> Optional[None]:
+
+    # Create an expression to get all the software system instances of a specific software system.
+
+    filter = expression.Expression(
+        include_elements=[
+            lambda w, e: e.is_instance_of(w.software_system().s),
+        ],
+    )
+
+    elements = cast(List[SoftwareSystemInstance], filter.elements(workspace))
+
+    assert len(elements) == 3
+    assert elements[0].model.environment == "Development"
+    assert elements[1].model.environment == "Production"
+    assert elements[2].model.environment == "Production"
+
+def test_filter_container_instance_ids(workspace: Workspace) -> Optional[None]:
+
+    # Create an expression to get all the container instances of a specific container.
+
+    filter_app = expression.Expression(
+        include_elements=[
+            lambda w, e: e.is_instance_of(w.software_system().s.app),
+        ],
+    )
+
+    filter_db = expression.Expression(
+        include_elements=[
+            lambda w, e: e.is_instance_of(w.software_system().s.db),
+        ],
+    )
+
+    app_instances = cast(List[ContainerInstance], filter_app.elements(workspace))
+    db_instances = cast(List[ContainerInstance], filter_db.elements(workspace))
+
+    assert len(app_instances) == 3
+    assert app_instances[0].model.environment == "Development"
+    assert app_instances[1].model.environment == "Production"
+    assert app_instances[2].model.environment == "Production"
+
+    assert len(db_instances) == 3
+    assert db_instances[0].model.environment == "Development"
+    assert db_instances[1].model.environment == "Production"
+    assert db_instances[2].model.environment == "Production"
