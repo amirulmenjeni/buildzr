@@ -593,26 +593,26 @@ def test_deployment_view_with_software_instance() -> Optional[None]:
             api >> db
 
         with DeploymentEnvironment('env-with-software-instance') as env1:
-            with DeploymentNode('Server') as server1: # 9
-                s_instance_1 = SoftwareSystemInstance(s) # 10 # SoftwareSystemInstance is created here.
-                with DeploymentNode('Docker') as docker1: # 11
-                    api_instance_1 = ContainerInstance(api) # 12
-                    db_instance_1 = ContainerInstance(db) # 13
+            with DeploymentNode('Server') as server1:
+                s_instance_1 = SoftwareSystemInstance(s)
+                with DeploymentNode('Docker') as docker1:
+                    api_instance_1 = ContainerInstance(api)
+                    db_instance_1 = ContainerInstance(db)
 
         with DeploymentEnvironment('env-with-software-instance-1') as env2:
-            with DeploymentNode('Server') as server2: # 14
-                with DeploymentNode('Docker') as docker2: # 15
-                    s_instance_2 = SoftwareSystemInstance(s) # 16 # SoftwareSystemInstance is created here.
-                    api_instance_2 = ContainerInstance(api) # 17
-                    db_instance_2 = ContainerInstance(db) # 18
+            with DeploymentNode('Server') as server2:
+                with DeploymentNode('Docker') as docker2:
+                    s_instance_2 = SoftwareSystemInstance(s)
+                    api_instance_2 = ContainerInstance(api)
+                    db_instance_2 = ContainerInstance(db)
 
         with DeploymentEnvironment('env-with-software-instance-2') as env3:
-            with DeploymentNode('Server') as server3: # 19
-                with DeploymentNode('VM') as vm3: # 20
-                    s_instance_3 = SoftwareSystemInstance(s) # 21 # SoftwareSystemInstance is created here.
-                    with DeploymentNode('Docker') as docker4: # 22
-                        api_instance_3 = ContainerInstance(api) # 23
-                        db_instance_3 = ContainerInstance(db) # 24
+            with DeploymentNode('Server') as server3:
+                with DeploymentNode('VM') as vm3:
+                    s_instance_3 = SoftwareSystemInstance(s)
+                    with DeploymentNode('Docker') as docker4:
+                        api_instance_3 = ContainerInstance(api)
+                        db_instance_3 = ContainerInstance(db)
 
         # 0
         DeploymentView(
