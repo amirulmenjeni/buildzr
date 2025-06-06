@@ -740,6 +740,61 @@ def test_deployment_view_with_software_instance() -> Optional[None]:
     assert w.model.views.deploymentViews[5].elements[3].id == api_instance_3.model.id
     assert w.model.views.deploymentViews[5].elements[4].id == db_instance_3.model.id
 
+def test_deployment_view_with_deployment_groups() -> Optional[None]:
+
+    with Workspace('w') as w:
+
+        with SoftwareSystem('Software System') as s:
+            api = Container('API')
+            db = Container('Database')
+            api >> db
+
+        with DeploymentEnvironment('Production') as production:
+            service_instance_1 = DeploymentGroup("Service instance 1")
+            service_instance_2 = DeploymentGroup("Service instance 2")
+
+            with DeploymentNode('Server 1') as server1:
+                ci_api_1 = ContainerInstance(api, deployment_groups=[service_instance_1])
+                with DeploymentNode('Database Server 1') as db_server1:
+                    ci_db_1 = ContainerInstance(db, deployment_groups=[service_instance_1])
+
+            with DeploymentNode('Server 2') as server2:
+                ci_api_2 = ContainerInstance(api, deployment_groups=[service_instance_2])
+                with DeploymentNode('Database Server 2') as db_server2:
+                    ci_db_2 = ContainerInstance(db, deployment_groups=[service_instance_2])
+
+        DeploymentView(
+            environment=production,
+            key='deployment',
+        )
+
+    assert w.model.views.deploymentViews is not None
+    assert len(w.model.views.deploymentViews) == 1
+    assert w.model.views.deploymentViews[0].key == 'deployment'
+    assert w.model.views.deploymentViews[0].environment == production.name
+
+    assert len(w.model.views.deploymentViews[0].elements) == 8
+    assert w.model.views.deploymentViews[0].elements[0].id == server1.model.id
+    assert w.model.views.deploymentViews[0].elements[1].id == ci_api_1.model.id
+    assert w.model.views.deploymentViews[0].elements[2].id == db_server1.model.id
+    assert w.model.views.deploymentViews[0].elements[3].id == ci_db_1.model.id
+    assert w.model.views.deploymentViews[0].elements[4].id == server2.model.id
+    assert w.model.views.deploymentViews[0].elements[5].id == ci_api_2.model.id
+    assert w.model.views.deploymentViews[0].elements[6].id == db_server2.model.id
+    assert w.model.views.deploymentViews[0].elements[7].id == ci_db_2.model.id
+
+    assert w.model.model.deploymentNodes[0].containerInstances[0].id == ci_api_1.model.id
+    assert w.model.model.deploymentNodes[0].containerInstances[0].deploymentGroups[0] == "Service instance 1"
+    assert w.model.model.deploymentNodes[0].children[0].id == db_server1.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].id == ci_db_1.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].deploymentGroups[0] == "Service instance 1"
+
+    assert w.model.model.deploymentNodes[1].containerInstances[0].id == ci_api_2.model.id
+    assert w.model.model.deploymentNodes[1].containerInstances[0].deploymentGroups[0] == "Service instance 2"
+    assert w.model.model.deploymentNodes[1].children[0].id == db_server2.model.id
+    assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].id == ci_db_2.model.id
+    assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].deploymentGroups[0] == "Service instance 2"
+
 def test_style_elements_on_dslelements() -> Optional[None]:
 
     """
