@@ -1585,6 +1585,22 @@ class DeploymentView(DslViewElement):
             selected_software_system: Optional[buildzr.models.SoftwareSystem] = None,
         ) -> None:
 
+            """
+            Recursively includes the relevant deployment nodes, software system
+            instances, container instances, and infrastructure nodes based on
+            the provided environment and DeploymentView parameters.
+
+            @param deployment_node_ancestor_ids: List of ancestor deployment
+            node IDs. Useful for tracing back the upstream deployment nodes that
+            should be included in the view. For example, we may have deployment nodes
+            `a` -> `b` -> `c`, and we want to include all of them if `c` is included,
+            even if `b` has no software system instances, container instances,
+            or infrastructure nodes.
+
+            @param upstream_software_system_ids: Set of software system IDs that
+            whose instance exists in the upstream deployment nodes.
+            """
+
             print("    deployment node id: ", deployment_node.id)
 
             instance_ids: Set[str] = set()
@@ -1638,6 +1654,13 @@ class DeploymentView(DslViewElement):
                 }
 
                 instance_ids.update(container_instance_ids)
+
+            infrastructure_node_ids = {
+                infrastructure_node.id for infrastructure_node in deployment_node.infrastructureNodes
+                if infrastructure_node.environment == environment
+            }
+
+            instance_ids.update(infrastructure_node_ids)
 
             # Only include this deployment node
             # if there's anything to include at all.

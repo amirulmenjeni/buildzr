@@ -18,6 +18,7 @@ from buildzr.dsl import (
     DeploymentEnvironment,
     DeploymentGroup,
     DeploymentNode,
+    InfrastructureNode,
     DeploymentView,
     StyleElements,
     StyleRelationships,
@@ -794,6 +795,70 @@ def test_deployment_view_with_deployment_groups() -> Optional[None]:
     assert w.model.model.deploymentNodes[1].children[0].id == db_server2.model.id
     assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].id == ci_db_2.model.id
     assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].deploymentGroups[0] == "Service instance 2"
+
+def test_deployment_view_with_infrastructure_nodes() -> Optional[None]:
+
+    with Workspace('w') as w:
+
+        with SoftwareSystem('Software System') as s:
+            with Container('Web Application') as webapp:
+                pass
+            with Container('Database') as db:
+                pass
+
+            webapp >> "Reads from and writes to" >> db
+
+        with DeploymentEnvironment('Live') as live:
+            with DeploymentNode('Amazon Web Services') as aws:
+                with DeploymentNode('ap-southeast-1') as region:
+                    dns = InfrastructureNode(
+                        'DNS Router',
+                        technology="Route 53",
+                        description="DNS Router for the web application",
+                        tags={"dns", "router"}
+                    )
+
+                    lb = InfrastructureNode(
+                        'Load Balancer',
+                        technology="Elastic Load Balancer",
+                        description="Load Balancer for the web application",
+                        tags={"load-balancer"}
+                    )
+
+                    dns >> "Forwards requests to" >> lb
+
+                    with DeploymentNode('Auto Scaling Group') as asg:
+                        with DeploymentNode('Ubuntu Server') as ubuntu:
+                            webapp_instance = ContainerInstance(webapp)
+                            lb >> "Forwards requests to" >> webapp_instance
+
+                    with DeploymentNode('Amazon RDS') as rds:
+                        with DeploymentNode('MySQL') as mysql:
+                            ContainerInstance(db)
+
+        DeploymentView(
+            environment=live,
+            key='deployment-with-infrastructure-nodes',
+            description="Deployment View with Infrastructure Nodes",
+            software_system_selector=s,
+            auto_layout='lr',
+        )
+
+    assert w.model.views.deploymentViews is not None
+    assert len(w.model.views.deploymentViews) == 1
+    assert w.model.views.deploymentViews[0].key == 'deployment-with-infrastructure-nodes'
+    assert w.model.views.deploymentViews[0].environment == live.name
+    assert w.model.views.deploymentViews[0].softwareSystemId == s.model.id
+
+    assert len(w.model.views.deploymentViews[0].elements) == 10
+    assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[0].id == dns.model.id
+    assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[1].id == lb.model.id
+    assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[0].relationships[0].destinationId == lb.model.id
+    assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[1].relationships[0].destinationId == webapp_instance.model.id
+
+    assert { lb.model.id, dns.model.id }.issubset({
+        x.id for x in w.model.views.deploymentViews[0].elements
+    })
 
 def test_style_elements_on_dslelements() -> Optional[None]:
 
