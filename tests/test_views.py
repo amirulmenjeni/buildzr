@@ -422,6 +422,61 @@ def test_container_view_with_multiple_software_systems(use_context: bool) -> Opt
         c1.model.relationships[0].id,
     }.issubset(set(relationship_ids))
 
+def test_software_system_instances_carry_over_relationships() -> Optional[None]:
+
+    with Workspace('w') as w:
+        with SoftwareSystem('s1') as s1:
+            api = Container('API')
+            db = Container('Database')
+        with SoftwareSystem('s2') as s2:
+            api2 = Container('API2')
+            db2 = Container('Database2')
+
+        s2 >> "Uses" >> s1
+
+        with DeploymentEnvironment('env') as env:
+            with DeploymentNode('Server') as server:
+                s1_instance = SoftwareSystemInstance(s1)
+                s2_instance = SoftwareSystemInstance(s2)
+
+    assert len(w.model.model.deploymentNodes) == 1
+    assert w.model.model.deploymentNodes[0].environment == env.name
+    assert len(w.model.model.deploymentNodes[0].softwareSystemInstances) == 2
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[0].id == s1_instance.model.id
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].id == s2_instance.model.id
+    assert len(w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships) == 1
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships[0].id == s2_instance.model.relationships[0].id
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships[0].sourceId == s2_instance.model.id
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships[0].destinationId == s1_instance.model.id
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships[0].linkedRelationshipId == s2.model.relationships[0].id
+
+def test_container_instances_carry_over_relationships() -> Optional[None]:
+    with Workspace('w') as w:
+        with SoftwareSystem('Software System') as s:
+            api = Container('API')
+            db = Container('Database')
+            api >> db
+
+        with DeploymentEnvironment('env') as env:
+            with DeploymentNode('Server') as server:
+                with DeploymentNode('Docker') as docker:
+                    api_instance = ContainerInstance(api)
+                    db_instance = ContainerInstance(db)
+
+    assert len(w.model.model.deploymentNodes) == 1
+    assert w.model.model.deploymentNodes[0].environment == env.name
+    assert len(w.model.model.deploymentNodes[0].children) == 1
+    assert w.model.model.deploymentNodes[0].name == 'Server'
+    assert w.model.model.deploymentNodes[0].children[0].name == 'Docker'
+
+    assert len(w.model.model.deploymentNodes[0].children[0].containerInstances) == 2
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].id == api_instance.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[1].id == db_instance.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].relationships[0].id == api_instance.model.relationships[0].id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].relationships[0].sourceId == api_instance.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].relationships[0].destinationId == db_instance.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].relationships[0].linkedRelationshipId == api.model.relationships[0].id
+
 def test_multiple_views() -> Optional[None]:
 
     with Workspace("w", scope='landscape', group_separator="/") as w:
@@ -591,12 +646,17 @@ def test_deployment_view_with_software_instance() -> Optional[None]:
         with SoftwareSystem('Software System') as s:
             api = Container('API')
             db = Container('Database')
+            print("api id:", api.model.id)
+            print("db id:", db.model.id)
             api >> db
 
         with DeploymentEnvironment('env-with-software-instance') as env1:
             with DeploymentNode('Server') as server1:
                 s_instance_1 = SoftwareSystemInstance(s)
+                print("server1 id:", server1.model.id)
+                print("s_instance_1 id:", s_instance_1.model.id)
                 with DeploymentNode('Docker') as docker1:
+                    print("docker1 id:", docker1.model.id)
                     api_instance_1 = ContainerInstance(api)
                     db_instance_1 = ContainerInstance(db)
 
@@ -850,11 +910,20 @@ def test_deployment_view_with_infrastructure_nodes() -> Optional[None]:
     assert w.model.views.deploymentViews[0].environment == live.name
     assert w.model.views.deploymentViews[0].softwareSystemId == s.model.id
 
+    assert len(webapp_instance.model.relationships) == 1
+
     assert len(w.model.views.deploymentViews[0].elements) == 10
     assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[0].id == dns.model.id
     assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[1].id == lb.model.id
     assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[0].relationships[0].destinationId == lb.model.id
     assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[1].relationships[0].destinationId == webapp_instance.model.id
+
+    assert len(w.model.views.deploymentViews[0].relationships) == 3
+    assert { x.id for x in w.model.views.deploymentViews[0].relationships } == {
+        webapp_instance.model.relationships[0].id,
+        dns.model.relationships[0].id,
+        lb.model.relationships[0].id,
+    }
 
     assert { lb.model.id, dns.model.id }.issubset({
         x.id for x in w.model.views.deploymentViews[0].elements

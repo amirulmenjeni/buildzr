@@ -124,47 +124,53 @@ class Workspace(DslWorkspaceElement):
 
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
 
+        if self._use_implied_relationships:
+            self._imply_relationships()
+
+        _current_workspace.reset(self._token)
+
+    def _imply_relationships(
+        self,
+    ) -> None:
+
         from buildzr.dsl.explorer import Explorer
 
         # Process implied relationships:
         # If we have relationship s >> do >> a.b, then create s >> do >> a.
         # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
         # And so on...
-        if self._use_implied_relationships:
-            explorer = Explorer(self)
-            relationships = list(explorer.walk_relationships())
-            for relationship in relationships:
-                source = relationship.source
-                destination = relationship.destination
-                destination_parent = destination.parent
+        explorer = Explorer(self)
+        relationships = list(explorer.walk_relationships())
+        for relationship in relationships:
+            source = relationship.source
+            destination = relationship.destination
+            destination_parent = destination.parent
 
-                while destination_parent is not None and \
-                      isinstance(source, DslElement) and \
-                      not isinstance(source.model, buildzr.models.Workspace) and \
-                      not isinstance(destination_parent, DslWorkspaceElement):
+            while destination_parent is not None and \
+                isinstance(source, DslElement) and \
+                not isinstance(source.model, buildzr.models.Workspace) and \
+                not isinstance(destination_parent, DslWorkspaceElement):
 
-                    if destination_parent is source.parent:
-                        break
+                if destination_parent is source.parent:
+                    break
 
-                    rels = source.model.relationships
+                rels = source.model.relationships
 
-                    if rels:
-                        already_exists = any(
-                            r.destinationId == destination_parent.model.id and
-                            r.description == relationship.model.description and
-                            r.technology == relationship.model.technology
-                            for r in rels
+                if rels:
+                    already_exists = any(
+                        r.destinationId == destination_parent.model.id and
+                        r.description == relationship.model.description and
+                        r.technology == relationship.model.technology
+                        for r in rels
+                    )
+                    if not already_exists:
+                        r = source.uses(
+                            destination_parent,
+                            description=relationship.model.description,
+                            technology=relationship.model.technology,
                         )
-                        if not already_exists:
-                            r = source.uses(
-                                destination_parent,
-                                description=relationship.model.description,
-                                technology=relationship.model.technology,
-                            )
-                            r.model.linkedRelationshipId = relationship.model.id
-                        destination_parent = destination_parent.parent
-
-        _current_workspace.reset(self._token)
+                        r.model.linkedRelationshipId = relationship.model.id
+                    destination_parent = destination_parent.parent
 
     def person(self) -> TypedDynamicAttribute['Person']:
         return TypedDynamicAttribute['Person'](self._dynamic_attrs)
@@ -761,6 +767,148 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
 
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[Any]) -> None:
         _current_deployment_environment.reset(self._token)
+
+        if self._parent is not None:
+            self._imply_software_system_instance_relationships(self._parent)
+            self._imply_container_instance_relationships(self._parent)
+
+    def _imply_software_system_instance_relationships(self, workspace: Workspace) -> None:
+
+        from buildzr.dsl.expression import Expression
+
+        """
+        Process implied instance relationships. For example, if we have a
+        relationship between two software systems, and the software system
+        instances of those software systems exists, then we need to create a
+        new relationship between those software system instances.
+
+        These implied relationships are used in `DeploymentView`.
+        """
+
+        software_instances = [
+            cast('SoftwareSystemInstance', e) for e in Expression(include_elements=[
+                lambda w, e: e.type == SoftwareSystemInstance,
+            ]).elements(workspace)
+        ]
+
+        software_instance_map: Dict[str, List['SoftwareSystemInstance']] = {}
+        for software_instance in software_instances:
+            software_id = software_instance.model.softwareSystemId
+            if software_id not in software_instance_map:
+                software_instance_map[software_id] = []
+            software_instance_map[software_id].append(software_instance)
+
+        softwares = [
+            cast('SoftwareSystem', e) for e in Expression(include_elements=[
+                lambda w, e: e.type == SoftwareSystem,
+            ]).elements(workspace)
+        ]
+
+        for software in softwares:
+
+            other_softwares_ids = {
+                s.model.id for s in softwares
+                if s.model.id != software.model.id
+            }
+
+            if not software.model.relationships:
+                continue
+
+            for relationship in software.model.relationships:
+                if not relationship.destinationId in other_softwares_ids:
+                    continue
+
+                this_software_instances = software_instance_map[software.model.id]
+                other_software_instances = software_instance_map[relationship.destinationId]
+
+                for this_software_instance in this_software_instances:
+                    for other_software_instance in other_software_instances:
+
+                        already_exists = this_software_instance.model.relationships is not None and any(
+                            r.sourceId == this_software_instance.model.id and
+                            r.destinationId == other_software_instance.model.id and
+                            r.description == relationship.description and
+                            r.technology == relationship.technology
+                            for r in this_software_instance.model.relationships
+                        )
+
+                        if not already_exists:
+                            # Note: tags aren't carried over.
+                            r = this_software_instance.uses(
+                                other_software_instance,
+                                description=relationship.description,
+                                technology=relationship.technology,
+                            )
+                            r.model.linkedRelationshipId = relationship.id
+
+    def _imply_container_instance_relationships(self, workspace: Workspace) -> None:
+
+        """
+        Process implied instance relationships. For example, if we have a
+        relationship between two containers, and the container instances of
+        those containers exists, then we need to create a new relationship
+        between those container instances.
+
+        These implied relationships are used in `DeploymentView`.
+        """
+
+        from buildzr.dsl.expression import Expression
+
+        container_instances = [
+            cast('ContainerInstance', e) for e in Expression(include_elements=[
+                lambda w, e: e.type == ContainerInstance,
+        ]).elements(workspace)]
+
+        container_instance_map: Dict[str, List['ContainerInstance']] = {}
+        for container_instance in container_instances:
+            container_id = container_instance.model.containerId
+            if container_id not in container_instance_map:
+                container_instance_map[container_id] = []
+            container_instance_map[container_id].append(container_instance)
+
+        containers = [
+            cast('ContainerInstance', e) for e in Expression(include_elements=[
+                lambda w, e: e.type == Container,
+        ]).elements(workspace)]
+
+        for container in containers:
+
+            other_containers_ids = {
+                c.model.id for c in containers
+                if c.model.id != container.model.id
+            }
+
+            if not container.model.relationships:
+                continue
+
+            for relationship in container.model.relationships:
+
+                if not relationship.destinationId in other_containers_ids:
+                    continue
+
+                this_container_instances = container_instance_map[container.model.id]
+                other_container_instances = container_instance_map[relationship.destinationId]
+
+                for this_container_instance in this_container_instances:
+                    for other_container_instance in other_container_instances:
+
+                        already_exists = this_container_instance.model.relationships is not None and any(
+                            r.sourceId == this_container_instance.model.id and
+                            r.destinationId == other_container_instance.model.id and
+                            r.description == relationship.description and
+                            r.technology == relationship.technology
+                            for r in this_container_instance.model.relationships
+                        )
+
+                        if not already_exists:
+                            # Note: tags aren't carried over.
+                            r = this_container_instance.uses(
+                                other_container_instance,
+                                description=relationship.description,
+                                technology=relationship.technology,
+                            )
+                            r.model.linkedRelationshipId = relationship.id
+
 
 class DeploymentNode(DslDeploymentNodeElement, DslElementRelationOverrides[
     'DeploymentNode',
@@ -1549,9 +1697,6 @@ class DeploymentView(DslViewElement):
         from buildzr.dsl.explorer import Explorer
         from buildzr.models import ElementView, RelationshipView
 
-        print("environment: ", self._environment.name)
-        print("software_system_selector: ", self._selector)
-
         software_system: Optional[SoftwareSystem] = None
         if self._selector is not None:
             if isinstance(self._selector, SoftwareSystem):
@@ -1563,7 +1708,8 @@ class DeploymentView(DslViewElement):
 
         view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = []
         view_elements_filter_excludes: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = []
-        view_relationships_filter: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = []
+        view_relationships_filter_env: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = []
+        view_relationships_filter_implied_instance_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = []
 
         def is_software_system_contains_container(
             software_system_id: str,
@@ -1600,8 +1746,6 @@ class DeploymentView(DslViewElement):
             @param upstream_software_system_ids: Set of software system IDs that
             whose instance exists in the upstream deployment nodes.
             """
-
-            print("    deployment node id: ", deployment_node.id)
 
             instance_ids: Set[str] = set()
             for child in deployment_node.children:
@@ -1655,11 +1799,36 @@ class DeploymentView(DslViewElement):
 
                 instance_ids.update(container_instance_ids)
 
+            software_instance_relation_ids: Set[str] = set()
+            for software_system_instance in deployment_node.softwareSystemInstances:
+                if software_system_instance.relationships and software_system_instance.environment == environment:
+                    for relationship in software_system_instance.relationships:
+                        software_instance_relation_ids.add(relationship.id)
+
+            container_instance_relation_ids: Set[str] = set()
+            if selected_software_system is not None:
+                # Note: These relations are created in the `__exit__` of each
+                # `DeploymentEnvironment` -- the relationships are being implied
+                # from the respective `SoftwareSystem`s and `Container`s.
+                for container_instance in deployment_node.containerInstances:
+                    if container_instance.relationships and container_instance.environment == environment:
+                        for relationship in container_instance.relationships:
+                            container_instance_relation_ids.add(relationship.id)
+
+            infrastructure_node_relation_ids: Set[str] = set()
+            for infrastructure_node in deployment_node.infrastructureNodes:
+                if infrastructure_node.relationships and infrastructure_node.environment == environment:
+                    for relationship in infrastructure_node.relationships:
+                        infrastructure_node_relation_ids.add(relationship.id)
+
             infrastructure_node_ids = {
                 infrastructure_node.id for infrastructure_node in deployment_node.infrastructureNodes
                 if infrastructure_node.environment == environment
             }
 
+            instance_ids.update(software_instance_relation_ids)
+            instance_ids.update(container_instance_relation_ids)
+            instance_ids.update(infrastructure_node_relation_ids)
             instance_ids.update(infrastructure_node_ids)
 
             # Only include this deployment node
@@ -1684,7 +1853,8 @@ class DeploymentView(DslViewElement):
                     software_system.model if software_system else None
                 )
 
-        print("    include_ids: ", include_ids)
+
+        print("final include ids", include_ids)
 
         view_elements_filter = [
             lambda w, e: (
@@ -1692,17 +1862,21 @@ class DeploymentView(DslViewElement):
             ),
         ]
 
-        view_relationships_filter = [
+        view_relationships_filter_env = [
             lambda w, r: r.source.environment == self._environment.name,
             lambda w, r: r.destination.environment == self._environment.name,
         ]
 
-        # print("len view_relationships_filter: ", len(view_relationships_filter))
+        view_relationships_filter_implied_instance_relationships = [
+            lambda w, r: r.id in include_ids,
+        ]
 
         expression = Expression(
             include_elements=self._include_elements + view_elements_filter,
             exclude_elements=self._exclude_elements,
-            include_relationships=self._include_relationships + view_relationships_filter,
+            include_relationships=self._include_relationships +\
+                view_relationships_filter_env +\
+                view_relationships_filter_implied_instance_relationships,
             exclude_relationships=self._exclude_relationships,
         )
 

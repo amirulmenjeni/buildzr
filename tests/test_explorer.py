@@ -88,7 +88,18 @@ def test_walk_relationships(workspace: Workspace) -> Optional[None]:
         for relationship in relationships
     }
 
-    assert len(relationships) == 6 # Including one additional implied relationship
+    # 5 explicit relationships.
+    # Add one additional implied relationship.
+    # And four additional from container instances for each two container instance (2x2=4 + 2x2=4 more).
+    #
+    # Explanation: if we have containers A and B with relationship A >> "Uses" >> B,
+    # and container instances ci_A_1, ci_A_2, ci_B_1, ci_B_2, then we have the
+    # following implied instance relationships:
+    #   ci_A_1 >> "Uses" >> ci_B_1
+    #   ci_A_1 >> "Uses" >> ci_B_2
+    #   ci_A_2 >> "Uses" >> ci_B_1
+    #   ci_A_2 >> "Uses" >> ci_B_2
+    assert len(relationships) == 14
 
     for relationship in relationships:
         relationship_set = (

@@ -355,7 +355,7 @@ def test_filter_relationships_without_includes_only_excludes(workspace: Workspac
     )
 
     relationships = filter.relationships(workspace)
-    assert len(relationships) == 4
+    assert len(relationships) == 13
 
 def test_filter_type(workspace: Workspace) -> Optional[None]:
     # Create an expression with include_elements and exclude_elements
