@@ -1853,9 +1853,6 @@ class DeploymentView(DslViewElement):
                     software_system.model if software_system else None
                 )
 
-
-        print("final include ids", include_ids)
-
         view_elements_filter = [
             lambda w, e: (
                 e.id in include_ids
