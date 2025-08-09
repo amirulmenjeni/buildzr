@@ -94,7 +94,7 @@ jobs:
         # `test_workspaces.py` is useful during development, but not necessary for CI.
         # Plus, it depends on Java and Structurizr CLI, which are not
         # installed in the CI environment.
-        pytest --ignore tests/test_workspaces.py
+        pytest --mypy --ignore tests/test_workspaces.py
 
   build:
     runs-on: ubuntu-latest

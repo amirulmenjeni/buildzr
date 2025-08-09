@@ -9,13 +9,21 @@ from buildzr.dsl import (
     SoftwareSystem,
     Container,
     Component,
+    SoftwareSystemInstance,
+    ContainerInstance,
     SystemLandscapeView,
     SystemContextView,
     ContainerView,
     ComponentView,
+    DeploymentEnvironment,
+    DeploymentGroup,
+    DeploymentNode,
+    InfrastructureNode,
+    DeploymentView,
     StyleElements,
     StyleRelationships,
 )
+from buildzr.dsl.explorer import Explorer
 
 @pytest.mark.parametrize("use_context", [True, False])
 def test_system_landscape_view(use_context: bool) -> Optional[None]:
@@ -414,6 +422,61 @@ def test_container_view_with_multiple_software_systems(use_context: bool) -> Opt
         c1.model.relationships[0].id,
     }.issubset(set(relationship_ids))
 
+def test_software_system_instances_carry_over_relationships() -> Optional[None]:
+
+    with Workspace('w') as w:
+        with SoftwareSystem('s1') as s1:
+            api = Container('API')
+            db = Container('Database')
+        with SoftwareSystem('s2') as s2:
+            api2 = Container('API2')
+            db2 = Container('Database2')
+
+        s2 >> "Uses" >> s1
+
+        with DeploymentEnvironment('env') as env:
+            with DeploymentNode('Server') as server:
+                s1_instance = SoftwareSystemInstance(s1)
+                s2_instance = SoftwareSystemInstance(s2)
+
+    assert len(w.model.model.deploymentNodes) == 1
+    assert w.model.model.deploymentNodes[0].environment == env.name
+    assert len(w.model.model.deploymentNodes[0].softwareSystemInstances) == 2
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[0].id == s1_instance.model.id
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].id == s2_instance.model.id
+    assert len(w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships) == 1
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships[0].id == s2_instance.model.relationships[0].id
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships[0].sourceId == s2_instance.model.id
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships[0].destinationId == s1_instance.model.id
+    assert w.model.model.deploymentNodes[0].softwareSystemInstances[1].relationships[0].linkedRelationshipId == s2.model.relationships[0].id
+
+def test_container_instances_carry_over_relationships() -> Optional[None]:
+    with Workspace('w') as w:
+        with SoftwareSystem('Software System') as s:
+            api = Container('API')
+            db = Container('Database')
+            api >> db
+
+        with DeploymentEnvironment('env') as env:
+            with DeploymentNode('Server') as server:
+                with DeploymentNode('Docker') as docker:
+                    api_instance = ContainerInstance(api)
+                    db_instance = ContainerInstance(db)
+
+    assert len(w.model.model.deploymentNodes) == 1
+    assert w.model.model.deploymentNodes[0].environment == env.name
+    assert len(w.model.model.deploymentNodes[0].children) == 1
+    assert w.model.model.deploymentNodes[0].name == 'Server'
+    assert w.model.model.deploymentNodes[0].children[0].name == 'Docker'
+
+    assert len(w.model.model.deploymentNodes[0].children[0].containerInstances) == 2
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].id == api_instance.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[1].id == db_instance.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].relationships[0].id == api_instance.model.relationships[0].id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].relationships[0].sourceId == api_instance.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].relationships[0].destinationId == db_instance.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].relationships[0].linkedRelationshipId == api.model.relationships[0].id
+
 def test_multiple_views() -> Optional[None]:
 
     with Workspace("w", scope='landscape', group_separator="/") as w:
@@ -480,6 +543,391 @@ def test_multiple_views() -> Optional[None]:
     assert w.model.views.systemLandscapeViews[0].key == 'nested-groups'
     assert w.model.views.systemContextViews[0].key == 'nested-groups-context-0'
     assert w.model.views.systemContextViews[1].key == 'nested-groups-context-1'
+
+def test_deployment_view_without_software_instance() -> Optional[None]:
+
+    with Workspace('w') as w:
+
+        with SoftwareSystem('Software System') as s:
+            api = Container('API')
+            db = Container('Database')
+            api >> db
+
+        with DeploymentEnvironment('env-without-software-instance') as env1:
+            with DeploymentNode('Server') as server1:
+                with DeploymentNode('Docker') as docker1:
+                    api_instance_1 = ContainerInstance(api)
+                    db_instance_1 = ContainerInstance(db)
+
+        with DeploymentEnvironment("env-without-software-instance-2") as env2:
+            with DeploymentNode('Server') as server2:
+                with DeploymentNode('VM') as vm2:
+                    with DeploymentNode('Docker') as docker2:
+                        api_instance_2 = ContainerInstance(api)
+                        db_instance_2 = ContainerInstance(db)
+        # 0
+        DeploymentView(
+            environment=env1,
+            key='deployment-view-without-software-instance-all',
+            description="Deployment View without Software System Instance",
+            software_system_selector=None,
+        )
+
+        # 1
+        DeploymentView(
+            environment=env1,
+            key='deployment-view-without-software-instance-specific-software-system',
+            description="Deployment View with Software System Instance",
+            software_system_selector=s,
+        )
+
+        # 2
+        DeploymentView(
+            environment=env2,
+            key='deployment-view-without-software-instance-2',
+            description="Deployment View without Software System Instance 2",
+            software_system_selector=None,
+        )
+
+        # 3
+        DeploymentView(
+            environment=env2,
+            key='deployment-view-without-software-instance-2',
+            description="Deployment View without Software System Instance 2",
+            software_system_selector=s,
+        )
+
+    # Include all elements in the environment where there's no
+    # `SoftwareSystemInstance` defined.
+    assert w.model.views.deploymentViews[0].environment == env1.name
+    assert w.model.views.deploymentViews[0].softwareSystemId is None
+    assert len(w.model.views.deploymentViews[0].elements) == 4
+    assert w.model.views.deploymentViews[0].elements[0].id == server1.model.id
+    assert w.model.views.deploymentViews[0].elements[1].id == docker1.model.id
+    assert w.model.views.deploymentViews[0].elements[2].id == api_instance_1.model.id
+    assert w.model.views.deploymentViews[0].elements[3].id == db_instance_1.model.id
+
+    # Include only a specific software system in the environment where
+    # there's no `SoftwareSystemInstance` defined (only its
+    # `ContainerInstance`s are defined).
+    assert w.model.views.deploymentViews[1].key == 'deployment-view-without-software-instance-specific-software-system'
+    assert w.model.views.deploymentViews[1].environment == env1.name
+    assert w.model.views.deploymentViews[1].softwareSystemId == s.model.id
+    assert len(w.model.views.deploymentViews[1].elements) == 4
+    assert w.model.views.deploymentViews[1].elements[0].id == server1.model.id
+    assert w.model.views.deploymentViews[1].elements[1].id == docker1.model.id
+    assert w.model.views.deploymentViews[1].elements[2].id == api_instance_1.model.id
+    assert w.model.views.deploymentViews[1].elements[3].id == db_instance_1.model.id
+
+    assert w.model.views.deploymentViews[2].key == 'deployment-view-without-software-instance-2'
+    assert w.model.views.deploymentViews[2].environment == env2.name
+    assert w.model.views.deploymentViews[2].softwareSystemId is None
+    assert len(w.model.views.deploymentViews[2].elements) == 5
+    assert w.model.views.deploymentViews[2].elements[0].id == server2.model.id
+    assert w.model.views.deploymentViews[2].elements[1].id == vm2.model.id
+    assert w.model.views.deploymentViews[2].elements[2].id == docker2.model.id
+    assert w.model.views.deploymentViews[2].elements[3].id == api_instance_2.model.id
+    assert w.model.views.deploymentViews[2].elements[4].id == db_instance_2.model.id
+
+    assert w.model.views.deploymentViews[3].key == 'deployment-view-without-software-instance-2'
+    assert w.model.views.deploymentViews[3].environment == env2.name
+    assert w.model.views.deploymentViews[3].softwareSystemId == s.model.id
+    assert len(w.model.views.deploymentViews[3].elements) == 5
+    assert w.model.views.deploymentViews[3].elements[0].id == server2.model.id
+    assert w.model.views.deploymentViews[3].elements[1].id == vm2.model.id
+    assert w.model.views.deploymentViews[3].elements[2].id == docker2.model.id
+    assert w.model.views.deploymentViews[3].elements[3].id == api_instance_2.model.id
+    assert w.model.views.deploymentViews[3].elements[4].id == db_instance_2.model.id
+
+def test_deployment_view_with_software_instance() -> Optional[None]:
+
+    with Workspace('w') as w:
+
+        with SoftwareSystem('Software System') as s:
+            api = Container('API')
+            db = Container('Database')
+            print("api id:", api.model.id)
+            print("db id:", db.model.id)
+            api >> db
+
+        with DeploymentEnvironment('env-with-software-instance') as env1:
+            with DeploymentNode('Server') as server1:
+                s_instance_1 = SoftwareSystemInstance(s)
+                print("server1 id:", server1.model.id)
+                print("s_instance_1 id:", s_instance_1.model.id)
+                with DeploymentNode('Docker') as docker1:
+                    print("docker1 id:", docker1.model.id)
+                    api_instance_1 = ContainerInstance(api)
+                    db_instance_1 = ContainerInstance(db)
+
+        with DeploymentEnvironment('env-with-software-instance-1') as env2:
+            with DeploymentNode('Server') as server2:
+                with DeploymentNode('Docker') as docker2:
+                    s_instance_2 = SoftwareSystemInstance(s)
+                    api_instance_2 = ContainerInstance(api)
+                    db_instance_2 = ContainerInstance(db)
+
+        with DeploymentEnvironment('env-with-software-instance-2') as env3:
+            with DeploymentNode('Server') as server3:
+                with DeploymentNode('VM') as vm3:
+                    s_instance_3 = SoftwareSystemInstance(s)
+                    with DeploymentNode('Docker') as docker4:
+                        api_instance_3 = ContainerInstance(api)
+                        db_instance_3 = ContainerInstance(db)
+
+        # 0
+        DeploymentView(
+            environment=env1,
+            key='deployment-view-with-software-instance',
+            description="Deployment View with Software System Instance",
+            software_system_selector=None,
+        )
+
+        # 1
+        DeploymentView(
+            environment=env1,
+            key='deployment-view-with-software-instance',
+            description="Deployment View with Software System Instance",
+            software_system_selector=s,
+        )
+
+        # 2
+        DeploymentView(
+            environment=env2,
+            key='deployment-view-with-software-instance-1',
+            description="Deployment View with Software System Instance 1",
+            software_system_selector=None,
+        )
+
+        # 3
+        DeploymentView(
+            environment=env2,
+            key='deployment-view-with-software-instance-1',
+            description="Deployment View with Software System Instance 1",
+            software_system_selector=s,
+        )
+
+        # 4
+        DeploymentView(
+            environment=env3,
+            key='deployment-view-with-software-instance-2',
+            description="Deployment View with Software System Instance 2",
+            software_system_selector=None,
+        )
+
+        # 5
+        DeploymentView(
+            environment=env3,
+            key='deployment-view-with-software-instance-2',
+            description="Deployment View with Software System Instance 2",
+            software_system_selector=s,
+        )
+
+    # Include all elements in the environment where there's a
+    # `SoftwareSystemInstance` defined at the root `DeploymentNode`.
+    # There are also `ContainerInstance`s defined for the containers
+    # in the second-level `DeploymentNode`, but these should be ignored,
+    # along with the `DeploymentNode` that hosts them, since we're not
+    # targeting a specific `SoftwareSystem`.
+    assert w.model.views.deploymentViews[0].key == 'deployment-view-with-software-instance'
+    assert w.model.views.deploymentViews[0].environment == env1.name
+    assert w.model.views.deploymentViews[0].softwareSystemId is None
+    assert len(w.model.views.deploymentViews[0].elements) == 2
+    assert w.model.views.deploymentViews[0].elements[0].id == server1.model.id
+    assert w.model.views.deploymentViews[0].elements[1].id == s_instance_1.model.id
+
+    # Include only a specific software system in the environment where
+    # there's a `SoftwareSystemInstance` defined at the root
+    # `DeploymentNode`.
+    #
+    # There are also `ContainerInstance`s defined for the
+    # containers in the second-level `DeploymentNode`. Since the specific
+    # `SoftwareSystem` is specified, we should only include the
+    # `ContainerInstance`s with the rest of the `InfrastructureNode`s that
+    # has a relationship with the `ContainerInstance`s. But the
+    # `SoftwareSystemInstance` itself should be excluded.
+    assert w.model.views.deploymentViews[1].key == 'deployment-view-with-software-instance'
+    assert w.model.views.deploymentViews[1].environment == env1.name
+    assert w.model.views.deploymentViews[1].softwareSystemId == s.model.id
+    assert len(w.model.views.deploymentViews[1].elements) == 4
+    assert w.model.views.deploymentViews[1].elements[0].id == server1.model.id
+    assert w.model.views.deploymentViews[1].elements[1].id == docker1.model.id
+    assert w.model.views.deploymentViews[1].elements[2].id == api_instance_1.model.id
+    assert w.model.views.deploymentViews[1].elements[3].id == db_instance_1.model.id
+
+    # == Software system instance defined at the second-level DeploymentNode ==
+
+    # Similar to the previous one, except that the `SoftwareSystemInstance`
+    # is defined at the second-level where the `ContainerInstance`s are
+    # defined.
+    #
+    # Since no `SoftwareSystem` is specified, we should just include the
+    # `SoftwareSystemInstance`.
+    assert w.model.views.deploymentViews[2].key == 'deployment-view-with-software-instance-1'
+    assert w.model.views.deploymentViews[2].environment == env2.name
+    assert w.model.views.deploymentViews[2].softwareSystemId is None
+    assert len(w.model.views.deploymentViews[2].elements) == 3
+    assert w.model.views.deploymentViews[2].elements[0].id == server2.model.id
+    assert w.model.views.deploymentViews[2].elements[1].id == docker2.model.id
+    assert w.model.views.deploymentViews[2].elements[2].id == s_instance_2.model.id
+
+    # Since we're specifying a specific `SoftwareSystem`, we should
+    # include the `ContainerInstance`s without including the
+    # `SoftwareSystemInstance`.
+    assert w.model.views.deploymentViews[3].key == 'deployment-view-with-software-instance-1'
+    assert w.model.views.deploymentViews[3].environment == env2.name
+    assert w.model.views.deploymentViews[3].softwareSystemId == s.model.id
+    assert len(w.model.views.deploymentViews[3].elements) == 4
+    assert w.model.views.deploymentViews[3].elements[0].id == server2.model.id
+    assert w.model.views.deploymentViews[3].elements[1].id == docker2.model.id
+    assert w.model.views.deploymentViews[3].elements[2].id == api_instance_2.model.id
+    assert w.model.views.deploymentViews[3].elements[3].id == db_instance_2.model.id
+
+    assert w.model.views.deploymentViews[4].key == 'deployment-view-with-software-instance-2'
+    assert w.model.views.deploymentViews[4].environment == env3.name
+    assert w.model.views.deploymentViews[4].softwareSystemId is None
+    assert len(w.model.views.deploymentViews[4].elements) == 3
+    assert w.model.views.deploymentViews[4].elements[0].id == server3.model.id
+    assert w.model.views.deploymentViews[4].elements[1].id == vm3.model.id
+    assert w.model.views.deploymentViews[4].elements[2].id == s_instance_3.model.id
+
+    assert w.model.views.deploymentViews[5].key == 'deployment-view-with-software-instance-2'
+    assert w.model.views.deploymentViews[5].environment == env3.name
+    assert w.model.views.deploymentViews[5].softwareSystemId == s.model.id
+    assert len(w.model.views.deploymentViews[5].elements) == 5
+    assert w.model.views.deploymentViews[5].elements[0].id == server3.model.id
+    assert w.model.views.deploymentViews[5].elements[1].id == vm3.model.id
+    assert w.model.views.deploymentViews[5].elements[2].id == docker4.model.id
+    assert w.model.views.deploymentViews[5].elements[3].id == api_instance_3.model.id
+    assert w.model.views.deploymentViews[5].elements[4].id == db_instance_3.model.id
+
+def test_deployment_view_with_deployment_groups() -> Optional[None]:
+
+    with Workspace('w') as w:
+
+        with SoftwareSystem('Software System') as s:
+            api = Container('API')
+            db = Container('Database')
+            api >> db
+
+        with DeploymentEnvironment('Production') as production:
+            service_instance_1 = DeploymentGroup("Service instance 1")
+            service_instance_2 = DeploymentGroup("Service instance 2")
+
+            with DeploymentNode('Server 1') as server1:
+                ci_api_1 = ContainerInstance(api, deployment_groups=[service_instance_1])
+                with DeploymentNode('Database Server 1') as db_server1:
+                    ci_db_1 = ContainerInstance(db, deployment_groups=[service_instance_1])
+
+            with DeploymentNode('Server 2') as server2:
+                ci_api_2 = ContainerInstance(api, deployment_groups=[service_instance_2])
+                with DeploymentNode('Database Server 2') as db_server2:
+                    ci_db_2 = ContainerInstance(db, deployment_groups=[service_instance_2])
+
+        DeploymentView(
+            environment=production,
+            key='deployment',
+        )
+
+    assert w.model.views.deploymentViews is not None
+    assert len(w.model.views.deploymentViews) == 1
+    assert w.model.views.deploymentViews[0].key == 'deployment'
+    assert w.model.views.deploymentViews[0].environment == production.name
+
+    assert len(w.model.views.deploymentViews[0].elements) == 8
+    assert w.model.views.deploymentViews[0].elements[0].id == server1.model.id
+    assert w.model.views.deploymentViews[0].elements[1].id == ci_api_1.model.id
+    assert w.model.views.deploymentViews[0].elements[2].id == db_server1.model.id
+    assert w.model.views.deploymentViews[0].elements[3].id == ci_db_1.model.id
+    assert w.model.views.deploymentViews[0].elements[4].id == server2.model.id
+    assert w.model.views.deploymentViews[0].elements[5].id == ci_api_2.model.id
+    assert w.model.views.deploymentViews[0].elements[6].id == db_server2.model.id
+    assert w.model.views.deploymentViews[0].elements[7].id == ci_db_2.model.id
+
+    assert w.model.model.deploymentNodes[0].containerInstances[0].id == ci_api_1.model.id
+    assert w.model.model.deploymentNodes[0].containerInstances[0].deploymentGroups[0] == "Service instance 1"
+    assert w.model.model.deploymentNodes[0].children[0].id == db_server1.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].id == ci_db_1.model.id
+    assert w.model.model.deploymentNodes[0].children[0].containerInstances[0].deploymentGroups[0] == "Service instance 1"
+
+    assert w.model.model.deploymentNodes[1].containerInstances[0].id == ci_api_2.model.id
+    assert w.model.model.deploymentNodes[1].containerInstances[0].deploymentGroups[0] == "Service instance 2"
+    assert w.model.model.deploymentNodes[1].children[0].id == db_server2.model.id
+    assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].id == ci_db_2.model.id
+    assert w.model.model.deploymentNodes[1].children[0].containerInstances[0].deploymentGroups[0] == "Service instance 2"
+
+def test_deployment_view_with_infrastructure_nodes() -> Optional[None]:
+
+    with Workspace('w') as w:
+
+        with SoftwareSystem('Software System') as s:
+            with Container('Web Application') as webapp:
+                pass
+            with Container('Database') as db:
+                pass
+
+            webapp >> "Reads from and writes to" >> db
+
+        with DeploymentEnvironment('Live') as live:
+            with DeploymentNode('Amazon Web Services') as aws:
+                with DeploymentNode('ap-southeast-1') as region:
+                    dns = InfrastructureNode(
+                        'DNS Router',
+                        technology="Route 53",
+                        description="DNS Router for the web application",
+                        tags={"dns", "router"}
+                    )
+
+                    lb = InfrastructureNode(
+                        'Load Balancer',
+                        technology="Elastic Load Balancer",
+                        description="Load Balancer for the web application",
+                        tags={"load-balancer"}
+                    )
+
+                    dns >> "Forwards requests to" >> lb
+
+                    with DeploymentNode('Auto Scaling Group') as asg:
+                        with DeploymentNode('Ubuntu Server') as ubuntu:
+                            webapp_instance = ContainerInstance(webapp)
+                            lb >> "Forwards requests to" >> webapp_instance
+
+                    with DeploymentNode('Amazon RDS') as rds:
+                        with DeploymentNode('MySQL') as mysql:
+                            ContainerInstance(db)
+
+        DeploymentView(
+            environment=live,
+            key='deployment-with-infrastructure-nodes',
+            description="Deployment View with Infrastructure Nodes",
+            software_system_selector=s,
+            auto_layout='lr',
+        )
+
+    assert w.model.views.deploymentViews is not None
+    assert len(w.model.views.deploymentViews) == 1
+    assert w.model.views.deploymentViews[0].key == 'deployment-with-infrastructure-nodes'
+    assert w.model.views.deploymentViews[0].environment == live.name
+    assert w.model.views.deploymentViews[0].softwareSystemId == s.model.id
+
+    assert len(webapp_instance.model.relationships) == 1
+
+    assert len(w.model.views.deploymentViews[0].elements) == 10
+    assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[0].id == dns.model.id
+    assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[1].id == lb.model.id
+    assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[0].relationships[0].destinationId == lb.model.id
+    assert w.model.model.deploymentNodes[0].children[0].infrastructureNodes[1].relationships[0].destinationId == webapp_instance.model.id
+
+    assert len(w.model.views.deploymentViews[0].relationships) == 3
+    assert { x.id for x in w.model.views.deploymentViews[0].relationships } == {
+        webapp_instance.model.relationships[0].id,
+        dns.model.relationships[0].id,
+        lb.model.relationships[0].id,
+    }
+
+    assert { lb.model.id, dns.model.id }.issubset({
+        x.id for x in w.model.views.deploymentViews[0].elements
+    })
 
 def test_style_elements_on_dslelements() -> Optional[None]:
 
