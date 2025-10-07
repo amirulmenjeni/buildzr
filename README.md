@@ -96,6 +96,12 @@ The JSON output can be found [here](examples/system_context_and_container_view.j
 
 ✅ Uses the familiar Python programming language and its rich toolchains to write software architecture models and diagrams!
 
+# FAQ
+
+**Q: What features of Structurizr DSL is already implemented in buildzr?**
+
+Head over to [ROADMAP.md](./ROADMAP.md) to get a good high-level sense of what has been implemented in buildzr.
+
 # Contributing
 
 Interested in contributing to `buildzr`?
