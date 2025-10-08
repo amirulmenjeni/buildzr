@@ -6,6 +6,9 @@ If you're not familiar with Structurizr, it is both an open standard (see [Struc
 
 In Structurizr, you define architecture models and their relationships first. And then, you can re-use the models to present multiple perspectives, views, and stories about your architecture.
 
+Head over to [ROADMAP.md](./ROADMAP.md) to get a good high-level sense of what has been implemented in `buildzr`.
+
+
 # Quick Start 🚀
 
 ## Installation
