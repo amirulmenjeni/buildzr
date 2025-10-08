@@ -23,7 +23,7 @@ You can quickly set up and start contributing to our project using GitHub Codesp
 3. Create a new codespace for this repository using the following command:
 
     ```bash
-    gh codespace create -r amirulmenjeni/buildzr -b feature/my-aweseome-contrib
+    gh codespace create -r amirulmenjeni/buildzr
     ```
 
 4. Once the codespace is created, you can [connect to it via VS Code](https://docs.github.com/en/codespaces/developing-in-a-codespace/using-github-codespaces-in-visual-studio-code#opening-a-codespace-in-vs-code) or `ssh`

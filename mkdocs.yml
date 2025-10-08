@@ -1,0 +1,103 @@
+site_name: buildzr
+site_description: Structurizr for the buildzrs - A Python authoring tool for Structurizr models and diagrams
+site_author: Amirul Menjeni
+site_url: https://amirulmenjeni.github.io/buildzr
+
+repo_name: amirulmenjeni/buildzr
+repo_url: https://github.com/amirulmenjeni/buildzr
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - footnotes
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - toc:
+      permalink: true
+  - attr_list
+  - smarty
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            members_order: source
+            show_signature_annotations: true
+            separate_signature: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+  - User Guide:
+    - Core Concepts: user-guide/core-concepts.md
+    - Workspace: user-guide/workspace.md
+    - Models: user-guide/models.md
+    - Relationships: user-guide/relationships.md
+    - Views: user-guide/views.md
+    - Styles: user-guide/styles.md
+  - API Reference:
+    - DSL: api/dsl.md
+    - Models: api/models.md
+  - Development:
+    - Contributing: contributing.md
+    - Roadmap: roadmap.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/amirulmenjeni/buildzr
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.js
+  - javascripts/interactive-code.js
+
+extra_css:
+  - stylesheets/pyscript.css
