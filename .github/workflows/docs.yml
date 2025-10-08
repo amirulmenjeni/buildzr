@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - feature/docs # Temporary!
   workflow_dispatch:
 
 permissions:
