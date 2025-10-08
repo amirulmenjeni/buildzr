@@ -6,6 +6,9 @@ If you're not familiar with Structurizr, it is both an open standard (see [Struc
 
 In Structurizr, you define architecture models and their relationships first. And then, you can re-use the models to present multiple perspectives, views, and stories about your architecture.
 
+Head over to [ROADMAP.md](./ROADMAP.md) to get a good high-level sense of what has been implemented in `buildzr`.
+
+
 # Quick Start 🚀
 
 ## Installation
@@ -95,12 +98,6 @@ The JSON output can be found [here](examples/system_context_and_container_view.j
 ✅ Writing architecture models and diagrams in Python allows you to integrate programmability and automation into your software architecture diagramming and documentation workflow. For example, you might want to programmatically automate the creation of architecture models from metadata pulled from your IT asset management system, but still want to declaratively define how to present them.
 
 ✅ Uses the familiar Python programming language and its rich toolchains to write software architecture models and diagrams!
-
-# FAQ
-
-**Q: What features of Structurizr DSL is already implemented in buildzr?**
-
-Head over to [ROADMAP.md](./ROADMAP.md) to get a good high-level sense of what has been implemented in buildzr.
 
 # Contributing
 
