@@ -1,5 +1,4 @@
 # Models
-
 Models are the elements that make up your architecture. `buildzr` supports all the core C4 model element types.
 
 ## Person
@@ -7,8 +6,6 @@ Models are the elements that make up your architecture. `buildzr` supports all t
 Represents human users, actors, roles, or personas.
 
 ```python
-from buildzr.dsl import Person
-
 user = Person('User')
 admin = Person('Administrator', description='System admin with elevated privileges')
 ```
@@ -24,9 +21,7 @@ external_user = Person('External User', tags=['external', 'customer'])
 Represents a software system - the highest level of abstraction.
 
 ```python
-from buildzr.dsl import SoftwareSystem
-
-system = SoftwareSystem('Web Application')
+software_system = SoftwareSystem('Web Application')
 detailed_system = SoftwareSystem(
     'E-Commerce Platform',
     description='Handles online sales and inventory'
@@ -48,9 +43,7 @@ external_api = SoftwareSystem(
 Represents an application, data store, or service within a software system.
 
 ```python
-from buildzr.dsl import Container
-
-with system:
+with SoftwareSystem('Web Application') as system:
     web_app = Container(
         'Web Application',
         description='Delivers content to users',
@@ -75,114 +68,35 @@ with system:
 Represents a component within a container.
 
 ```python
-from buildzr.dsl import Component
-
-with api:
-    auth_service = Component(
-        'Authentication Service',
-        description='Handles user authentication',
-        technology='JWT'
+with SoftwareSystem('Web Application') as system:
+    api = Container(
+        'API',
+        description='Provides REST API',
+        technology='Python/FastAPI'
     )
+    with api:
+        auth_service = Component(
+            'Authentication Service',
+            description='Handles user authentication',
+            technology='JWT'
+        )
 
-    user_service = Component(
-        'User Service',
-        description='Manages user data'
-    )
+        user_service = Component(
+            'User Service',
+            description='Manages user data'
+        )
 
-    order_service = Component(
-        'Order Service',
-        description='Processes orders'
-    )
+        order_service = Component(
+            'Order Service',
+            description='Processes orders'
+        )
 ```
-
-## Deployment Elements
-
-### Deployment Environment
-
-Defines a deployment context (e.g., Development, Production).
-
-```python
-from buildzr.dsl import DeploymentEnvironment
-
-with DeploymentEnvironment('Production'):
-    # Define deployment nodes
-    pass
-```
-
-### Deployment Node
-
-Represents infrastructure or runtime environment.
-
-```python
-from buildzr.dsl import DeploymentNode, ContainerInstance
-
-with DeploymentEnvironment('Production'):
-    with DeploymentNode('AWS'):
-        with DeploymentNode('EC2', technology='Ubuntu 22.04'):
-            # Deploy containers
-            api_instance = ContainerInstance(api)
-```
-
-### Infrastructure Node
-
-Represents supporting infrastructure components.
-
-```python
-from buildzr.dsl import InfrastructureNode
-
-with DeploymentNode('AWS'):
-    load_balancer = InfrastructureNode(
-        'Load Balancer',
-        description='Distributes traffic',
-        technology='AWS ELB'
-    )
-```
-
-### Deployment Group
-
-Logically groups container instances to control relationships between them in deployment scenarios.
-
-**When to use:** Use deployment groups when you have multiple instances of the same containers and want to control which instances can communicate with each other.
-
-```python
-from buildzr.dsl import DeploymentGroup, ContainerInstance
-
-with DeploymentEnvironment('Production'):
-    # Define deployment groups
-    instance_group_1 = DeploymentGroup('Service Instance 1')
-    instance_group_2 = DeploymentGroup('Service Instance 2')
-
-    # Server 1: API and Database in group 1
-    with DeploymentNode('Server 1'):
-        api_1 = ContainerInstance(api, [instance_group_1])
-        with DeploymentNode('Database Server'):
-            db_1 = ContainerInstance(database, [instance_group_1])
-
-    # Server 2: API and Database in group 2
-    with DeploymentNode('Server 2'):
-        api_2 = ContainerInstance(api, [instance_group_2])
-        with DeploymentNode('Database Server'):
-            db_2 = ContainerInstance(database, [instance_group_2])
-```
-
-!!! tip "Deployment Groups Use Case"
-    Deployment groups ensure that:
-
-    - The API on Server 1 only connects to the database on Server 1
-    - The API on Server 2 only connects to the database on Server 2
-
-    This prevents cross-server communication and keeps instances isolated within their groups.
-
-!!! note "Default Deployment Group"
-    If you don't specify deployment groups, all container instances are automatically assigned to a "Default" deployment group.
 
 ## Groups
 
 Organize related elements into named groups.
 
 ```python
-from buildzr.dsl import Group
-
 with Group("Internal Systems"):
     crm = SoftwareSystem('CRM')
     erp = SoftwareSystem('ERP')
@@ -190,6 +104,21 @@ with Group("Internal Systems"):
 with Group("External Systems"):
     payment = SoftwareSystem('Payment Gateway')
     email = SoftwareSystem('Email Service')
+```
+
+Groups can be nested too.
+
+```python
+with Group("Company 1") as company1:
+    with Group("Department 1"):
+        a = SoftwareSystem("A")
+    with Group("Department 2") as c1d2:
+        b = SoftwareSystem("B")
+with Group("Company 2") as company2:
+    with Group("Department 1"):
+        c = SoftwareSystem("C")
+    with Group("Department 2") as c2d2:
+        d = SoftwareSystem("D")
 ```
 
 ## Properties and Metadata
@@ -237,7 +166,103 @@ with Workspace('w') as w:
             payment = Component('Payment Service')
 ```
 
+## Deployment Elements
+
+### Deployment Environment
+
+Defines a deployment context (e.g., Development, Production).
+
+```python
+with DeploymentEnvironment('Production') as prod:
+    # Define deployment nodes
+    pass
+```
+
+### Deployment Node
+
+Represents infrastructure or runtime environment.
+
+```python
+with SoftwareSystem('Web Application') as system:
+    api = Container(
+        'API',
+        description='Provides REST API',
+        technology='Python/FastAPI'
+    )
+
+with DeploymentEnvironment('Production') as prod:
+    with DeploymentNode('AWS'):
+        with DeploymentNode('EC2', technology='Ubuntu 22.04'):
+            # Deploy containers
+            api_instance = ContainerInstance(api)
+```
+
+### Infrastructure Node
+
+Represents supporting infrastructure components.
+
+```python
+with DeploymentNode('AWS'):
+    load_balancer = InfrastructureNode(
+        'Load Balancer',
+        description='Distributes traffic',
+        technology='AWS ELB'
+    )
+```
+
+### Deployment Group
+
+Logically groups container instances to control relationships between them in deployment scenarios.
+
+**When to use:** Use deployment groups when you have multiple instances of the same containers and want to control which instances can communicate with each other.
+
+```python
+with SoftwareSystem('Web Application') as system:
+    api = Container(
+        'API',
+        description='Provides REST API',
+        technology='Python/FastAPI'
+    )
+    database = Container(
+        'Database',
+        description='Stores and runs transactions of app data',
+        technology='MSSQL'
+    )
+
+with DeploymentEnvironment('Production') as prod:
+    # Define deployment groups
+    instance_group_1 = DeploymentGroup('Service Instance 1')
+    instance_group_2 = DeploymentGroup('Service Instance 2')
+
+    # Server 1: API and Database in group 1
+    with DeploymentNode('Server 1'):
+        api_1 = ContainerInstance(api, [instance_group_1])
+        with DeploymentNode('Database Server'):
+            db_1 = ContainerInstance(database, [instance_group_1])
+
+    # Server 2: API and Database in group 2
+    with DeploymentNode('Server 2'):
+        api_2 = ContainerInstance(api, [instance_group_2])
+        with DeploymentNode('Database Server'):
+            db_2 = ContainerInstance(database, [instance_group_2])
+```
+
+!!! tip "Deployment Groups Use Case"
+    Deployment groups ensure that:
+
+    - The API on Server 1 only connects to the database on Server 1
+    - The API on Server 2 only connects to the database on Server 2
+
+    This prevents cross-server communication and keeps instances isolated within their groups.
+
+!!! note "Default Deployment Group"
+    If you don't specify deployment groups, all container instances are automatically assigned to a "Default" deployment group.
+
+
 ## Complete Example
+
+!!! note
+    We've added a `SystemLandscapeView` in the code below, so that the generated JSON output can be used in a rendering tool (e.g., on [https://structurizr.com/json](https://structurizr.com/json)). See [Views](views.md) for more info.
 
 ```python
 from buildzr.dsl import (
@@ -251,6 +276,8 @@ from buildzr.dsl import (
     DeploymentNode,
     ContainerInstance,
     InfrastructureNode,
+    SystemContextView,
+    DeploymentView,
 )
 
 with Workspace('microservices-example') as w:
@@ -283,33 +310,55 @@ with Workspace('microservices-example') as w:
         payment = SoftwareSystem('Payment Provider')
 
     # Relationships
+    customer >>  "Uses" >> ecommerce
+    admin >>  "Manages" >> ecommerce
+
     customer >> "Uses" >> web
     admin >> "Manages" >> web
     web >> "Calls" >> api_gateway
-    api_gateway >> "Routes to" >> order_svc
     api_gateway >> "Routes to" >> inv_svc
     order_svc >> "Stores in" >> db
     order_svc >> "Processes payment via" >> payment
 
     # Deployment (Production environment)
-    with DeploymentEnvironment('Production'):
+    with DeploymentEnvironment('Production') as prod:
         with DeploymentNode('AWS', technology='Cloud Provider'):
             # Load Balancer
             with DeploymentNode('Application Load Balancer', technology='AWS ALB'):
                 lb = InfrastructureNode('Load Balancer')
 
-            # Application tier
+            with DeploymentNode('EC2 Instance', technology='AWS EC2'):
+                order_instance = ContainerInstance(order_svc)
+
+            with DeploymentNode('API Gateway', technology='Amazon API Gateway'):
+                api_gw_instance = ContainerInstance(api_gateway)
+
+            # Application tier (containerized)
             with DeploymentNode('ECS Cluster', technology='AWS ECS'):
                 web_instance = ContainerInstance(web)
-                api_gw_instance = ContainerInstance(api_gateway)
-                order_instance = ContainerInstance(order_svc)
                 inventory_instance = ContainerInstance(inv_svc)
 
             # Database tier
             with DeploymentNode('DocumentDB', technology='MongoDB-compatible'):
                 db_instance = ContainerInstance(db)
 
-    w.to_json('microservices.json')
+            api_gw_instance >> "Routes to" >> lb
+            lb >> "Forwards requests to" >> order_instance
+
+        SystemContextView(
+            software_system_selector=ecommerce,
+            key='system-context-view-ecommerce',
+            description="System Context of E-Commerce App",
+        )
+
+w.apply_view(
+    DeploymentView(
+        environment=prod,
+        key='deployment-view-production-ecommerce',
+    )
+)
+
+w.to_json('workspace.json')
 ```
 
 !!! tip "Complete Architecture"

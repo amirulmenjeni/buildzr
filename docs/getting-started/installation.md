@@ -51,14 +51,15 @@ conda activate buildzr-dev
 To verify your installation, try importing `buildzr`:
 
 ```python
+# norun
 from buildzr.dsl import Workspace, SoftwareSystem, Person
-
 print("buildzr installed successfully!")
 ```
 
 Or check the version:
 
 ```python
+# norun
 from buildzr.__about__ import __version__
 print(f"buildzr version: {__version__}")
 ```

@@ -1,0 +1,610 @@
+/* Interactive Code Styling */
+.interactive-code-wrapper {
+    position: relative;
+    margin: 1em 0;
+    border-radius: 0.5em;
+    overflow: hidden;
+}
+
+.interactive-code-buttons {
+    display: flex;
+    gap: 0.5em;
+    padding: 0.5em;
+    background-color: var(--md-code-bg-color, #f5f5f5);
+    border-bottom: 1px solid var(--md-default-fg-color--lighter, #e0e0e0);
+    flex-wrap: wrap;
+}
+
+[data-md-color-scheme="slate"] .interactive-code-buttons {
+    background-color: #2b2b2b;
+    border-bottom-color: #404040;
+}
+
+.interactive-try-button,
+.interactive-copy-button,
+.interactive-run-button {
+    padding: 0.5em 1em;
+    border: none;
+    border-radius: 0.25em;
+    font-size: 0.9em;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.interactive-try-button {
+    background-color: #5c6bc0;
+    color: white;
+}
+
+.interactive-try-button:hover {
+    background-color: #3f51b5;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.interactive-copy-button {
+    background-color: #757575;
+    color: white;
+}
+
+.interactive-copy-button:hover {
+    background-color: #616161;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.interactive-run-button {
+    background-color: #00897b;
+    color: white;
+}
+
+.interactive-run-button:hover {
+    background-color: #00695c;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Output container */
+.interactive-output-container {
+    margin-top: 0;
+}
+
+/* Output header with toggle button */
+.interactive-output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75em 1em;
+    background-color: #e3f2fd;
+    border-top: 2px solid #5c6bc0;
+    font-weight: 500;
+    color: #1565c0;
+}
+
+[data-md-color-scheme="slate"] .interactive-output-header {
+    background-color: #1a2332;
+    color: #64b5f6;
+}
+
+/* Output tabs */
+.output-tabs {
+    display: flex;
+    gap: 0.5em;
+}
+
+.output-tab {
+    padding: 0.5em 1em;
+    border: none;
+    border-radius: 0.25em;
+    font-size: 0.9em;
+    font-weight: 500;
+    cursor: pointer;
+    background-color: rgba(92, 107, 192, 0.2);
+    color: #1565c0;
+    transition: all 0.2s ease;
+}
+
+[data-md-color-scheme="slate"] .output-tab {
+    background-color: rgba(100, 181, 246, 0.2);
+    color: #64b5f6;
+}
+
+.output-tab:hover {
+    background-color: rgba(92, 107, 192, 0.3);
+    transform: translateY(-1px);
+}
+
+[data-md-color-scheme="slate"] .output-tab:hover {
+    background-color: rgba(100, 181, 246, 0.3);
+}
+
+.output-tab.active {
+    background-color: #5c6bc0;
+    color: white;
+}
+
+[data-md-color-scheme="slate"] .output-tab.active {
+    background-color: #64b5f6;
+    color: #1a2332;
+}
+
+.interactive-toggle-button,
+.interactive-copy-output-button {
+    padding: 0.4em 0.8em;
+    border: none;
+    border-radius: 0.25em;
+    font-size: 0.85em;
+    font-weight: 500;
+    cursor: pointer;
+    background-color: #5c6bc0;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.interactive-toggle-button:hover,
+.interactive-copy-output-button:hover {
+    background-color: #3f51b5;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.interactive-copy-output-button {
+    background-color: #757575;
+}
+
+.interactive-copy-output-button:hover {
+    background-color: #616161;
+}
+
+/* Instructions area */
+.interactive-instructions {
+    padding: 1em;
+    background-color: #e8f5e9;
+    border-top: 2px solid #00897b;
+    margin-top: 0;
+}
+
+[data-md-color-scheme="slate"] .interactive-instructions {
+    background-color: #1b3a32;
+    border-top-color: #00897b;
+}
+
+.interactive-instructions .instruction-content h4 {
+    margin-top: 0;
+    color: #00695c;
+    font-size: 1em;
+}
+
+[data-md-color-scheme="slate"] .interactive-instructions .instruction-content h4 {
+    color: #4db6ac;
+}
+
+.interactive-instructions ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.interactive-instructions li {
+    margin: 0.5em 0;
+}
+
+.interactive-instructions code {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+[data-md-color-scheme="slate"] .interactive-instructions code {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.interactive-instructions .note {
+    margin-top: 1em;
+    padding: 0.5em;
+    background-color: rgba(0, 137, 123, 0.1);
+    border-left: 3px solid #00897b;
+    border-radius: 3px;
+}
+
+.interactive-output {
+    padding: 1em;
+    background-color: #f8f8f8;
+    font-family: 'Roboto Mono', 'Courier New', monospace;
+    font-size: 0.9em;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+[data-md-color-scheme="slate"] .interactive-output {
+    background-color: #1e1e1e;
+    border-top-color: #5c6bc0;
+}
+
+.interactive-output .loading {
+    color: #5c6bc0;
+    font-style: italic;
+}
+
+.interactive-output pre {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    font-size: inherit;
+}
+
+.interactive-output::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.interactive-output::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+}
+
+.interactive-output::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+}
+
+.interactive-output::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.5);
+}
+
+/* PyScript loading indicator */
+py-script[loading] {
+    display: none;
+}
+
+/* Make sure code blocks in interactive wrappers don't have double margins */
+.interactive-code-wrapper pre {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* Output message styling */
+.interactive-output .output-success {
+    color: #4caf50;
+    font-weight: 500;
+    padding: 0.5em;
+    background-color: rgba(76, 175, 80, 0.1);
+    border-left: 3px solid #4caf50;
+    border-radius: 3px;
+}
+
+.interactive-output .output-error {
+    color: #f44336;
+    font-weight: 500;
+    padding: 0.5em;
+    background-color: rgba(244, 67, 54, 0.1);
+    border-left: 3px solid #f44336;
+    border-radius: 3px;
+}
+
+.interactive-output .output-stdout {
+    padding: 0.5em;
+    background-color: rgba(92, 107, 192, 0.05);
+    border-left: 3px solid #5c6bc0;
+    border-radius: 3px;
+    margin-bottom: 0.5em;
+}
+
+.interactive-output .output-stderr {
+    padding: 0.5em;
+    background-color: rgba(255, 152, 0, 0.1);
+    border-left: 3px solid #ff9800;
+    border-radius: 3px;
+    margin-bottom: 0.5em;
+}
+
+[data-md-color-scheme="slate"] .interactive-output .output-success {
+    background-color: rgba(76, 175, 80, 0.2);
+}
+
+[data-md-color-scheme="slate"] .interactive-output .output-error {
+    background-color: rgba(244, 67, 54, 0.2);
+}
+
+[data-md-color-scheme="slate"] .interactive-output .output-stdout {
+    background-color: rgba(92, 107, 192, 0.15);
+}
+
+[data-md-color-scheme="slate"] .interactive-output .output-stderr {
+    background-color: rgba(255, 152, 0, 0.2);
+}
+
+.interactive-run-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Animation for button clicks */
+@keyframes buttonClick {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.95); }
+    100% { transform: scale(1); }
+}
+
+.interactive-run-button:active:not(:disabled),
+.interactive-reset-button:active {
+    animation: buttonClick 0.2s ease;
+}
+
+/* Diagrams area */
+.interactive-diagrams {
+    padding: 1em;
+    background-color: #f8f8f8;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+[data-md-color-scheme="slate"] .interactive-diagrams {
+    background-color: #1e1e1e;
+}
+
+.diagram-info {
+    padding: 1.5em;
+}
+
+.diagram-info h3 {
+    margin-top: 0;
+    color: #1565c0;
+    font-size: 1.3em;
+}
+
+[data-md-color-scheme="slate"] .diagram-info h3 {
+    color: #64b5f6;
+}
+
+.diagram-info h4 {
+    margin: 1em 0 0.5em 0;
+    color: #1565c0;
+    font-size: 1.1em;
+}
+
+[data-md-color-scheme="slate"] .diagram-info h4 {
+    color: #64b5f6;
+}
+
+.view-list {
+    background-color: #f5f5f5;
+    padding: 1em 1em 1em 2em;
+    border-radius: 4px;
+    margin: 1em 0;
+}
+
+[data-md-color-scheme="slate"] .view-list {
+    background-color: #2b2b2b;
+}
+
+.view-list li {
+    margin: 0.5em 0;
+}
+
+.view-type {
+    color: #757575;
+    font-size: 0.9em;
+    font-style: italic;
+}
+
+.diagram-actions {
+    margin: 1.5em 0;
+    padding: 1em;
+    background-color: #e8f5e9;
+    border-left: 4px solid #00897b;
+    border-radius: 4px;
+}
+
+[data-md-color-scheme="slate"] .diagram-actions {
+    background-color: #1b3a32;
+}
+
+.diagram-actions ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.diagram-actions li {
+    margin: 0.5em 0;
+}
+
+.diagram-actions code {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.85em;
+    display: inline-block;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+[data-md-color-scheme="slate"] .diagram-actions code {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.download-button {
+    display: inline-block;
+    padding: 0.75em 1.5em;
+    margin-top: 1em;
+    background-color: #00897b;
+    color: white !important;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.download-button:hover {
+    background-color: #00695c;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.diagram-note {
+    margin-top: 1.5em;
+    padding: 1em;
+    background-color: #fff8e1;
+    border-left: 4px solid #ffa000;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+
+[data-md-color-scheme="slate"] .diagram-note {
+    background-color: #332800;
+}
+
+.diagram-note p {
+    margin: 0;
+}
+
+.diagram-container {
+    margin-bottom: 1.5em;
+}
+
+.diagram-title {
+    margin: 0 0 0.75em 0;
+    padding: 0.5em 0.75em;
+    background-color: #e3f2fd;
+    color: #1565c0;
+    font-size: 1.1em;
+    font-weight: 600;
+    border-left: 4px solid #5c6bc0;
+    border-radius: 3px;
+}
+
+[data-md-color-scheme="slate"] .diagram-title {
+    background-color: #1a2332;
+    color: #64b5f6;
+}
+
+.diagram-svg {
+    background-color: white;
+    padding: 1em;
+    border-radius: 4px;
+    overflow-x: auto;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+[data-md-color-scheme="slate"] .diagram-svg {
+    background-color: #2b2b2b;
+}
+
+.diagram-svg svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Mermaid diagram specific styles */
+.diagram-svg pre.mermaid {
+    background: transparent;
+    border: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+}
+
+.diagram-svg .mermaid svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.diagram-separator {
+    margin: 1.5em 0;
+    border: none;
+    border-top: 2px dashed #e0e0e0;
+}
+
+[data-md-color-scheme="slate"] .diagram-separator {
+    border-top-color: #404040;
+}
+
+.interactive-diagrams::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.interactive-diagrams::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+}
+
+.interactive-diagrams::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+}
+
+.interactive-diagrams::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.5);
+}
+
+/* Structurizr diagram viewer styles */
+.structurizr-diagram {
+    background-color: white;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+[data-md-color-scheme="slate"] .structurizr-diagram {
+    background-color: #2b2b2b;
+}
+
+.view-selector {
+    padding: 0.75em;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    margin-bottom: 0.5em;
+}
+
+[data-md-color-scheme="slate"] .view-selector {
+    background-color: #2b2b2b;
+}
+
+.view-selector label {
+    margin-right: 0.5em;
+    font-weight: 600;
+    color: #1565c0;
+}
+
+[data-md-color-scheme="slate"] .view-selector label {
+    color: #64b5f6;
+}
+
+.view-dropdown {
+    padding: 0.5em 1em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+    font-size: 0.95em;
+    cursor: pointer;
+    min-width: 200px;
+}
+
+[data-md-color-scheme="slate"] .view-dropdown {
+    background-color: #1e1e1e;
+    border-color: #404040;
+    color: #e0e0e0;
+}
+
+.view-dropdown:focus {
+    outline: none;
+    border-color: #5c6bc0;
+    box-shadow: 0 0 0 2px rgba(92, 107, 192, 0.2);
+}
+
+/* Override Structurizr UI styles for better integration */
+.structurizr-diagram .diagram {
+    width: 100%;
+    height: 100%;
+}
+
+.structurizr-diagram svg {
+    max-width: 100%;
+    height: auto;
+}
