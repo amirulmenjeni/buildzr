@@ -272,7 +272,8 @@ class Workspace(DslWorkspaceElement):
     def to_json(self, path: str) -> None:
         from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
         sink = JsonSink()
-        sink.write(workspace=self.model, config=JsonSinkConfig(path=path))
+        sink.write(workspace=self.model, config=JsonSinkConfig(path=path, pretty=pretty))
+
 
     def _add_dynamic_attr(self, name: str, model: Union['Person', 'SoftwareSystem']) -> None:
         if isinstance(model, Person):
