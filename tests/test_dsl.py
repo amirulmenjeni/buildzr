@@ -15,6 +15,7 @@ from buildzr.dsl import (
     SystemContextView,
     DeploymentEnvironment,
     DeploymentNode,
+    DeploymentView,
     InfrastructureNode,
     DeploymentGroup,
     SoftwareSystemInstance,
@@ -393,6 +394,10 @@ def test_implied_relationship() -> Optional[None]:
         assert w.u.model.relationships[0].id not in system_context_view_relationships
         assert w.u.model.relationships[1].id in system_context_view_relationships
         assert w.u.model.relationships[1].linkedRelationshipId == w.u.model.relationships[0].id
+
+    import os
+    os.remove('workspace.test.json')
+    os.remove('workspace2.test.json')
 
 def test_tags_on_elements() -> Optional[None]:
 
@@ -1100,3 +1105,81 @@ def test_json_sink_empty_views() -> Optional[None]:
 
     import os
     os.remove("test.json")
+def test_deployment_instance_relationships_with_implied_relationships() -> Optional[None]:
+    """
+    Test that deployment instance relationships are created correctly when
+    implied_relationships=True, without creating duplicates.
+
+    This test ensures:
+    1. Container relationships automatically create ContainerInstance relationships
+    2. No duplicate instance relationships are created when implied_relationships=True
+    3. Instance relationships are only created once, even with multiple view/export calls
+    """
+
+    with Workspace('deployment-test', implied_relationships=True) as w:
+        # Create containers with relationships
+        ecommerce = SoftwareSystem('E-Commerce System')
+        with ecommerce:
+            api_gateway = Container('API Gateway', technology='Kong')
+            order_svc = Container('Order Service', technology='Node.js')
+            db = Container('Database', technology='MongoDB')
+
+        # Define container relationships
+        api_gateway >> "Routes to" >> order_svc
+        order_svc >> "Stores in" >> db
+
+        # Create deployment with container instances
+        with DeploymentEnvironment('Production') as prod:
+            with DeploymentNode('AWS', technology='Cloud Provider'):
+                api_gw_instance = ContainerInstance(api_gateway)
+                order_instance = ContainerInstance(order_svc)
+                db_instance = ContainerInstance(db)
+
+        # Create views and export (triggers implied relationships multiple times)
+        SystemContextView(
+            software_system_selector=ecommerce,
+            key='test-system-context',
+            description="Test System Context",
+        )
+
+        DeploymentView(
+            environment=prod,
+            key='test-deployment',
+        )
+
+        # Export multiple times to ensure idempotency
+        w.to_json('test_deployment1.json')
+        w.to_json('test_deployment2.json')
+
+    # Verify instance relationships exist
+    assert api_gw_instance.model.relationships is not None
+    assert order_instance.model.relationships is not None
+
+    # Get all instance relationships
+    api_gw_rels = api_gw_instance.model.relationships
+    order_rels = order_instance.model.relationships
+
+    # Should have exactly 1 relationship from api_gw_instance to order_instance
+    api_to_order_rels = [
+        r for r in api_gw_rels
+        if r.destinationId == order_instance.model.id
+    ]
+    assert len(api_to_order_rels) == 1, f"Expected 1 relationship, found {len(api_to_order_rels)}"
+    assert api_to_order_rels[0].description == "Routes to"
+
+    # Should have exactly 1 relationship from order_instance to db_instance
+    order_to_db_rels = [
+        r for r in order_rels
+        if r.destinationId == db_instance.model.id
+    ]
+    assert len(order_to_db_rels) == 1, f"Expected 1 relationship, found {len(order_to_db_rels)}"
+    assert order_to_db_rels[0].description == "Stores in"
+
+    # Verify linkedRelationshipId is set correctly
+    assert api_to_order_rels[0].linkedRelationshipId is not None
+    assert order_to_db_rels[0].linkedRelationshipId is not None
+
+    # Clean up
+    import os
+    os.remove('test_deployment1.json')
+    os.remove('test_deployment2.json')

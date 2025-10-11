@@ -139,6 +139,9 @@ class Workspace(DslWorkspaceElement):
         If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
         And so on...
 
+        Relationships of `SoftwareSystemInstance`s and `ContainerInstance`s are
+        skipped.
+
         This process is idempotent, which means this can be called multiple times
         without duplicating similar relationships.
         """
@@ -154,6 +157,10 @@ class Workspace(DslWorkspaceElement):
             source = relationship.source
             destination = relationship.destination
             destination_parent = destination.parent
+
+            if isinstance(source, (SoftwareSystemInstance, ContainerInstance)) or \
+               isinstance(destination, (SoftwareSystemInstance, ContainerInstance)):
+                continue
 
             while destination_parent is not None and \
                 isinstance(source, DslElement) and \

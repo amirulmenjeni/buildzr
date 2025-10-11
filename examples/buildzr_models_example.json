@@ -12,7 +12,7 @@
         "properties": {},
         "relationships": [
           {
-            "id": "14",
+            "id": "15",
             "description": "Uses",
             "tags": "Relationship",
             "sourceId": "1",
@@ -20,13 +20,13 @@
             "technology": ""
           },
           {
-            "id": "37",
+            "id": "38",
             "description": "Uses",
             "tags": "Relationship",
             "sourceId": "1",
             "destinationId": "3",
             "technology": "",
-            "linkedRelationshipId": "14"
+            "linkedRelationshipId": "15"
           }
         ]
       },
@@ -38,7 +38,7 @@
         "properties": {},
         "relationships": [
           {
-            "id": "15",
+            "id": "16",
             "description": "Manages",
             "tags": "Relationship",
             "sourceId": "2",
@@ -46,13 +46,13 @@
             "technology": ""
           },
           {
-            "id": "38",
+            "id": "39",
             "description": "Manages",
             "tags": "Relationship",
             "sourceId": "2",
             "destinationId": "3",
             "technology": "",
-            "linkedRelationshipId": "15"
+            "linkedRelationshipId": "16"
           }
         ]
       }
@@ -75,7 +75,7 @@
             "properties": {},
             "relationships": [
               {
-                "id": "16",
+                "id": "17",
                 "description": "Calls",
                 "tags": "Relationship",
                 "sourceId": "4",
@@ -95,7 +95,7 @@
             "properties": {},
             "relationships": [
               {
-                "id": "17",
+                "id": "18",
                 "description": "Routes to",
                 "tags": "Relationship",
                 "sourceId": "5",
@@ -136,7 +136,7 @@
             "properties": {},
             "relationships": [
               {
-                "id": "18",
+                "id": "19",
                 "description": "Stores in",
                 "tags": "Relationship",
                 "sourceId": "6",
@@ -144,7 +144,7 @@
                 "technology": ""
               },
               {
-                "id": "19",
+                "id": "20",
                 "description": "Processes payment via",
                 "tags": "Relationship",
                 "sourceId": "6",
@@ -205,14 +205,26 @@
         "name": "Payment Provider",
         "description": "",
         "tags": "Software System,Element",
-        "containers": [],
+        "containers": [
+          {
+            "id": "14",
+            "name": "Payment API",
+            "description": "",
+            "technology": "",
+            "tags": "Container,Element",
+            "components": [],
+            "group": "External",
+            "properties": {},
+            "relationships": []
+          }
+        ],
         "group": "External",
         "properties": {}
       }
     ],
     "deploymentNodes": [
       {
-        "id": "20",
+        "id": "21",
         "name": "AWS",
         "description": "",
         "technology": "Cloud Provider",
@@ -221,7 +233,7 @@
         "tags": "Deployment Node,Element",
         "children": [
           {
-            "id": "21",
+            "id": "22",
             "name": "Application Load Balancer",
             "description": "",
             "technology": "AWS ALB",
@@ -231,7 +243,7 @@
             "children": [],
             "infrastructureNodes": [
               {
-                "id": "22",
+                "id": "23",
                 "name": "Load Balancer",
                 "description": "",
                 "technology": "",
@@ -240,21 +252,12 @@
                 "properties": {},
                 "relationships": [
                   {
-                    "id": "33",
+                    "id": "34",
                     "description": "Forwards requests to",
                     "tags": "Relationship",
-                    "sourceId": "22",
-                    "destinationId": "24",
+                    "sourceId": "23",
+                    "destinationId": "25",
                     "technology": ""
-                  },
-                  {
-                    "id": "39",
-                    "description": "Forwards requests to",
-                    "tags": "Relationship",
-                    "sourceId": "22",
-                    "destinationId": "23",
-                    "technology": "",
-                    "linkedRelationshipId": "33"
                   }
                 ]
               }
@@ -263,7 +266,7 @@
             "containerInstances": []
           },
           {
-            "id": "23",
+            "id": "24",
             "name": "EC2 Instance",
             "description": "",
             "technology": "AWS EC2",
@@ -275,28 +278,19 @@
             "softwareSystemInstances": [],
             "containerInstances": [
               {
-                "id": "24",
+                "id": "25",
                 "containerId": "6",
                 "environment": "Production",
                 "tags": "Container Instance",
                 "relationships": [
                   {
-                    "id": "36",
+                    "id": "37",
                     "description": "Stores in",
                     "tags": "Relationship",
-                    "sourceId": "24",
-                    "destinationId": "31",
+                    "sourceId": "25",
+                    "destinationId": "32",
                     "technology": "",
-                    "linkedRelationshipId": "18"
-                  },
-                  {
-                    "id": "40",
-                    "description": "Stores in",
-                    "tags": "Relationship",
-                    "sourceId": "24",
-                    "destinationId": "30",
-                    "technology": "",
-                    "linkedRelationshipId": "36"
+                    "linkedRelationshipId": "19"
                   }
                 ],
                 "deploymentGroups": [
@@ -306,7 +300,7 @@
             ]
           },
           {
-            "id": "25",
+            "id": "26",
             "name": "API Gateway",
             "description": "",
             "technology": "Amazon API Gateway",
@@ -318,36 +312,27 @@
             "softwareSystemInstances": [],
             "containerInstances": [
               {
-                "id": "26",
+                "id": "27",
                 "containerId": "5",
                 "environment": "Production",
                 "tags": "Container Instance",
                 "relationships": [
                   {
-                    "id": "32",
+                    "id": "33",
                     "description": "Routes to",
                     "tags": "Relationship",
-                    "sourceId": "26",
-                    "destinationId": "22",
+                    "sourceId": "27",
+                    "destinationId": "23",
                     "technology": ""
                   },
                   {
-                    "id": "35",
+                    "id": "36",
                     "description": "Routes to",
                     "tags": "Relationship",
-                    "sourceId": "26",
-                    "destinationId": "29",
+                    "sourceId": "27",
+                    "destinationId": "30",
                     "technology": "",
-                    "linkedRelationshipId": "17"
-                  },
-                  {
-                    "id": "41",
-                    "description": "Routes to",
-                    "tags": "Relationship",
-                    "sourceId": "26",
-                    "destinationId": "27",
-                    "technology": "",
-                    "linkedRelationshipId": "35"
+                    "linkedRelationshipId": "18"
                   }
                 ],
                 "deploymentGroups": [
@@ -357,7 +342,7 @@
             ]
           },
           {
-            "id": "27",
+            "id": "28",
             "name": "ECS Cluster",
             "description": "",
             "technology": "AWS ECS",
@@ -369,28 +354,19 @@
             "softwareSystemInstances": [],
             "containerInstances": [
               {
-                "id": "28",
+                "id": "29",
                 "containerId": "4",
                 "environment": "Production",
                 "tags": "Container Instance",
                 "relationships": [
                   {
-                    "id": "34",
+                    "id": "35",
                     "description": "Calls",
                     "tags": "Relationship",
-                    "sourceId": "28",
-                    "destinationId": "26",
+                    "sourceId": "29",
+                    "destinationId": "27",
                     "technology": "",
-                    "linkedRelationshipId": "16"
-                  },
-                  {
-                    "id": "42",
-                    "description": "Calls",
-                    "tags": "Relationship",
-                    "sourceId": "28",
-                    "destinationId": "25",
-                    "technology": "",
-                    "linkedRelationshipId": "34"
+                    "linkedRelationshipId": "17"
                   }
                 ],
                 "deploymentGroups": [
@@ -398,7 +374,7 @@
                 ]
               },
               {
-                "id": "29",
+                "id": "30",
                 "containerId": "9",
                 "environment": "Production",
                 "tags": "Container Instance",
@@ -409,7 +385,7 @@
             ]
           },
           {
-            "id": "30",
+            "id": "31",
             "name": "DocumentDB",
             "description": "",
             "technology": "MongoDB-compatible",
@@ -421,7 +397,7 @@
             "softwareSystemInstances": [],
             "containerInstances": [
               {
-                "id": "31",
+                "id": "32",
                 "containerId": "12",
                 "environment": "Production",
                 "tags": "Container Instance",
@@ -468,10 +444,10 @@
         ],
         "relationships": [
           {
-            "id": "37"
+            "id": "38"
           },
           {
-            "id": "38"
+            "id": "39"
           }
         ]
       }
@@ -490,9 +466,6 @@
           "vertices": false
         },
         "elements": [
-          {
-            "id": "20"
-          },
           {
             "id": "21"
           },
@@ -525,35 +498,26 @@
           },
           {
             "id": "31"
+          },
+          {
+            "id": "32"
           }
         ],
         "relationships": [
           {
-            "id": "33"
+            "id": "34"
           },
           {
-            "id": "39"
+            "id": "37"
           },
           {
             "id": "36"
           },
           {
-            "id": "40"
+            "id": "33"
           },
           {
             "id": "35"
-          },
-          {
-            "id": "41"
-          },
-          {
-            "id": "32"
-          },
-          {
-            "id": "34"
-          },
-          {
-            "id": "42"
           }
         ]
       }
