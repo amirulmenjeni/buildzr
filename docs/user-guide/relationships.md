@@ -1,253 +1,202 @@
 # Relationships
+Relationships connect elements in your architecture model and describe how they interact. Think of them as the gossip lines of your system - who talks to whom, what they're saying, and whether they're doing it over HTTP or carrier pigeon. Without relationships, your architecture diagram is just a bunch of lonely boxes that desperately need therapy.[^1]
 
-Relationships connect elements in your architecture model and describe how they interact.
+With that in mind, let's dive into how we can establish and maintain a healthy relationship with `buildzr`.
 
 ## Basic Syntax
 
-Use the `>>` operator to create relationships:
+To define a relationship between two models, use the `>>` operator.
 
 ```python
-from buildzr.dsl import Person, SoftwareSystem
+from buildzr.dsl import Workspace, Person, SoftwareSystem
 
-user = Person('User')
-system = SoftwareSystem('System')
+with Workspace('w') as w:
 
-# Simple relationship
-user >> system
+    user = Person('User')
+    system = SoftwareSystem('System')
+
+    # Simple relationship
+    user >> system
 ```
 
 ## Adding Descriptions
 
-Add a description to explain the relationship:
+To describe what kind of relationship exists between `user` and `system`, simply pass a string like so:
 
 ```python
-user >> "Uses" >> system
+from buildzr.dsl import Workspace, Person, SoftwareSystem
+
+with Workspace('w') as w:
+
+    user = Person('User')
+    system = SoftwareSystem('System')
+
+    user >> "Uses" >> system
 ```
 
 ## Technology/Protocol
 
-Specify the technology or protocol used:
+If you need to add the technology detail, pass a tuple instead of a string. The first element of the tuple is the description, while the second is the technology.
 
 ```python
-from buildzr.dsl import Container
+from buildzr.dsl import Workspace, SoftwareSystem, Container
 
-api = Container('API')
-database = Container('Database')
+with Workspace('w') as w:
 
-# Relationship with description and technology
-api >> ("Reads from and writes to", "JDBC/SSL") >> database
+    with SoftwareSystem('s') as s:
+        api = Container('API')
+        database = Container('Database')
+
+    # Relationship with description and technology
+    api >> ("Reads from and writes to", "JDBC/SSL") >> database
 ```
 
-## Multiple Relationships
+## Adding Tags and Properties to a Relationship
 
-Define multiple relationships from one element:
+Like element models, you can also add tags and properties to relationships by piping (`|`) the relationship to a `With`:
 
 ```python
-user >> [
-    desc("Reads from") >> system_a,
-    desc("Writes to") >> system_b,
-    desc("Authenticates with") >> auth_system,
-]
+from buildzr.dsl import Workspace, SoftwareSystem, Container, With
+
+with Workspace('w') as w:
+
+    with SoftwareSystem('s') as s:
+        api = Container('API')
+        database = Container('Database')
+
+    # Relationship with description and technology
+    api >> ("Reads from and writes to", "JDBC/SSL") >> database | With(
+        tags={'sensitive'},
+        properties={
+            'driver': 'mysql-connector-java-5.1.18-bin.jar',
+        }
+    )
 ```
+
+## One-to-Many Relationships
+
+It is also possible to define a one-to-many relationships by collecting the right-hand hand side of the `>>` in a list (`[ ... ]`):
+
+```python
+from buildzr.dsl import Workspace, Person, SoftwareSystem, With, desc
+
+with Workspace('w') as w:
+    user = Person('user')
+    system_a = SoftwareSystem('a')
+    system_b = SoftwareSystem('b')
+    auth_system = SoftwareSystem('auth')
+
+    user >> [
+        desc("Reads from") >> system_a,
+        desc("Writes to", "HTTPS") >> system_b | With(
+            tags={'encrypted'},
+        ),
+        auth_system,
+    ]
+```
+
+You can see that we've combined different ways to define a relationship for each relationship between `user` and `system_a`, `system_b`, and `auth_system`!
 
 !!! note
     Use `desc` when describing relationships in a one-to-many relationships definition.
+    This is required, unless you don't need to put a relationship description like with `auth_system` above!
 
 
 ## Bidirectional Relationships
 
-Create relationships in both directions:
+Sometimes relationships go both ways. When system A talks to system B *and* system B talks back to system A, you've got a bidirectional relationship - the "it's complicated" of architecture diagrams.
+
+You can create relationships in both directions by defining each direction separately:
 
 ```python
-# System A calls System B
-system_a >> "Calls" >> system_b
+from buildzr.dsl import Workspace, Person, SoftwareSystem, With, desc
 
-# System B sends events to System A
-system_b >> "Sends events to" >> system_a
+with Workspace('w') as w:
+    system_a = SoftwareSystem('a')
+    system_b = SoftwareSystem('b')
+
+    system_a >> "Calls" >> system_b
+
+    system_b >> "Sends events to" >> system_a
 ```
 
-## Relationship Properties
-
-Add custom properties to relationships:
-
-```python
-# Note: Direct property setting requires accessing the relationship object
-# This is typically done through the underlying API
-```
+!!! tip
+    Just because you *can* make relationships bidirectional doesn't mean they are. Only add the reverse relationship if it actually exists in your system.
 
 ## Implied Relationships
 
-`buildzr` automatically creates implied relationships. For example:
+Sometimes you don't need to say the obvious. If your `frontend` container talks to someone else's `api` container, it's pretty clear that your system talks to their system too. These are implied relationships - connections that exist by logical necessity, not because you explicitly wrote them down.
 
 ```python
-# If Container A calls Container B
-container_a >> "Calls" >> container_b
+from buildzr.dsl import Workspace, Person, SoftwareSystem, Container
 
-# An implied relationship exists between their parent systems
-# (assuming they're in different systems)
+# ⚠️ Make sure to enable `implied_relationships` for the workspace!
+with Workspace('w', implied_relationships=True) as w:
+    user = Person('user')
+    with SoftwareSystem('s') as s:
+        app = Container('app')
+
+    # This will also imply that `user >> s`.
+    user >> app
 ```
 
-## Relationship Examples
+If you run the code above and inspect the JSON output, you'll see that `user` has two relationships:
 
-### Person to System
+- The first one with `app`, which was explicitly created, and
+- The second one with `s`, which was implied
 
-```python
-customer >> "Places orders using" >> ecommerce_system
-admin >> "Manages" >> admin_panel
+!!! info "Why This Matters"
+    Implied relationships save you from maintaining duplicate relationship definitions across different abstraction levels. Define the detailed container-to-container relationship once, and the system-to-system relationship is inferred automatically. One source of truth, multiple levels of visualization.
+
+!!! info "Implied Relationships are Bidirectional"
+    If we have software systems `a` and `b`, each with containers `ca` and `cb` respectively, the following holds:
+    - `a.ca >> b` implies `a >> b`
+    - `a >> b.cb` implies `a >> b`
+
+## Legal Relationships
+
+As you may know, not all relationships are legal.
+
+`buildzr` helps you know if you're creating a legal relationship by using `mypy`, a static type checker.
+
+For example, if you try to create a relationship between a `Person` and an `DeploymentNode` (ew!), `mypy` will complain, and you'll see something like this:
+
+![Mypy complains about an illegal relationship](./images/mypy_illegal_relationship.png){ width="400" }
+
+If we hover over the red squiggly lines, we can read the complaints:
+
+```
+No overload variant of "__rshift__" of "DslElementRelationOverrides" matches argument type "DeploymentNode".
+
+Possible overload variants:
+    def __rshift__(self, Union[Person, SoftwareSystem, Container, Component], /) -> _Relationship[Person, Union[Person, SoftwareSystem, Container, Component]]
+    def __rshift__(self, Tuple[str, str], /) -> _UsesFrom[Person, Union[Person, SoftwareSystem, Container, Component]]
+    def __rshift__(self, str, /) -> _UsesFrom[Person, Union[Person, SoftwareSystem, Container, Component]]
+    def __rshift__(self, _RelationshipDescription[Union[Person, SoftwareSystem, Container, Component]], /) -> _UsesFrom[Person, Union[Person, SoftwareSystem, Container, Component]]
+    def __rshift__(self, List[Union[Person, SoftwareSystem, Container, Component, _UsesFromLate[Union[Person, SoftwareSystem, Container, Component]]]], /) -> List[_Relationship[Person, Union[Person, SoftwareSystem, Container, Component]]]
 ```
 
-### System to System
+The following table shows the allowed relationships between which element types, and from which source to which destination (taken from [Structurizr DSL Language Reference](https://docs.structurizr.com/dsl/language#relationship)):
 
-```python
-web_app >> "Gets data from" >> api_system
-api_system >> ("Queries", "REST/HTTPS") >> database_system
-payment_system >> "Sends notifications via" >> email_system
-```
+|Source|Destination|
+|---|---|
+|`Person`|`Person`, `SoftwareSystem`, `Container`, `Component`|
+|`SoftwareSystem`|`Person`, `SoftwareSystem`, `Container`, `Component`|
+|`Container`|`Person`, `SoftwareSystem`, `Container`, `Component`|
+|`Component`|`Person`, `SoftwareSystem`, `Container`, `Component`|
+|`DeploymentNode`|`DeploymentNode`|
+|`InfrastructureNode`|`DeploymentNode`, `InfrastructureNode`, `SoftwareSystemInstance`, `ContainerInstance`|
+|`SoftwareSystemInstance`|`InfrastructureNode`|
+|`ContainerInstance`|`InfrastructureNode`|
 
-### Container to Container
+Note that the table shows that `SoftwareSystemInstance` and `ContainerInstance` can only have a relationship with `InfrastructureNode`. Behind the scene, though, when you create a relationship, say, between two `Container`s, `buildzr` will create the implied instance relationships between the instances of the two `ContainerInstance`s if they exists. For an example of this, see the [Deployment Group example](./models.md#deployment-group). (This is a different feature, not to be confused with from what's described in [Implied Relationships](#implied-relationships).)
 
-```python
-with system:
-    web >> "Makes API calls to" >> api
-    api >> ("Reads from", "SQL") >> database
-    api >> ("Caches in", "Redis protocol") >> cache
-```
-
-### Component to Component
-
-```python
-with api_container:
-    controller >> "Uses" >> service
-    service >> "Calls" >> repository
-    repository >> "Queries" >> database_component
-```
-
-### Deployment Relationships
-
-```python
-from buildzr.dsl import DeploymentNode, ContainerInstance
-
-with DeploymentEnvironment('Production'):
-    with DeploymentNode('Load Balancer') as lb:
-        lb_instance = InfrastructureNode('LB')
-
-    with DeploymentNode('App Server') as app:
-        api_instance = ContainerInstance(api)
-
-    lb_instance >> "Forwards requests to" >> api_instance
-```
-
-## Complex Example
-
-```python
-from buildzr.dsl import (
-    Workspace,
-    Person,
-    SoftwareSystem,
-    Container,
-    Group,
-    desc,
-)
-
-with Workspace('relationships-example') as w:
-    # Define elements
-    with Group("Users"):
-        customer = Person('Customer')
-        admin = Person('Admin')
-
-    with Group("Internal Systems"):
-        webapp = SoftwareSystem('Web Application')
-        with webapp:
-            frontend = Container('Frontend', technology='React')
-            backend = Container('Backend API', technology='FastAPI')
-            db = Container('Database', technology='PostgreSQL')
-            cache = Container('Cache', technology='Redis')
-
-    with Group("External Systems"):
-        payment = SoftwareSystem('Payment Gateway')
-        email = SoftwareSystem('Email Service')
-        analytics = SoftwareSystem('Analytics Platform')
-
-    # User relationships
-    customer >> [
-        desc("Browses products using") >> frontend,
-        desc("Makes purchases via") >> frontend,
-    ]
-
-    admin >> [
-        desc("Manages system via") >> frontend,
-        desc("Views reports in") >> frontend,
-    ]
-
-    # Frontend relationships
-    frontend >> [
-        desc("Calls", "REST/HTTPS") >> backend,
-        desc("Sends events to") >> analytics,
-    ]
-
-    # Backend relationships
-    backend >> [
-        desc("Reads/Writes", "SQL") >> db,
-        desc("Caches data in", "Redis protocol") >> cache,
-        desc("Processes payments via", "REST API") >> payment,
-        desc("Sends emails via", "SMTP") >> email,
-        desc("Tracks events in") >> analytics,
-    ]
-
-    # External system relationships
-    payment >> ("Sends webhooks to", "HTTPS") >> backend
-    email >> ("Logs delivery status to", "API") >> backend
-
-    w.to_json('relationships.json')
-```
-
-## Best Practices
-
-### Be Descriptive
-
-```python
-# Good
-api >> "Authenticates users via OAuth2" >> auth_service
-
-# Less clear
-api >> "Uses" >> auth_service
-```
-
-### Specify Technology
-
-```python
-# Good
-api >> ("Queries", "SQL/TLS") >> database
-
-# Missing context
-api >> "Queries" >> database
-```
-
-### Group Related Relationships
-
-```python
-# Group relationships by source
-frontend >> [
-    desc("Calls") >> api,
-    desc("Sends analytics to") >> analytics,
-    desc("Stores session in") >> cache,
-]
-```
-
-### Use Consistent Terminology
-
-```python
-# Consistent
-service_a >> "Calls" >> service_b
-service_b >> "Calls" >> service_c
-
-# Inconsistent (confusing)
-service_a >> "Invokes" >> service_b
-service_b >> "Calls" >> service_c
-```
 
 ## Next Steps
 
 - [Views](views.md) - Visualize your relationships
 - [Styling](styling.md) - Style your relationship lines
 - [Examples](../examples/system-context.md) - See complete examples
+
+
+[^1]: With apologies to Claude for the therapy joke. And a few more others below.

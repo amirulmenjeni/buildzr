@@ -119,7 +119,7 @@ In Structurizr, the purpose of tags are used primarily for styling and visual re
 `buildzr` offer a more flexible styling syntax beyond tagging. See [Styling](./styling.md).
 
 !!! note
-    If you run the code above, you will see that the `critical_system` has an extra additional "hidden" tags: `Element` and `SoftwareSystem`. By default, each model element will have default tags assigned to them: the model type (`Relationship` or `Element`) and, if it's an `Element`, the type of the element (e.g., `SoftwareSystem`, `Person`, `Container`, or `Component`).
+    If you run the code above, you will see that the `critical_system` has some extra additional "hidden" tags: `Element` and `SoftwareSystem`. By default, each model element will have default tags assigned to them: the model type (`Relationship` or `Element`) and, if it's an `Element`, the type of the element (e.g., `SoftwareSystem`, `Person`, `Container`, or `Component`).
 
 ## Deployment Elements
 
@@ -169,57 +169,120 @@ with DeploymentNode('AWS'):
 
 ### Deployment Group
 
-`DeploymentGroup` allows you to logically group container instances to control relationships between them in deployment scenarios.
+`DeploymentGroup` allows us to group deployment instances together so relationships only exist between instances sharing the same deployment group, enabling isolated multi-instance deployments like multi-tenant or blue-green scenarios.
 
-**When to use:** Use deployment groups when you have multiple instances of the same containers and want to control which instances can communicate with each other.
+In this example, we'll use `DeploymentGroup` to isolate instance relationships within their respective region (`ap-southeast-1` and `us-east-1`).
 
-```python
-with SoftwareSystem('Web Application') as system:
-    api = Container(
-        'API',
-        description='Provides REST API',
-        technology='Python/FastAPI'
-    )
-    database = Container(
-        'Database',
-        description='Stores and runs transactions of app data',
-        technology='MSSQL'
-    )
+```python hl_lines="15 27-28 52 54 81 85"
+with Workspace(
+    "Amazon Web Services Example",
+    description="An example AWS deployment architecture",
+) as w:
 
-with DeploymentEnvironment('Production') as prod:
-    # Define deployment groups
-    instance_group_1 = DeploymentGroup('Service Instance 1')
-    instance_group_2 = DeploymentGroup('Service Instance 2')
+    user = Person("User", description="An ordinary user.")
 
-    # Server 1: API and Database in group 1
-    with DeploymentNode('Server 1'):
-        api_1 = ContainerInstance(api, [instance_group_1])
-        with DeploymentNode('Database Server'):
-            db_1 = ContainerInstance(database, [instance_group_1])
+    with SoftwareSystem("X") as x:
 
-    # Server 2: API and Database in group 2
-    with DeploymentNode('Server 2'):
-        api_2 = ContainerInstance(api, [instance_group_2])
-        with DeploymentNode('Database Server'):
-            db_2 = ContainerInstance(database, [instance_group_2])
+        # Notice that we don't need to specify the tags "Application" and "Database"
+        # for styling -- just pass the `wa` and `db` variables directly to the `StyleElements` class.
+        wa = Container("Web Application", technology="Java and Spring boot")
+        db = Container("Database Schema")
+
+        wa >> "Reads from and writes to" >> db
+
+        with wa:
+            api_layer = Component("API Layer")
+            db_layer = Component("Database Layer")
+
+            api_layer >> "Runs queries/transactions on" >> db_layer
+
+    user >> ("Uses", "browser") >> x
+
+    with DeploymentEnvironment("Live") as live:
+
+        dg_region_1 = DeploymentGroup("region-1")
+        dg_region_2 = DeploymentGroup("region-2")
+
+        with DeploymentNode("Amazon Web Services") as aws:
+            aws.add_tags("Amazon Web Services - Cloud")
+
+            with DeploymentNode("ap-southeast-1") as region_ap_southeast_1:
+                region_ap_southeast_1.add_tags("Amazon Web Services - Region")
+
+                dns = InfrastructureNode(
+                    "DNS Router",
+                    description="Routes incoming requests based upon domain name.",
+                    technology="Route 53",
+                    tags={"Amazon Web Services - Route 53"}
+                )
+
+                lb = InfrastructureNode(
+                    "Load Balancer",
+                    description="Automatically distributes incoming application traffic.",
+                    technology="Elastic Load Balancer",
+                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                )
+
+                dns >> ("Fowards requests to", "HTTP") >> lb
+
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                    with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
+                        lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_1])
+
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                    with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
+                        database_instance = ContainerInstance(db, deployment_groups=[dg_region_1])
+
+            with DeploymentNode("us-east-1") as region_us_east_1:
+                region_us_east_1.add_tags("Amazon Web Services - Region")
+
+                dns = InfrastructureNode(
+                    "DNS Router",
+                    description="Routes incoming requests based upon domain name.",
+                    technology="Route 53",
+                    tags={"Amazon Web Services - Route 53"}
+                )
+
+                lb = InfrastructureNode(
+                    "Load Balancer",
+                    description="Automatically distributes incoming application traffic.",
+                    technology="Elastic Load Balancer",
+                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                )
+
+                dns >> ("Fowards requests to", "HTTP") >> lb
+
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                    with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
+                        lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_2])
+
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                    with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
+                        database_instance = ContainerInstance(db, deployment_groups=[dg_region_2])
 ```
 
 !!! tip "Deployment Groups Use Case"
-    Deployment groups ensure that:
 
-    - The API on Server 1 only connects to the database on Server 1
-    - The API on Server 2 only connects to the database on Server 2
+    In this example, `DeploymentGroup` ensures that the web app on `ap-southeast-1` (with deployment group `region-1`) only connects to the database in the same region. Likewise, the deployment group `region-2` ensures that the web app in `us-east-1` region only connects to the database in the same region.
 
-    This prevents cross-server communication and keeps instances isolated within their groups.
+    In effect, `DeploymentGroup` allows us to specify the relationship boundary of `SoftwareInstance`s or `ContainerInstance`s.
 
-!!! note "Default Deployment Group"
-    If you don't specify deployment groups, all container instances are automatically assigned to a "Default" deployment group.
+    Without specifying `DeploymentGroup`, `SoftwareInstance`s or `ContainerInstance`s will share the same `default` deployment group. Since all instances across all regions share the same `default` deployment group, the web app in the first region would look like it is connecting to the database in the second region, and vice versa. Which is not something we'd want.
 
+Without deployment group, we'd have something like this (rendered with PlantUML):
+
+![Without deployment group](./images/aws_without_deployment_group.png)
+
+However, if we specify the deployment group like we did in the example above, we avoid drawing a relationship between instances across the region:
+
+![With deployment group](./images/aws_with_deployment_group.png)
 
 ## Complete Example
 
 !!! note
-    We've added a `SystemLandscapeView` in the code below, so that the generated JSON output can be used in a rendering tool (e.g., on [https://structurizr.com/json](https://structurizr.com/json)). See [Views](views.md) for more info.
+    We've added a `SystemContextView` and a `DeploymentView` in the code below, so that the generated JSON output can be used in a rendering tool (e.g., on [https://structurizr.com/json](https://structurizr.com/json)).
+
+    So far, we've only discussed models. With views, we can use (and re-use!) our static and instance models to draw architecture diagrams. See [Views](views.md) for more info.
 
 ```python
 from buildzr.dsl import (
@@ -228,108 +291,128 @@ from buildzr.dsl import (
     SoftwareSystem,
     Container,
     Component,
-    Group,
     DeploymentEnvironment,
+    DeploymentGroup,
     DeploymentNode,
-    ContainerInstance,
     InfrastructureNode,
+    ContainerInstance,
     SystemContextView,
     DeploymentView,
+    StyleElements,
 )
 
-with Workspace('microservices-example') as w:
-    # People
-    customer = Person('Customer')
-    admin = Person('Administrator')
+with Workspace(
+    "Amazon Web Services Example",
+    description="An example AWS deployment architecture",
+) as w:
 
-    # Systems
-    with Group("E-Commerce Platform"):
-        ecommerce = SoftwareSystem('E-Commerce System')
+    user = Person("User", description="An ordinary user.")
 
-        with ecommerce:
-            # Containers
-            web = Container('Web App', technology='React')
-            api_gateway = Container('API Gateway', technology='Kong')
+    with SoftwareSystem("X") as x:
 
-            # Services
-            with Container('Order Service', technology='Node.js') as order_svc:
-                order_controller = Component('Order Controller')
-                order_repository = Component('Order Repository')
+        # Notice that we don't need to specify the tags "Application" and "Database"
+        # for styling -- just pass the `wa` and `db` variables directly to the `StyleElements` class.
+        wa = Container("Web Application", technology="Java and Spring boot")
+        db = Container("Database Schema")
 
-            with Container('Inventory Service', technology='Python') as inv_svc:
-                inventory_api = Component('Inventory API')
-                stock_manager = Component('Stock Manager')
+        wa >> "Reads from and writes to" >> db
 
-            # Database
-            db = Container('Database', technology='MongoDB')
+        with wa:
+            api_layer = Component("API Layer")
+            db_layer = Component("Database Layer")
 
-    with Group("External"):
-        payment = SoftwareSystem('Payment Provider')
+            api_layer >> "Runs queries/transactions on" >> db_layer
 
-    # Relationships
-    customer >>  "Uses" >> ecommerce
-    admin >>  "Manages" >> ecommerce
+    user >> ("Uses", "browser") >> x
 
-    customer >> "Uses" >> web
-    admin >> "Manages" >> web
-    web >> "Calls" >> api_gateway
-    api_gateway >> "Routes to" >> inv_svc
-    order_svc >> "Stores in" >> db
-    order_svc >> "Processes payment via" >> payment
+    with DeploymentEnvironment("Live") as live:
 
-    # Deployment (Production environment)
-    with DeploymentEnvironment('Production') as prod:
-        with DeploymentNode('AWS', technology='Cloud Provider'):
-            # Load Balancer
-            with DeploymentNode('Application Load Balancer', technology='AWS ALB'):
-                lb = InfrastructureNode('Load Balancer')
+        dg_region_1 = DeploymentGroup("region-1")
+        dg_region_2 = DeploymentGroup("region-2")
 
-            with DeploymentNode('EC2 Instance', technology='AWS EC2'):
-                order_instance = ContainerInstance(order_svc)
+        with DeploymentNode("Amazon Web Services") as aws:
+            aws.add_tags("Amazon Web Services - Cloud")
 
-            with DeploymentNode('API Gateway', technology='Amazon API Gateway'):
-                api_gw_instance = ContainerInstance(api_gateway)
+            with DeploymentNode("ap-southeast-1") as region_ap_southeast_1:
+                region_ap_southeast_1.add_tags("Amazon Web Services - Region")
 
-            # Application tier (containerized)
-            with DeploymentNode('ECS Cluster', technology='AWS ECS'):
-                web_instance = ContainerInstance(web)
-                inventory_instance = ContainerInstance(inv_svc)
+                dns = InfrastructureNode(
+                    "DNS Router",
+                    description="Routes incoming requests based upon domain name.",
+                    technology="Route 53",
+                    tags={"Amazon Web Services - Route 53"}
+                )
 
-            # Database tier
-            with DeploymentNode('DocumentDB', technology='MongoDB-compatible'):
-                db_instance = ContainerInstance(db)
+                lb = InfrastructureNode(
+                    "Load Balancer",
+                    description="Automatically distributes incoming application traffic.",
+                    technology="Elastic Load Balancer",
+                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                )
 
-            api_gw_instance >> "Routes to" >> lb
-            lb >> "Forwards requests to" >> order_instance
+                dns >> ("Fowards requests to", "HTTP") >> lb
 
-        SystemContextView(
-            software_system_selector=ecommerce,
-            key='system-context-view-ecommerce',
-            description="System Context of E-Commerce App",
-        )
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                    with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
+                        lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_1])
 
-w.apply_view(
-    DeploymentView(
-        environment=prod,
-        key='deployment-view-production-ecommerce',
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                    with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
+                        database_instance = ContainerInstance(db, deployment_groups=[dg_region_1])
+
+            with DeploymentNode("us-east-1") as region_us_east_1:
+                region_us_east_1.add_tags("Amazon Web Services - Region")
+
+                dns = InfrastructureNode(
+                    "DNS Router",
+                    description="Routes incoming requests based upon domain name.",
+                    technology="Route 53",
+                    tags={"Amazon Web Services - Route 53"}
+                )
+
+                lb = InfrastructureNode(
+                    "Load Balancer",
+                    description="Automatically distributes incoming application traffic.",
+                    technology="Elastic Load Balancer",
+                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                )
+
+                dns >> ("Fowards requests to", "HTTP") >> lb
+
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                    with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
+                        lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_2])
+
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                    with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
+                        database_instance = ContainerInstance(db, deployment_groups=[dg_region_2])
+
+    SystemContextView(
+        software_system_selector=x,
+        key='x_context_00',
+        description="System context of X",
     )
-)
 
-w.to_json('workspace.json')
+    DeploymentView(
+        environment=live,
+        key='aws-deployment-view',
+        software_system_selector=x,
+        title="Amazon Web Services Deployment",
+        description="Deployment view of the web application on AWS",
+        auto_layout='lr',
+    )
+
+    StyleElements(on=['Element'], background='#ffffff')
+    StyleElements(on=['Container'], background='#ffffff')
+    StyleElements(on=[wa], background='#ffffff')
+    StyleElements(on=[user], shape='Person')
+    StyleElements(on=[db], shape='Cylinder')
+
+    w.to_json('workspace.json', pretty=True)
 ```
-
-!!! tip "Complete Architecture"
-    This example demonstrates all major model types in buildzr:
-
-    - **People**: Customer and Admin users
-    - **Systems**: E-Commerce platform and external payment provider
-    - **Containers**: Web app, API gateway, microservices, and database
-    - **Components**: Internal service components
-    - **Deployment**: AWS infrastructure with ECS and DocumentDB
-    - **Groups**: Logical organization of systems
 
 ## Next Steps
 
-- [Relationships](relationships.md) - Learn how to connect models
-- [Views](views.md) - Visualize your models
-- [Styling](styling.md) - Customize appearance
+- [Relationships](relationships.md): Describe relationships between models
+- [Views](views.md): Draw architecture diagrams based of your models
+- [Styling](styling.md): Customize the appearance of your views

@@ -2,6 +2,12 @@
 
 Let's start creating your first architecture diagram with `buildzr`!
 
+TL;DR:
+
+1. Click **Run Code** in the [Complete Example](#complete-example)
+2. Copy the JSON output
+3. Head over to https://structurizr.com/json, paste the JSON output, and hit **Render**
+
 ## Your First Workspace
 
 ### Step 1: Import from `buildzr.dsl`
