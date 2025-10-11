@@ -336,7 +336,10 @@ def test_implied_relationship() -> Optional[None]:
     # relationship. For example, u -> s.database doesn't explicitly create a u
     # -> s relationship in the workspace JSON.
 
-    # TODO: Add a way to enable/disable implied relationships in the DSL.
+    # Conditions to take into account:
+    # 1. The implied relationships method be must idempotent (e.g., if it is
+    #    called in `to_json` twice, or in other methods like `apply_view`, it
+    #    doesn't create duplicates)
 
     with Workspace("w", implied_relationships=True) as w:
         u = Person('u')
@@ -354,18 +357,42 @@ def test_implied_relationship() -> Optional[None]:
 
         u >> "Runs SQL queries" >> s.db # `u >> "Runs SQL queries" >> s`` should be implied
 
-    assert isinstance(w.u, Person)
-    assert isinstance(w.s, SoftwareSystem)
-    assert len(w.u.model.relationships) == 2 # Should have u >> R >> s and u >> R >> s.database
+        # Invoke imply relationships whenever a view is called.
+        #
+        # The implied relationship ids and related elements
+        # should appear in the view.
+        SystemContextView(
+            software_system_selector=s,
+            key='s_00',
+            description="App system context",
+        )
 
-    assert w.u.model.relationships[0].description == "Runs SQL queries"
-    assert w.u.model.relationships[0].sourceId == w.u.model.id
-    assert w.u.model.relationships[0].destinationId == w.s.db.model.id
+        # Invoke imply relationships more than once.
+        # Should be no problem.
+        w.to_json('workspace.test.json')
+        w.to_json('workspace2.test.json')
 
-    assert w.u.model.relationships[1].description == "Runs SQL queries"
-    assert w.u.model.relationships[1].sourceId == w.u.model.relationships[0].sourceId
-    assert w.u.model.relationships[1].destinationId == w.s.model.id
-    assert w.u.model.relationships[1].linkedRelationshipId == w.u.model.relationships[0].id
+        assert isinstance(w.u, Person)
+        assert isinstance(w.s, SoftwareSystem)
+        assert len(w.u.model.relationships) == 2 # Should have u >> R >> s and u >> R >> s.database
+
+        assert w.u.model.relationships[0].description == "Runs SQL queries"
+        assert w.u.model.relationships[0].sourceId == w.u.model.id
+        assert w.u.model.relationships[0].destinationId == w.s.db.model.id
+
+        assert w.u.model.relationships[1].description == "Runs SQL queries"
+        assert w.u.model.relationships[1].sourceId == w.u.model.relationships[0].sourceId
+        assert w.u.model.relationships[1].destinationId == w.s.model.id
+        assert w.u.model.relationships[1].linkedRelationshipId == w.u.model.relationships[0].id
+
+        system_context_view_elements = [x.id for x in w._m.views.systemContextViews[0].elements]
+        assert u.model.id in system_context_view_elements
+        assert s.model.id in system_context_view_elements
+
+        system_context_view_relationships = [x.id for x in w._m.views.systemContextViews[0].relationships]
+        assert w.u.model.relationships[0].id not in system_context_view_relationships
+        assert w.u.model.relationships[1].id in system_context_view_relationships
+        assert w.u.model.relationships[1].linkedRelationshipId == w.u.model.relationships[0].id
 
 def test_tags_on_elements() -> Optional[None]:
 

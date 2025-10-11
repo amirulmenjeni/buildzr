@@ -133,12 +133,21 @@ class Workspace(DslWorkspaceElement):
         self,
     ) -> None:
 
+        """
+        Process implied relationships:
+        If we have relationship s >> do >> a.b, then create s >> do >> a.
+        If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
+        And so on...
+
+        This process is idempotent, which means this can be called multiple times
+        without duplicating similar relationships.
+        """
+
+        if not self._use_implied_relationships:
+            return
+
         from buildzr.dsl.explorer import Explorer
 
-        # Process implied relationships:
-        # If we have relationship s >> do >> a.b, then create s >> do >> a.
-        # If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
-        # And so on...
         explorer = Explorer(self)
         relationships = list(explorer.walk_relationships())
         for relationship in relationships:
@@ -201,8 +210,7 @@ class Workspace(DslWorkspaceElement):
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
-    def apply_view(
-        self,
+    def apply_view( self,
         view: Union[
             'SystemLandscapeView',
             'SystemContextView',
@@ -211,6 +219,8 @@ class Workspace(DslWorkspaceElement):
             'DeploymentView',
         ]
     ) -> None:
+
+        self._imply_relationships()
 
         view._on_added(self)
 
@@ -269,10 +279,14 @@ class Workspace(DslWorkspaceElement):
             else:
                 self.model.views.configuration.styles.relationships = style.model
 
-    def to_json(self, path: str) -> None:
+    def to_json(self, path: str, pretty: bool=False) -> None:
+
+        self._imply_relationships()
+
         from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
         sink = JsonSink()
-        sink.write(workspace=self.model, config=JsonSinkConfig(path=path))
+        sink.write(workspace=self.model, config=JsonSinkConfig(path=path, pretty=pretty))
+
 
     def _add_dynamic_attr(self, name: str, model: Union['Person', 'SoftwareSystem']) -> None:
         if isinstance(model, Person):
