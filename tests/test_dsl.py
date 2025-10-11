@@ -399,6 +399,49 @@ def test_implied_relationship() -> Optional[None]:
     os.remove('workspace.test.json')
     os.remove('workspace2.test.json')
 
+def test_inverse_implied_relationship() -> Optional[None]:
+    """
+    Test that inverse implied relationships work correctly.
+    When a.container >> b (child to parent), it should imply a >> b.
+
+    See: https://docs.structurizr.com/java/implied-relationships
+    """
+
+    with Workspace("w", implied_relationships=True) as w:
+        u = Person('User')
+        s = SoftwareSystem('System')
+        with s:
+            api = Container('API')
+            db = Container('Database')
+            api >> "Uses" >> db
+
+        # Create relationship from child to parent: s.api >> u
+        # This should imply s >> u
+        s.api >> "Notifies" >> u
+
+        # Invoke implied relationships via view
+        SystemContextView(
+            software_system_selector=s,
+            key='s_context',
+            description="System context view",
+        )
+
+        w.to_json('workspace.inverse.test.json')
+
+    # Check that System has an implied relationship to User
+    assert len(s.model.relationships) == 1
+    assert s.model.relationships[0].description == "Notifies"
+    assert s.model.relationships[0].sourceId == s.model.id
+    assert s.model.relationships[0].destinationId == u.model.id
+    assert s.model.relationships[0].linkedRelationshipId == s.api.model.relationships[1].id
+
+    # The implied relationship should appear in system context view
+    system_context_view_relationships = [x.id for x in w._m.views.systemContextViews[0].relationships]
+    assert s.model.relationships[0].id in system_context_view_relationships
+
+    import os
+    os.remove('workspace.inverse.test.json')
+
 def test_tags_on_elements() -> Optional[None]:
 
     u = Person('My User', tags={'admin'})
@@ -1105,6 +1148,7 @@ def test_json_sink_empty_views() -> Optional[None]:
 
     import os
     os.remove("test.json")
+
 def test_deployment_instance_relationships_with_implied_relationships() -> Optional[None]:
     """
     Test that deployment instance relationships are created correctly when
@@ -1183,3 +1227,150 @@ def test_deployment_instance_relationships_with_implied_relationships() -> Optio
     import os
     os.remove('test_deployment1.json')
     os.remove('test_deployment2.json')
+
+def test_imply_relationships_before_deployment_environment_not_crashing() -> Optional[None]:
+
+    with Workspace('workspace') as w:
+
+        with SoftwareSystem("X") as x:
+
+            # Notice that we don't need to specify the tags "Application" and "Database"
+            # for styling -- just pass the `wa` and `db` variables directly to the `StyleElements` class.
+            wa = Container("Web Application", technology="Java and Spring boot")
+            db = Container("Database Schema")
+
+            wa >> "Reads from and writes to" >> db
+
+        with DeploymentEnvironment("Live") as live:
+            with DeploymentNode("Amazon Web Services") as aws:
+                aws.add_tags("Amazon Web Services - Cloud")
+
+                with DeploymentNode("US-East-1") as region:
+                    region.add_tags("Amazon Web Services - Region")
+
+                    dns = InfrastructureNode(
+                        "DNS Router",
+                        description="Routes incoming requests based upon domain name.",
+                        technology="Route 53",
+                        tags={"Amazon Web Services - Route 53"}
+                    )
+
+                    lb = InfrastructureNode(
+                        "Load Balancer",
+                        description="Automatically distributes incoming application traffic.",
+                        technology="Elastic Load Balancer",
+                        tags={"Amazon Web Services - Elastic Load Balancer"}
+                    )
+
+                    dns >> ("Fowards requests to", "HTTP") >> lb
+
+                    with DeploymentNode("Amazon EC2", tags={"Amazon Web Services - EC2"}) as asg:
+                        with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
+                            lb >> "Forwards requests to" >> ContainerInstance(wa)
+
+                    with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                        with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
+                            database_instance = ContainerInstance(db)
+
+        DeploymentView(
+            environment=live,
+            key='aws-deployment-view',
+            software_system_selector=x,
+            title="Amazon Web Services Deployment",
+            description="Deployment view of the web application on AWS",
+            auto_layout='lr',
+        )
+
+        w.to_json('amazon_web_services.json', pretty=True)
+
+def test_software_system_instance_relationships_with_missing_instances() -> Optional[None]:
+    """
+    Test that _imply_software_system_instance_relationships doesn't crash when
+    a software system has a relationship to another software system, but only
+    one of them has instances deployed.
+
+    This reproduces the bug where:
+    - E-Commerce System has instances deployed
+    - Payment Provider has NO instances deployed
+    - E-Commerce System -> Payment Provider relationship exists
+    - Should not crash with KeyError when trying to look up Payment Provider instances
+    """
+
+    with Workspace('test-workspace') as w:
+        # Create two software systems with a relationship
+        ecommerce = SoftwareSystem('E-Commerce System')
+        payment_provider = SoftwareSystem('Payment Provider')
+
+        ecommerce >> "Processes payments via" >> payment_provider
+
+        # Deploy only the E-Commerce System, NOT the Payment Provider
+        with DeploymentEnvironment('Production') as prod:
+            with DeploymentNode('AWS'):
+                ecommerce_instance = SoftwareSystemInstance(ecommerce)
+
+        # This should not crash - the implication happens in DeploymentEnvironment.__exit__
+        # Even though ecommerce has a relationship to payment_provider,
+        # payment_provider has no instances deployed
+
+    # If we get here without a KeyError, the test passes
+    assert ecommerce_instance.model.softwareSystemId == ecommerce.model.id
+
+def test_container_instance_relationships_with_missing_instances() -> Optional[None]:
+    """
+    Test that _imply_container_instance_relationships doesn't crash when
+    a container has a relationship to another container, but only one of
+    them has instances deployed.
+
+    This tests the same bug pattern but for containers instead of software systems.
+    """
+
+    with Workspace('test-workspace') as w:
+        # Create software system with containers that have relationships
+        with SoftwareSystem('E-Commerce System') as ecommerce:
+            web_app = Container('Web Application')
+            api = Container('API')
+            database = Container('Database')
+            external_service = Container('External Payment Service')
+
+            # Create relationships
+            web_app >> "Calls" >> api
+            api >> "Stores data in" >> database
+            api >> "Processes payments via" >> external_service
+
+        # Deploy only some containers, NOT all of them
+        with DeploymentEnvironment('Production') as prod:
+            with DeploymentNode('AWS'):
+                web_app_instance = ContainerInstance(web_app)
+                api_instance = ContainerInstance(api)
+                db_instance = ContainerInstance(database)
+                # Note: external_service is NOT deployed
+
+        # This should not crash - even though api has a relationship to external_service,
+        # external_service has no instances deployed
+
+    # If we get here without a KeyError, the test passes
+    assert web_app_instance.model.containerId == web_app.model.id
+    assert api_instance.model.containerId == api.model.id
+    assert db_instance.model.containerId == database.model.id
+
+    # Verify that the deployed instances DO have implied relationships
+    # web_app_instance should have relationship to api_instance
+    web_to_api_rels = [
+        r for r in (web_app_instance.model.relationships or [])
+        if r.destinationId == api_instance.model.id
+    ]
+    assert len(web_to_api_rels) == 1
+
+    # api_instance should have relationship to db_instance
+    api_to_db_rels = [
+        r for r in (api_instance.model.relationships or [])
+        if r.destinationId == db_instance.model.id
+    ]
+    assert len(api_to_db_rels) == 1
+
+    # But api_instance should NOT have a relationship to external_service
+    # (because it wasn't deployed)
+    all_api_destinations = [
+        r.destinationId for r in (api_instance.model.relationships or [])
+    ]
+    assert external_service.model.id not in all_api_destinations

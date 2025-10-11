@@ -129,14 +129,14 @@ class Workspace(DslWorkspaceElement):
 
         _current_workspace.reset(self._token)
 
-    def _imply_relationships(
-        self,
+    def _imply_relationships( self,
     ) -> None:
 
         """
         Process implied relationships:
         If we have relationship s >> do >> a.b, then create s >> do >> a.
         If we have relationship s.ss >> do >> a.b.c, then create s.ss >> do >> a.b and s.ss >> do >> a.
+        If we have relationship s.ss >> do >> a, then create s >> do >> a.
         And so on...
 
         Relationships of `SoftwareSystemInstance`s and `ContainerInstance`s are
@@ -152,6 +152,7 @@ class Workspace(DslWorkspaceElement):
         from buildzr.dsl.explorer import Explorer
 
         explorer = Explorer(self)
+        # Take a snapshot of relationships to avoid processing newly created ones
         relationships = list(explorer.walk_relationships())
         for relationship in relationships:
             source = relationship.source
@@ -162,6 +163,11 @@ class Workspace(DslWorkspaceElement):
                isinstance(destination, (SoftwareSystemInstance, ContainerInstance)):
                 continue
 
+            # Skip relationships that are already implied (have linkedRelationshipId)
+            if relationship.model.linkedRelationshipId is not None:
+                continue
+
+            # Handle case: s >> a.b => s >> a (destination is child)
             while destination_parent is not None and \
                 isinstance(source, DslElement) and \
                 not isinstance(source.model, buildzr.models.Workspace) and \
@@ -186,7 +192,38 @@ class Workspace(DslWorkspaceElement):
                             technology=relationship.model.technology,
                         )
                         r.model.linkedRelationshipId = relationship.model.id
-                    destination_parent = destination_parent.parent
+                destination_parent = destination_parent.parent
+
+            # Handle inverse case: s.ss >> a => s >> a (source is child)
+            source_parent = source.parent
+            while source_parent is not None and \
+                isinstance(destination, DslElement) and \
+                not isinstance(destination.model, buildzr.models.Workspace) and \
+                not isinstance(source_parent.model, buildzr.models.Workspace) and \
+                not isinstance(source_parent, DslWorkspaceElement):
+
+                if source_parent is destination.parent:
+                    break
+
+                rels = source_parent.model.relationships
+
+                # The parent source relationship might be empty
+                # (i.e., []).
+                if rels is not None:
+                    already_exists = any(
+                        r.destinationId == destination.model.id and
+                        r.description == relationship.model.description and
+                        r.technology == relationship.model.technology
+                        for r in rels
+                    )
+                    if not already_exists:
+                        r = source_parent.uses(
+                            destination,
+                            description=relationship.model.description,
+                            technology=relationship.model.technology,
+                        )
+                        r.model.linkedRelationshipId = relationship.model.id
+                source_parent = source_parent.parent
 
     def person(self) -> TypedDynamicAttribute['Person']:
         return TypedDynamicAttribute['Person'](self._dynamic_attrs)
@@ -371,6 +408,7 @@ class SoftwareSystem(DslElementRelationOverrides[
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
+        self.model.relationships = []
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
 
@@ -839,6 +877,12 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
                 if not relationship.destinationId in other_softwares_ids:
                     continue
 
+                if software.model.id not in software_instance_map:
+                    continue
+
+                if relationship.destinationId not in software_instance_map:
+                    continue
+
                 this_software_instances = software_instance_map[software.model.id]
                 other_software_instances = software_instance_map[relationship.destinationId]
 
@@ -905,6 +949,12 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
             for relationship in container.model.relationships:
 
                 if not relationship.destinationId in other_containers_ids:
+                    continue
+
+                if container.model.id not in container_instance_map:
+                    continue
+
+                if relationship.destinationId not in container_instance_map:
                     continue
 
                 this_container_instances = container_instance_map[container.model.id]

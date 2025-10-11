@@ -42,8 +42,6 @@ with Workspace('microservices-example', implied_relationships=True) as w:
 
     with Group("External"):
         payment = SoftwareSystem('Payment Provider')
-        with payment:
-            payment_api = Container("Payment API")
 
     # Relationships
     customer >> "Uses" >> web
