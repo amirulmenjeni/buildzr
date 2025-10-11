@@ -129,8 +129,7 @@ class Workspace(DslWorkspaceElement):
 
         _current_workspace.reset(self._token)
 
-    def _imply_relationships(
-        self,
+    def _imply_relationships( self,
     ) -> None:
 
         """
@@ -878,6 +877,12 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
                 if not relationship.destinationId in other_softwares_ids:
                     continue
 
+                if software.model.id not in software_instance_map:
+                    continue
+
+                if relationship.destinationId not in software_instance_map:
+                    continue
+
                 this_software_instances = software_instance_map[software.model.id]
                 other_software_instances = software_instance_map[relationship.destinationId]
 
@@ -944,6 +949,12 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
             for relationship in container.model.relationships:
 
                 if not relationship.destinationId in other_containers_ids:
+                    continue
+
+                if container.model.id not in container_instance_map:
+                    continue
+
+                if relationship.destinationId not in container_instance_map:
                     continue
 
                 this_container_instances = container_instance_map[container.model.id]
