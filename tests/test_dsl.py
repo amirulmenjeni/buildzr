@@ -399,6 +399,49 @@ def test_implied_relationship() -> Optional[None]:
     os.remove('workspace.test.json')
     os.remove('workspace2.test.json')
 
+def test_inverse_implied_relationship() -> Optional[None]:
+    """
+    Test that inverse implied relationships work correctly.
+    When a.container >> b (child to parent), it should imply a >> b.
+
+    See: https://docs.structurizr.com/java/implied-relationships
+    """
+
+    with Workspace("w", implied_relationships=True) as w:
+        u = Person('User')
+        s = SoftwareSystem('System')
+        with s:
+            api = Container('API')
+            db = Container('Database')
+            api >> "Uses" >> db
+
+        # Create relationship from child to parent: s.api >> u
+        # This should imply s >> u
+        s.api >> "Notifies" >> u
+
+        # Invoke implied relationships via view
+        SystemContextView(
+            software_system_selector=s,
+            key='s_context',
+            description="System context view",
+        )
+
+        w.to_json('workspace.inverse.test.json')
+
+    # Check that System has an implied relationship to User
+    assert len(s.model.relationships) == 1
+    assert s.model.relationships[0].description == "Notifies"
+    assert s.model.relationships[0].sourceId == s.model.id
+    assert s.model.relationships[0].destinationId == u.model.id
+    assert s.model.relationships[0].linkedRelationshipId == s.api.model.relationships[1].id
+
+    # The implied relationship should appear in system context view
+    system_context_view_relationships = [x.id for x in w._m.views.systemContextViews[0].relationships]
+    assert s.model.relationships[0].id in system_context_view_relationships
+
+    import os
+    os.remove('workspace.inverse.test.json')
+
 def test_tags_on_elements() -> Optional[None]:
 
     u = Person('My User', tags={'admin'})
@@ -1105,6 +1148,7 @@ def test_json_sink_empty_views() -> Optional[None]:
 
     import os
     os.remove("test.json")
+
 def test_deployment_instance_relationships_with_implied_relationships() -> Optional[None]:
     """
     Test that deployment instance relationships are created correctly when
