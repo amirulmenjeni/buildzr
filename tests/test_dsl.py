@@ -1374,3 +1374,219 @@ def test_container_instance_relationships_with_missing_instances() -> Optional[N
         r.destinationId for r in (api_instance.model.relationships or [])
     ]
     assert external_service.model.id not in all_api_destinations
+
+def test_container_instance_relationships_respect_deployment_groups() -> Optional[None]:
+    """
+    Test that container instance relationships only connect instances within
+    the same deployment group.
+
+    When containers have relationships and are deployed with deployment groups,
+    instance relationships should only be created between instances that share
+    at least one common deployment group.
+
+    This matches the behavior in Structurizr DSL where deployment groups act
+    as boundaries for relationship propagation.
+    """
+
+    with Workspace("w", scope=None) as w:
+        with SoftwareSystem("Software System") as software_system:
+            database = Container("Database")
+            api = Container("Service API")
+            api >> "Reads from and writes to" >> database
+
+        with DeploymentEnvironment("Production") as production:
+            service_instance_1 = DeploymentGroup("Service Instance 1")
+            service_instance_2 = DeploymentGroup("Service Instance 2")
+
+            with DeploymentNode("Server 1") as server_1:
+                api_instance_1 = ContainerInstance(api, [service_instance_1])
+                with DeploymentNode("Database Server"):
+                    db_instance_1 = ContainerInstance(database, [service_instance_1])
+
+            with DeploymentNode("Server 2") as server_2:
+                api_instance_2 = ContainerInstance(api, [service_instance_2])
+                with DeploymentNode("Database Server"):
+                    db_instance_2 = ContainerInstance(database, [service_instance_2])
+
+    # Verify deployment group assignments
+    assert api_instance_1.model.deploymentGroups == ["Service Instance 1"]
+    assert db_instance_1.model.deploymentGroups == ["Service Instance 1"]
+    assert api_instance_2.model.deploymentGroups == ["Service Instance 2"]
+    assert db_instance_2.model.deploymentGroups == ["Service Instance 2"]
+
+    # Check that api_instance_1 only has relationship to db_instance_1 (same group)
+    api_1_relationships = [
+        r for r in (api_instance_1.model.relationships or [])
+        if r.description == "Reads from and writes to"
+    ]
+    assert len(api_1_relationships) == 1, f"Expected 1 relationship, found {len(api_1_relationships)}"
+    assert api_1_relationships[0].destinationId == db_instance_1.model.id
+    assert api_1_relationships[0].destinationId != db_instance_2.model.id
+
+    # Check that api_instance_2 only has relationship to db_instance_2 (same group)
+    api_2_relationships = [
+        r for r in (api_instance_2.model.relationships or [])
+        if r.description == "Reads from and writes to"
+    ]
+    assert len(api_2_relationships) == 1, f"Expected 1 relationship, found {len(api_2_relationships)}"
+    assert api_2_relationships[0].destinationId == db_instance_2.model.id
+    assert api_2_relationships[0].destinationId != db_instance_1.model.id
+
+    # Verify no cross-group relationships exist
+    all_api_1_destinations = [r.destinationId for r in (api_instance_1.model.relationships or [])]
+    all_api_2_destinations = [r.destinationId for r in (api_instance_2.model.relationships or [])]
+
+    assert db_instance_2.model.id not in all_api_1_destinations, "api_instance_1 should not connect to db_instance_2"
+    assert db_instance_1.model.id not in all_api_2_destinations, "api_instance_2 should not connect to db_instance_1"
+
+def test_software_system_instance_relationships_respect_deployment_groups() -> Optional[None]:
+    """
+    Test that software system instance relationships only connect instances
+    within the same deployment group.
+
+    When software systems have relationships and are deployed with deployment
+    groups, instance relationships should only be created between instances
+    that share at least one common deployment group.
+    """
+
+    with Workspace("w", scope=None) as w:
+        api_system = SoftwareSystem("API System")
+        db_system = SoftwareSystem("Database System")
+
+        api_system >> "Connects to" >> db_system
+
+        with DeploymentEnvironment("Production") as production:
+            region_1 = DeploymentGroup("Region 1")
+            region_2 = DeploymentGroup("Region 2")
+
+            with DeploymentNode("Datacenter 1") as dc1:
+                api_instance_1 = SoftwareSystemInstance(api_system, [region_1])
+                db_instance_1 = SoftwareSystemInstance(db_system, [region_1])
+
+            with DeploymentNode("Datacenter 2") as dc2:
+                api_instance_2 = SoftwareSystemInstance(api_system, [region_2])
+                db_instance_2 = SoftwareSystemInstance(db_system, [region_2])
+
+    # Verify deployment group assignments
+    assert api_instance_1.model.deploymentGroups == ["Region 1"]
+    assert db_instance_1.model.deploymentGroups == ["Region 1"]
+    assert api_instance_2.model.deploymentGroups == ["Region 2"]
+    assert db_instance_2.model.deploymentGroups == ["Region 2"]
+
+    # Check that api_instance_1 only has relationship to db_instance_1 (same group)
+    api_1_relationships = [
+        r for r in (api_instance_1.model.relationships or [])
+        if r.description == "Connects to"
+    ]
+    assert len(api_1_relationships) == 1, f"Expected 1 relationship, found {len(api_1_relationships)}"
+    assert api_1_relationships[0].destinationId == db_instance_1.model.id
+    assert api_1_relationships[0].destinationId != db_instance_2.model.id
+
+    # Check that api_instance_2 only has relationship to db_instance_2 (same group)
+    api_2_relationships = [
+        r for r in (api_instance_2.model.relationships or [])
+        if r.description == "Connects to"
+    ]
+    assert len(api_2_relationships) == 1, f"Expected 1 relationship, found {len(api_2_relationships)}"
+    assert api_2_relationships[0].destinationId == db_instance_2.model.id
+    assert api_2_relationships[0].destinationId != db_instance_1.model.id
+
+    # Verify no cross-group relationships exist
+    all_api_1_destinations = [r.destinationId for r in (api_instance_1.model.relationships or [])]
+    all_api_2_destinations = [r.destinationId for r in (api_instance_2.model.relationships or [])]
+
+    assert db_instance_2.model.id not in all_api_1_destinations, "api_instance_1 should not connect to db_instance_2"
+    assert db_instance_1.model.id not in all_api_2_destinations, "api_instance_2 should not connect to db_instance_1"
+
+def test_container_instance_relationships_with_multiple_shared_deployment_groups() -> Optional[None]:
+    """
+    Test that container instances with overlapping deployment groups can have
+    relationships.
+
+    If two container instances share at least one deployment group, they should
+    be able to have relationships even if they belong to other groups as well.
+    """
+
+    with Workspace("w", scope=None) as w:
+        with SoftwareSystem("Software System") as software_system:
+            frontend = Container("Frontend")
+            backend = Container("Backend")
+            frontend >> "Calls" >> backend
+
+        with DeploymentEnvironment("Production") as production:
+            group_a = DeploymentGroup("Group A")
+            group_b = DeploymentGroup("Group B")
+            group_shared = DeploymentGroup("Shared Group")
+
+            with DeploymentNode("Server 1"):
+                # Frontend in Group A and Shared Group
+                frontend_instance = ContainerInstance(frontend, [group_a, group_shared])
+
+            with DeploymentNode("Server 2"):
+                # Backend in Group B and Shared Group
+                backend_instance = ContainerInstance(backend, [group_b, group_shared])
+
+    # Verify deployment group assignments
+    assert set(frontend_instance.model.deploymentGroups) == {"Group A", "Shared Group"}
+    assert set(backend_instance.model.deploymentGroups) == {"Group B", "Shared Group"}
+
+    # Frontend and backend share "Shared Group", so relationship should exist
+    frontend_relationships = [
+        r for r in (frontend_instance.model.relationships or [])
+        if r.description == "Calls"
+    ]
+    assert len(frontend_relationships) == 1, f"Expected 1 relationship, found {len(frontend_relationships)}"
+    assert frontend_relationships[0].destinationId == backend_instance.model.id
+
+def test_container_instance_relationships_with_no_deployment_groups() -> Optional[None]:
+    """
+    Test that container instances without deployment groups can still have
+    relationships (backward compatibility).
+
+    When no deployment groups are specified, all instances should be able to
+    relate to each other as before.
+    """
+
+    with Workspace("w", scope=None) as w:
+        with SoftwareSystem("Software System") as software_system:
+            service_a = Container("Service A")
+            service_b = Container("Service B")
+            service_a >> "Communicates with" >> service_b
+
+        with DeploymentEnvironment("Production") as production:
+            with DeploymentNode("Server 1"):
+                # No deployment groups specified
+                service_a_instance_1 = ContainerInstance(service_a)
+                service_b_instance_1 = ContainerInstance(service_b)
+
+            with DeploymentNode("Server 2"):
+                # No deployment groups specified
+                service_a_instance_2 = ContainerInstance(service_a)
+                service_b_instance_2 = ContainerInstance(service_b)
+
+    # When no deployment groups are specified, instances should be able to
+    # relate to each other (all instances are in the "default" group)
+    # This maintains backward compatibility
+
+    # Each service_a instance should relate to ALL service_b instances
+    service_a_1_rels = [
+        r for r in (service_a_instance_1.model.relationships or [])
+        if r.description == "Communicates with"
+    ]
+    service_a_2_rels = [
+        r for r in (service_a_instance_2.model.relationships or [])
+        if r.description == "Communicates with"
+    ]
+
+    # When no groups specified, all instances should connect to all other instances
+    assert len(service_a_1_rels) == 2, f"Expected 2 relationships (to both service_b instances), found {len(service_a_1_rels)}"
+    assert len(service_a_2_rels) == 2, f"Expected 2 relationships (to both service_b instances), found {len(service_a_2_rels)}"
+
+    # Verify destinations
+    service_a_1_destinations = {r.destinationId for r in service_a_1_rels}
+    service_a_2_destinations = {r.destinationId for r in service_a_2_rels}
+
+    assert service_b_instance_1.model.id in service_a_1_destinations
+    assert service_b_instance_2.model.id in service_a_1_destinations
+    assert service_b_instance_1.model.id in service_a_2_destinations
+    assert service_b_instance_2.model.id in service_a_2_destinations

@@ -842,6 +842,10 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
         new relationship between those software system instances.
 
         These implied relationships are used in `DeploymentView`.
+
+        Relationships are only created between instances that share at least
+        one common deployment group. If no deployment groups are specified,
+        instances are considered to be in the same default group.
         """
 
         software_instances = [
@@ -889,6 +893,13 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
                 for this_software_instance in this_software_instances:
                     for other_software_instance in other_software_instances:
 
+                        # Only create relationship if instances share a deployment group
+                        if not self._instances_share_deployment_group(
+                            this_software_instance,
+                            other_software_instance
+                        ):
+                            continue
+
                         already_exists = this_software_instance.model.relationships is not None and any(
                             r.sourceId == this_software_instance.model.id and
                             r.destinationId == other_software_instance.model.id and
@@ -906,6 +917,40 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
                             )
                             r.model.linkedRelationshipId = relationship.id
 
+    def _instances_share_deployment_group(
+        self,
+        instance1: Union['ContainerInstance', 'SoftwareSystemInstance'],
+        instance2: Union['ContainerInstance', 'SoftwareSystemInstance']
+    ) -> bool:
+        """
+        Check if two deployment instances share at least one common deployment group.
+
+        If either instance has no deployment groups specified, they are considered
+        to be in the "default" group and can relate to all other instances without
+        deployment groups.
+
+        Args:
+            instance1: First deployment instance
+            instance2: Second deployment instance
+
+        Returns:
+            True if instances share at least one deployment group or if both have
+            no deployment groups specified, False otherwise.
+        """
+        groups1 = set(instance1.model.deploymentGroups or [])
+        groups2 = set(instance2.model.deploymentGroups or [])
+
+        # If both have no deployment groups, they can relate
+        if not groups1 and not groups2:
+            return True
+
+        # If one has groups and the other doesn't, they cannot relate
+        if (groups1 and not groups2) or (not groups1 and groups2):
+            return False
+
+        # Check if they share at least one common group
+        return bool(groups1.intersection(groups2))
+
     def _imply_container_instance_relationships(self, workspace: Workspace) -> None:
 
         """
@@ -915,6 +960,10 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
         between those container instances.
 
         These implied relationships are used in `DeploymentView`.
+
+        Relationships are only created between instances that share at least
+        one common deployment group. If no deployment groups are specified,
+        instances are considered to be in the same default group.
         """
 
         from buildzr.dsl.expression import Expression
@@ -962,6 +1011,13 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
 
                 for this_container_instance in this_container_instances:
                     for other_container_instance in other_container_instances:
+
+                        # Only create relationship if instances share a deployment group
+                        if not self._instances_share_deployment_group(
+                            this_container_instance,
+                            other_container_instance
+                        ):
+                            continue
 
                         already_exists = this_container_instance.model.relationships is not None and any(
                             r.sourceId == this_container_instance.model.id and
