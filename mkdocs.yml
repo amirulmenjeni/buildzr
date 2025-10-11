@@ -77,6 +77,7 @@ nav:
     - Quick Start: getting-started/quick-start.md
   - User Guide:
     - Core Concepts: user-guide/core-concepts.md
+    - Workspace: user-guide/workspace.md
     - Models: user-guide/models.md
     - Relationships: user-guide/relationships.md
     - Views: user-guide/views.md

@@ -6,7 +6,7 @@ Customize the appearance of your diagrams using styles and multiple targeting me
 
 `buildzr` supports styling through:
 
-1. **Tags** - Categorize elements  
+1. **Tags** - Categorize elements
 2. **Element Styles** - Style elements by tag, element reference, type, group, or predicate
 3. **Relationship Styles** - Style relationships by tag, reference, group, or predicate
 
@@ -588,5 +588,5 @@ StyleElements(
 
 ## Next Steps
 
-- [Examples](../examples/system-context.md) - See styled examples
-- [API Reference](../api/dsl.md) - Detailed API documentation
+- [Examples](../examples/system-context.md)
+- [API Reference](../api/dsl.md)

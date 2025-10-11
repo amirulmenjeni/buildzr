@@ -413,6 +413,6 @@ with Workspace(
 
 ## Next Steps
 
-- [Relationships](relationships.md): Describe relationships between models
-- [Views](views.md): Draw architecture diagrams based of your models
-- [Styling](styling.md): Customize the appearance of your views
+- [Relationships](relationships.md)
+- [Views](views.md)
+- [Styling](styling.md)

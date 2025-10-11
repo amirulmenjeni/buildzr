@@ -424,6 +424,6 @@ with Workspace('multi-view-example') as w:
 
 ## Next Steps
 
-- [Styling](styling.md) - Customize view appearance
-- [Examples](../examples/system-context.md) - See complete examples
-- [API Reference](../api/dsl.md) - Detailed API documentation
+- [Styling](styling.md)
+- [Examples](../examples/system-context.md)
+- [API Reference](../api/dsl.md)

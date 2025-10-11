@@ -121,7 +121,7 @@ with Group("External Systems"):
 !!! note
     Groups can be nested too!
 
-    See: [Groups](models.md#groups)
+    See: [Groups](./workspace.md#groups)
 
 ## Views
 
@@ -169,6 +169,6 @@ system = SoftwareSystem('System', tags=['critical', 'web'])
 ## Next Steps
 
 - [Workspace](workspace.md) - Deep dive into workspaces
-- [Models](models.md) - Learn about all model types
-- [Relationships](relationships.md) - Master relationships
-- [Views](views.md) - Create powerful views
+- [Models](models.md)
+- [Relationships](relationships.md):
+- [Views](views.md)

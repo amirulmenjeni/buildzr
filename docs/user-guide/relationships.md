@@ -194,9 +194,9 @@ Note that the table shows that `SoftwareSystemInstance` and `ContainerInstance` 
 
 ## Next Steps
 
-- [Views](views.md) - Visualize your relationships
-- [Styling](styling.md) - Style your relationship lines
-- [Examples](../examples/system-context.md) - See complete examples
+- [Views](views.md)
+- [Styling](styling.md)
+- [Examples](../examples/system-context.md)
 
 
 [^1]: With apologies to Claude for the therapy joke. And a few more others below.
