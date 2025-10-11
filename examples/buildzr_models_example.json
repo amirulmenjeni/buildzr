@@ -1,0 +1,565 @@
+{
+  "id": 1,
+  "name": "microservices-example",
+  "description": "",
+  "model": {
+    "people": [
+      {
+        "id": "1",
+        "name": "Customer",
+        "description": "",
+        "tags": "Person,Element",
+        "properties": {},
+        "relationships": [
+          {
+            "id": "14",
+            "description": "Uses",
+            "tags": "Relationship",
+            "sourceId": "1",
+            "destinationId": "4",
+            "technology": ""
+          },
+          {
+            "id": "37",
+            "description": "Uses",
+            "tags": "Relationship",
+            "sourceId": "1",
+            "destinationId": "3",
+            "technology": "",
+            "linkedRelationshipId": "14"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "Administrator",
+        "description": "",
+        "tags": "Person,Element",
+        "properties": {},
+        "relationships": [
+          {
+            "id": "15",
+            "description": "Manages",
+            "tags": "Relationship",
+            "sourceId": "2",
+            "destinationId": "4",
+            "technology": ""
+          },
+          {
+            "id": "38",
+            "description": "Manages",
+            "tags": "Relationship",
+            "sourceId": "2",
+            "destinationId": "3",
+            "technology": "",
+            "linkedRelationshipId": "15"
+          }
+        ]
+      }
+    ],
+    "softwareSystems": [
+      {
+        "id": "3",
+        "name": "E-Commerce System",
+        "description": "",
+        "tags": "Software System,Element",
+        "containers": [
+          {
+            "id": "4",
+            "name": "Web App",
+            "description": "",
+            "technology": "React",
+            "tags": "Container,Element",
+            "components": [],
+            "group": "E-Commerce Platform",
+            "properties": {},
+            "relationships": [
+              {
+                "id": "16",
+                "description": "Calls",
+                "tags": "Relationship",
+                "sourceId": "4",
+                "destinationId": "5",
+                "technology": ""
+              }
+            ]
+          },
+          {
+            "id": "5",
+            "name": "API Gateway",
+            "description": "",
+            "technology": "Kong",
+            "tags": "Container,Element",
+            "components": [],
+            "group": "E-Commerce Platform",
+            "properties": {},
+            "relationships": [
+              {
+                "id": "17",
+                "description": "Routes to",
+                "tags": "Relationship",
+                "sourceId": "5",
+                "destinationId": "9",
+                "technology": ""
+              }
+            ]
+          },
+          {
+            "id": "6",
+            "name": "Order Service",
+            "description": "",
+            "technology": "Node.js",
+            "tags": "Container,Element",
+            "components": [
+              {
+                "id": "7",
+                "name": "Order Controller",
+                "description": "",
+                "technology": "",
+                "tags": "Component,Element",
+                "group": "E-Commerce Platform",
+                "properties": {},
+                "relationships": []
+              },
+              {
+                "id": "8",
+                "name": "Order Repository",
+                "description": "",
+                "technology": "",
+                "tags": "Component,Element",
+                "group": "E-Commerce Platform",
+                "properties": {},
+                "relationships": []
+              }
+            ],
+            "group": "E-Commerce Platform",
+            "properties": {},
+            "relationships": [
+              {
+                "id": "18",
+                "description": "Stores in",
+                "tags": "Relationship",
+                "sourceId": "6",
+                "destinationId": "12",
+                "technology": ""
+              },
+              {
+                "id": "19",
+                "description": "Processes payment via",
+                "tags": "Relationship",
+                "sourceId": "6",
+                "destinationId": "13",
+                "technology": ""
+              }
+            ]
+          },
+          {
+            "id": "9",
+            "name": "Inventory Service",
+            "description": "",
+            "technology": "Python",
+            "tags": "Container,Element",
+            "components": [
+              {
+                "id": "10",
+                "name": "Inventory API",
+                "description": "",
+                "technology": "",
+                "tags": "Component,Element",
+                "group": "E-Commerce Platform",
+                "properties": {},
+                "relationships": []
+              },
+              {
+                "id": "11",
+                "name": "Stock Manager",
+                "description": "",
+                "technology": "",
+                "tags": "Component,Element",
+                "group": "E-Commerce Platform",
+                "properties": {},
+                "relationships": []
+              }
+            ],
+            "group": "E-Commerce Platform",
+            "properties": {},
+            "relationships": []
+          },
+          {
+            "id": "12",
+            "name": "Database",
+            "description": "",
+            "technology": "MongoDB",
+            "tags": "Container,Element",
+            "components": [],
+            "group": "E-Commerce Platform",
+            "properties": {},
+            "relationships": []
+          }
+        ],
+        "group": "E-Commerce Platform",
+        "properties": {}
+      },
+      {
+        "id": "13",
+        "name": "Payment Provider",
+        "description": "",
+        "tags": "Software System,Element",
+        "containers": [],
+        "group": "External",
+        "properties": {}
+      }
+    ],
+    "deploymentNodes": [
+      {
+        "id": "20",
+        "name": "AWS",
+        "description": "",
+        "technology": "Cloud Provider",
+        "environment": "Production",
+        "instances": "1",
+        "tags": "Deployment Node,Element",
+        "children": [
+          {
+            "id": "21",
+            "name": "Application Load Balancer",
+            "description": "",
+            "technology": "AWS ALB",
+            "environment": "Production",
+            "instances": "1",
+            "tags": "Deployment Node,Element",
+            "children": [],
+            "infrastructureNodes": [
+              {
+                "id": "22",
+                "name": "Load Balancer",
+                "description": "",
+                "technology": "",
+                "environment": "Production",
+                "tags": "Infrastructure Node,Element",
+                "properties": {},
+                "relationships": [
+                  {
+                    "id": "33",
+                    "description": "Forwards requests to",
+                    "tags": "Relationship",
+                    "sourceId": "22",
+                    "destinationId": "24",
+                    "technology": ""
+                  },
+                  {
+                    "id": "39",
+                    "description": "Forwards requests to",
+                    "tags": "Relationship",
+                    "sourceId": "22",
+                    "destinationId": "23",
+                    "technology": "",
+                    "linkedRelationshipId": "33"
+                  }
+                ]
+              }
+            ],
+            "softwareSystemInstances": [],
+            "containerInstances": []
+          },
+          {
+            "id": "23",
+            "name": "EC2 Instance",
+            "description": "",
+            "technology": "AWS EC2",
+            "environment": "Production",
+            "instances": "1",
+            "tags": "Deployment Node,Element",
+            "children": [],
+            "infrastructureNodes": [],
+            "softwareSystemInstances": [],
+            "containerInstances": [
+              {
+                "id": "24",
+                "containerId": "6",
+                "environment": "Production",
+                "tags": "Container Instance",
+                "relationships": [
+                  {
+                    "id": "36",
+                    "description": "Stores in",
+                    "tags": "Relationship",
+                    "sourceId": "24",
+                    "destinationId": "31",
+                    "technology": "",
+                    "linkedRelationshipId": "18"
+                  },
+                  {
+                    "id": "40",
+                    "description": "Stores in",
+                    "tags": "Relationship",
+                    "sourceId": "24",
+                    "destinationId": "30",
+                    "technology": "",
+                    "linkedRelationshipId": "36"
+                  }
+                ],
+                "deploymentGroups": [
+                  "Default"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "25",
+            "name": "API Gateway",
+            "description": "",
+            "technology": "Amazon API Gateway",
+            "environment": "Production",
+            "instances": "1",
+            "tags": "Deployment Node,Element",
+            "children": [],
+            "infrastructureNodes": [],
+            "softwareSystemInstances": [],
+            "containerInstances": [
+              {
+                "id": "26",
+                "containerId": "5",
+                "environment": "Production",
+                "tags": "Container Instance",
+                "relationships": [
+                  {
+                    "id": "32",
+                    "description": "Routes to",
+                    "tags": "Relationship",
+                    "sourceId": "26",
+                    "destinationId": "22",
+                    "technology": ""
+                  },
+                  {
+                    "id": "35",
+                    "description": "Routes to",
+                    "tags": "Relationship",
+                    "sourceId": "26",
+                    "destinationId": "29",
+                    "technology": "",
+                    "linkedRelationshipId": "17"
+                  },
+                  {
+                    "id": "41",
+                    "description": "Routes to",
+                    "tags": "Relationship",
+                    "sourceId": "26",
+                    "destinationId": "27",
+                    "technology": "",
+                    "linkedRelationshipId": "35"
+                  }
+                ],
+                "deploymentGroups": [
+                  "Default"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "27",
+            "name": "ECS Cluster",
+            "description": "",
+            "technology": "AWS ECS",
+            "environment": "Production",
+            "instances": "1",
+            "tags": "Deployment Node,Element",
+            "children": [],
+            "infrastructureNodes": [],
+            "softwareSystemInstances": [],
+            "containerInstances": [
+              {
+                "id": "28",
+                "containerId": "4",
+                "environment": "Production",
+                "tags": "Container Instance",
+                "relationships": [
+                  {
+                    "id": "34",
+                    "description": "Calls",
+                    "tags": "Relationship",
+                    "sourceId": "28",
+                    "destinationId": "26",
+                    "technology": "",
+                    "linkedRelationshipId": "16"
+                  },
+                  {
+                    "id": "42",
+                    "description": "Calls",
+                    "tags": "Relationship",
+                    "sourceId": "28",
+                    "destinationId": "25",
+                    "technology": "",
+                    "linkedRelationshipId": "34"
+                  }
+                ],
+                "deploymentGroups": [
+                  "Default"
+                ]
+              },
+              {
+                "id": "29",
+                "containerId": "9",
+                "environment": "Production",
+                "tags": "Container Instance",
+                "deploymentGroups": [
+                  "Default"
+                ]
+              }
+            ]
+          },
+          {
+            "id": "30",
+            "name": "DocumentDB",
+            "description": "",
+            "technology": "MongoDB-compatible",
+            "environment": "Production",
+            "instances": "1",
+            "tags": "Deployment Node,Element",
+            "children": [],
+            "infrastructureNodes": [],
+            "softwareSystemInstances": [],
+            "containerInstances": [
+              {
+                "id": "31",
+                "containerId": "12",
+                "environment": "Production",
+                "tags": "Container Instance",
+                "deploymentGroups": [
+                  "Default"
+                ]
+              }
+            ]
+          }
+        ],
+        "infrastructureNodes": [],
+        "softwareSystemInstances": [],
+        "containerInstances": []
+      }
+    ],
+    "properties": {
+      "structurizr.groupSeparator": "/"
+    }
+  },
+  "views": {
+    "systemContextViews": [
+      {
+        "key": "system-context-view-ecommerce",
+        "description": "System Context of E-Commerce App",
+        "softwareSystemId": "3",
+        "automaticLayout": {
+          "implementation": "Graphviz",
+          "rankDirection": "TopBottom",
+          "rankSeparation": 300,
+          "nodeSeparation": 300,
+          "edgeSeparation": 0,
+          "vertices": false
+        },
+        "elements": [
+          {
+            "id": "1"
+          },
+          {
+            "id": "2"
+          },
+          {
+            "id": "3"
+          }
+        ],
+        "relationships": [
+          {
+            "id": "37"
+          },
+          {
+            "id": "38"
+          }
+        ]
+      }
+    ],
+    "deploymentViews": [
+      {
+        "key": "deployment-view-production-ecommerce",
+        "description": "",
+        "environment": "Production",
+        "automaticLayout": {
+          "implementation": "Graphviz",
+          "rankDirection": "TopBottom",
+          "rankSeparation": 300,
+          "nodeSeparation": 300,
+          "edgeSeparation": 0,
+          "vertices": false
+        },
+        "elements": [
+          {
+            "id": "20"
+          },
+          {
+            "id": "21"
+          },
+          {
+            "id": "22"
+          },
+          {
+            "id": "23"
+          },
+          {
+            "id": "24"
+          },
+          {
+            "id": "25"
+          },
+          {
+            "id": "26"
+          },
+          {
+            "id": "27"
+          },
+          {
+            "id": "28"
+          },
+          {
+            "id": "29"
+          },
+          {
+            "id": "30"
+          },
+          {
+            "id": "31"
+          }
+        ],
+        "relationships": [
+          {
+            "id": "33"
+          },
+          {
+            "id": "39"
+          },
+          {
+            "id": "36"
+          },
+          {
+            "id": "40"
+          },
+          {
+            "id": "35"
+          },
+          {
+            "id": "41"
+          },
+          {
+            "id": "32"
+          },
+          {
+            "id": "34"
+          },
+          {
+            "id": "42"
+          }
+        ]
+      }
+    ]
+  },
+  "configuration": {
+    "scope": "SoftwareSystem"
+  }
+}
