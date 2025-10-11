@@ -1,129 +1,96 @@
 # Models
-Models are the elements that make up your architecture. `buildzr` supports all the core C4 model element types.
+
+Models are the fundamental building blocks of your architecture documentation in `buildzr`. They represent the different elements that make up your software system, from high-level abstractions like people and systems down to specific implementation details like components and deployment infrastructure. `buildzr` provides full support for all core C4 model element types, enabling you to create comprehensive architecture diagrams at multiple levels of detail.
+
+## Understanding Model Categories
+
+Your architecture models can be divided into two distinct categories: _static models_ and _instance models_.
+
+**Static models** define the logical architecture of your system—the abstract concepts, relationships, and structure of your software independent of any specific deployment. These include people who interact with the system, the software systems themselves, and their internal structure broken down into containers and components. Static models answer questions like "What systems exist?" and "How are they organized?"
+
+**Instance models** describe the physical deployment and runtime manifestation of your static models. They represent where and how your software actually runs in the real world—deployment environments, infrastructure nodes, and specific instances of containers deployed to those nodes. Instance models answer questions like "Where does this run?" and "What infrastructure supports it?"
+
+This separation allows you to define your architecture once as static models, then map those same containers and systems to different deployment scenarios (development, staging, production) without duplicating the core architectural definitions.
+
+Static models:
+
+- `Person`
+- `SoftwareSystem`
+- `Container`
+- `Component`
+
+Instance models:
+
+- `DeploymentEnvironment`
+- `DeploymentNode`
+- `SoftwareSystemInstance`
+- `ContainerInstance`
+- `InfrastructureNode`
+
+To walk you through the models, let's use Structurizr's [Amazon Web Services](https://structurizr.com/dsl?example=amazon-web-services
+) example.
 
 ## Person
 
-Represents human users, actors, roles, or personas.
+`Person` represents human users, actors, roles, or personas.
 
 ```python
-user = Person('User')
-admin = Person('Administrator', description='System admin with elevated privileges')
-```
-
-### Person with Tags
-
-```python
-external_user = Person('External User', tags=['external', 'customer'])
+user = Person("User", description="An ordinary user.")
 ```
 
 ## Software System
 
-Represents a software system - the highest level of abstraction.
+`SoftwareSystem` represents the highest level of abstraction. A software system may contain zero or more containers.
 
 ```python
-software_system = SoftwareSystem('Web Application')
-detailed_system = SoftwareSystem(
-    'E-Commerce Platform',
-    description='Handles online sales and inventory'
-)
-```
-
-### External Systems
-
-```python
-external_api = SoftwareSystem(
-    'Payment Gateway',
-    description='Third-party payment processing',
-    tags=['external']
-)
+with SoftwareSystem('X') as x:
+    # Its containers goes here.
+    ...
 ```
 
 ## Container
 
-Represents an application, data store, or service within a software system.
+`Container` represents an application, data store, or service within a software system. A container may contain zero or more components.
+
+Here, we define the containers inside the software system `x` we've defined above.
 
 ```python
-with SoftwareSystem('Web Application') as system:
-    web_app = Container(
-        'Web Application',
-        description='Delivers content to users',
-        technology='React'
-    )
+with SoftwareSystem("X") as x:
 
-    api = Container(
-        'API',
-        description='Provides REST API',
-        technology='Python/FastAPI'
-    )
+    wa = Container("Web Application", technology="Java and Spring boot")
 
-    database = Container(
-        'Database',
-        description='Stores data',
-        technology='PostgreSQL'
-    )
+    db = Container("Database Schema")
+
+    wa >> "Reads from and writes to" >> db
 ```
+
+Notice that we've also described a relationship between the web application `wa` and the database `db` of the software system `x`.
 
 ## Component
 
 Represents a component within a container.
 
-```python
-with SoftwareSystem('Web Application') as system:
-    api = Container(
-        'API',
-        description='Provides REST API',
-        technology='Python/FastAPI'
-    )
-    with api:
-        auth_service = Component(
-            'Authentication Service',
-            description='Handles user authentication',
-            technology='JWT'
-        )
+The `wa` web application may further be comprised of several layers, each serving different purpose. For example, in an Onion Architecture, your web application might have an API layer that listens for HTTP requests, which may in turn run queries or transactions via the database layer.
 
-        user_service = Component(
-            'User Service',
-            description='Manages user data'
-        )
+```python hl_lines="9-13"
+with SoftwareSystem("X") as x:
 
-        order_service = Component(
-            'Order Service',
-            description='Processes orders'
-        )
-```
+    wa = Container("Web Application", technology="Java and Spring boot")
 
-## Groups
+    db = Container("Database Schema")
 
-Organize related elements into named groups.
+    wa >> "Reads from and writes to" >> db
 
-```python
-with Group("Internal Systems"):
-    crm = SoftwareSystem('CRM')
-    erp = SoftwareSystem('ERP')
+    with wa:
+        api_layer = Component("API Layer")
+        db_layer = Component("Database Layer")
 
-with Group("External Systems"):
-    payment = SoftwareSystem('Payment Gateway')
-    email = SoftwareSystem('Email Service')
-```
-
-Groups can be nested too.
-
-```python
-with Group("Company 1") as company1:
-    with Group("Department 1"):
-        a = SoftwareSystem("A")
-    with Group("Department 2") as c1d2:
-        b = SoftwareSystem("B")
-with Group("Company 2") as company2:
-    with Group("Department 1"):
-        c = SoftwareSystem("C")
-    with Group("Department 2") as c2d2:
-        d = SoftwareSystem("D")
+        api_layer >> "Runs queries/transactions on" >> db_layer
 ```
 
 ## Properties and Metadata
 
-Add custom properties to elements:
+You can add properties to enrich your models with metadata.
 
 ```python
 system = SoftwareSystem(
@@ -138,7 +105,7 @@ system = SoftwareSystem(
 
 ## Tags
 
-Use tags to categorize and style elements:
+Models can also be assigned tags.
 
 ```python
 critical_system = SoftwareSystem(
@@ -147,30 +114,20 @@ critical_system = SoftwareSystem(
 )
 ```
 
-## Hierarchical Structure
+In Structurizr, the purpose of tags are used primarily for styling and visual representation of elements. For example, if an element is tagged as `critical`, you can apply a specific style (e.g., red colored background) to all elements tagged as `critical`.
 
-Use context managers to create nested structures:
+`buildzr` offer a more flexible styling syntax beyond tagging. See [Styling](./styling.md).
 
-```python
-with Workspace('w') as w:
-    # Software System level
-    ecommerce = SoftwareSystem('E-Commerce')
-
-    with ecommerce:
-        # Container level
-        api = Container('API')
-
-        with api:
-            # Component level
-            auth = Component('Auth Service')
-            payment = Component('Payment Service')
-```
+!!! note
+    If you run the code above, you will see that the `critical_system` has an extra additional "hidden" tags: `Element` and `SoftwareSystem`. By default, each model element will have default tags assigned to them: the model type (`Relationship` or `Element`) and, if it's an `Element`, the type of the element (e.g., `SoftwareSystem`, `Person`, `Container`, or `Component`).
 
 ## Deployment Elements
 
+Now that we've defined the static models, let's detail out our architecture further by modeling how they're meant to be run or hosted.
+
 ### Deployment Environment
 
-Defines a deployment context (e.g., Development, Production).
+`DeploymentEnvironment` defines a deployment context (e.g., Development, Staging, Production). Each environment can have its own set of deployment nodes and infrastructure.
 
 ```python
 with DeploymentEnvironment('Production') as prod:
@@ -180,7 +137,7 @@ with DeploymentEnvironment('Production') as prod:
 
 ### Deployment Node
 
-Represents infrastructure or runtime environment.
+`DeploymentNode` represents infrastructure or runtime environment where your containers are deployed. Deployment nodes can be nested to represent hierarchical infrastructure (e.g., cloud provider → region → cluster → instance).
 
 ```python
 with SoftwareSystem('Web Application') as system:
@@ -199,7 +156,7 @@ with DeploymentEnvironment('Production') as prod:
 
 ### Infrastructure Node
 
-Represents supporting infrastructure components.
+`InfrastructureNode` represents supporting infrastructure components that don't host containers but are essential to your system (load balancers, message queues, caches, etc.).
 
 ```python
 with DeploymentNode('AWS'):
@@ -212,7 +169,7 @@ with DeploymentNode('AWS'):
 
 ### Deployment Group
 
-Logically groups container instances to control relationships between them in deployment scenarios.
+`DeploymentGroup` allows you to logically group container instances to control relationships between them in deployment scenarios.
 
 **When to use:** Use deployment groups when you have multiple instances of the same containers and want to control which instances can communicate with each other.
 
