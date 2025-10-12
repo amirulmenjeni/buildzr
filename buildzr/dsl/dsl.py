@@ -2169,9 +2169,9 @@ class StyleElements:
             elif callable(element):
                 from buildzr.dsl.expression import ElementExpression, Expression
                 if self._parent:
+                    element_style.tag = element_tag
                     matched_elems = Expression(include_elements=[element]).elements(self._parent)
                     for e in matched_elems:
-                        element_style.tag = element_tag
                         e.add_tags(element_tag)
                 else:
                     raise ValueError("Cannot use callable to select elements to style without a Workspace.")
@@ -2278,10 +2278,10 @@ class StyleRelationships:
                 elif callable(relationship):
                     from buildzr.dsl.expression import Expression
                     if self._parent:
+                        relationship_style.tag = relation_tag
                         matched_rels = Expression(include_relationships=[relationship]).relationships(self._parent)
                         for matched_rel in matched_rels:
                             matched_rel.add_tags(relation_tag)
-                            relationship_style.tag = relation_tag
                     else:
                         raise ValueError("Cannot use callable to select elements to style without a Workspace.")
                 self._m.append(relationship_style)

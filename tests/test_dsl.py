@@ -1590,3 +1590,155 @@ def test_container_instance_relationships_with_no_deployment_groups() -> Optiona
     assert service_b_instance_2.model.id in service_a_1_destinations
     assert service_b_instance_1.model.id in service_a_2_destinations
     assert service_b_instance_2.model.id in service_a_2_destinations
+
+def test_multiple_style_elements_with_predicates() -> Optional[None]:
+    """
+    Test that multiple StyleElements with predicates work correctly.
+
+    Each StyleElements should create unique tags and apply them to matched elements.
+    All element styles should have valid tags.
+    """
+    from buildzr.dsl import StyleElements
+
+    with Workspace('w') as w:
+        user = Person('User')
+        with SoftwareSystem('System A') as sys_a:
+            api_a = Container('API')
+        with SoftwareSystem('System B') as sys_b:
+            api_b = Container('API')
+
+        # Style 1: Style software systems using predicate
+        StyleElements(
+            on=[
+                lambda w, e: e == w.software_system().system_a or e == w.software_system().system_b
+            ],
+            shape='WebBrowser',
+            background='#ff9900'
+        )
+
+        # Style 2: Style containers whose name starts with 'API'
+        StyleElements(
+            on=[
+                lambda w, e: e.name is not None and e.name.startswith('API')
+            ],
+            shape='Hexagon',
+            background='#00ff00'
+        )
+
+    # Convert to JSON to check structure
+    import json
+    workspace_json = json.loads(json.dumps(w.model, cls=JsonEncoder))
+
+    # Verify that both element styles exist
+    assert workspace_json['views']['configuration']['styles']['elements']
+    element_styles = workspace_json['views']['configuration']['styles']['elements']
+
+    # Should have 2 element styles (one for each StyleElements call)
+    assert len(element_styles) == 2, f"Expected 2 element styles, found {len(element_styles)}"
+
+    # First style should target the software systems
+    first_style = element_styles[0]
+    assert 'tag' in first_style, "First element style is missing 'tag' attribute"
+    assert first_style['background'] == '#ff9900'
+    assert first_style['shape'] == 'WebBrowser'
+
+    # Second style should target the containers
+    second_style = element_styles[1]
+    assert 'tag' in second_style, "Second element style is missing 'tag' attribute"
+    assert second_style['background'] == '#00ff00'
+    assert second_style['shape'] == 'Hexagon'
+
+    # Verify that the software systems have the first style's tag
+    system_a = workspace_json['model']['softwareSystems'][0]
+    system_b = workspace_json['model']['softwareSystems'][1]
+
+    assert first_style['tag'] in system_a['tags'], f"System A should have tag {first_style['tag']}"
+    assert first_style['tag'] in system_b['tags'], f"System B should have tag {first_style['tag']}"
+
+    # Verify that the containers have the second style's tag
+    container_a = system_a['containers'][0]
+    container_b = system_b['containers'][0]
+
+    assert second_style['tag'] in container_a['tags'], f"Container A should have tag {second_style['tag']}"
+    assert second_style['tag'] in container_b['tags'], f"Container B should have tag {second_style['tag']}"
+
+
+def test_style_elements_with_no_matching_predicate() -> Optional[None]:
+    """
+    Test that StyleElements with a predicate that matches no elements
+    creates a valid element style with a tag.
+
+    If a predicate matches no elements, the style should still have a valid tag
+    (even though no elements will use it).
+    """
+    from buildzr.dsl import StyleElements
+
+    with Workspace('w') as w:
+        user = Person('User')
+        system = SoftwareSystem('System')
+
+        # Style with predicate that matches nothing
+        StyleElements(
+            on=[
+                lambda w, e: e.type == Component  # No components exist
+            ],
+            shape='Circle',
+            background='#ff0000'
+        )
+
+    # Convert to JSON
+    import json
+    workspace_json = json.loads(json.dumps(w.model, cls=JsonEncoder))
+
+    # Check element styles
+    if 'views' in workspace_json and \
+       workspace_json.get('views', {}).get('configuration', {}).get('styles', {}).get('elements'):
+        element_styles = workspace_json['views']['configuration']['styles']['elements']
+
+        # All element styles should have a valid tag
+        for style in element_styles:
+            assert 'tag' in style, f"Element style is missing 'tag' attribute: {style}"
+
+
+def test_style_relationships_with_predicates() -> Optional[None]:
+    """
+    Test that StyleRelationships with predicates work correctly.
+    """
+    from buildzr.dsl import StyleRelationships
+
+    with Workspace('w') as w:
+        user = Person('User')
+        admin = Person('Admin')
+        system = SoftwareSystem('System')
+
+        r1 = user >> "Uses" >> system
+        r2 = admin >> "Manages" >> system
+
+        # Style relationships from Person elements
+        StyleRelationships(
+            on=[
+                lambda w, r: r.source.type == Person
+            ],
+            color='#ff0000',
+            thickness=4
+        )
+
+    import json
+    workspace_json = json.loads(json.dumps(w.model, cls=JsonEncoder))
+    relationship_styles = workspace_json['views']['configuration']['styles']['relationships']
+
+    # Should have 1 relationship style
+    assert len(relationship_styles) == 1
+    assert 'tag' in relationship_styles[0]
+    assert relationship_styles[0]['color'] == '#ff0000'
+    assert relationship_styles[0]['thickness'] == 4
+
+    # Both relationships should have the style tag
+    user_rels = workspace_json['model']['people'][0]['relationships']
+    admin_rels = workspace_json['model']['people'][1]['relationships']
+
+    assert len(user_rels) == 1
+    assert len(admin_rels) == 1
+
+    assert relationship_styles[0]['tag'] in user_rels[0]['tags']
+    assert relationship_styles[0]['tag'] in admin_rels[0]['tags']
