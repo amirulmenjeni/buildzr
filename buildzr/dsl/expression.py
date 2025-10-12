@@ -123,6 +123,18 @@ class ElementExpression:
         return self._element.tags
 
     @property
+    def name(self) -> Optional[str]:
+        """
+        Returns the name of the element (if applicable).
+
+        Elements like `SoftwareSystemInstance` and `ContainerInstance` don't have
+        a name attribute and will return None.
+        """
+        if _has_name_attribute(self._element):
+            return self._element.model.name
+        return None
+
+    @property
     def technology(self) -> Optional[str]:
         if _has_technology_attribute(self._element):
             return self._element.model.technology
