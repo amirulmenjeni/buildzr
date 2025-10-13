@@ -1,6 +1,6 @@
 # Workspace
 
-The `Workspace` is the top-level container for your entire architecture documentation. Think of it as your architecture's universe --- everything that exists in your system lives within a workspace. It holds your models (people, systems, containers, components), deployment environments, views, and styling rules. Without a workspace, you just have floating architectural concepts with nowhere to call home.
+The `Workspace` is the top-level container for your entire architecture documentation. Think of it as your architecture's universe --- everything that exists in your system lives within a workspace. It holds your models (people, systems, containers, components), deployment environments, views, and styling rules. Without a workspace, architectural concepts are not organized or associated with a specific context.
 
 Every `buildzr` project starts by creating a workspace using a context manager:
 
