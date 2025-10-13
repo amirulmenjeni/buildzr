@@ -56,7 +56,7 @@ with Workspace('w') as w:
 
 ## System Context View
 
-Zoom in one level, and you've got the `SystemContextView`. This shows a single software system surrounded by everything it talks to --- users, external systems, databases, or some (free) sketchy third-party API.
+Zoom in one level, and you've got the `SystemContextView`. This shows a single software system surrounded by everything it talks to --- users, external systems, databases, or external APIs (including free or third-party services).
 
 ```python
 # norun
