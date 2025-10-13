@@ -1,0 +1,447 @@
+# Views
+
+Views are how you actually *look* at your architecture. Think of them as different camera angles on the same movie set --- your models are the actors, and views are how you frame the shot. A landscape view is the sweeping helicopter shot showing everything. A component view is the intimate close-up on a single character's face. Without views, you've got a bunch of models sitting in a database that nobody can see. With views, you've got architecture diagrams that actually tell a story.
+
+## View Types
+
+`buildzr` supports all major C4 model view types:
+
+- **System Landscape View**: Shows all systems and people across your entire organization
+- **System Context View**: Focuses on a single system and what it depends on or talks to
+- **Container View**: Zooms into a system to show its applications, databases, and services
+- **Component View**: Drills into a container to reveal its internal code structure
+- **Deployment View**: Maps containers to actual infrastructure (servers, clusters, cloud resources)
+
+## System Landscape View
+
+The `SystemLandscapeView` is your 30,000-foot view --- it shows every software system and every person in your organization's ecosystem. This is the view you show to executives who want to see "everything" without actually wanting to understand anything. It answers the question: "What systems do we even have?"
+
+```python
+# norun
+SystemLandscapeView(
+    key='landscape',
+    description='Enterprise System Landscape',
+    auto_layout='tb'
+)
+```
+
+### Example
+
+```python
+from buildzr.dsl import Workspace, Person, SoftwareSystem, SystemLandscapeView, Group
+
+with Workspace('w') as w:
+    with Group("Users"):
+        customer = Person('Customer')
+
+    with Group("Internal"):
+        web = SoftwareSystem('Web App')
+        api = SoftwareSystem('API')
+
+    with Group("External"):
+        payment = SoftwareSystem('Payment Gateway')
+
+    customer >> "Uses" >> web
+    web >> "Calls" >> api
+    api >> "Processes payments via" >> payment
+
+    SystemLandscapeView(
+        key='landscape',
+        description='System Landscape',
+        auto_layout='lr'
+    )
+
+    w.to_json('workspace.json')
+```
+
+## System Context View
+
+Zoom in one level, and you've got the `SystemContextView`. This shows a single software system surrounded by everything it talks to --- users, external systems, databases, or external APIs (including free or third-party services).
+
+```python
+# norun
+SystemContextView(
+    software_system_selector=my_system,
+    key='context',
+    description='System Context for My System',
+    auto_layout='tb'
+)
+```
+
+### Example
+
+```python
+from buildzr.dsl import Workspace, Person, SoftwareSystem, SystemContextView
+
+with Workspace('w') as w:
+    user = Person('User')
+    system = SoftwareSystem('My System')
+    email = SoftwareSystem('Email System', tags=['external'])
+    database = SoftwareSystem('Legacy Database', tags=['external'])
+
+    user >> "Uses" >> system
+    system >> "Sends emails via" >> email
+    system >> "Reads data from" >> database
+
+    SystemContextView(
+        software_system_selector=system,
+        key='system-context',
+        description='My System Context',
+        auto_layout='tb'
+    )
+
+    w.to_json('workspace.json')
+```
+
+## Container View
+
+Open up that system and peer inside! The `ContainerView` shows you all the applications, databases, microservices, and other runtime components that make up a software system. This is where you start seeing the actual architecture --- web apps talking to APIs, APIs talking to databases, message queues doing their queuey thing.
+
+```python
+# norun
+ContainerView(
+    software_system_selector=my_system,
+    key='containers',
+    description='Container View',
+    auto_layout='tb'
+)
+```
+
+### Example
+
+```python
+from buildzr.dsl import (
+    Workspace,
+    Person,
+    SoftwareSystem,
+    Container,
+    ContainerView,
+)
+
+with Workspace('w') as w:
+    user = Person('User')
+    system = SoftwareSystem('Web Application')
+
+    with system:
+        web = Container('Web App', technology='React')
+        api = Container('API', technology='FastAPI')
+        db = Container('Database', technology='PostgreSQL')
+
+    user >> "Uses" >> web
+    web >> ("Calls", "REST/HTTPS") >> api
+    api >> ("Reads/Writes", "SQL") >> db
+
+    ContainerView(
+        software_system_selector=system,
+        key='containers',
+        description='Web Application Containers',
+        auto_layout='tb'
+    )
+
+    w.to_json('workspace.json')
+```
+
+## Component View
+
+The `ComponentView` shows the most granular level of detail in the C4 model. It reveals the internal structure of a single container --- the controllers, services, repositories, and other architectural layers that live inside. This is the view developers care about most, because it shows where the code lives and how it's organized.
+
+```python
+# norun
+ComponentView(
+    container_selector=my_container,
+    key='components',
+    description='Component View',
+    auto_layout='tb'
+)
+```
+
+### Example
+
+```python
+from buildzr.dsl import (
+    Workspace,
+    SoftwareSystem,
+    Container,
+    Component,
+    ComponentView,
+)
+
+with Workspace('w') as w:
+    system = SoftwareSystem('System')
+
+    with system:
+        api = Container('API')
+
+        with api:
+            controller = Component('REST Controller')
+            service = Component('Business Service')
+            repository = Component('Data Repository')
+
+        database = Container('Database')
+
+    controller >> "Uses" >> service
+    service >> "Uses" >> repository
+    repository >> ("Queries", "SQL") >> database
+
+    ComponentView(
+        container_selector=api,
+        key='api-components',
+        description='API Components',
+        auto_layout='tb'
+    )
+
+    w.to_json('workspace.json')
+```
+
+## Deployment View
+
+Time to get physical! The `DeploymentView` shows where your containers actually *run* --- which cloud provider, which region, which servers, which Docker containers on which Kubernetes clusters in which data centers. For this reason, `DeploymentNode`s can be nested indefinitely. This is the bridge between your beautiful logical architecture and the messy reality of infrastructure. DevOps engineers live here.
+
+```python
+# norun
+DeploymentView(
+    software_system_selector=my_system,
+    environment='Production',
+    key='deployment',
+    description='Production Deployment',
+    auto_layout='tb'
+)
+```
+
+### Example
+
+```python
+from buildzr.dsl import (
+    Workspace,
+    SoftwareSystem,
+    Container,
+    DeploymentEnvironment,
+    DeploymentNode,
+    ContainerInstance,
+    DeploymentView,
+)
+
+with Workspace('w') as w:
+    system = SoftwareSystem('Web App')
+
+    with system:
+        api = Container('API', technology='Python')
+        db = Container('Database', technology='PostgreSQL')
+
+    with DeploymentEnvironment('Production') as prod:
+        with DeploymentNode('AWS', technology='Cloud'):
+            with DeploymentNode('ECS Cluster', technology='Docker'):
+                api_instance = ContainerInstance(api)
+
+            with DeploymentNode('RDS', technology='Managed Service'):
+                db_instance = ContainerInstance(db)
+
+    DeploymentView(
+        software_system_selector=system,
+        environment=prod,
+        key='prod-deployment',
+        description='Production Deployment',
+        auto_layout='tb'
+    )
+
+    w.to_json('workspace.json')
+```
+
+## Auto Layout
+
+Views without layout are just random boxes scattered across a canvas like a toddler's finger painting. The `auto_layout` parameter tells `buildzr` how to arrange elements so humans can actually understand them. You've got four directions to choose from:
+
+- `'tb'` - Top to bottom (default) - Classic hierarchy style
+- `'bt'` - Bottom to top - For when you want to be contrarian
+- `'lr'` - Left to right - Great for process flows and timelines
+- `'rl'` - Right to left - For RTL languages or just mixing things up
+
+```python
+# norun
+SystemContextView(
+    software_system_selector=system,
+    key='context-horizontal',
+    auto_layout='lr'  # Left to right
+)
+```
+
+!!! tip "Choosing the Right Direction"
+    Use `'tb'` for hierarchical relationships (user → app → database). Use `'lr'` for sequential processes (request → auth → process → response). Use `'bt'` if you're feeling rebellious. Use `'rl'` if... well, probably just stick with the first two. Or if you speak Arabic.
+
+## Including/Excluding Elements
+
+Sometimes your view has too much clutter. Maybe there's an internal admin system that's technically part of the architecture but would just confuse the audience. Or maybe you only want to highlight specific critical components. That's where including and excluding elements comes in --- it's like Photoshopping your ex out of vacation photos, but for architecture diagrams.
+
+### Exclude Specific Elements
+
+Remove the stuff you don't want anyone to see (for now):
+
+```python
+# norun
+SystemContextView(
+    software_system_selector=system,
+    key='context',
+    exclude_elements=[internal_admin, test_system]  # Pretend these don't exist
+)
+```
+
+### Include Specific Elements
+
+Or flip it around --- to include additional containers that otherwise have not have been included in the view:
+
+```python
+# norun
+# critical_container is not part of system, but we want to include it in the
+# view too!
+ContainerView(
+    software_system_selector=system,
+    key='containers',
+    include_elements=[critical_container]
+)
+```
+
+## View Best Practices
+
+### Create Multiple Views
+
+You need more than one view. Different people need different levels of detail. Your CEO doesn't want to see your repository pattern implementation, and your backend developer doesn't care about the landscape view. Create views for your audience:
+
+```python
+# High-level for executives who ask "what does it do?"
+SystemLandscapeView(key='landscape')
+
+# Mid-level for architects who ask "how does it work?"
+SystemContextView(software_system_selector=system, key='context')
+
+# Detailed for developers who ask "where's the bug?"
+ContainerView(software_system_selector=system, key='containers')
+ComponentView(container_selector=api, key='components')
+```
+
+### Use Descriptive Keys and Descriptions
+
+Future you (or worse, someone else) will thank you for clear, descriptive names. Don't be cryptic:
+
+```python
+# Good - clear and informative
+SystemContextView(
+    software_system_selector=payment_system,
+    key='payment-system-context',
+    description='Payment System and External Dependencies'
+)
+
+# Bad - might as well be lorem ipsum
+SystemContextView(
+    software_system_selector=payment_system,
+    key='view1',
+    description='System View'
+)
+```
+
+### Choose Appropriate Layouts
+
+Match your layout direction to your diagram's natural flow:
+
+```python
+# norun
+# Hierarchical flow - use top-to-bottom
+ContainerView(
+    software_system_selector=system,
+    key='containers',
+    auto_layout='tb'  # User at top, database at bottom
+)
+
+# Process flow - use left-to-right
+SystemContextView(
+    software_system_selector=system,
+    key='context',
+    auto_layout='lr'  # Request flows left to right, like reading
+)
+```
+
+## Complete Example
+
+Let's bring it all together with a full example that creates multiple views of an e-commerce system. Notice how we define the models once, then create different views for different audiences.
+
+!!! note "Enable `implied_relationships`"
+    The example below uses implied relationships. Otherwise, the `SystemLandscapeView` won't show any relationships between the `SoftwareSystem`s and the `Person`!
+
+```python
+from buildzr.dsl import (
+    Workspace,
+    Person,
+    SoftwareSystem,
+    Container,
+    Component,
+    Group,
+    SystemLandscapeView,
+    SystemContextView,
+    ContainerView,
+    ComponentView,
+)
+
+with Workspace('multi-view-example', implied_relationships=True) as w:
+    # Model
+    with Group("Users"):
+        customer = Person('Customer')
+
+    with Group("E-Commerce"):
+        ecommerce = SoftwareSystem('E-Commerce Platform')
+
+        with ecommerce:
+            web = Container('Web App', technology='React')
+            api = Container('API', technology='Node.js')
+
+            with api:
+                order_ctrl = Component('Order Controller')
+                order_svc = Component('Order Service')
+                order_repo = Component('Order Repository')
+
+            db = Container('Database', technology='MongoDB')
+
+    with Group("External"):
+        payment = SoftwareSystem('Payment Gateway')
+
+    # Relationships
+    customer >> "Browses and purchases" >> web
+    web >> ("Calls", "REST") >> api
+    api >> ("Stores", "MongoDB") >> db
+    order_ctrl >> "Uses" >> order_svc
+    order_svc >> "Uses" >> order_repo
+    order_repo >> "Queries" >> db
+    api >> ("Processes payments", "REST") >> payment
+
+    # Multiple views for different audiences
+    SystemLandscapeView(
+        key='landscape',
+        description='All Systems'
+    )
+
+    SystemContextView(
+        software_system_selector=ecommerce,
+        key='ecommerce-context',
+        description='E-Commerce System Context',
+        auto_layout='tb'
+    )
+
+    ContainerView(
+        software_system_selector=ecommerce,
+        key='ecommerce-containers',
+        description='E-Commerce Containers',
+        auto_layout='tb'
+    )
+
+    ComponentView(
+        container_selector=api,
+        key='api-components',
+        description='API Components',
+        auto_layout='lr'
+    )
+
+    w.to_json('workspace.json')
+```
+
+## Next Steps
+
+- [Styles](styles.md)
+- [API Reference](../api/dsl.md)

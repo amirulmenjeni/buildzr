@@ -2,30 +2,19 @@
 
 `buildzr` is a [Structurizr](https://structurizr.com/) authoring tool for Python programmers. It allows you to declaratively or procedurally author Structurizr models and diagrams.
 
-If you're not familiar with Structurizr, it is both an open standard (see [Structurizr JSON schema](https://github.com/structurizr/json)) and a [set of tools](https://docs.structurizr.com/usage) for building software architecture diagrams as code. Structurizr derive its architecture modeling paradigm based on the [C4 model](https://c4model.com/), the modeling language for describing software architectures and the relationships.
+If you're not familiar with Structurizr, it is both an open standard (see [Structurizr JSON schema](https://github.com/structurizr/json)) and a [set of tools](https://docs.structurizr.com/usage) for building software architecture diagrams as code. Structurizr derives its architecture modeling paradigm based on the [C4 model](https://c4model.com/), the modeling language for describing software architectures and their relationships.
 
 In Structurizr, you define architecture models and their relationships first. And then, you can re-use the models to present multiple perspectives, views, and stories about your architecture.
 
-Head over to [ROADMAP.md](./ROADMAP.md) to get a good high-level sense of what has been implemented in `buildzr`.
+`buildzr` supercharges this workflow with Pythonic syntax sugar and intuitive APIs that make modeling as code more fun and productive.
 
-
-# Quick Start 🚀
-
-## Installation
-
-You can use `pip` to install the `buildzr` package:
+## Install
 
 ```bash
 pip install buildzr
 ```
 
-## Creating a workspace
-
-The module `buildzr.dsl` contains all the classes you need to create a workspace containing all the architecture models.
-
-Below is an example, where we:
-1. Create the models (`Person`, `SoftwareSystem`s, the `Container`s inside the `SoftwareSystem`, and the relationships -- `>>` -- between them)
-2. Define multiple views using the models we've created before.
+## Quick Example
 
 ```python
 from buildzr.dsl import (
@@ -37,17 +26,21 @@ from buildzr.dsl import (
     ContainerView,
     desc,
     Group,
+    StyleElements,
 )
 
 with Workspace('w') as w:
-    with Group("My Company"):
+
+    # Define your models (architecture elements and their relationships).
+
+    with Group("My Company") as my_company:
         u = Person('Web Application User')
         webapp = SoftwareSystem('Corporate Web App')
         with webapp:
-            database = Container('database')
+            database = Container('database', tags={'db'})
             api = Container('api')
             api >> ("Reads and writes data from/to", "http/api") >> database
-    with Group("Microsoft"):
+    with Group("Microsoft") as microsoft:
         email_system = SoftwareSystem('Microsoft 365')
 
     u >> [
@@ -56,14 +49,13 @@ with Workspace('w') as w:
     ]
     webapp >> "sends notification using" >> email_system
 
+    # Define the views.
+
     SystemContextView(
         software_system_selector=webapp,
         key='web_app_system_context_00',
         description="Web App System Context",
         auto_layout='lr',
-        exclude_elements=[
-            u,
-        ]
     )
 
     ContainerView(
@@ -73,34 +65,49 @@ with Workspace('w') as w:
         description="Web App Container View",
     )
 
+    # Stylize the views.
+
+    StyleElements(
+        on=[u],
+        shape='Person',
+        background='blue',
+    )
+
+    StyleElements(
+        on=['db'],
+        shape='Cylinder'
+    )
+
+    # Export to JSON.
+
     w.to_json('workspace.json')
 ```
 
-Here's a short breakdown on what's happening:
-- In the `with Workspace('w') as w:` block, we've created a `Workspace` named `w`.
-- Inside this block, we're in the context of the `w` workspace, so any models, relationships, and views we declared in this block will belong to that workspace. We've declared a few models: `Person`, the `SoftwareSystems`, their `Container`s, and their relationships with each other. Oh, we've separated them into different `Group`s, too!
-- Showing the who's and the what's in an architecture model is good, but an architecture model is incomplete without the arrows that describes the relationships between the systems. In `buildzr`, we can define relationships with the `>>` operator.
-- Once we have all the models and their relationships defined, we use (and re-use!) the static models to create multiple views to tell different stories and show various narrative to help document your software architecture. In this case, we've created one `SystemContextView` and one `ContainerView` for the `webapp`.
-- Finally, we write the workspace definitions into a JSON file, which can be consumed by rendering tools, or used for further processing.
+![Example Software System View](./docs/images/example_system_context_view.png)
+![Example Container View](./docs/images/example_container_view.png)
 
-The JSON output can be found [here](examples/system_context_and_container_view.json). You can also try out https://structurizr.com/json to see how this workspace will be rendered.
+## Getting Started
 
-# Why use `buildzr`?
+Ready to dive in? Check out the [Quick Start Tutorial](https://buildzr.dev/getting-started/quick-start/) and [User Guides](https://buildzr.dev/user-guide/core-concepts/).
 
-✅ Uses `buildzr`'s declarative DSL syntax to help you create C4 model architecture diagrams in Python concisely.
+## Why use `buildzr`?
 
-✅ Uses `buildzr`'s DSL APIs to programmatically create C4 model architecture diagrams. Good if you need to automate things!
+✅ **Intuitive Pythonic Syntax**: Use Python's context managers (`with` statements) to create nested structures that naturally mirror your architecture's hierarchy. See the [example](#quick-example) below.
 
-✅ Write Structurizr diagrams more securely with extensive type hints and [mypy](https://mypy-lang.org) support.
+✅ **Programmatic Creation**: Use `buildzr`'s DSL APIs to programmatically create C4 model architecture diagrams. Great for automation!
 
-✅ Stays true to the [Structurizr JSON schema](https://mypy-lang.org/) standards. `buildzr` uses the [datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator) to automatically generate the "low-level" [representation](buildzr/models/models.py) of the Workspace model. This reduces deprecancy between `buildzr` and the Structurizr JSON schema.
+✅ **Advanced Styling**: Style elements beyond just tags --- target by direct reference, type, group membership, or custom predicates for fine-grained visual control. Just take a look at [Styles](https://buildzr.dev/user-guide/styles/)!
 
-✅ Writing architecture models and diagrams in Python allows you to integrate programmability and automation into your software architecture diagramming and documentation workflow. For example, you might want to programmatically automate the creation of architecture models from metadata pulled from your IT asset management system, but still want to declaratively define how to present them.
+✅ **Type Safety**: Write Structurizr diagrams more securely with extensive type hints and [Mypy](https://mypy-lang.org) support.
 
-✅ Uses the familiar Python programming language and its rich toolchains to write software architecture models and diagrams!
+✅ **Standards Compliant**: Stays true to the [Structurizr JSON schema](https://github.com/structurizr/json) standards. `buildzr` uses [datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator) to automatically generate the low-level representation of the Workspace model.
 
-# Contributing
+✅ **Rich Toolchain**: Uses the familiar Python programming language and its rich toolchains to write software architecture models and diagrams!
 
-Interested in contributing to `buildzr`?
 
-Please visit [CONTRIBUTING.md](CONTRIBUTING.md).
+## Project Links
+
+- [GitHub Repository](https://github.com/amirulmenjeni/buildzr)
+- [Issue Tracker](https://github.com/amirulmenjeni/buildzr/issues)
+- [Roadmap](roadmap.md)
+- [Contributing Guide](contributing.md)

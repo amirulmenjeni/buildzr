@@ -29,3 +29,5 @@ RUN pipx install hatch
 # Required for the `buildzr/models/generate.sh` script, for generating `models.py`.
 RUN pipx install datamodel-code-generator
 RUN pipx install yq
+
+RUN npm install -g @modelcontextprotocol/server-playwright
