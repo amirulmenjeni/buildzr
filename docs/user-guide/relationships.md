@@ -1,5 +1,5 @@
 # Relationships
-Relationships connect elements in your architecture model and describe how they interact and work together to bring value. Without relationships, your architecture diagram aren't really helpful. With that in mind, let's dive into how we can establish and maintain a healthy relationship with `buildzr`.
+Relationships connect elements in your architecture model and describe how they interact and work together to bring value. Without relationships, your architecture diagrams aren't really helpful. With that in mind, let's dive into how we can establish and maintain a healthy relationship with `buildzr`.
 
 ## Basic Syntax
 
