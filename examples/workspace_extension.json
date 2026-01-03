@@ -1,0 +1,134 @@
+{
+  "id": 0,
+  "name": "Extended Workspace",
+  "description": "",
+  "model": {
+    "softwareSystems": [
+      {
+        "id": "1",
+        "name": "A",
+        "description": "Software System A",
+        "location": "Unspecified",
+        "tags": "Element,Software System",
+        "containers": [
+          {
+            "id": "4",
+            "name": "Web Application",
+            "description": "The web application",
+            "technology": "",
+            "tags": "Element,Container",
+            "components": [],
+            "properties": {},
+            "relationships": [
+              {
+                "id": "6",
+                "description": "Gets data X from",
+                "tags": "Relationship",
+                "sourceId": "4",
+                "destinationId": "2",
+                "technology": ""
+              },
+              {
+                "id": "7",
+                "description": "Reads from and writes to",
+                "tags": "Relationship",
+                "sourceId": "4",
+                "destinationId": "5",
+                "technology": ""
+              }
+            ]
+          },
+          {
+            "id": "5",
+            "name": "Database",
+            "description": "Stores data",
+            "technology": "PostgreSQL",
+            "tags": "Element,Container",
+            "components": [],
+            "properties": {},
+            "relationships": []
+          }
+        ],
+        "relationships": [
+          {
+            "id": "3",
+            "description": "Gets data X from",
+            "tags": "Relationship",
+            "sourceId": "1",
+            "destinationId": "2"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "B",
+        "description": "Software System B",
+        "location": "Unspecified",
+        "tags": "Element,Software System",
+        "containers": []
+      }
+    ]
+  },
+  "views": {
+    "systemContextViews": [
+      {
+        "key": "A-SystemContext",
+        "description": "System Context for A",
+        "softwareSystemId": "1",
+        "automaticLayout": {
+          "implementation": "Graphviz",
+          "rankDirection": "LeftRight",
+          "rankSeparation": 300,
+          "nodeSeparation": 300,
+          "edgeSeparation": 0,
+          "vertices": false
+        },
+        "elements": [
+          {
+            "id": "1"
+          }
+        ],
+        "relationships": []
+      }
+    ],
+    "containerViews": [
+      {
+        "key": "A-Containers",
+        "description": "Container view for A",
+        "softwareSystemId": "1",
+        "automaticLayout": {
+          "implementation": "Graphviz",
+          "rankDirection": "TopBottom",
+          "rankSeparation": 300,
+          "nodeSeparation": 300,
+          "edgeSeparation": 0,
+          "vertices": false
+        },
+        "elements": [
+          {
+            "id": "4"
+          },
+          {
+            "id": "5"
+          },
+          {
+            "id": "2"
+          }
+        ],
+        "relationships": [
+          {
+            "id": "6"
+          },
+          {
+            "id": "7"
+          }
+        ]
+      }
+    ],
+    "configuration": {
+      "styles": {},
+      "branding": {},
+      "terminology": {}
+    }
+  }
+}
