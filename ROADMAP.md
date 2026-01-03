@@ -11,7 +11,7 @@ This roadmap tracks the implementation status of Structurizr DSL features in bui
 | [Workspace](https://docs.structurizr.com/dsl/language#workspace) | ✅ | Top-level construct and wrapper for model and views |
 | [Model](https://docs.structurizr.com/dsl/language#model) | ✅ | Container for architecture elements and relationships |
 | [Configuration](https://docs.structurizr.com/dsl/language#configuration) | ✅ | Workspace-level configuration settings |
-| [Workspace Extension](https://docs.structurizr.com/dsl/language#extends) | ❌ | Extend existing workspaces via file or URL |
+| [Workspace Extension](https://docs.structurizr.com/dsl/language#extends) | ✅ | Extend existing workspaces via file or URL |
 | [Visibility](https://docs.structurizr.com/dsl/language#visibility) | ❌ | Control workspace access level (private/public) |
 
 ## Model Elements
