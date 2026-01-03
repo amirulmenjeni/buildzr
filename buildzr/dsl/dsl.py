@@ -589,6 +589,10 @@ class SoftwareSystem(DslElementRelationOverrides[
         instance._dynamic_attrs = {}
         instance._label = None
 
+        # Ensure containers list is initialized for adding new containers
+        if instance._m.containers is None:
+            instance._m.containers = []
+
         # Wrap child containers
         if model.containers:
             for container_model in model.containers:
@@ -812,6 +816,10 @@ class Container(DslElementRelationOverrides[
         instance._tags = set(model.tags.split(',')) if model.tags else {'Element', 'Container'}
         instance._dynamic_attrs = {}
         instance._label = None
+
+        # Ensure components list is initialized for adding new components
+        if instance._m.components is None:
+            instance._m.components = []
 
         # Wrap child components
         if model.components:
