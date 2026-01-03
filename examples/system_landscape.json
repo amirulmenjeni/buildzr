@@ -1,0 +1,39 @@
+{
+  "id": 0,
+  "name": "System Landscape",
+  "description": "A simple system landscape with two software systems",
+  "model": {
+    "softwareSystems": [
+      {
+        "id": "1",
+        "name": "A",
+        "description": "Software System A",
+        "location": "Unspecified",
+        "tags": "Element,Software System",
+        "relationships": [
+          {
+            "id": "3",
+            "description": "Gets data X from",
+            "tags": "Relationship",
+            "sourceId": "1",
+            "destinationId": "2"
+          }
+        ]
+      },
+      {
+        "id": "2",
+        "name": "B",
+        "description": "Software System B",
+        "location": "Unspecified",
+        "tags": "Element,Software System"
+      }
+    ]
+  },
+  "views": {
+    "configuration": {
+      "styles": {},
+      "branding": {},
+      "terminology": {}
+    }
+  }
+}
