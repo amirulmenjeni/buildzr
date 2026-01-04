@@ -22,6 +22,7 @@ from typing import (
     Literal,
     cast,
     Type,
+    overload
 )
 
 from buildzr.sinks.interfaces import Sink
@@ -40,6 +41,7 @@ from buildzr.dsl.relations import (
     _Relationship,
 )
 from buildzr.dsl.color import Color
+
 
 def _child_name_transform(name: str) -> str:
     return name.lower().replace(' ', '_')
@@ -84,6 +86,7 @@ class Workspace(DslWorkspaceElement):
             scope: Literal['landscape', 'software_system', None]='software_system',
             implied_relationships: bool=False,
             group_separator: str='/',
+            extend: Optional[str]=None,
         ) -> None:
 
         self._m = buildzr.models.Workspace()
@@ -92,6 +95,21 @@ class Workspace(DslWorkspaceElement):
         self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem']] = {}
         self._use_implied_relationships = implied_relationships
         self._group_separator = group_separator
+
+        # Workspace extension support - store extended model for merging
+        self._extended_model: Optional[buildzr.models.Workspace] = None
+
+        if extend:
+            from buildzr.loaders import JsonLoader
+            loader = JsonLoader()
+            self._extended_model = loader.load(extend)
+            # Set ID counter to avoid collisions with extended workspace IDs
+            max_id = loader.get_max_element_id(self._extended_model)
+            GenerateId.set_offset(max_id)
+
+            # Wrap parent elements with DSL classes for direct access on workspace
+            self._wrap_parent_elements()
+
         self.model.id = GenerateId.for_workspace()
         self.model.name = name
         self.model.description = description
@@ -118,7 +136,29 @@ class Workspace(DslWorkspaceElement):
             'structurizr.groupSeparator': group_separator,
         }
 
+    def _wrap_parent_elements(self) -> None:
+        """Wrap parent workspace elements with DSL classes for direct access."""
+        if self._extended_model is None or self._extended_model.model is None:
+            return
+
+        # Wrap software systems from parent
+        if self._extended_model.model.softwareSystems:
+            for ss_model in self._extended_model.model.softwareSystems:
+                ss = SoftwareSystem._from_model(ss_model)
+                ss._parent = self
+                self._children.append(ss)
+                self._add_dynamic_attr(ss_model.name or '', ss)
+
+        # Wrap people from parent
+        if self._extended_model.model.people:
+            for person_model in self._extended_model.model.people:
+                person = Person._from_model(person_model)
+                person._parent = self
+                self._children.append(person)
+                self._add_dynamic_attr(person_model.name or '', person)
+
     def __enter__(self) -> Self:
+        """Enter the workspace context."""
         self._token = _current_workspace.set(self)
         return self
 
@@ -327,9 +367,117 @@ class Workspace(DslWorkspaceElement):
 
         self._imply_relationships()
 
+        # Merge with extended workspace if present
+        if self._extended_model:
+            merged_model = self._merge_models(self._extended_model, self._m)
+        else:
+            merged_model = self._m
+
         from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
         sink = JsonSink()
-        sink.write(workspace=self.model, config=JsonSinkConfig(path=path, pretty=pretty))
+        sink.write(workspace=merged_model, config=JsonSinkConfig(path=path, pretty=pretty))
+
+    def _merge_models(
+        self,
+        parent: buildzr.models.Workspace,
+        child: buildzr.models.Workspace
+    ) -> buildzr.models.Workspace:
+        """
+        Merge parent and child workspace models.
+
+        The merged model contains:
+        - All elements from parent workspace (with any modifications from child)
+        - New elements added in child workspace
+        - Relationships from both workspaces
+
+        Args:
+            parent: The extended (parent) workspace model
+            child: The current (child) workspace model
+
+        Returns:
+            A new merged Workspace model
+        """
+        import copy
+
+        # Start with a copy of the parent model
+        merged = copy.deepcopy(parent)
+
+        # Use child's name and description
+        merged.name = child.name
+        merged.description = child.description
+
+        # Merge software systems
+        if child.model and child.model.softwareSystems:
+            if merged.model is None:
+                merged.model = buildzr.models.Model()
+            if merged.model.softwareSystems is None:
+                merged.model.softwareSystems = []
+
+            # Get existing IDs from parent
+            existing_ids = {ss.id for ss in merged.model.softwareSystems}
+
+            for ss in child.model.softwareSystems:
+                if ss.id not in existing_ids:
+                    merged.model.softwareSystems.append(ss)
+
+        # Merge people
+        if child.model and child.model.people:
+            if merged.model is None:
+                merged.model = buildzr.models.Model()
+            if merged.model.people is None:
+                merged.model.people = []
+
+            existing_ids = {p.id for p in merged.model.people}
+
+            for person in child.model.people:
+                if person.id not in existing_ids:
+                    merged.model.people.append(person)
+
+        # Merge deployment nodes
+        if child.model and child.model.deploymentNodes:
+            if merged.model is None:
+                merged.model = buildzr.models.Model()
+            if merged.model.deploymentNodes is None:
+                merged.model.deploymentNodes = []
+
+            existing_ids = {dn.id for dn in merged.model.deploymentNodes}
+
+            for dn in child.model.deploymentNodes:
+                if dn.id not in existing_ids:
+                    merged.model.deploymentNodes.append(dn)
+
+        # Merge views if present
+        if child.views:
+            if merged.views is None:
+                merged.views = child.views
+            else:
+                # Merge individual view types
+                if child.views.systemLandscapeViews:
+                    if merged.views.systemLandscapeViews is None:
+                        merged.views.systemLandscapeViews = []
+                    merged.views.systemLandscapeViews.extend(child.views.systemLandscapeViews)
+
+                if child.views.systemContextViews:
+                    if merged.views.systemContextViews is None:
+                        merged.views.systemContextViews = []
+                    merged.views.systemContextViews.extend(child.views.systemContextViews)
+
+                if child.views.containerViews:
+                    if merged.views.containerViews is None:
+                        merged.views.containerViews = []
+                    merged.views.containerViews.extend(child.views.containerViews)
+
+                if child.views.componentViews:
+                    if merged.views.componentViews is None:
+                        merged.views.componentViews = []
+                    merged.views.componentViews.extend(child.views.componentViews)
+
+                if child.views.deploymentViews:
+                    if merged.views.deploymentViews is None:
+                        merged.views.deploymentViews = []
+                    merged.views.deploymentViews.extend(child.views.deploymentViews)
+
+        return merged
 
 
     def _add_dynamic_attr(self, name: str, model: Union['Person', 'SoftwareSystem']) -> None:
@@ -348,6 +496,12 @@ class Workspace(DslWorkspaceElement):
         return self._dynamic_attrs[name]
 
     def __getitem__(self, name: str) -> Union['Person', 'SoftwareSystem']:
+        # Handle integer keys from failed tuple unpacking attempts
+        if isinstance(name, int):
+            raise TypeError(
+                "Cannot unpack workspace - not extending another workspace. "
+                "Use extend='path/to/workspace.json' to enable tuple unpacking."
+            )
         return self._dynamic_attrs[_child_name_transform(name)]
 
     def __dir__(self) -> Iterable[str]:
@@ -359,7 +513,7 @@ class SoftwareSystem(DslElementRelationOverrides[
         'Person',
         'SoftwareSystem',
         'Container',
-        'Component'
+        'Component',
     ]
 ]):
     """
@@ -420,6 +574,33 @@ class SoftwareSystem(DslElementRelationOverrides[
         stack = _current_group_stack.get()
         if stack:
             stack[-1].add_element(self)
+
+    @classmethod
+    def _from_model(cls, model: buildzr.models.SoftwareSystem) -> 'SoftwareSystem':
+        """Create DSL wrapper from existing model (for workspace extension)."""
+        instance = object.__new__(cls)
+        instance._m = model
+        instance._parent = None
+        instance._children = []
+        instance._sources = []
+        instance._destinations = []
+        instance._relationships = set()
+        instance._tags = set(model.tags.split(',')) if model.tags else {'Element', 'Software System'}
+        instance._dynamic_attrs = {}
+        instance._label = None
+
+        # Ensure containers list is initialized for adding new containers
+        if instance._m.containers is None:
+            instance._m.containers = []
+
+        # Wrap child containers
+        if model.containers:
+            for container_model in model.containers:
+                container = Container._from_model(container_model, instance)
+                instance._children.append(container)
+                instance._dynamic_attrs[_child_name_transform(container_model.name or '')] = container
+
+        return instance
 
     def __enter__(self) -> Self:
         self._token = _current_software_system.set(self)
@@ -539,13 +720,27 @@ class Person(DslElementRelationOverrides[
             workspace._add_dynamic_attr(label, self)
         return self
 
+    @classmethod
+    def _from_model(cls, model: buildzr.models.Person) -> 'Person':
+        """Create DSL wrapper from existing model (for workspace extension)."""
+        instance = object.__new__(cls)
+        instance._m = model
+        instance._parent = None
+        instance._sources = []
+        instance._destinations = []
+        instance._relationships = set()
+        instance._tags = set(model.tags.split(',')) if model.tags else {'Element', 'Person'}
+        instance._label = None
+        return instance
+
+
 class Container(DslElementRelationOverrides[
     'Container',
     Union[
         'Person',
         'SoftwareSystem',
         'Container',
-        'Component'
+        'Component',
     ]
 ]):
     """
@@ -608,6 +803,33 @@ class Container(DslElementRelationOverrides[
         if stack:
             stack[-1].add_element(self)
 
+    @classmethod
+    def _from_model(cls, model: buildzr.models.Container, parent: 'SoftwareSystem') -> 'Container':
+        """Create DSL wrapper from existing model (for workspace extension)."""
+        instance = object.__new__(cls)
+        instance._m = model
+        instance._parent = parent
+        instance._children = []
+        instance._sources = []
+        instance._destinations = []
+        instance._relationships = set()
+        instance._tags = set(model.tags.split(',')) if model.tags else {'Element', 'Container'}
+        instance._dynamic_attrs = {}
+        instance._label = None
+
+        # Ensure components list is initialized for adding new components
+        if instance._m.components is None:
+            instance._m.components = []
+
+        # Wrap child components
+        if model.components:
+            for component_model in model.components:
+                component = Component._from_model(component_model, instance)
+                instance._children.append(component)
+                instance._dynamic_attrs[_child_name_transform(component_model.name or '')] = component
+
+        return instance
+
     def __enter__(self) -> Self:
         self._token = _current_container.set(self)
         return self
@@ -657,7 +879,7 @@ class Component(DslElementRelationOverrides[
         'Person',
         'SoftwareSystem',
         'Container',
-        'Component'
+        'Component',
     ]
 ]):
     """
@@ -723,6 +945,20 @@ class Component(DslElementRelationOverrides[
         if container is not None:
             container._add_dynamic_attr(label, self)
         return self
+
+    @classmethod
+    def _from_model(cls, model: buildzr.models.Component, parent: 'Container') -> 'Component':
+        """Create DSL wrapper from existing model (for workspace extension)."""
+        instance = object.__new__(cls)
+        instance._m = model
+        instance._parent = parent
+        instance._sources = []
+        instance._destinations = []
+        instance._relationships = set()
+        instance._tags = set(model.tags.split(',')) if model.tags else {'Element', 'Component'}
+        instance._label = None
+        return instance
+
 
 class Group:
 
@@ -1730,13 +1966,14 @@ class ComponentView(DslViewElement):
         from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
         from buildzr.models import ElementView, RelationshipView
 
+        container: Container
         if isinstance(self._selector, Container):
             container = self._selector
         else:
             container = self._selector(WorkspaceExpression(workspace))
         self._m.containerId = container.model.id
 
-        component_ids = { component.model.id for component in container.children }
+        component_ids = { component.model.id for component in container.children or [] }
 
         view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [
             lambda w, e: e.parent == container,

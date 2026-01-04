@@ -201,6 +201,119 @@ with Workspace('My Architecture') as w:
 
 The JSON file can be uploaded to Structurizr's web interface or used with other C4 model visualization tools.
 
+## Extending Existing Workspaces
+
+You can extend an existing `workspace.json` file to build upon its elements. This is useful when you want to add detail to an existing architecture or create specialized views of a parent workspace.
+
+### Basic Extension
+
+Use the `extend` parameter to load a parent workspace:
+
+```python
+from buildzr.dsl import Workspace, SoftwareSystem, Container
+
+# Extend from a local file
+with Workspace('Extended Workspace', extend='parent_workspace.json') as w:
+    # Access parent elements using typed accessors
+    system_a = w.software_system().system_a
+    system_b = w.software_system().system_b
+
+    # Create new elements that interact with parent elements
+    new_system = SoftwareSystem('New System')
+    new_system >> "Calls" >> system_b
+```
+
+You can also extend from a URL:
+
+```python
+# norun
+with Workspace('Extended', extend='https://example.com/workspace.json') as w:
+    # ...
+```
+
+### Accessing Parent Elements
+
+Parent elements are accessible through typed accessor methods on the workspace. Element names are normalized to lowercase with underscores replacing spaces:
+
+```python
+# norun
+with Workspace('Child', extend='parent.json') as w:
+    # Access software systems
+    system = w.software_system().my_system  # "My System" -> my_system
+
+    # Access people
+    user = w.person().admin_user  # "Admin User" -> admin_user
+
+    # Access containers within a parent system
+    container = system.container().api_gateway  # "API Gateway" -> api_gateway
+
+    # Access components within a parent container
+    component = container.component().auth_service  # "Auth Service" -> auth_service
+```
+
+### Adding Elements to Parent Systems
+
+You can add new containers to parent software systems or new components to parent containers using context managers:
+
+```python
+# norun
+with Workspace('Extended', extend='parent.json') as w:
+    # Get a software system from the parent
+    parent_system = w.software_system().existing_system
+
+    # Add new containers to it
+    with parent_system:
+        new_api = Container('New API', technology='Python')
+        new_db = Container('New Database', technology='PostgreSQL')
+        new_api >> "Reads from" >> new_db
+
+    # Get a container from the parent and add components
+    parent_container = parent_system.container().existing_container
+    with parent_container:
+        Component('New Service')
+```
+
+### Relationships with Parent Elements
+
+You can create relationships between new elements and parent elements, or between parent elements themselves:
+
+```python
+# norun
+with Workspace('Extended', extend='parent.json') as w:
+    system_a = w.software_system().system_a
+    system_b = w.software_system().system_b
+
+    # New element to parent element
+    new_system = SoftwareSystem('New System')
+    new_system >> "Uses" >> system_a
+
+    # Parent element to new element
+    system_b >> "Delegates to" >> new_system
+
+    # Parent element to parent element (adds new relationship)
+    system_a >> "Also calls" >> system_b
+```
+
+### ID Management
+
+When extending a workspace, `buildzr` automatically ensures that new elements receive IDs that don't conflict with parent elements. The ID counter starts after the highest ID found in the parent workspace.
+
+### Merged Output
+
+When you export the workspace with `to_json()`, the output contains both parent and child elements merged together:
+
+```python
+# norun
+with Workspace('Extended', extend='parent.json') as w:
+    # Add new elements...
+    SoftwareSystem('New System')
+
+    # Export merges parent + child
+    w.to_json('extended_workspace.json', pretty=True)
+```
+
+The merged output uses the child workspace's name and description while preserving all parent elements and their relationships.
+
 ## Complete Example
 
 Here's a complete example bringing together all workspace concepts:
