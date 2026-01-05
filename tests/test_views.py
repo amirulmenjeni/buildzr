@@ -20,6 +20,7 @@ from buildzr.dsl import (
     DeploymentNode,
     InfrastructureNode,
     DeploymentView,
+    DynamicView,
     StyleElements,
     StyleRelationships,
 )
@@ -1518,3 +1519,328 @@ def test_style_relationships_on_callables() -> Optional[None]:
         assert styles.relationships[1].tag not in [tag for r in comp2.relationships for tag in r.tags]
         assert styles.relationships[1].tag in [tag for r in comp3.relationships for tag in r.tags]
         assert styles.relationships[1].tag not in [tag for r in comp4.relationships for tag in r.tags]
+
+
+@pytest.mark.parametrize("use_context", [True, False])
+def test_dynamic_view_basic(use_context: bool) -> Optional[None]:
+    """Test basic DynamicView with ordered relationships using variable references."""
+    with Workspace('w') as w:
+        user = Person('User')
+        with SoftwareSystem('System') as system:
+            webapp = Container('Web App')
+            database = Container('Database')
+
+        # Define relationships and keep references
+        r1 = user >> "Signs in using" >> webapp
+        r2 = webapp >> "Queries" >> database
+        r3 = database >> "Returns data to" >> webapp
+
+        if use_context:
+            DynamicView(
+                key="sign-in-flow",
+                description="User sign-in process",
+                scope=system,
+                steps=[r1, r2, r3],
+            )
+
+    if not use_context:
+        w.apply_view(
+            DynamicView(
+                key="sign-in-flow",
+                description="User sign-in process",
+                scope=lambda ws: ws.software_system().system,
+                steps=[r1, r2, r3],
+            )
+        )
+
+    assert w.model.views.dynamicViews is not None
+    assert len(w.model.views.dynamicViews) == 1
+
+    dv = w.model.views.dynamicViews[0]
+    assert dv.key == "sign-in-flow"
+    assert dv.elementId == system.model.id
+
+    # Check elements
+    element_ids = {e.id for e in dv.elements}
+    assert user.model.id in element_ids
+    assert webapp.model.id in element_ids
+    assert database.model.id in element_ids
+
+    # Check relationships with order
+    assert len(dv.relationships) == 3
+    assert dv.relationships[0].id == r1.model.id
+    assert dv.relationships[0].order == "1"
+    assert dv.relationships[1].id == r2.model.id
+    assert dv.relationships[1].order == "2"
+    assert dv.relationships[2].id == r3.model.id
+    assert dv.relationships[2].order == "3"
+
+
+def test_dynamic_view_no_scope() -> Optional[None]:
+    """Test DynamicView without scope (landscape level)."""
+    with Workspace('w') as w:
+        user = Person('User')
+        system_a = SoftwareSystem('System A')
+        system_b = SoftwareSystem('System B')
+
+        r1 = user >> "Uses" >> system_a
+        r2 = system_a >> "Calls" >> system_b
+
+        DynamicView(
+            key="landscape-flow",
+            description="System interaction",
+            steps=[r1, r2],
+        )
+
+    assert w.model.views.dynamicViews is not None
+    dv = w.model.views.dynamicViews[0]
+    assert dv.elementId is None
+    assert len(dv.elements) == 3
+    assert len(dv.relationships) == 2
+
+
+def test_dynamic_view_container_scope() -> Optional[None]:
+    """Test DynamicView scoped to a Container."""
+    with Workspace('w') as w:
+        with SoftwareSystem('System') as system:
+            with Container('API') as api:
+                comp1 = Component('Controller')
+                comp2 = Component('Service')
+                comp3 = Component('Repository')
+
+        r1 = comp1 >> "Calls" >> comp2
+        r2 = comp2 >> "Queries" >> comp3
+
+        DynamicView(
+            key="api-flow",
+            description="API request flow",
+            scope=api,
+            steps=[r1, r2],
+        )
+
+    dv = w.model.views.dynamicViews[0]
+    assert dv.elementId == api.model.id
+    assert len(dv.relationships) == 2
+    assert dv.relationships[0].order == "1"
+    assert dv.relationships[1].order == "2"
+
+
+def test_dynamic_view_with_description_override() -> Optional[None]:
+    """Test DynamicView using inline >> syntax with description override."""
+    with Workspace('w') as w:
+        customer = Person('Customer')
+        with SoftwareSystem('Online Book Store') as system:
+            webapp = Container('Web App')
+            database = Container('Database')
+
+        # Define static relationships in the model
+        r1 = customer >> "Browses" >> webapp
+        r2 = webapp >> "Reads from" >> database
+
+        # Use inline >> syntax with different descriptions for the view
+        DynamicView(
+            key="order-flow",
+            description="Order flow",
+            scope=system,
+            steps=[
+                customer >> "Requests past orders from" >> webapp,
+                webapp >> "Queries for orders using" >> database,
+            ],
+        )
+
+    dv = w.model.views.dynamicViews[0]
+    assert len(dv.relationships) == 2
+
+    # Verify relationships reference the original IDs
+    assert dv.relationships[0].id == r1.model.id
+    assert dv.relationships[1].id == r2.model.id
+
+    # Verify description overrides are set
+    assert dv.relationships[0].order == "1"
+    assert dv.relationships[0].description == "Requests past orders from"
+    assert dv.relationships[1].order == "2"
+    assert dv.relationships[1].description == "Queries for orders using"
+
+    # Verify duplicate relationships were removed from model
+    # (customer should only have 1 relationship, not 2)
+    assert len(customer.model.relationships) == 1
+    assert customer.model.relationships[0].description == "Browses"
+
+
+def test_dynamic_view_multiple_views_same_relationships() -> Optional[None]:
+    """Test multiple DynamicViews referencing the same relationships with different descriptions."""
+    with Workspace('w') as w:
+        customer = Person('Customer')
+        with SoftwareSystem('Online Book Store') as system:
+            webapp = Container('Web App')
+            database = Container('Database')
+
+        # Define static relationships in the model
+        r1 = customer >> "Browses" >> webapp
+        r2 = webapp >> "Reads from" >> database
+
+        # First dynamic view
+        DynamicView(
+            key="order-flow",
+            description="Order flow",
+            scope=system,
+            steps=[
+                customer >> "Requests past orders from" >> webapp,
+                webapp >> "Queries for orders using" >> database,
+            ],
+        )
+
+        # Second dynamic view with different descriptions
+        DynamicView(
+            key="browse-flow",
+            description="Browse flow",
+            scope=system,
+            steps=[
+                customer >> "Requests top 20 books from" >> webapp,
+                webapp >> "Queries top 20 books using" >> database,
+            ],
+        )
+
+    assert len(w.model.views.dynamicViews) == 2
+
+    dv1 = w.model.views.dynamicViews[0]
+    dv2 = w.model.views.dynamicViews[1]
+
+    # Both views reference the same original relationships
+    assert dv1.relationships[0].id == r1.model.id
+    assert dv2.relationships[0].id == r1.model.id
+
+    # But with different descriptions
+    assert dv1.relationships[0].description == "Requests past orders from"
+    assert dv2.relationships[0].description == "Requests top 20 books from"
+
+
+def test_dynamic_view_invalid_relationship() -> Optional[None]:
+    """Test that DynamicView raises ValueError when relationship doesn't have a pre-existing one."""
+    with Workspace('w') as w:
+        customer = Person('Customer')
+        with SoftwareSystem('System') as system:
+            webapp = Container('Web App')
+            database = Container('Database')
+
+        # Define relationships before DynamicView
+        r1 = customer >> "Uses" >> webapp
+        # Create a reference relationship that won't be in DynamicView
+        # This acts as a "reference point" for ID comparison
+        webapp >> "Reads from" >> database
+
+        # Using an inline relationship without a pre-existing one should raise ValueError
+        # The inline relationship (customer -> database) has no pre-existing relationship
+        # and has a higher ID than the reference relationship, so it's detected as invalid
+        with pytest.raises(ValueError, match="No existing relationship found"):
+            DynamicView(
+                key="flow",
+                description="Flow",
+                scope=system,
+                steps=[
+                    r1,  # Reference existing - valid
+                    customer >> "Directly accesses" >> database,  # No pre-existing - invalid
+                ],
+            )
+
+
+def test_dynamic_view_technology_selector() -> Optional[None]:
+    """Test that technology in DynamicView relationship acts as a selector.
+
+    When technology is specified in a dynamic view relationship, it should
+    match a model relationship with that exact technology (following Structurizr behavior).
+    """
+    with Workspace('w') as w:
+        customer = Person('Customer')
+        with SoftwareSystem('Online Book Store') as system:
+            webapp = Container('Web App')
+            database = Container('Database')
+
+        # Define relationships with technology in the model
+        r1 = customer >> ("Browses", "HTTPS") >> webapp
+        r2 = webapp >> ("Reads from", "SQL") >> database
+
+        # Use inline syntax with same technology - should match
+        DynamicView(
+            key="order-flow",
+            description="Order flow",
+            scope=system,
+            steps=[
+                customer >> ("Requests past orders from", "HTTPS") >> webapp,
+                webapp >> ("Queries for orders using", "SQL") >> database,
+            ],
+        )
+
+    dv = w.model.views.dynamicViews[0]
+    assert len(dv.relationships) == 2
+
+    # Verify relationships reference the original IDs
+    assert dv.relationships[0].id == r1.model.id
+    assert dv.relationships[1].id == r2.model.id
+
+    # Verify description overrides are set
+    assert dv.relationships[0].description == "Requests past orders from"
+    assert dv.relationships[1].description == "Queries for orders using"
+
+
+def test_dynamic_view_technology_mismatch_raises_error() -> Optional[None]:
+    """Test that mismatched technology in DynamicView relationship raises ValueError.
+
+    When technology is specified in a dynamic view relationship but no model
+    relationship with that technology exists, it should raise an error
+    (following Structurizr behavior - technology is a selector, not an override).
+    """
+    with Workspace('w') as w:
+        customer = Person('Customer')
+        with SoftwareSystem('Online Book Store') as system:
+            webapp = Container('Web App')
+            database = Container('Database')
+
+        # Define relationships with technology in the model
+        r1 = customer >> ("Browses", "HTTPS") >> webapp
+        webapp >> ("Reads from", "SQL") >> database
+
+        # Try to use a different technology - should raise ValueError
+        with pytest.raises(ValueError, match="No existing relationship found.*technology"):
+            DynamicView(
+                key="order-flow",
+                description="Order flow",
+                scope=system,
+                steps=[
+                    r1,  # Reference existing - valid
+                    # This specifies REST but model has HTTPS
+                    customer >> ("Requests orders", "REST") >> webapp,
+                ],
+            )
+
+
+def test_dynamic_view_multiple_relationships_different_technologies() -> Optional[None]:
+    """Test DynamicView with multiple relationships between same elements with different technologies.
+
+    When there are multiple relationships between the same elements with different
+    technologies, the technology in the dynamic view should select the correct one.
+    """
+    with Workspace('w') as w:
+        with SoftwareSystem('System') as system:
+            webapp = Container('Web App')
+            database = Container('Database')
+
+        # Define multiple relationships with different technologies
+        r_sql = webapp >> ("Queries", "SQL") >> database
+        r_rest = webapp >> ("Syncs", "REST API") >> database
+
+        # Select the REST relationship
+        DynamicView(
+            key="sync-flow",
+            description="Sync flow",
+            scope=system,
+            steps=[
+                webapp >> ("Synchronizes data via", "REST API") >> database,
+            ],
+        )
+
+    dv = w.model.views.dynamicViews[0]
+    assert len(dv.relationships) == 1
+    # Should reference the REST relationship, not SQL
+    assert dv.relationships[0].id == r_rest.model.id
+    assert dv.relationships[0].description == "Synchronizes data via"

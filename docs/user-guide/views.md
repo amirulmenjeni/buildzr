@@ -11,6 +11,7 @@ Views are how you actually *look* at your architecture. Think of them as differe
 - **Container View**: Zooms into a system to show its applications, databases, and services
 - **Component View**: Drills into a container to reveal its internal code structure
 - **Deployment View**: Maps containers to actual infrastructure (servers, clusters, cloud resources)
+- **Dynamic View**: Shows ordered sequences of interactions for a specific use case or feature
 
 ## System Landscape View
 
@@ -245,6 +246,154 @@ with Workspace('w') as w:
     )
 
     w.to_json('workspace.json')
+```
+
+## Dynamic View
+
+Static diagrams show structure, but sometimes you need to show *behavior* --- the sequence of interactions that happen at runtime. The `DynamicView` is your flow diagram. It shows ordered interactions between elements for a specific use case, story, or feature. Instead of "these things are connected," it shows "first this happens, then that happens, then this other thing."
+
+```python
+# norun
+DynamicView(
+    key='checkout-flow',
+    description='Customer checkout process',
+    scope=ecommerce_system,  # Optional: None, SoftwareSystem, or Container
+    steps=[r1, r2, r3],  # Order determined by list position
+    auto_layout='lr'
+)
+```
+
+### How It Works
+
+Dynamic views reference *existing* relationships in your model, but display them in a specific order with optional description overrides. You define the static relationships first, then create a dynamic view that shows them in sequence:
+
+```python
+# norun
+# First, define the static relationships (what CAN happen)
+r_browse = customer >> "Browses" >> webapp
+r_query = webapp >> "Queries" >> database
+
+# Then, show them in a specific order (what DOES happen in this scenario)
+DynamicView(
+    key='browse-products',
+    scope=system,
+    steps=[
+        customer >> "Requests product list from" >> webapp,  # Step 1
+        webapp >> "Fetches products using" >> database,      # Step 2
+    ],
+)
+```
+
+Notice that the descriptions in the dynamic view can be different from the static relationships --- they describe what happens in *this specific scenario*, not the general relationship.
+
+!!! note "Technology as a Selector, Not an Override"
+    Unlike descriptions, **technology cannot be overridden** in dynamic views. When you specify a technology in a dynamic view relationship, it acts as a *selector* to match a model relationship with that exact technology. This is useful when you have multiple relationships between the same elements with different technologies:
+
+    ```python
+    # norun
+    # Model has two relationships with different technologies
+    webapp >> ("Queries", "SQL") >> database
+    webapp >> ("Syncs", "REST API") >> database
+
+    # Dynamic view selects the REST relationship by technology
+    DynamicView(
+        key='sync-flow',
+        scope=system,
+        steps=[
+            webapp >> ("Synchronizes data via", "REST API") >> database,
+        ],
+    )
+    ```
+
+    If no model relationship matches the specified technology, a `ValueError` is raised.
+
+### Example
+
+```python
+from buildzr.dsl import (
+    Workspace,
+    Person,
+    SoftwareSystem,
+    Container,
+    ContainerView,
+    DynamicView,
+)
+
+with Workspace('Online Book Store') as w:
+    customer = Person('Customer')
+
+    with SoftwareSystem('Online Book Store') as bookstore:
+        webapp = Container('Web Application')
+        database = Container('Database')
+
+    # Define static relationships (the "can do" relationships)
+    customer >> "Browses and makes purchases using" >> webapp
+    webapp >> "Reads from and writes to" >> database
+
+    # Static container view showing the structure
+    ContainerView(
+        software_system_selector=bookstore,
+        key='containers',
+        description='Container view',
+        auto_layout='lr',
+    )
+
+    # Dynamic view 1: Show the "request past orders" flow
+    DynamicView(
+        key='request-past-orders',
+        description='Request past orders feature',
+        scope=bookstore,
+        steps=[
+            customer >> "Requests past orders from" >> webapp,
+            webapp >> "Queries order history using" >> database,
+        ],
+        auto_layout='lr',
+    )
+
+    # Dynamic view 2: Show the "browse top books" flow
+    DynamicView(
+        key='browse-top-books',
+        description='Browse top 20 books feature',
+        scope=bookstore,
+        steps=[
+            customer >> "Requests top 20 books from" >> webapp,
+            webapp >> "Queries bestsellers using" >> database,
+        ],
+        auto_layout='lr',
+    )
+
+    w.to_json('workspace.json')
+```
+
+### Scope Options
+
+The `scope` parameter determines what level of detail your dynamic view shows:
+
+- **`None`** (default): Landscape level --- shows interactions between software systems and people
+- **`SoftwareSystem`**: Container level --- shows interactions between containers within a system
+- **`Container`**: Component level --- shows interactions between components within a container
+
+```python
+# norun
+# Landscape level - systems talking to systems
+DynamicView(
+    key='system-integration',
+    steps=[system_a >> "Sends data to" >> system_b],
+)
+
+# Container level - containers within a system
+DynamicView(
+    key='api-flow',
+    scope=my_system,
+    steps=[webapp >> "Calls" >> api, api >> "Queries" >> db],
+)
+
+# Component level - components within a container
+DynamicView(
+    key='request-handling',
+    scope=api_container,
+    steps=[controller >> "Delegates to" >> service],
+)
 ```
 
 ## Auto Layout

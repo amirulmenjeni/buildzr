@@ -16,6 +16,7 @@ from .dsl import (
     ContainerView,
     ComponentView,
     DeploymentView,
+    DynamicView,
     StyleElements,
     StyleRelationships,
 )
