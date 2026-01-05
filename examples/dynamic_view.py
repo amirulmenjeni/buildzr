@@ -47,7 +47,7 @@ with Workspace('Online Book Store') as w:
         description="Request past orders feature",
         title="Request past orders feature",
         scope=online_book_store,
-        relationships=[
+        steps=[
             customer >> "Requests past orders from" >> webapp,
             webapp >> "Queries for orders using" >> database,
         ],
@@ -61,7 +61,7 @@ with Workspace('Online Book Store') as w:
         description="Browse top 20 books feature",
         title="Browse top 20 books feature",
         scope=online_book_store,
-        relationships=[
+        steps=[
             customer >> "Requests the top 20 books from" >> webapp,
             webapp >> "Queries the top 20 books using" >> database,
         ],

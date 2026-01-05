@@ -2272,7 +2272,7 @@ class DynamicView(DslViewElement):
         key: str,
         description: str = "",
         scope: Optional[Union[SoftwareSystem, Container, Callable[[WorkspaceExpression], Union[SoftwareSystem, Container]]]] = None,
-        relationships: List[DslRelationship] = [],
+        steps: List[DslRelationship] = [],
         auto_layout: _AutoLayout = 'tb',
         title: Optional[str] = None,
         properties: Optional[Dict[str, str]] = None,
@@ -2286,7 +2286,7 @@ class DynamicView(DslViewElement):
         self._m.properties = properties
 
         self._scope = scope
-        self._relationships = relationships
+        self._relationships = steps
 
         workspace = _current_workspace.get()
         if workspace is not None:
@@ -2298,8 +2298,18 @@ class DynamicView(DslViewElement):
         source: DslElement,
         destination: DslElement,
         exclude_id: str,
+        technology: Optional[str] = None,
     ) -> Optional[DslRelationship]:
-        """Find an existing relationship between source and destination, excluding a specific ID."""
+        """Find an existing relationship between source and destination, excluding a specific ID.
+
+        Args:
+            workspace: The workspace containing relationships.
+            source: The source element of the relationship.
+            destination: The destination element of the relationship.
+            exclude_id: Relationship ID to exclude from matching.
+            technology: If specified, only match relationships with this exact technology.
+                       This follows Structurizr behavior where technology acts as a selector.
+        """
         from buildzr.dsl.explorer import Explorer
 
         explorer = Explorer(workspace)
@@ -2307,7 +2317,13 @@ class DynamicView(DslViewElement):
             if rel.source.model.id == source.model.id and \
                rel.destination.model.id == destination.model.id and \
                rel.model.id != exclude_id:
-                return rel
+                # If technology is specified, it must match exactly
+                if technology is not None:
+                    if rel.model.technology == technology:
+                        return rel
+                    # Continue searching for a relationship with matching technology
+                else:
+                    return rel
         return None
 
     def _remove_relationship_from_model(
@@ -2378,10 +2394,13 @@ class DynamicView(DslViewElement):
             destination = rel.destination
             rel_description: Optional[str] = None
             rel_id = rel.model.id
+            rel_technology = rel.model.technology  # Technology from inline relationship (if any)
 
             # Check if there's an original relationship (created before this one)
+            # If the inline relationship specifies a technology, use it as a selector
+            # (following Structurizr behavior where technology acts as a selector, not an override)
             original_rel = self._find_original_relationship(
-                workspace, source, destination, rel.model.id
+                workspace, source, destination, rel.model.id, technology=rel_technology
             )
 
             if original_rel is not None:
@@ -2393,9 +2412,16 @@ class DynamicView(DslViewElement):
             elif rel.model.id not in pre_existing_rel_ids:
                 # This relationship was created during DynamicView argument evaluation
                 # (inline syntax) and there's no pre-existing relationship between
-                # source and destination. This is invalid.
+                # source and destination (with matching technology if specified). This is invalid.
                 source_name = getattr(source.model, 'name', str(source.model.id))
                 dest_name = getattr(destination.model, 'name', str(destination.model.id))
+                if rel_technology:
+                    raise ValueError(
+                        f"No existing relationship found between '{source_name}' and "
+                        f"'{dest_name}' with technology '{rel_technology}'. "
+                        f"When technology is specified in a DynamicView relationship, it acts as a "
+                        f"selector to match a model relationship with that exact technology."
+                    )
                 raise ValueError(
                     f"No existing relationship found between '{source_name}' and "
                     f"'{dest_name}'. DynamicView relationships must reference "

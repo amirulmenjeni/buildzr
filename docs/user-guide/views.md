@@ -258,7 +258,7 @@ DynamicView(
     key='checkout-flow',
     description='Customer checkout process',
     scope=ecommerce_system,  # Optional: None, SoftwareSystem, or Container
-    relationships=[r1, r2, r3],  # Order determined by list position
+    steps=[r1, r2, r3],  # Order determined by list position
     auto_layout='lr'
 )
 ```
@@ -277,7 +277,7 @@ r_query = webapp >> "Queries" >> database
 DynamicView(
     key='browse-products',
     scope=system,
-    relationships=[
+    steps=[
         customer >> "Requests product list from" >> webapp,  # Step 1
         webapp >> "Fetches products using" >> database,      # Step 2
     ],
@@ -285,6 +285,27 @@ DynamicView(
 ```
 
 Notice that the descriptions in the dynamic view can be different from the static relationships --- they describe what happens in *this specific scenario*, not the general relationship.
+
+!!! note "Technology as a Selector, Not an Override"
+    Unlike descriptions, **technology cannot be overridden** in dynamic views. When you specify a technology in a dynamic view relationship, it acts as a *selector* to match a model relationship with that exact technology. This is useful when you have multiple relationships between the same elements with different technologies:
+
+    ```python
+    # norun
+    # Model has two relationships with different technologies
+    webapp >> ("Queries", "SQL") >> database
+    webapp >> ("Syncs", "REST API") >> database
+
+    # Dynamic view selects the REST relationship by technology
+    DynamicView(
+        key='sync-flow',
+        scope=system,
+        steps=[
+            webapp >> ("Synchronizes data via", "REST API") >> database,
+        ],
+    )
+    ```
+
+    If no model relationship matches the specified technology, a `ValueError` is raised.
 
 ### Example
 
@@ -322,7 +343,7 @@ with Workspace('Online Book Store') as w:
         key='request-past-orders',
         description='Request past orders feature',
         scope=bookstore,
-        relationships=[
+        steps=[
             customer >> "Requests past orders from" >> webapp,
             webapp >> "Queries order history using" >> database,
         ],
@@ -334,7 +355,7 @@ with Workspace('Online Book Store') as w:
         key='browse-top-books',
         description='Browse top 20 books feature',
         scope=bookstore,
-        relationships=[
+        steps=[
             customer >> "Requests top 20 books from" >> webapp,
             webapp >> "Queries bestsellers using" >> database,
         ],
@@ -357,21 +378,21 @@ The `scope` parameter determines what level of detail your dynamic view shows:
 # Landscape level - systems talking to systems
 DynamicView(
     key='system-integration',
-    relationships=[system_a >> "Sends data to" >> system_b],
+    steps=[system_a >> "Sends data to" >> system_b],
 )
 
 # Container level - containers within a system
 DynamicView(
     key='api-flow',
     scope=my_system,
-    relationships=[webapp >> "Calls" >> api, api >> "Queries" >> db],
+    steps=[webapp >> "Calls" >> api, api >> "Queries" >> db],
 )
 
 # Component level - components within a container
 DynamicView(
     key='request-handling',
     scope=api_container,
-    relationships=[controller >> "Delegates to" >> service],
+    steps=[controller >> "Delegates to" >> service],
 )
 ```
 
