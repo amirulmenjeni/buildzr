@@ -301,6 +301,7 @@ class Workspace(DslWorkspaceElement):
             'ContainerView',
             'ComponentView',
             'DeploymentView',
+            'DynamicView',
         ]
     ) -> None:
 
@@ -336,6 +337,11 @@ class Workspace(DslWorkspaceElement):
                 self.model.views.deploymentViews = [view.model]
             else:
                 self.model.views.deploymentViews.append(view.model)
+        elif isinstance(view, DynamicView):
+            if not self.model.views.dynamicViews:
+                self.model.views.dynamicViews = [view.model]
+            else:
+                self.model.views.dynamicViews.append(view.model)
         else:
             raise NotImplementedError("The view {0} is currently not supported", type(view))
 
@@ -2251,6 +2257,168 @@ class DeploymentView(DslViewElement):
         self._m.relationships = []
         for relationship_id in relationship_ids:
             self._m.relationships.append(RelationshipView(id=relationship_id))
+
+
+class DynamicView(DslViewElement):
+
+    from buildzr.dsl.expression import WorkspaceExpression
+
+    @property
+    def model(self) -> buildzr.models.DynamicView:
+        return self._m
+
+    def __init__(
+        self,
+        key: str,
+        description: str = "",
+        scope: Optional[Union[SoftwareSystem, Container, Callable[[WorkspaceExpression], Union[SoftwareSystem, Container]]]] = None,
+        relationships: List[DslRelationship] = [],
+        auto_layout: _AutoLayout = 'tb',
+        title: Optional[str] = None,
+        properties: Optional[Dict[str, str]] = None,
+    ) -> None:
+
+        self._m = buildzr.models.DynamicView()
+        self._m.key = key
+        self._m.description = description
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        self._scope = scope
+        self._relationships = relationships
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_view(self)
+
+    def _find_original_relationship(
+        self,
+        workspace: Workspace,
+        source: DslElement,
+        destination: DslElement,
+        exclude_id: str,
+    ) -> Optional[DslRelationship]:
+        """Find an existing relationship between source and destination, excluding a specific ID."""
+        from buildzr.dsl.explorer import Explorer
+
+        explorer = Explorer(workspace)
+        for rel in explorer.walk_relationships():
+            if rel.source.model.id == source.model.id and \
+               rel.destination.model.id == destination.model.id and \
+               rel.model.id != exclude_id:
+                return rel
+        return None
+
+    def _remove_relationship_from_model(
+        self,
+        source: DslElement,
+        rel_id: str,
+    ) -> None:
+        """Remove a relationship from both the source element's model and DSL relationships."""
+        # Remove from model relationships
+        if hasattr(source.model, 'relationships') and source.model.relationships:
+            source.model.relationships = [
+                r for r in source.model.relationships if r.id != rel_id
+            ]
+        # Also remove from DSL element's relationships set (used by Explorer)
+        to_remove: Optional[DslRelationship] = None
+        for r in source.relationships:
+            if r.model.id == rel_id:
+                to_remove = r
+                break
+        if to_remove is not None:
+            source.relationships.discard(to_remove)
+
+    def _on_added(self, workspace: Workspace) -> None:
+        from buildzr.dsl.expression import WorkspaceExpression
+        from buildzr.models import ElementView, RelationshipView
+        from buildzr.dsl.explorer import Explorer
+
+        # Resolve scope selector and set elementId
+        if self._scope is not None:
+            if isinstance(self._scope, (SoftwareSystem, Container)):
+                self._m.elementId = self._scope.model.id
+            elif callable(self._scope):
+                resolved = self._scope(WorkspaceExpression(workspace))
+                self._m.elementId = resolved.model.id
+
+        # Collect relationship IDs passed to this DynamicView
+        dv_rel_ids = {rel.model.id for rel in self._relationships}
+
+        # Collect all relationship IDs in the workspace
+        all_rel_ids = {rel.model.id for rel in Explorer(workspace).walk_relationships()}
+
+        # Determine which relationships are "pre-existing" (created before this DynamicView)
+        # vs "inline" (created during DynamicView argument evaluation)
+        other_rel_ids = all_rel_ids - dv_rel_ids
+
+        if not other_rel_ids:
+            # All relationships in workspace are the ones passed to DynamicView.
+            # This means they were ALL passed by reference (valid).
+            pre_existing_rel_ids = dv_rel_ids.copy()
+        else:
+            # Some relationships exist outside of DynamicView. These are truly pre-existing.
+            # For relationships passed to DynamicView, check if they existed before
+            # by comparing IDs. Relationships with lower IDs were created earlier.
+            max_other_id = max(int(rid) for rid in other_rel_ids)
+            pre_existing_rel_ids = other_rel_ids.copy()
+            for rel in self._relationships:
+                if int(rel.model.id) <= max_other_id:
+                    # This relationship was created before or around the same time
+                    # as other relationships, so it's pre-existing (passed by reference)
+                    pre_existing_rel_ids.add(rel.model.id)
+
+        # Process relationships and collect elements
+        element_ids: Set[str] = set()
+        self._m.relationships = []
+
+        for idx, rel in enumerate(self._relationships, start=1):
+            source = rel.source
+            destination = rel.destination
+            rel_description: Optional[str] = None
+            rel_id = rel.model.id
+
+            # Check if there's an original relationship (created before this one)
+            original_rel = self._find_original_relationship(
+                workspace, source, destination, rel.model.id
+            )
+
+            if original_rel is not None:
+                # This is a view-specific relationship - use original's ID
+                # and remove the duplicate from the model
+                rel_description = rel.model.description
+                self._remove_relationship_from_model(source, rel.model.id)
+                rel_id = original_rel.model.id
+            elif rel.model.id not in pre_existing_rel_ids:
+                # This relationship was created during DynamicView argument evaluation
+                # (inline syntax) and there's no pre-existing relationship between
+                # source and destination. This is invalid.
+                source_name = getattr(source.model, 'name', str(source.model.id))
+                dest_name = getattr(destination.model, 'name', str(destination.model.id))
+                raise ValueError(
+                    f"No existing relationship found between '{source_name}' and "
+                    f"'{dest_name}'. DynamicView relationships must reference "
+                    f"pre-existing relationships in the model. Either define the relationship "
+                    f"before creating the DynamicView, or pass the relationship variable directly."
+                )
+            # else: This is the original relationship passed by reference, use it directly
+
+            # Collect element IDs
+            element_ids.add(str(source.model.id))
+            element_ids.add(str(destination.model.id))
+
+            # Add relationship view with order and optional description override
+            self._m.relationships.append(
+                RelationshipView(
+                    id=rel_id,
+                    order=str(idx),
+                    description=rel_description,
+                )
+            )
+
+        # Populate elements
+        self._m.elements = [ElementView(id=eid) for eid in element_ids]
 
 
 class StyleElements:

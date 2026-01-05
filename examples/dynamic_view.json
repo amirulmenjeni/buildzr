@@ -1,0 +1,186 @@
+{
+  "id": 1,
+  "name": "Online Book Store",
+  "description": "",
+  "model": {
+    "people": [
+      {
+        "id": "1",
+        "name": "Customer",
+        "description": "",
+        "tags": "Element,Person",
+        "properties": {},
+        "relationships": [
+          {
+            "id": "5",
+            "description": "Browses and makes purchases using",
+            "tags": "Relationship",
+            "sourceId": "1",
+            "destinationId": "3",
+            "technology": ""
+          }
+        ]
+      }
+    ],
+    "softwareSystems": [
+      {
+        "id": "2",
+        "name": "Online Book Store",
+        "description": "",
+        "tags": "Software System,Element",
+        "containers": [
+          {
+            "id": "3",
+            "name": "Web Application",
+            "description": "",
+            "technology": "",
+            "tags": "Container,Element",
+            "components": [],
+            "properties": {},
+            "relationships": [
+              {
+                "id": "6",
+                "description": "Reads from and writes to",
+                "tags": "Relationship",
+                "sourceId": "3",
+                "destinationId": "4",
+                "technology": ""
+              }
+            ]
+          },
+          {
+            "id": "4",
+            "name": "Database",
+            "description": "",
+            "technology": "",
+            "tags": "Container,Element",
+            "components": [],
+            "properties": {},
+            "relationships": []
+          }
+        ],
+        "properties": {},
+        "relationships": []
+      }
+    ],
+    "deploymentNodes": [],
+    "properties": {
+      "structurizr.groupSeparator": "/"
+    }
+  },
+  "views": {
+    "containerViews": [
+      {
+        "key": "online-book-store-containers",
+        "description": "The container view for the Online Book Store",
+        "softwareSystemId": "2",
+        "automaticLayout": {
+          "implementation": "Graphviz",
+          "rankDirection": "LeftRight",
+          "rankSeparation": 300,
+          "nodeSeparation": 300,
+          "edgeSeparation": 0,
+          "vertices": false
+        },
+        "elements": [
+          {
+            "id": "1"
+          },
+          {
+            "id": "3"
+          },
+          {
+            "id": "4"
+          }
+        ],
+        "relationships": [
+          {
+            "id": "5"
+          },
+          {
+            "id": "6"
+          }
+        ]
+      }
+    ],
+    "dynamicViews": [
+      {
+        "key": "request-past-orders",
+        "title": "Request past orders feature",
+        "description": "Request past orders feature",
+        "elementId": "2",
+        "automaticLayout": {
+          "implementation": "Graphviz",
+          "rankDirection": "LeftRight",
+          "rankSeparation": 300,
+          "nodeSeparation": 300,
+          "edgeSeparation": 0,
+          "vertices": false
+        },
+        "elements": [
+          {
+            "id": "4"
+          },
+          {
+            "id": "3"
+          },
+          {
+            "id": "1"
+          }
+        ],
+        "relationships": [
+          {
+            "id": "5",
+            "description": "Requests past orders from",
+            "order": "1"
+          },
+          {
+            "id": "6",
+            "description": "Queries for orders using",
+            "order": "2"
+          }
+        ]
+      },
+      {
+        "key": "browse-top-books",
+        "title": "Browse top 20 books feature",
+        "description": "Browse top 20 books feature",
+        "elementId": "2",
+        "automaticLayout": {
+          "implementation": "Graphviz",
+          "rankDirection": "LeftRight",
+          "rankSeparation": 300,
+          "nodeSeparation": 300,
+          "edgeSeparation": 0,
+          "vertices": false
+        },
+        "elements": [
+          {
+            "id": "4"
+          },
+          {
+            "id": "3"
+          },
+          {
+            "id": "1"
+          }
+        ],
+        "relationships": [
+          {
+            "id": "5",
+            "description": "Requests the top 20 books from",
+            "order": "1"
+          },
+          {
+            "id": "6",
+            "description": "Queries the top 20 books using",
+            "order": "2"
+          }
+        ]
+      }
+    ]
+  },
+  "configuration": {
+    "scope": "SoftwareSystem"
+  }
+}
