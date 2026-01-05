@@ -250,7 +250,7 @@ with Workspace('w') as w:
 
 ## Dynamic View
 
-Static diagrams show structure, but sometimes you need to show *behavior* --- the sequence of interactions that happen at runtime. The `DynamicView` is your UX flow diagram, your sequence diagram's cooler cousin. It shows ordered interactions between elements for a specific use case, story, or feature. Instead of "these things are connected," it shows "first this happens, then that happens, then this other thing."
+Static diagrams show structure, but sometimes you need to show *behavior* --- the sequence of interactions that happen at runtime. The `DynamicView` is your flow diagram. It shows ordered interactions between elements for a specific use case, story, or feature. Instead of "these things are connected," it shows "first this happens, then that happens, then this other thing."
 
 ```python
 # norun
