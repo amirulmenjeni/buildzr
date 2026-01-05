@@ -10,8 +10,11 @@ dependencies:
   - pytest-mypy
   - pip
   - yq
+  - mkdocs
+  - mkdocs-material
   - datamodel-code-generator
   - pip:
       - -e .
       - pypinfo
+      - mkdocstrings[python]
 prefix: /opt/conda/envs/buildzr-dev
