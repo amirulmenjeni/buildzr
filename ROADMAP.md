@@ -59,7 +59,7 @@ This roadmap tracks the implementation status of Structurizr DSL features in bui
 | [Container View](https://docs.structurizr.com/dsl/language#containerview) | ✅ | Containers of a software system. Shows related elements automatically |
 | [Component View](https://docs.structurizr.com/dsl/language#componentview) | ✅ | Components of a container. Shows related elements automatically |
 | [Deployment View](https://docs.structurizr.com/dsl/language#deploymentview) | ✅ | Nodes and instances per environment. Respects deployment groups |
-| [Dynamic View](https://docs.structurizr.com/dsl/language#dynamicview) | 🟡 | Model exists but no DSL wrapper. Used for interaction sequences |
+| [Dynamic View](https://docs.structurizr.com/dsl/language#dynamicview) | ✅ | Ordered interaction sequences. Supports description override, technology selector |
 | [Filtered View](https://docs.structurizr.com/dsl/language#filteredview) | 🟡 | Model exists but no DSL wrapper. Filters views by tags |
 | [Custom View](https://docs.structurizr.com/dsl/language#customview) | ❌ | User-defined custom diagram |
 | [Image View](https://docs.structurizr.com/dsl/language#image) | 🟡 | Model exists but no DSL wrapper. PlantUML/Mermaid/Kroki integration |
