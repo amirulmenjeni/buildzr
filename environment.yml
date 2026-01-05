@@ -13,4 +13,5 @@ dependencies:
   - datamodel-code-generator
   - pip:
       - -e .
+      - pypinfo
 prefix: /opt/conda/envs/buildzr-dev

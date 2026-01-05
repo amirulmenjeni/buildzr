@@ -1,6 +1,9 @@
 # Environment variables.
 .env
 
+# Google Cloud credentials (contains private keys).
+**/pypinfo-*.json
+
 # Python artefacts and caches.
 **/__pycache__
 *.egg-info
