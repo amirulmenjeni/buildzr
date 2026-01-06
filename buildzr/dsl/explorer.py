@@ -7,6 +7,7 @@ from buildzr.dsl.dsl import (
     InfrastructureNode,
     SoftwareSystemInstance,
     ContainerInstance,
+    Element,
 )
 
 from buildzr.dsl.relations import (
@@ -43,6 +44,7 @@ class Explorer:
             InfrastructureNode,
             SoftwareSystemInstance,
             ContainerInstance,
+            Element,
         ]
     ):
         self._workspace_or_element = workspace_or_element
@@ -55,7 +57,8 @@ class Explorer:
         DeploymentNode,
         InfrastructureNode,
         SoftwareSystemInstance,
-        ContainerInstance
+        ContainerInstance,
+        Element,
     ], None, None]:
         if self._workspace_or_element.children:
             for child in self._workspace_or_element.children:

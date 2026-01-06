@@ -1844,3 +1844,260 @@ def test_dynamic_view_multiple_relationships_different_technologies() -> Optiona
     # Should reference the REST relationship, not SQL
     assert dv.relationships[0].id == r_rest.model.id
     assert dv.relationships[0].description == "Synchronizes data via"
+
+
+# ============================================================================
+# Custom Element and CustomView Tests
+# ============================================================================
+
+from buildzr.dsl import Element, CustomView
+
+
+def test_element_creation() -> None:
+    """Test basic Element creation with all parameters."""
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        elem = Element(
+            "Hardware Controller",
+            metadata="Hardware",
+            description="A hardware controller unit",
+            tags={"Custom", "Hardware"},
+            properties={"vendor": "Acme Corp"},
+        )
+
+    assert elem.model.name == "Hardware Controller"
+    assert elem.model.metadata == "Hardware"
+    assert elem.model.description == "A hardware controller unit"
+    assert "Element" in elem.tags
+    assert "Custom" in elem.tags
+    assert "Hardware" in elem.tags
+    assert elem.model.properties["vendor"] == "Acme Corp"
+    assert elem.parent == w
+    assert w.model.model.customElements is not None
+    assert len(w.model.model.customElements) == 1
+
+
+def test_element_relationships() -> None:
+    """Test relationships between Elements."""
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        sensor = Element("Sensor", metadata="Hardware", description="Temperature sensor")
+        controller = Element("Controller", metadata="Hardware", description="Main controller")
+        actuator = Element("Actuator", metadata="Hardware", description="Motor actuator")
+
+        sensor >> "sends data to" >> controller
+        controller >> "controls" >> actuator
+
+    assert len(sensor.relationships) == 1
+    assert len(controller.relationships) == 1
+    assert w.model.model.customElements is not None
+    assert len(w.model.model.customElements) == 3
+
+
+def test_element_relationships_with_c4_elements() -> None:
+    """Test relationships between Elements and C4 elements."""
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        system = SoftwareSystem("Control System", "Software for controlling hardware")
+        hardware = Element("Hardware Unit", metadata="Hardware", description="Physical hardware")
+
+        system >> "sends commands to" >> hardware
+
+    assert len(system.relationships) == 1
+    assert system.relationships.pop().destination == hardware
+
+
+@pytest.mark.parametrize("use_context", [True, False])
+def test_custom_view_basic(use_context: bool) -> None:
+    """Test basic CustomView creation."""
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        elem_a = Element("A", metadata="Type A", description="Element A")
+        elem_b = Element("B", metadata="Type B", description="Element B")
+        elem_a >> "depends on" >> elem_b
+
+        if use_context:
+            CustomView(
+                key="custom_view_01",
+                description="Custom view for hardware",
+            )
+
+    if not use_context:
+        w.apply_view(
+            CustomView(
+                key="custom_view_01",
+                description="Custom view for hardware",
+            )
+        )
+
+    assert w.model.views.customViews is not None
+    assert len(w.model.views.customViews) == 1
+    cv = w.model.views.customViews[0]
+    assert cv.key == "custom_view_01"
+    assert cv.description == "Custom view for hardware"
+    # Should include both elements
+    assert len(cv.elements) == 2
+    # Should include the relationship
+    assert len(cv.relationships) == 1
+
+
+def test_custom_view_includes_only_custom_elements() -> None:
+    """Test that CustomView only includes Element types (custom elements), not C4 elements.
+
+    According to Structurizr DSL specification, CustomView can ONLY display custom elements
+    (Element type). Standard C4 elements (Person, SoftwareSystem, Container, Component)
+    should NOT be included in CustomView.
+    """
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        # C4 elements
+        person = Person("User")
+        system = SoftwareSystem("System A")
+
+        # Custom elements
+        elem_a = Element("Hardware A", metadata="Hardware")
+        elem_b = Element("Hardware B", metadata="Hardware")
+
+        # Mix of relationships
+        person >> "uses" >> system
+        elem_a >> "connects to" >> elem_b
+        person >> "interacts with" >> elem_a
+
+        CustomView(
+            key="custom_view_01",
+            description="Custom view",
+        )
+
+    cv = w.model.views.customViews[0]
+
+    # CustomView includes ONLY Element types (custom elements)
+    element_ids = {e.id for e in cv.elements}
+    assert elem_a.model.id in element_ids
+    assert elem_b.model.id in element_ids
+    # C4 elements should NOT be included
+    assert person.model.id not in element_ids
+    assert system.model.id not in element_ids
+
+    # Only relationships between Element types should be included
+    # (elem_a >> "connects to" >> elem_b)
+    assert len(cv.relationships) == 1
+
+
+def test_custom_view_with_title() -> None:
+    """Test CustomView with title."""
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        elem = Element("Hardware", metadata="Hardware")
+
+        CustomView(
+            key="custom_view_01",
+            description="Description",
+            title="Hardware Architecture",
+        )
+
+    cv = w.model.views.customViews[0]
+    assert cv.title == "Hardware Architecture"
+
+
+def test_custom_view_auto_layout() -> None:
+    """Test CustomView with different auto layout options."""
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        elem = Element("Hardware", metadata="Hardware")
+
+        CustomView(
+            key="custom_view_01",
+            description="Description",
+            auto_layout='lr',
+        )
+
+    cv = w.model.views.customViews[0]
+    assert cv.automaticLayout is not None
+    assert cv.automaticLayout.rankDirection.value == "LeftRight"
+
+
+def test_element_labeled() -> None:
+    """Test Element with labeled() method."""
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        elem = Element("Hardware Unit", metadata="Hardware").labeled("hw_unit")
+
+    assert w._dynamic_attrs.get("hw_unit") == elem
+
+
+def test_element_in_explorer() -> None:
+    """Test that Explorer can walk Element types."""
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        elem_a = Element("A", metadata="Type A")
+        elem_b = Element("B", metadata="Type B")
+        person = Person("User")
+
+    elements = list(Explorer(w).walk_elements())
+    element_types = [type(e).__name__ for e in elements]
+
+    assert "Element" in element_types
+    assert "Person" in element_types
+    assert len(elements) == 3
+
+
+def test_custom_view_rejects_non_element_types() -> None:
+    """Test that CustomView raises ValueError when non-Element types are included.
+
+    According to Structurizr DSL specification, CustomView can ONLY display custom
+    elements (Element type). Attempting to include C4 elements should raise an error.
+    """
+    from buildzr.dsl.factory.gen_id import GenerateId
+    GenerateId.reset()
+
+    with Workspace('test_workspace') as w:
+        person = Person("User")
+        system = SoftwareSystem("System")
+        elem = Element("Hardware", metadata="Hardware")
+
+        # Including a Person should raise ValueError
+        with pytest.raises(ValueError) as exc_info:
+            CustomView(
+                key="invalid_view_1",
+                description="Invalid view with Person",
+                include_elements=[person],
+            )
+        assert "CustomView can only include Element types, not Person" in str(exc_info.value)
+
+        # Including a SoftwareSystem should raise ValueError
+        with pytest.raises(ValueError) as exc_info:
+            CustomView(
+                key="invalid_view_2",
+                description="Invalid view with SoftwareSystem",
+                include_elements=[system],
+            )
+        assert "CustomView can only include Element types, not SoftwareSystem" in str(exc_info.value)
+
+        # Including Element types should work fine
+        CustomView(
+            key="valid_view",
+            description="Valid view with Element",
+            include_elements=[elem],
+        )
+
+    # Verify the valid view was created
+    assert len(w.model.views.customViews) == 1
+    assert w.model.views.customViews[0].key == "valid_view"

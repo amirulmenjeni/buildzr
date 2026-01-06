@@ -5,6 +5,7 @@ from buildzr.dsl import (
     Person,
     Container,
     Component,
+    Element,
     expression,
     DeploymentEnvironment,
     DeploymentNode,
@@ -473,3 +474,138 @@ def test_filter_container_instance_ids(workspace: Workspace) -> Optional[None]:
     assert db_instances[0].model.environment == "Development"
     assert db_instances[1].model.environment == "Production"
     assert db_instances[2].model.environment == "Production"
+
+
+# Tests for custom elements (Element)
+
+@pytest.fixture
+def workspace_with_custom_elements() -> Workspace:
+    """Workspace fixture that includes custom elements."""
+    from buildzr.dsl import Element
+
+    with Workspace('w') as w:
+        # Standard C4 elements
+        user = Person('user', tags={'external'})
+        system = SoftwareSystem('system')
+
+        # Custom elements (outside C4 model)
+        gateway = Element('gateway', metadata='Hardware', description='IoT Gateway')
+        sensor = Element('sensor', metadata='Sensor', tags={'iot', 'temperature'})
+        actuator = Element('actuator', metadata='Hardware', tags={'iot'})
+
+        # Relationships between custom elements
+        sensor >> "sends data to" >> gateway
+        gateway >> "controls" >> actuator
+
+        # Relationships between custom and C4 elements
+        gateway >> "uploads to" >> system
+        user >> "monitors" >> gateway
+
+    return w
+
+
+def test_filter_custom_elements_by_type(workspace_with_custom_elements: Workspace) -> Optional[None]:
+    from buildzr.dsl import Element
+
+    filter = expression.Expression(
+        include_elements=[
+            lambda w, e: e.type == Element,
+        ]
+    )
+
+    elements = filter.elements(workspace_with_custom_elements)
+
+    assert len(elements) == 3
+    assert all(isinstance(e, Element) for e in elements)
+
+
+def test_filter_custom_elements_by_metadata(workspace_with_custom_elements: Workspace) -> Optional[None]:
+    from buildzr.dsl import Element
+
+    filter = expression.Expression(
+        include_elements=[
+            lambda w, e: e.metadata == 'Hardware',
+        ]
+    )
+
+    elements = cast(List[Element], filter.elements(workspace_with_custom_elements))
+
+    assert len(elements) == 2
+    assert all(isinstance(e, Element) for e in elements)
+    names = [e.model.name for e in elements]
+    assert 'gateway' in names
+    assert 'actuator' in names
+
+
+def test_filter_custom_elements_by_tags(workspace_with_custom_elements: Workspace) -> Optional[None]:
+    from buildzr.dsl import Element
+
+    filter = expression.Expression(
+        include_elements=[
+            lambda w, e: 'iot' in e.tags,
+        ]
+    )
+
+    elements = cast(List[Element], filter.elements(workspace_with_custom_elements))
+
+    assert len(elements) == 2
+    assert all(isinstance(e, Element) for e in elements)
+    names = [e.model.name for e in elements]
+    assert 'sensor' in names
+    assert 'actuator' in names
+
+
+def test_filter_relationships_with_custom_elements(workspace_with_custom_elements: Workspace) -> Optional[None]:
+    from buildzr.dsl import Element
+
+    # Filter relationships where source is a custom element
+    filter = expression.Expression(
+        include_relationships=[
+            lambda w, r: r.source.type == Element,
+        ]
+    )
+
+    relationships = filter.relationships(workspace_with_custom_elements)
+
+    assert len(relationships) == 3
+    descriptions = [r.model.description for r in relationships]
+    assert 'sends data to' in descriptions
+    assert 'controls' in descriptions
+    assert 'uploads to' in descriptions
+
+
+def test_filter_relationships_between_custom_and_c4_elements(workspace_with_custom_elements: Workspace) -> Optional[None]:
+    from buildzr.dsl import Element
+
+    # Filter relationships where custom element is destination
+    filter = expression.Expression(
+        include_relationships=[
+            lambda w, r: r.destination.type == Element,
+        ]
+    )
+
+    relationships = filter.relationships(workspace_with_custom_elements)
+
+    assert len(relationships) == 3
+    descriptions = [r.model.description for r in relationships]
+    assert 'sends data to' in descriptions  # sensor -> gateway
+    assert 'controls' in descriptions        # gateway -> actuator
+    assert 'monitors' in descriptions        # user -> gateway
+
+
+def test_exclude_custom_elements(workspace_with_custom_elements: Workspace) -> Optional[None]:
+    from buildzr.dsl import Element
+
+    # Get all elements except custom elements
+    filter = expression.Expression(
+        exclude_elements=[
+            lambda w, e: e.type == Element,
+        ]
+    )
+
+    elements = filter.elements(workspace_with_custom_elements)
+
+    assert len(elements) == 2
+    assert not any(isinstance(e, Element) for e in elements)
+    assert any(isinstance(e, Person) for e in elements)
+    assert any(isinstance(e, SoftwareSystem) for e in elements)

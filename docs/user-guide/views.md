@@ -12,6 +12,7 @@ Views are how you actually *look* at your architecture. Think of them as differe
 - **Component View**: Drills into a container to reveal its internal code structure
 - **Deployment View**: Maps containers to actual infrastructure (servers, clusters, cloud resources)
 - **Dynamic View**: Shows ordered sequences of interactions for a specific use case or feature
+- **Custom View**: Displays custom elements that sit outside the C4 model
 
 ## System Landscape View
 
@@ -395,6 +396,68 @@ DynamicView(
     steps=[controller >> "Delegates to" >> service],
 )
 ```
+
+## Custom View
+
+The `CustomView` provides a flexible way to create diagrams that mix custom elements (`Element`) with standard C4 elements. It's particularly useful when you're modeling hardware components, business processes, or anything that doesn't fit neatly into the Person/SoftwareSystem/Container/Component hierarchy --- but you still want to show how they relate to your software architecture.
+
+!!! tip "Custom Elements in Any View"
+    Custom elements (`Element`) can be displayed in **any** view type, not just `CustomView`. You can include them in `SystemLandscapeView`, `SystemContextView`, and other views using the `include_elements` parameter. `CustomView` simply provides another canvas where you have full control over what's displayed.
+
+!!! note "Schema Note"
+    The official Structurizr JSON schema at [https://github.com/structurizr/json](https://github.com/structurizr/json) does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure.
+
+```python
+# norun
+CustomView(
+    key='hardware-architecture',
+    description='Hardware component interactions',
+    title='Hardware Architecture',  # Optional
+    auto_layout='lr'
+)
+```
+
+### Example
+
+```python
+from buildzr.dsl import Workspace, Element, CustomView
+
+with Workspace('IoT System') as w:
+    # Define custom elements for hardware/non-software components
+    gateway = Element("IoT Gateway", metadata="Hardware", description="Central gateway device")
+    sensor_a = Element("Temperature Sensor", metadata="Sensor", description="Measures ambient temperature")
+    sensor_b = Element("Humidity Sensor", metadata="Sensor", description="Measures humidity levels")
+    cloud = Element("Cloud Platform", metadata="Service", description="Data processing backend")
+
+    # Define relationships
+    sensor_a >> "sends readings to" >> gateway
+    sensor_b >> "sends readings to" >> gateway
+    gateway >> ("uploads data to", "MQTT") >> cloud
+
+    # Create a custom view to display these elements
+    CustomView(
+        key='iot-hardware',
+        description='IoT Hardware Architecture',
+        title='IoT Device Layout',
+        auto_layout='tb'
+    )
+
+    w.to_json('workspace.json')
+```
+
+### CustomView Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | `str` | Unique identifier for this view (required) |
+| `description` | `str` | Description of what this view shows |
+| `title` | `str` | Display title for the view (optional) |
+| `auto_layout` | `str` | Layout direction: `'tb'`, `'bt'`, `'lr'`, or `'rl'` |
+| `include_elements` | `list` | Additional elements to include (must be `Element` type) |
+| `exclude_elements` | `list` | Elements to exclude from the view |
+| `include_relationships` | `list` | Additional relationships to include |
+| `exclude_relationships` | `list` | Relationships to exclude |
+| `properties` | `dict` | Arbitrary key-value properties |
 
 ## Auto Layout
 

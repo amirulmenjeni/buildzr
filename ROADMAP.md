@@ -23,7 +23,7 @@ This roadmap tracks the implementation status of Structurizr DSL features in bui
 | [Container](https://docs.structurizr.com/dsl/language#container) | ✅ | Deployable/runnable unit. Supports name, description, technology, tags, properties |
 | [Component](https://docs.structurizr.com/dsl/language#component) | ✅ | Modular part of a container. Leaf element with no children |
 | [Group](https://docs.structurizr.com/dsl/language#group) | ✅ | Named grouping with configurable separator (default `/`). Supports hierarchical nesting |
-| [Element](https://docs.structurizr.com/dsl/language#element) | ❌ | Custom element type outside the standard C4 hierarchy |
+| [Element](https://docs.structurizr.com/dsl/language#element) | ✅ | Custom element type outside the standard C4 hierarchy. Supports name, metadata, description, tags, properties |
 
 ## Deployment Model Elements
 
@@ -61,7 +61,7 @@ This roadmap tracks the implementation status of Structurizr DSL features in bui
 | [Deployment View](https://docs.structurizr.com/dsl/language#deploymentview) | ✅ | Nodes and instances per environment. Respects deployment groups |
 | [Dynamic View](https://docs.structurizr.com/dsl/language#dynamicview) | ✅ | Ordered interaction sequences. Supports description override, technology selector |
 | [Filtered View](https://docs.structurizr.com/dsl/language#filteredview) | 🟡 | Model exists but no DSL wrapper. Filters views by tags |
-| [Custom View](https://docs.structurizr.com/dsl/language#customview) | ❌ | User-defined custom diagram |
+| [Custom View](https://docs.structurizr.com/dsl/language#customview) | ✅ | Displays custom elements (Element type). Supports include/exclude filters, auto-layout |
 | [Image View](https://docs.structurizr.com/dsl/language#image) | 🟡 | Model exists but no DSL wrapper. PlantUML/Mermaid/Kroki integration |
 
 ## View Operations
@@ -175,6 +175,7 @@ The Expression API provides filtering capabilities similar to Structurizr expres
 | `e.tags` | Element tags |
 | `e.name` | Element name |
 | `e.technology` | Element technology |
+| `e.metadata` | Element metadata (for custom elements) |
 | `e.parent` | Parent element |
 | `e.children` | Child elements |
 | `e.sources` | Elements with relationships pointing to this element |

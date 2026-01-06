@@ -29,6 +29,7 @@ Model = Union[
     buildzr.models.InfrastructureNode,
     buildzr.models.SoftwareSystemInstance,
     buildzr.models.ContainerInstance,
+    buildzr.models.CustomElement,
 ]
 
 TSrc = TypeVar('TSrc', bound='DslElement', contravariant=True)
@@ -204,6 +205,7 @@ class DslViewElement(ABC):
         buildzr.models.ComponentView,
         buildzr.models.DynamicView,
         buildzr.models.DeploymentView,
+        buildzr.models.CustomView,
     ]
 
     @property

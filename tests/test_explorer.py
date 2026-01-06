@@ -6,6 +6,7 @@ from buildzr.dsl import (
     Person,
     Container,
     Component,
+    Element,
     DeploymentEnvironment,
     DeploymentNode,
     InfrastructureNode,
@@ -30,6 +31,12 @@ def workspace() -> Workspace:
             Container("database")
             s.webapp >> "Uses" >> s.database
         u >> "Runs SQL queries" >> s.database
+
+        # Custom elements (outside C4 model)
+        gateway = Element("gateway", metadata="Hardware")
+        sensor = Element("sensor", metadata="Sensor")
+        sensor >> "sends data to" >> gateway
+        gateway >> "uploads to" >> s
 
         with DeploymentEnvironment('Production') as production:
             with DeploymentNode("Server 1") as server_1:
@@ -57,6 +64,8 @@ def test_walk_elements(workspace: Workspace) -> Optional[None]:
         (Component, 'API layer'),
         (Component, 'UI layer'),
         (Container, 'database'),
+        (Element, 'gateway'),
+        (Element, 'sensor'),
         (DeploymentNode, 'Server 1'),
         (SoftwareSystemInstance, 'si_1'),
         (ContainerInstance, 'ci_1'),
@@ -74,7 +83,7 @@ def test_walk_elements(workspace: Workspace) -> Optional[None]:
         model = next(explorer)
         if isinstance(
             model,
-            (Person, SoftwareSystem, Container, Component, DeploymentNode, InfrastructureNode)
+            (Person, SoftwareSystem, Container, Component, DeploymentNode, InfrastructureNode, Element)
         ):
             assert model.model.name == expected_value
         else:
@@ -88,9 +97,9 @@ def test_walk_relationships(workspace: Workspace) -> Optional[None]:
         for relationship in relationships
     }
 
-    # 5 explicit relationships.
-    # Add one additional implied relationship.
-    # And four additional from container instances for each two container instance (2x2=4).
+    # 5 explicit relationships + 2 custom element relationships = 7
+    # Add one additional implied relationship = 8
+    # And four additional from container instances for each two container instance (2x2=4) = 12
     #
     # Explanation: if we have containers A and B with relationship A >> "Uses" >> B,
     # and container instances ci_A_1, ci_A_2, ci_B_1, ci_B_2, then we have the
@@ -99,7 +108,7 @@ def test_walk_relationships(workspace: Workspace) -> Optional[None]:
     #   ci_A_1 >> "Uses" >> ci_B_2
     #   ci_A_2 >> "Uses" >> ci_B_1
     #   ci_A_2 >> "Uses" >> ci_B_2
-    assert len(relationships) == 10
+    assert len(relationships) == 12
 
     for relationship in relationships:
         relationship_set = (
@@ -108,3 +117,8 @@ def test_walk_relationships(workspace: Workspace) -> Optional[None]:
             relationship.destination.model.id
         )
         assert relationship_set in relationships_set
+
+    # Verify custom element relationships are included
+    descriptions = {r.model.description for r in relationships}
+    assert 'sends data to' in descriptions
+    assert 'uploads to' in descriptions
