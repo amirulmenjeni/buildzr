@@ -34,6 +34,13 @@ This page contains auto-generated API documentation from the source code.
       show_root_heading: true
       heading_level: 3
 
+## Custom Elements
+
+::: buildzr.dsl.Element
+    options:
+      show_root_heading: true
+      heading_level: 3
+
 ## Deployment Elements
 
 ::: buildzr.dsl.DeploymentEnvironment
@@ -89,6 +96,16 @@ This page contains auto-generated API documentation from the source code.
       heading_level: 3
 
 ::: buildzr.dsl.DeploymentView
+    options:
+      show_root_heading: true
+      heading_level: 3
+
+::: buildzr.dsl.DynamicView
+    options:
+      show_root_heading: true
+      heading_level: 3
+
+::: buildzr.dsl.CustomView
     options:
       show_root_heading: true
       heading_level: 3

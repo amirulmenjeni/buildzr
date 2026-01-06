@@ -15,6 +15,7 @@ from buildzr.dsl.dsl import (
     SoftwareSystemInstance,
     ContainerInstance,
     TypedDynamicAttribute,
+    Element,
 )
 
 from buildzr.dsl.relations import _Relationship
@@ -24,22 +25,25 @@ from typing import Set, Union, Optional, List, Dict, Any, Callable, Tuple, Seque
 from typing_extensions import TypeIs
 
 def _has_technology_attribute(obj: DslElement) -> TypeIs[Union[Container, Component]]:
-    if isinstance(obj, (Person, SoftwareSystem, Workspace, SoftwareSystemInstance, ContainerInstance)):
+    # Element (custom element) does not have technology attribute
+    if isinstance(obj, (Person, SoftwareSystem, Workspace, SoftwareSystemInstance, ContainerInstance, Element)):
         return False
     return True
 
 def _has_group_attribute(obj: DslElement) -> TypeIs[Union[Person, SoftwareSystem, Container, Component]]:
-    if isinstance(obj, (Workspace, DeploymentNode, InfrastructureNode, SoftwareSystemInstance, ContainerInstance)):
+    # Element (custom element) does not belong to groups
+    if isinstance(obj, (Workspace, DeploymentNode, InfrastructureNode, SoftwareSystemInstance, ContainerInstance, Element)):
         return False
     return True
 
-def _has_name_attribute(obj: DslElement) -> TypeIs[Union[Person, SoftwareSystem, Container, Component, DeploymentNode, InfrastructureNode]]:
+def _has_name_attribute(obj: DslElement) -> TypeIs[Union[Person, SoftwareSystem, Container, Component, DeploymentNode, InfrastructureNode, Element]]:
     if isinstance(obj, (Workspace, SoftwareSystemInstance, ContainerInstance)):
         return False
     return True
 
 def _has_environment_attribute(obj: DslElement) -> TypeIs[Union[ContainerInstance, SoftwareSystemInstance]]:
-    if isinstance(obj, (Workspace, Person, SoftwareSystem, Container, Component)):
+    # Element (custom element) does not have environment attribute
+    if isinstance(obj, (Workspace, Person, SoftwareSystem, Container, Component, Element)):
         return False
     return True
 
@@ -138,6 +142,17 @@ class ElementExpression:
     def technology(self) -> Optional[str]:
         if _has_technology_attribute(self._element):
             return self._element.model.technology
+        return None
+
+    @property
+    def metadata(self) -> Optional[str]:
+        """
+        Returns the metadata of the element (if applicable).
+
+        Only custom elements (Element) have a metadata attribute.
+        """
+        if isinstance(self._element, Element):
+            return self._element.model.metadata
         return None
 
     # TODO: Make a test for this in `tests/test_expression.py`

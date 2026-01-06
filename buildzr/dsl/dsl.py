@@ -76,7 +76,7 @@ class Workspace(DslWorkspaceElement):
         return None
 
     @property
-    def children(self) -> Optional[List[Union['Person', 'SoftwareSystem', 'DeploymentNode']]]:
+    def children(self) -> Optional[List[Union['Person', 'SoftwareSystem', 'DeploymentNode', 'Element']]]:
         return self._children
 
     def __init__(
@@ -91,8 +91,8 @@ class Workspace(DslWorkspaceElement):
 
         self._m = buildzr.models.Workspace()
         self._parent = None
-        self._children: Optional[List[Union['Person', 'SoftwareSystem', 'DeploymentNode']]] = []
-        self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem']] = {}
+        self._children: Optional[List[Union['Person', 'SoftwareSystem', 'DeploymentNode', 'Element']]] = []
+        self._dynamic_attrs: Dict[str, Union['Person', 'SoftwareSystem', 'Element']] = {}
         self._use_implied_relationships = implied_relationships
         self._group_separator = group_separator
 
@@ -118,6 +118,9 @@ class Workspace(DslWorkspaceElement):
             softwareSystems=[],
             deploymentNodes=[],
         )
+
+        # Add documentation object (required by Structurizr for rendering)
+        self.model.documentation = buildzr.models.Documentation()
 
         scope_mapper: Dict[
             str,
@@ -276,6 +279,7 @@ class Workspace(DslWorkspaceElement):
             'Person',
             'SoftwareSystem',
             'DeploymentNode',
+            'Element',
         ]) -> None:
         if isinstance(model, Person):
             self._m.model.people.append(model._m)
@@ -291,6 +295,13 @@ class Workspace(DslWorkspaceElement):
             self._m.model.deploymentNodes.append(model._m)
             model._parent = self
             self._children.append(model)
+        elif isinstance(model, Element):
+            if self._m.model.customElements is None:
+                self._m.model.customElements = []
+            self._m.model.customElements.append(model._m)
+            model._parent = self
+            self._add_dynamic_attr(model.model.name, model)
+            self._children.append(model)
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
@@ -302,6 +313,7 @@ class Workspace(DslWorkspaceElement):
             'ComponentView',
             'DeploymentView',
             'DynamicView',
+            'CustomView',
         ]
     ) -> None:
 
@@ -311,6 +323,12 @@ class Workspace(DslWorkspaceElement):
 
         if not self.model.views:
             self.model.views = buildzr.models.Views()
+            # Add configuration object (required by Structurizr for rendering)
+            self.model.views.configuration = buildzr.models.Configuration(
+                branding=buildzr.models.Branding(),
+                styles=buildzr.models.Styles(),
+                terminology=buildzr.models.Terminology(),
+            )
 
         if isinstance(view, SystemLandscapeView):
             if not self.model.views.systemLandscapeViews:
@@ -342,6 +360,11 @@ class Workspace(DslWorkspaceElement):
                 self.model.views.dynamicViews = [view.model]
             else:
                 self.model.views.dynamicViews.append(view.model)
+        elif isinstance(view, CustomView):
+            if not self.model.views.customViews:
+                self.model.views.customViews = [view.model]
+            else:
+                self.model.views.customViews.append(view.model)
         else:
             raise NotImplementedError("The view {0} is currently not supported", type(view))
 
@@ -486,7 +509,7 @@ class Workspace(DslWorkspaceElement):
         return merged
 
 
-    def _add_dynamic_attr(self, name: str, model: Union['Person', 'SoftwareSystem']) -> None:
+    def _add_dynamic_attr(self, name: str, model: Union['Person', 'SoftwareSystem', 'Element']) -> None:
         if isinstance(model, Person):
             self._dynamic_attrs[_child_name_transform(name)] = model
             if model._label:
@@ -495,13 +518,17 @@ class Workspace(DslWorkspaceElement):
             self._dynamic_attrs[_child_name_transform(name)] = model
             if model._label:
                 self._dynamic_attrs[_child_name_transform(model._label)] = model
+        elif isinstance(model, Element):
+            self._dynamic_attrs[_child_name_transform(name)] = model
+            if model._label:
+                self._dynamic_attrs[_child_name_transform(model._label)] = model
         else:
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
-    def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem']:
+    def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem', 'Element']:
         return self._dynamic_attrs[name]
 
-    def __getitem__(self, name: str) -> Union['Person', 'SoftwareSystem']:
+    def __getitem__(self, name: str) -> Union['Person', 'SoftwareSystem', 'Element']:
         # Handle integer keys from failed tuple unpacking attempts
         if isinstance(name, int):
             raise TypeError(
@@ -520,6 +547,7 @@ class SoftwareSystem(DslElementRelationOverrides[
         'SoftwareSystem',
         'Container',
         'Component',
+        'Element',
     ]
 ]):
     """
@@ -571,6 +599,9 @@ class SoftwareSystem(DslElementRelationOverrides[
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
+        # Add location and documentation (required by Structurizr for rendering)
+        self.model.location = buildzr.models.Location1.Unspecified
+        self.model.documentation = buildzr.models.Documentation()
 
         workspace = _current_workspace.get()
         if workspace is not None:
@@ -657,7 +688,8 @@ class Person(DslElementRelationOverrides[
         'Person',
         'SoftwareSystem',
         'Container',
-        'Component'
+        'Component',
+        'Element',
     ]
 ]):
     """
@@ -740,6 +772,110 @@ class Person(DslElementRelationOverrides[
         return instance
 
 
+class Element(DslElementRelationOverrides[
+    'Element',
+    Union[
+        'Person',
+        'SoftwareSystem',
+        'Container',
+        'Component',
+        'Element',
+    ]
+]):
+    """
+    A custom element that sits outside the C4 model.
+
+    Custom elements can be used to represent components that don't fit into
+    the standard C4 model hierarchy (e.g., hardware systems, business processes,
+    external services). Custom elements can only be displayed in CustomView.
+
+    DSL class name: Element (matches Structurizr DSL syntax)
+    Model class: buildzr.models.CustomElement (matches JSON field name)
+    """
+
+    @property
+    def model(self) -> buildzr.models.CustomElement:
+        return self._m
+
+    @property
+    def parent(self) -> Optional[Workspace]:
+        return self._parent
+
+    @property
+    def children(self) -> None:
+        """
+        The `Element` does not have any children, and will always return
+        `None`.
+        """
+        return None
+
+    @property
+    def sources(self) -> List[DslElement]:
+        return self._sources
+
+    @property
+    def destinations(self) -> List[DslElement]:
+        return self._destinations
+
+    @property
+    def relationships(self) -> Set[DslRelationship]:
+        return self._relationships
+
+    @property
+    def tags(self) -> Set[str]:
+        return self._tags
+
+    def __init__(
+        self,
+        name: str,
+        metadata: str = "",
+        description: str = "",
+        tags: Set[str] = set(),
+        properties: Dict[str, Any] = dict(),
+    ) -> None:
+        self._m = buildzr.models.CustomElement()
+        self._parent: Optional[Workspace] = None
+        self._sources: List[DslElement] = []
+        self._destinations: List[DslElement] = []
+        self._relationships: Set[DslRelationship] = set()
+        self._tags = {'Element'}.union(tags)
+        self._label: Optional[str] = None
+        self.model.id = GenerateId.for_element()
+        self.model.name = name
+        self.model.metadata = metadata
+        self.model.description = description
+        self.model.relationships = []
+        self.model.tags = ','.join(self._tags)
+        self.model.properties = properties
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.add_model(self)
+
+        # Note: Custom elements (Element) do not support groups in Structurizr,
+        # so we don't add them to the group stack
+
+    def labeled(self, label: str) -> 'Element':
+        self._label = label
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace._add_dynamic_attr(label, self)
+        return self
+
+    @classmethod
+    def _from_model(cls, model: buildzr.models.CustomElement) -> 'Element':
+        """Create DSL wrapper from existing model (for workspace extension)."""
+        instance = object.__new__(cls)
+        instance._m = model
+        instance._parent = None
+        instance._sources = []
+        instance._destinations = []
+        instance._relationships = set()
+        instance._tags = set(model.tags.split(',')) if model.tags else {'Element'}
+        instance._label = None
+        return instance
+
+
 class Container(DslElementRelationOverrides[
     'Container',
     Union[
@@ -747,6 +883,7 @@ class Container(DslElementRelationOverrides[
         'SoftwareSystem',
         'Container',
         'Component',
+        'Element',
     ]
 ]):
     """
@@ -886,6 +1023,7 @@ class Component(DslElementRelationOverrides[
         'SoftwareSystem',
         'Container',
         'Component',
+        'Element',
     ]
 ]):
     """
@@ -1707,7 +1845,8 @@ class SystemLandscapeView(DslViewElement):
 
         include_view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [
             lambda w, e: e.type == Person,
-            lambda w, e: e.type == SoftwareSystem
+            lambda w, e: e.type == SoftwareSystem,
+            lambda w, e: e.type == Element,
         ]
 
         exclude_view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [
@@ -1718,8 +1857,10 @@ class SystemLandscapeView(DslViewElement):
         include_view_relationships_filter: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = [
             lambda w, r: r.source.type == Person,
             lambda w, r: r.source.type == SoftwareSystem,
+            lambda w, r: r.source.type == Element,
             lambda w, r: r.destination.type == Person,
             lambda w, r: r.destination.type == SoftwareSystem,
+            lambda w, r: r.destination.type == Element,
         ]
 
         expression = Expression(
@@ -1741,7 +1882,8 @@ class SystemLandscapeView(DslViewElement):
 
         self._m.elements = []
         for element_id in element_ids:
-            self._m.elements.append(ElementView(id=element_id))
+            # Add x, y coordinates (required by Structurizr for rendering)
+            self._m.elements.append(ElementView(id=element_id, x=0, y=0))
 
         self._m.relationships = []
         for relationship_id in relationship_ids:
@@ -1779,8 +1921,15 @@ class SystemContextView(DslViewElement):
         self._m.description = description
 
         self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        # Add applied field to automaticLayout (required by Structurizr)
+        if self._m.automaticLayout:
+            self._m.automaticLayout.applied = False
+
         self._m.title = title
         self._m.properties = properties
+        # Add enterprise boundary visibility and order (required by Structurizr)
+        self._m.enterpriseBoundaryVisible = True
+        self._m.order = 1
 
         self._selector = software_system_selector
         self._include_elements = include_elements
@@ -1832,7 +1981,8 @@ class SystemContextView(DslViewElement):
 
         self._m.elements = []
         for element_id in element_ids:
-            self._m.elements.append(ElementView(id=element_id))
+            # Add x, y coordinates (required by Structurizr for rendering)
+            self._m.elements.append(ElementView(id=element_id, x=0, y=0))
 
         self._m.relationships = []
         for relationship_id in relationship_ids:
@@ -1921,7 +2071,8 @@ class ContainerView(DslViewElement):
 
         self._m.elements = []
         for element_id in element_ids:
-            self._m.elements.append(ElementView(id=element_id))
+            # Add x, y coordinates (required by Structurizr for rendering)
+            self._m.elements.append(ElementView(id=element_id, x=0, y=0))
 
         self._m.relationships = []
         for relationship_id in relationship_ids:
@@ -2011,7 +2162,8 @@ class ComponentView(DslViewElement):
 
         self._m.elements = []
         for element_id in element_ids:
-            self._m.elements.append(ElementView(id=element_id))
+            # Add x, y coordinates (required by Structurizr for rendering)
+            self._m.elements.append(ElementView(id=element_id, x=0, y=0))
 
         self._m.relationships = []
         for relationship_id in relationship_ids:
@@ -2252,7 +2404,8 @@ class DeploymentView(DslViewElement):
 
         self._m.elements = []
         for element_id in element_ids:
-            self._m.elements.append(ElementView(id=element_id))
+            # Add x, y coordinates (required by Structurizr for rendering)
+            self._m.elements.append(ElementView(id=element_id, x=0, y=0))
 
         self._m.relationships = []
         for relationship_id in relationship_ids:
@@ -2445,6 +2598,108 @@ class DynamicView(DslViewElement):
 
         # Populate elements
         self._m.elements = [ElementView(id=eid) for eid in element_ids]
+
+
+class CustomView(DslViewElement):
+    """
+    A custom view for displaying custom elements (Element type).
+
+    CustomView is specifically designed for custom elements that sit outside
+    the C4 model. By default, it only includes Element types and relationships
+    between them. This matches the Structurizr DSL behavior where custom views
+    are intended for custom elements.
+
+    Note: Structurizr CLI/Lite only supports CustomElement types in CustomView.
+    Including other element types (Person, SoftwareSystem, etc.) will cause
+    export errors.
+    """
+
+    from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
+
+    @property
+    def model(self) -> buildzr.models.CustomView:
+        return self._m
+
+    def __init__(
+        self,
+        key: str,
+        description: str = "",
+        auto_layout: _AutoLayout = 'tb',
+        title: Optional[str] = None,
+        include_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [],
+        exclude_elements: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [],
+        include_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = [],
+        exclude_relationships: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = [],
+        properties: Optional[Dict[str, str]] = None,
+    ) -> None:
+        self._m = buildzr.models.CustomView()
+
+        self._m.key = key
+        self._m.description = description
+
+        self._m.automaticLayout = _auto_layout_to_model(auto_layout)
+        self._m.title = title
+        self._m.properties = properties
+
+        # Validate that include_elements only contains Element types
+        # CustomView can ONLY display custom elements (Element type)
+        for elem in include_elements:
+            if isinstance(elem, DslElement) and not isinstance(elem, Element):
+                raise ValueError(
+                    f"CustomView can only include Element types, not {type(elem).__name__}. "
+                    f"Use SystemLandscapeView or other views for C4 elements."
+                )
+
+        self._include_elements = include_elements
+        self._exclude_elements = exclude_elements
+        self._include_relationships = include_relationships
+        self._exclude_relationships = exclude_relationships
+
+        workspace = _current_workspace.get()
+        if workspace is not None:
+            workspace.apply_view(self)
+
+    def _on_added(self, workspace: Workspace) -> None:
+
+        from buildzr.dsl.expression import Expression, WorkspaceExpression, ElementExpression, RelationshipExpression
+        from buildzr.models import ElementView, RelationshipView
+
+        # CustomView only includes Element (custom element) types by default
+        # This matches Structurizr CLI/DSL behavior
+        include_view_elements_filter: List[Union[DslElement, Callable[[WorkspaceExpression, ElementExpression], bool]]] = [
+            lambda w, e: e.type == Element,
+        ]
+
+        # Include relationships where both source and destination are Element types
+        include_view_relationships_filter: List[Union[DslElement, Callable[[WorkspaceExpression, RelationshipExpression], bool]]] = [
+            lambda w, r: r.source.type == Element and r.destination.type == Element,
+        ]
+
+        expression = Expression(
+            include_elements=self._include_elements + include_view_elements_filter,
+            exclude_elements=self._exclude_elements,
+            include_relationships=self._include_relationships + include_view_relationships_filter,
+            exclude_relationships=self._exclude_relationships,
+        )
+
+        element_ids = map(
+            lambda x: str(x.model.id),
+            expression.elements(workspace)
+        )
+
+        relationship_ids = map(
+            lambda x: str(x.model.id),
+            expression.relationships(workspace)
+        )
+
+        self._m.elements = []
+        for element_id in element_ids:
+            # Add x, y coordinates (required by Structurizr for rendering)
+            self._m.elements.append(ElementView(id=element_id, x=0, y=0))
+
+        self._m.relationships = []
+        for relationship_id in relationship_ids:
+            self._m.relationships.append(RelationshipView(id=relationship_id))
 
 
 class StyleElements:

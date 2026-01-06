@@ -18,6 +18,7 @@ Static models:
 - `SoftwareSystem`
 - `Container`
 - `Component`
+- `Element` (custom element, outside C4 model)
 
 Instance models:
 
@@ -87,6 +88,54 @@ with SoftwareSystem("X") as x:
 
         api_layer >> "Runs queries/transactions on" >> db_layer
 ```
+
+## Custom Element
+
+`Element` represents a custom element that sits outside the C4 model. Custom elements are useful when you need to model things that don't fit neatly into the Person, SoftwareSystem, Container, or Component hierarchy --- for example, hardware devices, business processes, non-software entities, or abstract concepts.
+
+!!! note "Schema Note"
+    The official Structurizr JSON schema at [https://github.com/structurizr/json](https://github.com/structurizr/json) does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure used at runtime.
+
+```python
+from buildzr.dsl import Workspace, Element, CustomView
+
+with Workspace('Hardware Architecture') as w:
+    # Custom elements for non-C4 architecture
+    controller = Element(
+        "Hardware Controller",
+        metadata="Hardware",
+        description="Main controller unit",
+        tags={"embedded", "critical"},
+        properties={"vendor": "Acme Corp"}
+    )
+
+    sensor = Element("Temperature Sensor", metadata="Hardware")
+    actuator = Element("Motor Actuator", metadata="Hardware")
+
+    # Relationships between custom elements
+    sensor >> "sends data to" >> controller
+    controller >> "controls" >> actuator
+
+    # Custom elements can ONLY be displayed in CustomView
+    CustomView(
+        key="hardware-view",
+        description="Hardware component interactions",
+    )
+
+    w.to_json('workspace.json')
+```
+
+Custom elements can have relationships with C4 elements (Person, SoftwareSystem, Container, Component) and can be displayed in **any** view type --- including `SystemLandscapeView`, `SystemContextView`, and `CustomView`.
+
+### Element Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `name` | `str` | The name of the custom element (required) |
+| `metadata` | `str` | Metadata/type label for the element (e.g., "Hardware", "Process") |
+| `description` | `str` | A short description of the element |
+| `tags` | `Set[str]` | Tags for styling and filtering |
+| `properties` | `Dict[str, Any]` | Arbitrary key-value properties |
 
 ## Properties and Metadata
 

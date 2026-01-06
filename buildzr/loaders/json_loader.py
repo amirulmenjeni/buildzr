@@ -4,11 +4,19 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import sys
 import urllib.request
 from enum import Enum
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union, get_type_hints, get_origin, get_args
 
 import buildzr.models
+
+# Python 3.10+ uses types.UnionType for X | Y syntax
+if sys.version_info >= (3, 10):
+    import types
+    UnionTypes = (Union, types.UnionType)
+else:
+    UnionTypes = (Union,)
 
 T = TypeVar('T')
 
@@ -99,8 +107,13 @@ class JsonLoader:
         origin = get_origin(field_type)
         args = get_args(field_type)
 
-        # Handle Optional[X] (which is Union[X, None])
-        if origin is Union:
+        # Handle Optional[X] (which is Union[X, None]) and X | None (Python 3.10+)
+        # Check for typing.Union or types.UnionType
+        is_union = origin is Union
+        if sys.version_info >= (3, 10):
+            is_union = is_union or isinstance(origin, type) and issubclass(origin, types.UnionType)
+
+        if is_union:
             # Filter out NoneType
             non_none_args = [arg for arg in args if arg is not type(None)]
             if len(non_none_args) == 1:
