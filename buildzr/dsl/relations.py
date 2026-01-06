@@ -82,12 +82,12 @@ class _Relationship(DslRelationship[TSrc, TDst]):
             self,
             uses_data: _UsesData[TSrc],
             destination: TDst,
-            tags: Set[str]=set(),
+            tags: Optional[Set[str]]=None,
             _include_in_model: bool=True,
         ) -> None:
 
         self._m = uses_data.relationship
-        self._tags = {'Relationship'}.union(tags)
+        self._tags = {'Relationship'}.union(tags if tags else set())
         self._src = uses_data.source
         self._dst = destination
         self.model.tags = ','.join(self._tags)
@@ -97,13 +97,19 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         if not isinstance(uses_data.source.model, buildzr.models.Workspace):
 
             # Prevent any duplicate sources/destinations, especially when creating implied relationships.
-            if not any([self._dst.model.id == dest.model.id for dest in uses_data.source.destinations]):
+            # Use sets for O(1) lookups instead of O(n)
+            dest_ids = {dest.model.id for dest in uses_data.source.destinations}
+            if self._dst.model.id not in dest_ids:
                 uses_data.source.destinations.append(self._dst)
-            if not any([self._src.model.id == src.model.id for src in self._dst.sources]):
+            
+            src_ids = {src.model.id for src in self._dst.sources}
+            if self._src.model.id not in src_ids:
                 self._dst.sources.append(self._src)
 
             # Make this relationship accessible from the source element.
-            if not any([r.model.id == self.model.id for r in self._src.relationships]):
+            # Use set for O(1) lookups
+            rel_ids = {r.model.id for r in self._src.relationships}
+            if self.model.id not in rel_ids:
                 self._src.relationships.add(self)
 
             if _include_in_model:
@@ -333,7 +339,7 @@ class DslElementRelationOverrides(Generic[TSrc, TDst], DslElement[TSrc, TDst]):
         other: DslElement,
         description: Optional[str]=None,
         technology: Optional[str]=None,
-        tags: Set[str]=set()) -> _Relationship[Self, DslElement]:
+        tags: Optional[Set[str]]=None) -> _Relationship[Self, DslElement]:
 
         source = self
 

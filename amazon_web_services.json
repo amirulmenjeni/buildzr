@@ -1,0 +1,271 @@
+{
+  "id": 43,
+  "name": "workspace",
+  "description": "",
+  "model": {
+    "people": [],
+    "softwareSystems": [
+      {
+        "id": "346",
+        "name": "X",
+        "description": "",
+        "tags": "Software System,Element",
+        "containers": [
+          {
+            "id": "347",
+            "name": "Web Application",
+            "description": "",
+            "technology": "Java and Spring boot",
+            "tags": "Container,Element",
+            "components": [],
+            "properties": {},
+            "relationships": [
+              {
+                "id": "349",
+                "description": "Reads from and writes to",
+                "tags": "Relationship",
+                "sourceId": "347",
+                "destinationId": "348",
+                "technology": ""
+              }
+            ]
+          },
+          {
+            "id": "348",
+            "name": "Database Schema",
+            "description": "",
+            "technology": "",
+            "tags": "Container,Element",
+            "components": [],
+            "properties": {},
+            "relationships": []
+          }
+        ],
+        "properties": {},
+        "relationships": []
+      }
+    ],
+    "deploymentNodes": [
+      {
+        "id": "350",
+        "name": "Amazon Web Services",
+        "description": "",
+        "technology": "",
+        "environment": "Live",
+        "instances": "1",
+        "tags": "Amazon Web Services - Cloud,Element,Deployment Node",
+        "children": [
+          {
+            "id": "351",
+            "name": "US-East-1",
+            "description": "",
+            "technology": "",
+            "environment": "Live",
+            "instances": "1",
+            "tags": "Element,Deployment Node,Amazon Web Services - Region",
+            "children": [
+              {
+                "id": "355",
+                "name": "Amazon EC2",
+                "description": "",
+                "technology": "",
+                "environment": "Live",
+                "instances": "1",
+                "tags": "Element,Deployment Node,Amazon Web Services - EC2",
+                "children": [
+                  {
+                    "id": "356",
+                    "name": "Amazon EC2 - Ubuntu Server",
+                    "description": "",
+                    "technology": "",
+                    "environment": "Live",
+                    "instances": "1",
+                    "tags": "Amazon Web Services - EC2 Instance,Element,Deployment Node",
+                    "children": [],
+                    "infrastructureNodes": [],
+                    "softwareSystemInstances": [],
+                    "containerInstances": [
+                      {
+                        "id": "358",
+                        "containerId": "347",
+                        "environment": "Live",
+                        "tags": "Container Instance",
+                        "relationships": [
+                          {
+                            "id": "362",
+                            "description": "Reads from and writes to",
+                            "tags": "Relationship",
+                            "sourceId": "358",
+                            "destinationId": "361",
+                            "technology": "",
+                            "linkedRelationshipId": "349"
+                          }
+                        ],
+                        "deploymentGroups": [
+                          "Default"
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "infrastructureNodes": [],
+                "softwareSystemInstances": [],
+                "containerInstances": []
+              },
+              {
+                "id": "359",
+                "name": "Amazon RDS",
+                "description": "",
+                "technology": "",
+                "environment": "Live",
+                "instances": "1",
+                "tags": "Amazon Web Services - RDS Instance,Element,Deployment Node",
+                "children": [
+                  {
+                    "id": "360",
+                    "name": "MySQL",
+                    "description": "",
+                    "technology": "",
+                    "environment": "Live",
+                    "instances": "1",
+                    "tags": "Element,Deployment Node,Amazon Web Services - RDS MySQL instance",
+                    "children": [],
+                    "infrastructureNodes": [],
+                    "softwareSystemInstances": [],
+                    "containerInstances": [
+                      {
+                        "id": "361",
+                        "containerId": "348",
+                        "environment": "Live",
+                        "tags": "Container Instance",
+                        "deploymentGroups": [
+                          "Default"
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "infrastructureNodes": [],
+                "softwareSystemInstances": [],
+                "containerInstances": []
+              }
+            ],
+            "infrastructureNodes": [
+              {
+                "id": "352",
+                "name": "DNS Router",
+                "description": "Routes incoming requests based upon domain name.",
+                "technology": "Route 53",
+                "environment": "Live",
+                "tags": "Infrastructure Node,Element,Amazon Web Services - Route 53",
+                "properties": {},
+                "relationships": [
+                  {
+                    "id": "354",
+                    "description": "Fowards requests to",
+                    "tags": "Relationship",
+                    "sourceId": "352",
+                    "destinationId": "353",
+                    "technology": "HTTP"
+                  }
+                ]
+              },
+              {
+                "id": "353",
+                "name": "Load Balancer",
+                "description": "Automatically distributes incoming application traffic.",
+                "technology": "Elastic Load Balancer",
+                "environment": "Live",
+                "tags": "Infrastructure Node,Element,Amazon Web Services - Elastic Load Balancer",
+                "properties": {},
+                "relationships": [
+                  {
+                    "id": "357",
+                    "description": "Forwards requests to",
+                    "tags": "Relationship",
+                    "sourceId": "353",
+                    "destinationId": "358",
+                    "technology": ""
+                  }
+                ]
+              }
+            ],
+            "softwareSystemInstances": [],
+            "containerInstances": []
+          }
+        ],
+        "infrastructureNodes": [],
+        "softwareSystemInstances": [],
+        "containerInstances": []
+      }
+    ],
+    "properties": {
+      "structurizr.groupSeparator": "/"
+    }
+  },
+  "views": {
+    "deploymentViews": [
+      {
+        "key": "aws-deployment-view",
+        "title": "Amazon Web Services Deployment",
+        "description": "Deployment view of the web application on AWS",
+        "softwareSystemId": "346",
+        "environment": "Live",
+        "automaticLayout": {
+          "implementation": "Graphviz",
+          "rankDirection": "LeftRight",
+          "rankSeparation": 300,
+          "nodeSeparation": 300,
+          "edgeSeparation": 0,
+          "vertices": false
+        },
+        "elements": [
+          {
+            "id": "350"
+          },
+          {
+            "id": "351"
+          },
+          {
+            "id": "352"
+          },
+          {
+            "id": "353"
+          },
+          {
+            "id": "355"
+          },
+          {
+            "id": "356"
+          },
+          {
+            "id": "358"
+          },
+          {
+            "id": "359"
+          },
+          {
+            "id": "360"
+          },
+          {
+            "id": "361"
+          }
+        ],
+        "relationships": [
+          {
+            "id": "354"
+          },
+          {
+            "id": "357"
+          },
+          {
+            "id": "362"
+          }
+        ]
+      }
+    ]
+  },
+  "configuration": {
+    "scope": "SoftwareSystem"
+  }
+}

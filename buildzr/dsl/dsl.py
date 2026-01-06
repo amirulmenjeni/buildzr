@@ -208,6 +208,12 @@ class Workspace(DslWorkspaceElement):
                 continue
 
             # Handle case: s >> a.b => s >> a (destination is child)
+            # Build a set of existing relationships for fast lookup
+            existing_rels = set()
+            if source.model.relationships:
+                for r in source.model.relationships:
+                    existing_rels.add((r.destinationId, r.description, r.technology))
+            
             while destination_parent is not None and \
                 isinstance(source, DslElement) and \
                 not isinstance(source.model, buildzr.models.Workspace) and \
@@ -216,26 +222,22 @@ class Workspace(DslWorkspaceElement):
                 if destination_parent is source.parent:
                     break
 
-                rels = source.model.relationships
-
-                if rels:
-                    already_exists = any(
-                        r.destinationId == destination_parent.model.id and
-                        r.description == relationship.model.description and
-                        r.technology == relationship.model.technology
-                        for r in rels
+                rel_key = (destination_parent.model.id, relationship.model.description, relationship.model.technology)
+                if rel_key not in existing_rels:
+                    r = source.uses(
+                        destination_parent,
+                        description=relationship.model.description,
+                        technology=relationship.model.technology,
                     )
-                    if not already_exists:
-                        r = source.uses(
-                            destination_parent,
-                            description=relationship.model.description,
-                            technology=relationship.model.technology,
-                        )
-                        r.model.linkedRelationshipId = relationship.model.id
+                    r.model.linkedRelationshipId = relationship.model.id
+                    existing_rels.add(rel_key)
                 destination_parent = destination_parent.parent
 
             # Handle inverse case: s.ss >> a => s >> a (source is child)
             source_parent = source.parent
+            # Build a set of existing relationships for fast lookup
+            parent_existing_rels = set()
+            
             while source_parent is not None and \
                 isinstance(destination, DslElement) and \
                 not isinstance(destination.model, buildzr.models.Workspace) and \
@@ -245,24 +247,22 @@ class Workspace(DslWorkspaceElement):
                 if source_parent is destination.parent:
                     break
 
-                rels = source_parent.model.relationships
-
-                # The parent source relationship might be empty
-                # (i.e., []).
-                if rels is not None:
-                    already_exists = any(
-                        r.destinationId == destination.model.id and
-                        r.description == relationship.model.description and
-                        r.technology == relationship.model.technology
-                        for r in rels
+                # Rebuild set for each parent level
+                if source_parent.model.relationships:
+                    parent_existing_rels = {
+                        (r.destinationId, r.description, r.technology) 
+                        for r in source_parent.model.relationships
+                    }
+                
+                rel_key = (destination.model.id, relationship.model.description, relationship.model.technology)
+                if rel_key not in parent_existing_rels:
+                    r = source_parent.uses(
+                        destination,
+                        description=relationship.model.description,
+                        technology=relationship.model.technology,
                     )
-                    if not already_exists:
-                        r = source_parent.uses(
-                            destination,
-                            description=relationship.model.description,
-                            technology=relationship.model.technology,
-                        )
-                        r.model.linkedRelationshipId = relationship.model.id
+                    r.model.linkedRelationshipId = relationship.model.id
+                    parent_existing_rels.add(rel_key)
                 source_parent = source_parent.parent
 
     def person(self) -> TypedDynamicAttribute['Person']:
@@ -554,7 +554,7 @@ class SoftwareSystem(DslElementRelationOverrides[
     def tags(self) -> Set[str]:
         return self._tags
 
-    def __init__(self, name: str, description: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
+    def __init__(self, name: str, description: str="", tags: Optional[Set[str]]=None, properties: Optional[Dict[str, Any]]=None) -> None:
         self._m = buildzr.models.SoftwareSystem()
         self.model.containers = []
         self._parent: Optional[Workspace] = None
@@ -562,7 +562,7 @@ class SoftwareSystem(DslElementRelationOverrides[
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._relationships: Set[DslRelationship] = set()
-        self._tags = {'Element', 'Software System'}.union(tags)
+        self._tags = {'Element', 'Software System'}.union(tags if tags else set())
         self._dynamic_attrs: Dict[str, 'Container'] = {}
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
@@ -570,7 +570,7 @@ class SoftwareSystem(DslElementRelationOverrides[
         self.model.description = description
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
-        self.model.properties = properties
+        self.model.properties = properties if properties else {}
 
         workspace = _current_workspace.get()
         if workspace is not None:
@@ -696,20 +696,20 @@ class Person(DslElementRelationOverrides[
     def tags(self) -> Set[str]:
         return self._tags
 
-    def __init__(self, name: str, description: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
+    def __init__(self, name: str, description: str="", tags: Optional[Set[str]]=None, properties: Optional[Dict[str, Any]]=None) -> None:
         self._m = buildzr.models.Person()
         self._parent: Optional[Workspace] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._relationships: Set[DslRelationship] = set()
-        self._tags = {'Element', 'Person'}.union(tags)
+        self._tags = {'Element', 'Person'}.union(tags if tags else set())
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
         self.model.description = description
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
-        self.model.properties = properties
+        self.model.properties = properties if properties else {}
 
         workspace = _current_workspace.get()
         if workspace is not None:
@@ -781,7 +781,7 @@ class Container(DslElementRelationOverrides[
     def tags(self) -> Set[str]:
         return self._tags
 
-    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
+    def __init__(self, name: str, description: str="", technology: str="", tags: Optional[Set[str]]=None, properties: Optional[Dict[str, Any]]=None) -> None:
         self._m = buildzr.models.Container()
         self.model.components = []
         self._parent: Optional[SoftwareSystem] = None
@@ -789,7 +789,7 @@ class Container(DslElementRelationOverrides[
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._relationships: Set[DslRelationship] = set()
-        self._tags = {'Element', 'Container'}.union(tags)
+        self._tags = {'Element', 'Container'}.union(tags if tags else set())
         self._dynamic_attrs: Dict[str, 'Component'] = {}
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
@@ -798,7 +798,7 @@ class Container(DslElementRelationOverrides[
         self.model.relationships = []
         self.model.technology = technology
         self.model.tags = ','.join(self._tags)
-        self.model.properties = properties
+        self.model.properties = properties if properties else {}
 
         software_system = _current_software_system.get()
         if software_system is not None:
@@ -920,13 +920,13 @@ class Component(DslElementRelationOverrides[
     def tags(self) -> Set[str]:
         return self._tags
 
-    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
+    def __init__(self, name: str, description: str="", technology: str="", tags: Optional[Set[str]]=None, properties: Optional[Dict[str, Any]]=None) -> None:
         self._m = buildzr.models.Component()
         self._parent: Optional[Container] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
         self._relationships: Set[DslRelationship] = set()
-        self._tags = {'Element', 'Component'}.union(tags)
+        self._tags = {'Element', 'Component'}.union(tags if tags else set())
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
@@ -934,7 +934,7 @@ class Component(DslElementRelationOverrides[
         self.model.technology = technology
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
-        self.model.properties = properties
+        self.model.properties = properties if properties else {}
 
         container = _current_container.get()
         if container is not None:
@@ -1142,15 +1142,22 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
                         ):
                             continue
 
-                        already_exists = this_software_instance.model.relationships is not None and any(
-                            r.sourceId == this_software_instance.model.id and
-                            r.destinationId == other_software_instance.model.id and
-                            r.description == relationship.description and
-                            r.technology == relationship.technology
-                            for r in this_software_instance.model.relationships
+                        # Build set of existing relationships for fast lookup
+                        existing_rels = set()
+                        if this_software_instance.model.relationships:
+                            existing_rels = {
+                                (r.sourceId, r.destinationId, r.description, r.technology)
+                                for r in this_software_instance.model.relationships
+                            }
+                        
+                        rel_key = (
+                            this_software_instance.model.id,
+                            other_software_instance.model.id,
+                            relationship.description,
+                            relationship.technology
                         )
 
-                        if not already_exists:
+                        if rel_key not in existing_rels:
                             # Note: tags aren't carried over.
                             r = this_software_instance.uses(
                                 other_software_instance,
@@ -1261,15 +1268,22 @@ class DeploymentEnvironment(DslDeploymentEnvironment):
                         ):
                             continue
 
-                        already_exists = this_container_instance.model.relationships is not None and any(
-                            r.sourceId == this_container_instance.model.id and
-                            r.destinationId == other_container_instance.model.id and
-                            r.description == relationship.description and
-                            r.technology == relationship.technology
-                            for r in this_container_instance.model.relationships
+                        # Build set of existing relationships for fast lookup
+                        existing_rels = set()
+                        if this_container_instance.model.relationships:
+                            existing_rels = {
+                                (r.sourceId, r.destinationId, r.description, r.technology)
+                                for r in this_container_instance.model.relationships
+                            }
+                        
+                        rel_key = (
+                            this_container_instance.model.id,
+                            other_container_instance.model.id,
+                            relationship.description,
+                            relationship.technology
                         )
 
-                        if not already_exists:
+                        if rel_key not in existing_rels:
                             # Note: tags aren't carried over.
                             r = this_container_instance.uses(
                                 other_container_instance,
@@ -1284,7 +1298,7 @@ class DeploymentNode(DslDeploymentNodeElement, DslElementRelationOverrides[
     'DeploymentNode'
 ]):
 
-    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), instances: str="1") -> None:
+    def __init__(self, name: str, description: str="", technology: str="", tags: Optional[Set[str]]=None, instances: str="1") -> None:
         self._m = buildzr.models.DeploymentNode()
         self._m.instances = instances
         self._m.id = GenerateId.for_element()
@@ -1303,7 +1317,7 @@ class DeploymentNode(DslDeploymentNodeElement, DslElementRelationOverrides[
                 'InfrastructureNode',
                 'DeploymentNode']]
             ] = []
-        self._tags = {'Element', 'Deployment Node'}.union(tags)
+        self._tags = {'Element', 'Deployment Node'}.union(tags if tags else set())
         self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
@@ -1396,15 +1410,15 @@ class InfrastructureNode(DslInfrastructureNodeElement, DslElementRelationOverrid
     ]
 ]):
 
-    def __init__(self, name: str, description: str="", technology: str="", tags: Set[str]=set(), properties: Dict[str, Any]=dict()) -> None:
+    def __init__(self, name: str, description: str="", technology: str="", tags: Optional[Set[str]]=None, properties: Optional[Dict[str, Any]]=None) -> None:
         self._m = buildzr.models.InfrastructureNode()
         self._m.id = GenerateId.for_element()
         self._m.name = name
         self._m.description = description
         self._m.technology = technology
-        self._m.properties = properties
+        self._m.properties = properties if properties else {}
         self._parent: Optional[DeploymentNode] = None
-        self._tags = {'Element', 'Infrastructure Node'}.union(tags)
+        self._tags = {'Element', 'Infrastructure Node'}.union(tags if tags else set())
         self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
@@ -1460,7 +1474,7 @@ class SoftwareSystemInstance(DslElementInstance, DslElementRelationOverrides[
         self,
         software_system: 'SoftwareSystem',
         deployment_groups: Optional[List['DeploymentGroup']]=None,
-        tags: Set[str]=set(),
+        tags: Optional[Set[str]]=None,
     ) -> None:
         self._m = buildzr.models.SoftwareSystemInstance()
         self._m.id = GenerateId.for_element()
@@ -1468,7 +1482,7 @@ class SoftwareSystemInstance(DslElementInstance, DslElementRelationOverrides[
         self._parent: Optional[DeploymentNode] = None
         self._element = software_system
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
-        self._tags = {'Software System Instance'}.union(tags)
+        self._tags = {'Software System Instance'}.union(tags if tags else set())
         self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
@@ -1529,7 +1543,7 @@ class ContainerInstance(DslElementInstance, DslElementRelationOverrides[
         self,
         container: 'Container',
         deployment_groups: Optional[List['DeploymentGroup']]=None,
-        tags: Set[str]=set(),
+        tags: Optional[Set[str]]=None,
     ) -> None:
         self._m = buildzr.models.ContainerInstance()
         self._m.id = GenerateId.for_element()
@@ -1537,7 +1551,7 @@ class ContainerInstance(DslElementInstance, DslElementRelationOverrides[
         self._parent: Optional[DeploymentNode] = None
         self._element = container
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
-        self._tags = {'Container Instance'}.union(tags)
+        self._tags = {'Container Instance'}.union(tags if tags else set())
         self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
