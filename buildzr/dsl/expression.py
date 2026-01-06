@@ -267,19 +267,34 @@ class Expression:
 
         workspace_elements = buildzr.dsl.Explorer(workspace).walk_elements()
         for element in workspace_elements:
-            includes: List[bool] = []
-            excludes: List[bool] = []
-            for f in self._include_elements:
-                if isinstance(f, DslElement):
-                    includes.append(f == element)
-                else:
-                    includes.append(f(WorkspaceExpression(workspace), ElementExpression(element)))
+            # Early termination: check excludes first
+            excluded = False
             for f in self._exclude_elements:
                 if isinstance(f, DslElement):
-                    excludes.append(f == element)
+                    if f == element:
+                        excluded = True
+                        break
                 else:
-                    excludes.append(f(WorkspaceExpression(workspace), ElementExpression(element)))
-            if any(includes) and not any(excludes):
+                    if f(WorkspaceExpression(workspace), ElementExpression(element)):
+                        excluded = True
+                        break
+            
+            if excluded:
+                continue
+            
+            # Check includes only if not excluded
+            included = False
+            for f in self._include_elements:
+                if isinstance(f, DslElement):
+                    if f == element:
+                        included = True
+                        break
+                else:
+                    if f(WorkspaceExpression(workspace), ElementExpression(element)):
+                        included = True
+                        break
+            
+            if included:
                 filtered_elements.append(element)
 
         return filtered_elements
@@ -316,33 +331,45 @@ class Expression:
         workspace_relationships = buildzr.dsl.Explorer(workspace).walk_relationships()
 
         for relationship in workspace_relationships:
-
-            includes: List[bool] = []
-            excludes: List[bool] = []
-
+            # Early termination: check excludes first
+            excluded = False
+            
+            # Check if relationship is of excluded elements
+            if _is_relationship_of_excluded_elements(
+                WorkspaceExpression(workspace),
+                RelationshipExpression(relationship),
+                self._exclude_elements,
+            ):
+                excluded = True
+            
+            # Check explicit relationship excludes
+            if not excluded:
+                for f in self._exclude_relationships:
+                    if isinstance(f, DslElement):
+                        if f == relationship:
+                            excluded = True
+                            break
+                    else:
+                        if f(WorkspaceExpression(workspace), RelationshipExpression(relationship)):
+                            excluded = True
+                            break
+            
+            if excluded:
+                continue
+            
+            # Check includes only if not excluded
+            included = False
             for f in self._include_relationships:
                 if isinstance(f, DslElement):
-                    includes.append(f == relationship)
+                    if f == relationship:
+                        included = True
+                        break
                 else:
-                    includes.append(f(WorkspaceExpression(workspace), RelationshipExpression(relationship)))
+                    if f(WorkspaceExpression(workspace), RelationshipExpression(relationship)):
+                        included = True
+                        break
 
-            for f in self._exclude_relationships:
-                if isinstance(f, DslElement):
-                    excludes.append(f == relationship)
-                else:
-                    excludes.append(f(WorkspaceExpression(workspace), RelationshipExpression(relationship)))
-
-            # Also exclude relationships whose source or destination elements
-            # are excluded.
-            excludes.append(
-                _is_relationship_of_excluded_elements(
-                    WorkspaceExpression(workspace),
-                    RelationshipExpression(relationship),
-                    self._exclude_elements,
-                )
-            )
-
-            if any(includes) and not any(excludes):
+            if included:
                 filtered_relationships.append(relationship)
 
         return filtered_relationships

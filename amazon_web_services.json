@@ -16,7 +16,7 @@
             "name": "Web Application",
             "description": "",
             "technology": "Java and Spring boot",
-            "tags": "Element,Container",
+            "tags": "Container,Element",
             "components": [],
             "properties": {},
             "relationships": [
@@ -35,7 +35,7 @@
             "name": "Database Schema",
             "description": "",
             "technology": "",
-            "tags": "Element,Container",
+            "tags": "Container,Element",
             "components": [],
             "properties": {},
             "relationships": []
@@ -62,7 +62,7 @@
             "technology": "",
             "environment": "Live",
             "instances": "1",
-            "tags": "Element,Deployment Node,Amazon Web Services - Region",
+            "tags": "Amazon Web Services - Region,Element,Deployment Node",
             "children": [
               {
                 "id": "355",
@@ -119,7 +119,7 @@
                 "technology": "",
                 "environment": "Live",
                 "instances": "1",
-                "tags": "Element,Deployment Node,Amazon Web Services - RDS Instance",
+                "tags": "Amazon Web Services - RDS Instance,Element,Deployment Node",
                 "children": [
                   {
                     "id": "360",
@@ -128,7 +128,7 @@
                     "technology": "",
                     "environment": "Live",
                     "instances": "1",
-                    "tags": "Amazon Web Services - RDS MySQL instance,Element,Deployment Node",
+                    "tags": "Element,Deployment Node,Amazon Web Services - RDS MySQL instance",
                     "children": [],
                     "infrastructureNodes": [],
                     "softwareSystemInstances": [],
@@ -157,7 +157,7 @@
                 "description": "Routes incoming requests based upon domain name.",
                 "technology": "Route 53",
                 "environment": "Live",
-                "tags": "Element,Amazon Web Services - Route 53,Infrastructure Node",
+                "tags": "Element,Infrastructure Node,Amazon Web Services - Route 53",
                 "properties": {},
                 "relationships": [
                   {
@@ -176,7 +176,7 @@
                 "description": "Automatically distributes incoming application traffic.",
                 "technology": "Elastic Load Balancer",
                 "environment": "Live",
-                "tags": "Element,Amazon Web Services - Elastic Load Balancer,Infrastructure Node",
+                "tags": "Element,Infrastructure Node,Amazon Web Services - Elastic Load Balancer",
                 "properties": {},
                 "relationships": [
                   {
