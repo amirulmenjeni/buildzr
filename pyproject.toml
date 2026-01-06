@@ -44,6 +44,9 @@ docs = [
     "mkdocstrings[python]>=0.24.0",
     "pymdown-extensions>=10.0",
 ]
+export-plantuml = [
+    "jpype1>=1.4.0",
+]
 
 [project.urls]
 homepage = "https://github.com/amirulmenjeni/buildzr"
@@ -67,6 +70,10 @@ exclude = [
     "examples",
     "buildzr/modes/generate.sh",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["buildzr"]
+include = ["buildzr/jars/*.jar"]
 
 [tool.mypy]
 python_version = "3.10"

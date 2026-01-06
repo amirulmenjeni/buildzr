@@ -1,0 +1,3 @@
+# Ignore JAR files in development
+# JARs are only bundled in wheel distributions
+*.jar

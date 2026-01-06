@@ -13,6 +13,7 @@ dependencies:
   - mkdocs
   - mkdocs-material
   - datamodel-code-generator
+  - jpype1>=1.4.0
   - pip:
       - -e .
       - pypinfo
