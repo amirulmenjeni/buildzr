@@ -9,7 +9,7 @@
         "id": "346",
         "name": "X",
         "description": "",
-        "tags": "Element,Software System",
+        "tags": "Software System,Element",
         "containers": [
           {
             "id": "347",
@@ -53,7 +53,7 @@
         "technology": "",
         "environment": "Live",
         "instances": "1",
-        "tags": "Element,Amazon Web Services - Cloud,Deployment Node",
+        "tags": "Amazon Web Services - Cloud,Element,Deployment Node",
         "children": [
           {
             "id": "351",
@@ -62,7 +62,7 @@
             "technology": "",
             "environment": "Live",
             "instances": "1",
-            "tags": "Amazon Web Services - Region,Element,Deployment Node",
+            "tags": "Element,Deployment Node,Amazon Web Services - Region",
             "children": [
               {
                 "id": "355",
@@ -80,7 +80,7 @@
                     "technology": "",
                     "environment": "Live",
                     "instances": "1",
-                    "tags": "Element,Deployment Node,Amazon Web Services - EC2 Instance",
+                    "tags": "Amazon Web Services - EC2 Instance,Element,Deployment Node",
                     "children": [],
                     "infrastructureNodes": [],
                     "softwareSystemInstances": [],
@@ -157,7 +157,7 @@
                 "description": "Routes incoming requests based upon domain name.",
                 "technology": "Route 53",
                 "environment": "Live",
-                "tags": "Element,Infrastructure Node,Amazon Web Services - Route 53",
+                "tags": "Infrastructure Node,Element,Amazon Web Services - Route 53",
                 "properties": {},
                 "relationships": [
                   {
@@ -176,7 +176,7 @@
                 "description": "Automatically distributes incoming application traffic.",
                 "technology": "Elastic Load Balancer",
                 "environment": "Live",
-                "tags": "Element,Infrastructure Node,Amazon Web Services - Elastic Load Balancer",
+                "tags": "Infrastructure Node,Element,Amazon Web Services - Elastic Load Balancer",
                 "properties": {},
                 "relationships": [
                   {

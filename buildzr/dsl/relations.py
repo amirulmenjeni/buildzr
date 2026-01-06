@@ -352,5 +352,5 @@ class DslElementRelationOverrides(Generic[TSrc, TDst], DslElement[TSrc, TDst]):
         return _Relationship(
             uses_from.uses_data,
             destination=other,
-            tags=tags if tags else set(),
+            tags=tags,
         )
