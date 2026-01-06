@@ -20,6 +20,9 @@ COPY deps/install_structurizr_lite.sh deps/structurizr-lite.sh ./
 RUN chmod +x install_structurizr_lite.sh && \
     ./install_structurizr_lite.sh
 
+COPY deps/structurizr-onpremises.sh /usr/local/bin/structurizr-onpremises.sh
+RUN chmod +x /usr/local/bin/structurizr-onpremises.sh
+
 USER vscode
 ENV PATH="/root/.local/bin:$PATH"
 
