@@ -173,3 +173,33 @@ class TestPlantUmlSink:
             assert len(puml_files) > 0
             assert len(svg_files) > 0
             assert len(puml_files) == len(svg_files)
+
+    def test_workspace_to_plantuml_method(self) -> None:
+        """Test the Workspace.to_plantuml() convenience method."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create workspace using DSL
+            with Workspace('Test Workspace', 'Test workspace for to_plantuml()') as w:
+                user = Person('User', 'A user of the system')
+
+                with SoftwareSystem('TestSystem', 'A test system') as test_system:
+                    app = Container('Application', 'The main app', 'Python')
+
+                user >> "Uses" >> app
+
+                SystemContextView(
+                    test_system,
+                    key='context',
+                    description='System context'
+                )
+
+            # Use the to_plantuml() method
+            w.to_plantuml(temp_dir)
+
+            # Verify output
+            puml_files = list(Path(temp_dir).glob("*.puml"))
+            assert len(puml_files) == 1
+            assert puml_files[0].name == 'context.puml'
+
+            content = puml_files[0].read_text()
+            assert '@startuml' in content
+            assert '@enduml' in content

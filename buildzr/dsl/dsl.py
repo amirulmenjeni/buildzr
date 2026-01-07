@@ -406,6 +406,45 @@ class Workspace(DslWorkspaceElement):
         sink = JsonSink()
         sink.write(workspace=merged_model, config=JsonSinkConfig(path=path, pretty=pretty))
 
+    def to_plantuml(
+        self,
+        path: str,
+        format: str = 'puml',
+        **kwargs: Any
+    ) -> None:
+        """
+        Export workspace views to PlantUML files.
+
+        Uses the official structurizr-export Java library via JPype to generate
+        C4-PlantUML diagrams from workspace views.
+
+        Args:
+            path: Output directory path where .puml files will be written
+            format: Output format - 'puml' for text files, 'svg'/'png' for rendered images
+            **kwargs: Additional PlantUmlSinkConfig options (e.g., structurizr_export_jar_path)
+
+        Raises:
+            ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
+            FileNotFoundError: If structurizr-export JAR cannot be found
+            RuntimeError: If JVM initialization or export fails
+
+        Example:
+            >>> workspace.to_plantuml('output/diagrams')
+            >>> workspace.to_plantuml('output', format='svg')
+        """
+        self._imply_relationships()
+
+        # Merge with extended workspace if present
+        if self._extended_model:
+            merged_model = self._merge_models(self._extended_model, self._m)
+        else:
+            merged_model = self._m
+
+        from buildzr.sinks.plantuml_sink import PlantUmlSink, PlantUmlSinkConfig
+        config = PlantUmlSinkConfig(path=path, format=format, **kwargs)  # type: ignore[arg-type]
+        sink = PlantUmlSink()
+        sink.write(workspace=merged_model, config=config)
+
     def _merge_models(
         self,
         parent: buildzr.models.Workspace,
