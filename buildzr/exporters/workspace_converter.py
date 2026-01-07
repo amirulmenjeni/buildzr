@@ -571,12 +571,32 @@ class WorkspaceConverter:
             for element_view in view.elements:
                 if element_view.id and element_view.id in self._element_map:
                     java_element = self._element_map[element_view.id]
-                    java_view.add(java_element)
+
+                    # Add element to view
+                    try:
+                        java_view.add(java_element)
+                    except TypeError as e:
+                        # Element type not compatible with this view type
+                        element_type = type(java_element).__name__.split('.')[-1]
+                        view_type = type(java_view).__name__.split('.')[-1]
+                        raise TypeError(
+                            f"Cannot add {element_type} to {view_type}. "
+                            f"View element types must be compatible with the view. "
+                            f"Original error: {str(e)}"
+                        ) from e
 
         # Add relationships to view (if not added automatically)
         # Views typically auto-add relationships between included elements
 
-        # Set automatic layout if specified (optional feature)
+        # Apply automatic layout
+        self._apply_automatic_layout(view, java_view)
+
+        # Set title if present
+        if hasattr(view, 'title') and view.title:
+            java_view.setTitle(view.title)
+
+    def _apply_automatic_layout(self, view: Any, java_view: Any) -> None:
+        """Apply automatic layout if specified (optional feature)."""
         # Note: AutomaticLayout may not be available in all versions of structurizr-export
         if hasattr(view, 'automaticLayout') and view.automaticLayout:
             try:
@@ -599,10 +619,6 @@ class WorkspaceConverter:
             except (ImportError, AttributeError):
                 # AutomaticLayout not available in this version, skip it
                 pass
-
-        # Set title if present
-        if hasattr(view, 'title') and view.title:
-            java_view.setTitle(view.title)
 
     def _convert_styles(self, configuration: Any, java_views: Any) -> None:
         """Convert view configuration and styles."""
