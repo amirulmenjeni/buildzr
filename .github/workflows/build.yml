@@ -70,6 +70,19 @@ jobs:
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install Structurizr CLI
+      run: |
+        wget -q https://github.com/structurizr/cli/releases/download/v2024.03.03/structurizr-cli.zip
+        sudo unzip -q structurizr-cli.zip -d /opt/structurizr-cli
+        sudo ln -s /opt/structurizr-cli/structurizr.sh /usr/bin/structurizr.sh
+        rm structurizr-cli.zip
+
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
@@ -91,10 +104,7 @@ jobs:
     - name: Run tests
       shell: bash -l {0}
       run: |
-        # `test_workspaces.py` is useful during development, but not necessary for CI.
-        # Plus, it depends on Java and Structurizr CLI, which are not
-        # installed in the CI environment.
-        pytest --mypy --ignore tests/test_workspaces.py
+        pytest --mypy
 
   build:
     runs-on: ubuntu-latest

@@ -20,11 +20,10 @@ class SampleComponentView(AbstractBuilder):
                 db = Container("Database")
                 web_app.component_2 >> "Reads from and writes to" >> db
             user >> "Uses" >> c1
-            w.apply_view(
-                ComponentView(
-                    container_selector=lambda w: w.software_system().software_system.web_application,
-                    key="web_application_container_00",
-                    description="Component View Test",
-                )
+            # ComponentView auto-registers when created inside workspace context
+            ComponentView(
+                container_selector=lambda w: w.software_system().software_system.web_application,
+                key="web_application_container_00",
+                description="Component View Test",
             )
         return w.model

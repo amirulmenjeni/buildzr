@@ -102,3 +102,26 @@ def test_pass_structurizr_validation(builders: List[AbstractBuilder]) -> Optiona
         completed_processes.append(completed_process)
 
     assert all([output.returncode == 0 for output in completed_processes])
+
+def test_export_plantuml(builders: List[AbstractBuilder]) -> Optional[None]:
+    """Exports each workspace to PlantUML format."""
+
+    from buildzr.sinks.plantuml_sink import PlantUmlSink, PlantUmlSinkConfig
+
+    sink = PlantUmlSink()
+    failures: List[Tuple[str, Exception]] = []
+
+    for builder in builders:
+        module_name = builder.__class__.__module__
+
+        # Create output directory structure: tests/samples/export/{filename}/plantuml/
+        output_dir = os.path.join('tests', 'samples', 'export', module_name, 'plantuml')
+
+        workspace = builder.build()
+        config = PlantUmlSinkConfig(path=output_dir)
+        try:
+            sink.write(workspace, config)
+        except Exception as e:
+            failures.append((module_name, e))
+
+    assert not failures, f"PlantUML export failed for: {[f[0] for f in failures]}"

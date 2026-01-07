@@ -978,35 +978,31 @@ def test_style_elements_on_dslelements() -> Optional[None]:
 
         styles = w.model.views.configuration.styles
 
-        # TODO: Avoid duplicating styles.
-        assert len(styles.elements) == 7
+        # Each StyleElements call creates one style per unique tag (no duplicates)
+        assert len(styles.elements) == 4
 
+        # Style 0: Person shape for user
         assert styles.elements[0].tag.startswith("buildzr-styleelements-")
         assert styles.elements[0].shape.name == "Person"
         assert styles.elements[0].tag in user.tags
 
+        # Style 1: WebBrowser shape for s1 and s2 (same tag)
         assert styles.elements[1].tag.startswith("buildzr-styleelements-")
         assert styles.elements[1].shape.name == "WebBrowser"
         assert styles.elements[1].tag in s1.tags
+        assert styles.elements[1].tag in s2.tags
 
+        # Style 2: Circle shape for comp1 and comp4 (same tag)
         assert styles.elements[2].tag.startswith("buildzr-styleelements-")
-        assert styles.elements[2].tag == styles.elements[1].tag
-        assert styles.elements[2].shape.name == "WebBrowser"
-        assert styles.elements[2].tag in s2.tags
+        assert styles.elements[2].shape.name == "Circle"
+        assert styles.elements[2].tag in comp1.tags
+        assert styles.elements[2].tag in comp4.tags
 
+        # Style 3: Cylinder shape for comp2 and comp3 (same tag)
         assert styles.elements[3].tag.startswith("buildzr-styleelements-")
-        assert styles.elements[3].shape.name == "Circle"
-        assert styles.elements[4].tag == styles.elements[3].tag
-        assert styles.elements[4].shape.name == "Circle"
-        assert styles.elements[3].tag in comp1.tags
-        assert styles.elements[4].tag in comp4.tags
-
-        assert styles.elements[5].tag.startswith("buildzr-styleelements-")
-        assert styles.elements[5].shape.name == "Cylinder"
-        assert styles.elements[6].tag == styles.elements[5].tag
-        assert styles.elements[6].shape.name == "Cylinder"
-        assert styles.elements[5].tag in comp2.tags
-        assert styles.elements[6].tag in comp3.tags
+        assert styles.elements[3].shape.name == "Cylinder"
+        assert styles.elements[3].tag in comp2.tags
+        assert styles.elements[3].tag in comp3.tags
 
 def test_style_elements_on_groups() -> Optional[None]:
 

@@ -21,11 +21,10 @@ class SampleImpliedRelationships(AbstractBuilder):
                 database = Container("database")
                 ui_layer >> "Uses" >> database
             u >> "Runs SQL queries" >> database
-            w.apply_view(
-                SystemContextView(
-                    key='sample-implied-relationships',
-                    software_system_selector=lambda w: w.software_system().s,
-                    description="Sample Implied Relationships"
-                )
+
+            SystemContextView(
+                key='sample-implied-relationships',
+                software_system_selector=lambda w: w.software_system().s,
+                description="Sample Implied Relationships"
             )
         return w.model

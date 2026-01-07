@@ -19,14 +19,13 @@ class SystemContextViewSample(AbstractBuilder):
             email_system = SoftwareSystem('email_system')
             user >> "uses" >> web_app
             web_app >> "sends notification using" >> email_system
-            w.apply_view(
-                SystemContextView(
-                    lambda w: w.software_system().web_app,
-                    key='web_app_system_context_00',
-                    description="Web App System Context",
-                    exclude_elements=[
-                        lambda w, e: w.person().user == e,
-                    ]
-                )
+            # SystemContextView auto-registers when created inside workspace context
+            SystemContextView(
+                lambda w: w.software_system().web_app,
+                key='web_app_system_context_00',
+                description="Web App System Context",
+                exclude_elements=[
+                    lambda w, e: w.person().user == e,
+                ]
             )
         return w.model

@@ -201,6 +201,16 @@ with Workspace('My Architecture') as w:
 
 The JSON file can be uploaded to Structurizr's web interface or used with other C4 model visualization tools.
 
+You may also export to PlantUML (requires `pip install buildzr[export-plantuml]` and Java 11+):
+
+```python
+# norun
+with Workspace('My Architecture') as w:
+    # ... define your architecture ...
+
+    w.to_plantuml('output_directory')
+```
+
 ## Extending Existing Workspaces
 
 You can extend an existing `workspace.json` file to build upon its elements. This is useful when you want to add detail to an existing architecture or create specialized views of a parent workspace.

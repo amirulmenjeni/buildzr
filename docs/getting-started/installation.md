@@ -12,6 +12,18 @@ The easiest way to install `buildzr` is using `pip`:
 pip install buildzr
 ```
 
+### Optional Dependencies
+
+#### `buildzr[export-plantuml]`
+
+To export your architecture diagrams directly to PlantUML format, install with the `export-plantuml` extra:
+
+```bash
+pip install "buildzr[export-plantuml]"
+```
+
+Note: This requires Java 11+ to be installed on your system, as it uses Structurizr's Java libraries under the hood via JPype.
+
 ## Install from Source
 
 If you want to install the latest development version from source:
