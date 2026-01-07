@@ -638,7 +638,7 @@ class SoftwareSystem(DslElementRelationOverrides[
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
-        # Add location and documentation (required by Structurizr for rendering)
+        # Note: location is deprecated in Structurizr - use tags instead for styling
         self.model.location = buildzr.models.Location1.Unspecified
         self.model.documentation = buildzr.models.Documentation()
 
@@ -781,6 +781,8 @@ class Person(DslElementRelationOverrides[
         self.model.relationships = []
         self.model.tags = ','.join(self._tags)
         self.model.properties = properties
+        # Note: location is deprecated in Structurizr - use tags instead for styling
+        self.model.location = buildzr.models.Location.Unspecified
 
         workspace = _current_workspace.get()
         if workspace is not None:

@@ -186,8 +186,8 @@ class WorkspaceConverter:
         if person.url:
             java_person.setUrl(person.url)
 
-        # Note: Location is set via element tags in C4-PlantUML
-        # Java API may not support setLocation directly
+        # Note: Location is stored in Python model but Java API doesn't expose setLocation()
+        # Location will be included in JSON export but not available for PlantUML rendering
 
         if person.properties:
             for key, value in person.properties.items():
@@ -213,8 +213,8 @@ class WorkspaceConverter:
         if system.url:
             java_system.setUrl(system.url)
 
-        # Note: Location is set via element tags in C4-PlantUML
-        # Java API may not support setLocation directly
+        # Note: Location is stored in Python model but Java API doesn't expose setLocation()
+        # Location will be included in JSON export but not available for PlantUML rendering
 
         if system.properties:
             for key, value in system.properties.items():
