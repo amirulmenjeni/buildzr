@@ -2,7 +2,7 @@
 
 import os
 from dataclasses import dataclass
-from typing import Optional, Literal
+from typing import Optional, Literal, Any
 from buildzr.models.models import Workspace
 from buildzr.sinks.interfaces import Sink
 
@@ -56,7 +56,7 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
 
         # Check for jpype first
         try:
-            import jpype
+            import jpype  # type: ignore
         except ImportError as e:
             raise ImportError(
                 "jpype1 is required for PlantUML export. "
@@ -66,12 +66,16 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         # Initialize JVM if needed
         self._ensure_jvm_started(config)
 
-        # TODO: Phase 2 - Convert workspace to Java
-        # TODO: Phase 3 - Export using Java exporter
-        # TODO: Phase 4 - Write files and render
+        # Phase 2: Convert workspace to Java
+        from buildzr.exporters.workspace_converter import WorkspaceConverter
+        converter = WorkspaceConverter()
+        java_workspace = converter.to_java(workspace)
 
-        # Placeholder implementation
-        print(f"PlantUML export to {config.path} (format: {config.format})")
+        # Phase 3: Export using Java exporter
+        diagrams = self._export_workspace(java_workspace)
+
+        # Phase 4: Write files and render
+        self._write_diagrams(diagrams, config)
 
     def _ensure_jvm_started(self, config: PlantUmlSinkConfig) -> None:
         """
@@ -104,3 +108,111 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         # Start JVM with JARs in classpath
         jpype.startJVM(classpath=jar_paths)
         print(f"JVM started with JARs: {', '.join(jar_paths)}")
+
+    def _export_workspace(self, java_workspace: Any) -> dict[str, str]:
+        """
+        Export all views in Java workspace to PlantUML diagrams.
+
+        Args:
+            java_workspace: Java com.structurizr.Workspace object
+
+        Returns:
+            Dictionary mapping view keys to PlantUML diagram content
+        """
+        from com.structurizr.export.plantuml import C4PlantUMLExporter  # type: ignore
+
+        exporter = C4PlantUMLExporter()
+        diagrams = {}
+
+        # Get all views from workspace
+        views = java_workspace.getViews()
+
+        # Export system landscape views
+        for view in views.getSystemLandscapeViews():
+            diagram = exporter.export(view)
+            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+
+        # Export system context views
+        for view in views.getSystemContextViews():
+            diagram = exporter.export(view)
+            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+
+        # Export container views
+        for view in views.getContainerViews():
+            diagram = exporter.export(view)
+            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+
+        # Export component views
+        for view in views.getComponentViews():
+            diagram = exporter.export(view)
+            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+
+        # Export deployment views
+        for view in views.getDeploymentViews():
+            diagram = exporter.export(view)
+            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+
+        # Export dynamic views
+        for view in views.getDynamicViews():
+            diagram = exporter.export(view)
+            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+
+        # Export custom views
+        for view in views.getCustomViews():
+            diagram = exporter.export(view)
+            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+
+        return diagrams
+
+    def _write_diagrams(self, diagrams: dict[str, str], config: PlantUmlSinkConfig) -> None:
+        """
+        Write PlantUML diagrams to files.
+
+        Args:
+            diagrams: Dictionary mapping view keys to PlantUML content
+            config: Export configuration
+        """
+        # Create output directory if needed
+        os.makedirs(config.path, exist_ok=True)
+
+        for view_key, puml_content in diagrams.items():
+            # Write .puml file
+            puml_path = os.path.join(config.path, f"{view_key}.puml")
+            with open(puml_path, 'w', encoding='utf-8') as f:
+                f.write(puml_content)
+            print(f"Exported: {puml_path}")
+
+            # Render to image if requested
+            if config.format in ['svg', 'png']:
+                self._render_diagram(puml_path, config.format)
+
+    def _render_diagram(self, puml_path: str, format: str) -> None:
+        """
+        Render PlantUML diagram to image format.
+
+        Args:
+            puml_path: Path to .puml file
+            format: Output format ('svg' or 'png')
+        """
+        try:
+            from net.sourceforge.plantuml import SourceStringReader, FileFormatOption, FileFormat  # type: ignore
+        except ImportError:
+            print(f"Warning: PlantUML rendering not available. Skipping {format} rendering.")
+            return
+
+        # Read PlantUML content
+        with open(puml_path, 'r', encoding='utf-8') as f:
+            puml_content = f.read()
+
+        # Create reader
+        reader = SourceStringReader(puml_content)
+
+        # Determine file format
+        file_format = FileFormat.SVG if format == 'svg' else FileFormat.PNG
+
+        # Write output
+        output_path = puml_path.rsplit('.', 1)[0] + f'.{format}'
+        with open(output_path, 'wb') as f:
+            reader.outputImage(f, FileFormatOption(file_format))
+
+        print(f"Rendered: {output_path}")
