@@ -111,9 +111,9 @@ with Workspace('my-workspace') as w:
     )
 ```
 
-### Step 6: Export to JSON
+### Step 6: Export to JSON, or optionally PlantUML
 
-Finally, export your workspace to a JSON file.
+Finally, export your workspace to a JSON file (or PlantUML files).
 
 ```python hl_lines="24-25"
 # norun
@@ -141,6 +141,9 @@ with Workspace('my-workspace') as w:
 
     # Export to JSON
     w.to_json('workspace.json')
+
+    # Requires `pip install buildzr[export-plantuml]` and Java 11+
+    w.to_plantuml('path/to/output/folder')
 ```
 
 ### Step 7: Run your Code
@@ -212,6 +215,8 @@ The generated JSON file follows the [Structurizr JSON schema](https://github.com
    docker run -it --rm -p 8080:8080 -v $PWD:/usr/local/structurizr structurizr/lite
    ```
 3. **[Structurizr CLI](https://docs.structurizr.com/cli)**: Convert to other formats (PlantUML, Mermaid, etc.)
+
+Or if you've used `to_plantuml()`, you can view the generated `.puml` files using a [C4PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) viewer. For example, you can try copy and paste the contents of the generated `.puml` in this [PlantUML Web Editor](https://www.plantuml.com/plantuml/uml/ZOvFIyGm4CNl-HIrfowupSMJfvNrk6BnprccwT069fEGcI3zzhO5YoAAf_VcmVlDEub2rXB8N7bsL0Qi9jKajzPcU6z7hrFfYs1saHLPMnU3JGIyTewY0_dUdc-EtHgzFbni057CI_HsNXhW6NERLhxfC4la9croHnxakgelq2FLYtbCwYC3LVSeBlljgWzcXpJkq_selg2RE58Svpz0pxCeXaOs-UztyuJqVV3lAtR4bpa7Sq8UIg0F)
 
 ## Next Steps
 
