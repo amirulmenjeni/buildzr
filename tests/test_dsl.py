@@ -233,7 +233,7 @@ def test_accessing_child_elements(dsl: DslHolder) -> Optional[None]:
 def test_relationship_definition_commutativity() -> Optional[None]:
 
     from buildzr.encoders import JsonEncoder
-    import jsondiff #type: ignore[import-untyped]
+    import jsondiff  # type: ignore[import-untyped]
     import json
 
     # For now, we have to cheat a bit and manually edit each entity's ID so they
@@ -1742,3 +1742,69 @@ def test_style_relationships_with_predicates() -> Optional[None]:
 
     assert relationship_styles[0]['tag'] in user_rels[0]['tags']
     assert relationship_styles[0]['tag'] in admin_rels[0]['tags']
+
+def test_style_elements_no_duplicate_tags() -> Optional[None]:
+    """
+    StyleElements should not create duplicate style entries when styling
+    multiple elements with the same tag.
+
+    When StyleElements(on=[a, b], shape='Box') is called, it should create
+    only ONE style entry with a shared tag, not two entries with the same tag.
+    """
+
+    from buildzr.dsl import (
+        Workspace, Person, SoftwareSystem,
+        StyleElements, SystemLandscapeView
+    )
+    from buildzr.encoders import JsonEncoder
+    import json
+
+    with Workspace('w') as w:
+        user1 = Person('User 1')
+        user2 = Person('User 2')
+        system1 = SoftwareSystem('System 1')
+        system2 = SoftwareSystem('System 2')
+
+        # Style multiple elements with a single StyleElements call
+        StyleElements(
+            on=[user1, user2],
+            shape='Person',
+        )
+
+        StyleElements(
+            on=[system1, system2],
+            shape='Box',
+        )
+
+        SystemLandscapeView(
+            key='landscape',
+            description="Test landscape",
+        )
+
+    workspace_json = json.loads(json.dumps(w.model, cls=JsonEncoder))
+    element_styles = workspace_json['views']['configuration']['styles']['elements']
+
+    # Should have exactly 2 styles (one per StyleElements call), not 4
+    assert len(element_styles) == 2
+
+    # First style should be for Person shape
+    person_style = element_styles[0]
+    assert person_style['shape'] == 'Person'
+    assert person_style['tag'].startswith('buildzr-styleelements-')
+
+    # Second style should be for Box shape
+    box_style = element_styles[1]
+    assert box_style['shape'] == 'Box'
+    assert box_style['tag'].startswith('buildzr-styleelements-')
+
+    # Both users should have the same Person style tag
+    people = workspace_json['model']['people']
+    assert len(people) == 2
+    assert person_style['tag'] in people[0]['tags']
+    assert person_style['tag'] in people[1]['tags']
+
+    # Both systems should have the same Box style tag
+    systems = workspace_json['model']['softwareSystems']
+    assert len(systems) == 2
+    assert box_style['tag'] in systems[0]['tags']
+    assert box_style['tag'] in systems[1]['tags']

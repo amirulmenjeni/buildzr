@@ -1,6 +1,6 @@
 """Converts buildzr Python workspace objects to Java Workspace objects for JPype."""
 
-from typing import Dict, Any, Optional, TYPE_CHECKING
+from typing import Dict, Any, Optional, Union, TYPE_CHECKING
 import jpype  # type: ignore
 import jpype.imports  # type: ignore
 
@@ -25,6 +25,7 @@ from buildzr.models.models import (
     DynamicView,
     CustomView,
     InteractionStyle,
+    Shape,
 )
 
 
@@ -366,11 +367,43 @@ class WorkspaceConverter:
             # Skip relationship if elements not found
             return None
 
-        java_rel = source.uses(
-            destination,
-            relationship.description or "",
-            relationship.technology or ""
-        )
+        # Check parent-child relationships (not allowed in Structurizr Java)
+        # See: https://github.com/structurizr/java/blob/master/structurizr-core/src/main/java/com/structurizr/model/Model.java
+        if self._is_child_of(source, destination) or self._is_child_of(destination, source):
+            is_implied = relationship.linkedRelationshipId is not None
+            relationship_type = "Implied relationship" if is_implied else "Relationship"
+            raise ValueError(
+                f"{relationship_type} cannot be added between parents and children: "
+                f"'{source.getName()}' (id={relationship.sourceId}) -> "
+                f"'{destination.getName()}' (id={relationship.destinationId})"
+            )
+
+        # Determine the correct Java method based on element types
+        # - delivers(): for relationships TO a Person
+        # - interactsWith(): for Person to Person relationships
+        # - uses(): for all other relationships
+        dest_class_name = destination.getClass().getSimpleName()
+        source_class_name = source.getClass().getSimpleName()
+
+        if dest_class_name == "Person":
+            if source_class_name == "Person":
+                java_rel = source.interactsWith(
+                    destination,
+                    relationship.description or "",
+                    relationship.technology or ""
+                )
+            else:
+                java_rel = source.delivers(
+                    destination,
+                    relationship.description or "",
+                    relationship.technology or ""
+                )
+        else:
+            java_rel = source.uses(
+                destination,
+                relationship.description or "",
+                relationship.technology or ""
+            )
 
         # Note: Java library generates relationship IDs automatically
 
@@ -710,11 +743,13 @@ class WorkspaceConverter:
         else:
             return JavaRankDirection.TopBottom
 
-    def _convert_shape(self, shape: str) -> Any:
-        """Convert shape string to Java Shape enum."""
+    def _convert_shape(self, shape: Union[str, Shape]) -> Any:
+        """Convert shape string or enum to Java Shape enum."""
         from com.structurizr.view import Shape as JavaShape
 
-        shape_upper = shape.upper()
+        # Handle Shape enum by extracting its value
+        shape_str = shape.value if isinstance(shape, Shape) else shape
+        shape_upper = shape_str.upper()
         if shape_upper == "BOX":
             return JavaShape.Box
         elif shape_upper == "ROUNDEDBOX":
@@ -745,6 +780,23 @@ class WorkspaceConverter:
             return JavaShape.Pipe
         else:
             return JavaShape.Box
+
+    def _is_child_of(self, element: Any, parent: Any) -> bool:
+        """Check if element is a child (at any depth) of parent.
+
+        Mirrors the isChildOf() check in Structurizr Java Model.java.
+        See: https://github.com/structurizr/java/blob/master/structurizr-core/src/main/java/com/structurizr/model/Model.java
+        """
+        # Person elements have no parent hierarchy
+        if element.getClass().getSimpleName() == "Person":
+            return False
+
+        current = element.getParent() if hasattr(element, 'getParent') else None
+        while current is not None:
+            if current == parent:
+                return True
+            current = current.getParent() if hasattr(current, 'getParent') else None
+        return False
 
     def _convert_routing(self, routing: str) -> Any:
         """Convert routing string to Java Routing enum."""

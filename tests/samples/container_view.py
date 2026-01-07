@@ -19,11 +19,10 @@ class SampleContainerView(AbstractBuilder):
             user >> "Uses" >> web_application
             user >> "Hacks" >> git_repo
             git_repo >> "Uses" >> external_system
-            w.apply_view(
-                ContainerView(
-                    software_system_selector=lambda w: w.software_system().app,
-                    key="ss_business_app",
-                    description="The business app",
-                )
+            # ContainerView auto-registers when created inside workspace context
+            ContainerView(
+                software_system_selector=lambda w: w.software_system().app,
+                key="ss_business_app",
+                description="The business app",
             )
         return w.model

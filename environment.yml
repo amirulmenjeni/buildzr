@@ -8,6 +8,7 @@ dependencies:
   - mypy
   - jsondiff
   - pytest-mypy
+  - typing_extensions
   - pip
   - yq
   - mkdocs
@@ -15,7 +16,7 @@ dependencies:
   - datamodel-code-generator
   - jpype1>=1.4.0
   - pip:
-      - -e .
+      - -e ".[export-plantuml]"
       - pypinfo
       - mkdocstrings[python]
 prefix: /opt/conda/envs/buildzr-dev

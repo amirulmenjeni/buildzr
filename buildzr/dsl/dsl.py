@@ -172,6 +172,15 @@ class Workspace(DslWorkspaceElement):
 
         _current_workspace.reset(self._token)
 
+    def _is_descendant_of(self, element: 'DslElement', potential_ancestor: 'DslElement') -> bool:
+        """Check if element is a descendant (child, grandchild, etc.) of potential_ancestor."""
+        current = element.parent
+        while current is not None:
+            if current is potential_ancestor:
+                return True
+            current = current.parent
+        return False
+
     def _imply_relationships( self,
     ) -> None:
 
@@ -216,7 +225,8 @@ class Workspace(DslWorkspaceElement):
                 not isinstance(source.model, buildzr.models.Workspace) and \
                 not isinstance(destination_parent, DslWorkspaceElement):
 
-                if destination_parent is source.parent:
+                # Stop if source is a descendant of destination_parent (parent-child relationship)
+                if self._is_descendant_of(source, destination_parent):
                     break
 
                 rels = source.model.relationships
@@ -245,7 +255,8 @@ class Workspace(DslWorkspaceElement):
                 not isinstance(source_parent.model, buildzr.models.Workspace) and \
                 not isinstance(source_parent, DslWorkspaceElement):
 
-                if source_parent is destination.parent:
+                # Stop if destination is a descendant of source_parent (parent-child relationship)
+                if self._is_descendant_of(destination, source_parent):
                     break
 
                 rels = source_parent.model.relationships
@@ -2867,9 +2878,39 @@ class StyleElements:
         # affected by this style.
         element_tag = "buildzr-styleelements-{}".format(uuid4().hex)
 
+        # Track which tags we've already created styles for (to avoid duplicates)
+        created_tags: set[str] = set()
+
         for element in self._elements:
+            # Determine the tag for this element
+            if isinstance(element, DslElement) and not isinstance(element.model, buildzr.models.Workspace):
+                tag = element_tag
+                element.add_tags(element_tag)
+            elif isinstance(element, Group):
+                tag = f"Group:{element.full_name()}"
+            elif isinstance(element, type):
+                tag = f"{element.__name__}"
+            elif isinstance(element, str):
+                tag = element
+            elif callable(element):
+                from buildzr.dsl.expression import ElementExpression, Expression
+                if self._parent:
+                    tag = element_tag
+                    matched_elems = Expression(include_elements=[element]).elements(self._parent)
+                    for e in matched_elems:
+                        e.add_tags(element_tag)
+                else:
+                    raise ValueError("Cannot use callable to select elements to style without a Workspace.")
+            else:
+                continue
+
+            # Only create one style per unique tag
+            if tag in created_tags:
+                continue
+            created_tags.add(tag)
 
             element_style = buildzr.models.ElementStyle()
+            element_style.tag = tag
             element_style.shape = shape_enum[shape] if shape else None
             element_style.icon = icon
             element_style.width = width
@@ -2883,25 +2924,6 @@ class StyleElements:
             element_style.opacity = opacity
             element_style.metadata = metadata
             element_style.description = description
-
-            if isinstance(element, DslElement) and not isinstance(element.model, buildzr.models.Workspace):
-                element_style.tag = element_tag
-                element.add_tags(element_tag)
-            elif isinstance(element, Group):
-                element_style.tag = f"Group:{element.full_name()}"
-            elif isinstance(element, type):
-                element_style.tag = f"{element.__name__}"
-            elif isinstance(element, str):
-                element_style.tag = element
-            elif callable(element):
-                from buildzr.dsl.expression import ElementExpression, Expression
-                if self._parent:
-                    element_style.tag = element_tag
-                    matched_elems = Expression(include_elements=[element]).elements(self._parent)
-                    for e in matched_elems:
-                        e.add_tags(element_tag)
-                else:
-                    raise ValueError("Cannot use callable to select elements to style without a Workspace.")
             self._m.append(element_style)
 
         workspace = _current_workspace.get()
