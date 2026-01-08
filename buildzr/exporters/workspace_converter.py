@@ -15,6 +15,7 @@ from buildzr.models.models import (
     Container,
     Component,
     DeploymentNode,
+    InfrastructureNode,
     Relationship,
     Views,
     SystemLandscapeView,
@@ -132,12 +133,9 @@ class WorkspaceConverter:
             for system in model.softwareSystems:
                 self._convert_software_system(system, java_model)
 
-        # Convert deployment nodes
-        if model.deploymentNodes:
-            for deployment_node in model.deploymentNodes:
-                self._convert_deployment_node(deployment_node, java_model)
-
-        # Convert relationships (must be done after all elements exist)
+        # Convert static structure relationships BEFORE deployment nodes
+        # This is required so that the Java library can auto-create implied
+        # relationships between container instances when we add them
         if model.people:
             for person in model.people:
                 if person.relationships:
@@ -164,6 +162,14 @@ class WorkspaceConverter:
                                     for rel in component.relationships:
                                         self._convert_relationship(rel, java_model)
 
+        # Convert deployment nodes AFTER static structure relationships
+        # The Java library auto-creates implied relationships between container
+        # instances based on the existing container-to-container relationships
+        if model.deploymentNodes:
+            for deployment_node in model.deploymentNodes:
+                self._convert_deployment_node(deployment_node, java_model)
+
+        # Convert deployment-specific relationships (infrastructure nodes, etc.)
         if model.deploymentNodes:
             for deployment_node in model.deploymentNodes:
                 self._convert_deployment_relationships(deployment_node, java_model)
@@ -334,6 +340,11 @@ class WorkspaceConverter:
             for child_node in deployment_node.children:
                 self._convert_deployment_node(child_node, java_node, depth + 1)
 
+        # Convert infrastructure nodes
+        if deployment_node.infrastructureNodes:
+            for infra_node in deployment_node.infrastructureNodes:
+                self._convert_infrastructure_node(infra_node, java_node)
+
         # Convert container instances
         if deployment_node.containerInstances:
             for instance in deployment_node.containerInstances:
@@ -342,14 +353,66 @@ class WorkspaceConverter:
                     java_instance = java_node.add(java_container)
                     if instance.instanceId:
                         java_instance.setInstanceId(int(instance.instanceId))
+                    # Map the ContainerInstance's ID to the Java instance
+                    if instance.id:
+                        self._element_map[instance.id] = java_instance
 
         return java_node
 
+    def _convert_infrastructure_node(
+        self,
+        infra_node: InfrastructureNode,
+        java_deployment_node: Any
+    ) -> Any:
+        """
+        Convert Python InfrastructureNode to Java InfrastructureNode.
+
+        Args:
+            infra_node: Python InfrastructureNode
+            java_deployment_node: Parent Java DeploymentNode
+        """
+        java_infra = java_deployment_node.addInfrastructureNode(
+            infra_node.name or "",
+            infra_node.description or "",
+            infra_node.technology or ""
+        )
+
+        # Map Python ID to Java element
+        if infra_node.id:
+            self._element_map[infra_node.id] = java_infra
+
+        if infra_node.tags:
+            for tag in infra_node.tags.split(','):
+                java_infra.addTags(tag.strip())
+
+        if infra_node.url:
+            java_infra.setUrl(infra_node.url)
+
+        if infra_node.properties:
+            for key, value in infra_node.properties.items():
+                java_infra.addProperty(key, str(value))
+
+        return java_infra
+
     def _convert_deployment_relationships(self, deployment_node: DeploymentNode, java_model: Any) -> None:
-        """Recursively convert relationships from deployment nodes."""
+        """Recursively convert relationships from deployment nodes, infrastructure nodes, and container instances."""
         if deployment_node.relationships:
             for rel in deployment_node.relationships:
                 self._convert_relationship(rel, java_model)
+
+        # Convert infrastructure node relationships
+        if deployment_node.infrastructureNodes:
+            for infra_node in deployment_node.infrastructureNodes:
+                if infra_node.relationships:
+                    for rel in infra_node.relationships:
+                        self._convert_relationship(rel, java_model)
+
+        # Convert container instance relationships
+        if deployment_node.containerInstances:
+            for instance in deployment_node.containerInstances:
+                if instance.relationships:
+                    for rel in instance.relationships:
+                        self._convert_relationship(rel, java_model)
 
         if deployment_node.children:
             for child_node in deployment_node.children:
@@ -358,6 +421,11 @@ class WorkspaceConverter:
     def _convert_relationship(self, relationship: Relationship, java_model: Any) -> Optional[Any]:
         """Convert Python Relationship to Java Relationship."""
         if not relationship.sourceId or not relationship.destinationId:
+            return None
+
+        # Skip implied relationships - the Java library auto-creates these when
+        # container instances are added for containers that have relationships
+        if relationship.linkedRelationshipId is not None:
             return None
 
         source = self._element_map.get(relationship.sourceId)
@@ -550,6 +618,10 @@ class WorkspaceConverter:
                 view.key or "",
                 view.description or ""
             )
+
+        # For deployment views, use addAllDeploymentNodes() to include all
+        # deployment nodes and their implied relationships automatically
+        java_view.addAllDeploymentNodes()
 
         self._apply_common_view_properties(view, java_view)
         return java_view

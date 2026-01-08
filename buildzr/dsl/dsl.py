@@ -417,7 +417,6 @@ class Workspace(DslWorkspaceElement):
         if self._extended_model:
             return self._merge_models(self._extended_model, self._m)
         return self._m
-
     def to_dict(self) -> Dict[str, Any]:
         """
         Return workspace as a JSON-serializable dictionary.
@@ -719,7 +718,10 @@ class Workspace(DslWorkspaceElement):
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem', 'Element']:
-        return self._dynamic_attrs[name]
+        try:
+            return self._dynamic_attrs[name]
+        except KeyError:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def __getitem__(self, name: str) -> Union['Person', 'SoftwareSystem', 'Element']:
         # Handle integer keys from failed tuple unpacking attempts
