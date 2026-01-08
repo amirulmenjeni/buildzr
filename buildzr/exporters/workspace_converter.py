@@ -350,7 +350,12 @@ class WorkspaceConverter:
             for instance in deployment_node.containerInstances:
                 if instance.containerId and instance.containerId in self._element_map:
                     java_container = self._element_map[instance.containerId]
-                    java_instance = java_node.add(java_container)
+                    # Pass deployment groups to Java - this controls implied relationship creation
+                    deployment_groups = instance.deploymentGroups or []
+                    if deployment_groups:
+                        java_instance = java_node.add(java_container, *deployment_groups)
+                    else:
+                        java_instance = java_node.add(java_container)
                     if instance.instanceId:
                         java_instance.setInstanceId(int(instance.instanceId))
                     # Map the ContainerInstance's ID to the Java instance
@@ -623,8 +628,55 @@ class WorkspaceConverter:
         # deployment nodes and their implied relationships automatically
         java_view.addAllDeploymentNodes()
 
+        # Remove relationships between container instances that don't share
+        # at least one common deployment group (cross-group relationships)
+        self._remove_cross_group_relationships(java_view)
+
         self._apply_common_view_properties(view, java_view)
         return java_view
+
+    def _remove_cross_group_relationships(self, java_view: Any) -> None:
+        """
+        Remove relationships between container/software system instances that
+        don't share at least one common deployment group.
+
+        This is needed because the Java library creates implied relationships
+        between ALL instances when their underlying elements have relationships,
+        regardless of deployment groups. The Python model correctly filters
+        these by deployment group, so we need to remove the extras.
+
+        Args:
+            java_view: Java DeploymentView object
+        """
+        # Collect relationships to remove (can't modify while iterating)
+        rels_to_remove = []
+
+        for rel_view in java_view.getRelationships():
+            rel = rel_view.getRelationship()
+            source = rel.getSource()
+            destination = rel.getDestination()
+
+            # Only check StaticStructureElementInstance relationships
+            # (ContainerInstance or SoftwareSystemInstance)
+            source_class = source.getClass().getSimpleName()
+            dest_class = destination.getClass().getSimpleName()
+
+            if source_class not in ('ContainerInstance', 'SoftwareSystemInstance'):
+                continue
+            if dest_class not in ('ContainerInstance', 'SoftwareSystemInstance'):
+                continue
+
+            # Get deployment groups for both instances
+            source_groups = set(source.getDeploymentGroups())
+            dest_groups = set(destination.getDeploymentGroups())
+
+            # If they share no common deployment groups, remove the relationship
+            if not source_groups.intersection(dest_groups):
+                rels_to_remove.append(rel)
+
+        # Remove the cross-group relationships from the view
+        for rel in rels_to_remove:
+            java_view.remove(rel)
 
     def _convert_dynamic_view(self, view: DynamicView, java_views: Any) -> Any:
         """Convert Python DynamicView to Java."""
