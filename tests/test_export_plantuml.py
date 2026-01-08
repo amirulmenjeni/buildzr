@@ -157,7 +157,6 @@ class TestPlantUmlSink:
                 # Restore original directory
                 os.chdir(original_dir)
 
-    @pytest.mark.skip(reason="Rendering requires PlantUML JAR which may not be available")
     def test_plantuml_export_svg_format(self, sample_workspace: Any) -> None:
         """Test export to SVG format (requires PlantUML)."""
         with tempfile.TemporaryDirectory() as temp_dir:

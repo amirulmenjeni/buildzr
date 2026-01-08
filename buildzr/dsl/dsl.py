@@ -403,19 +403,168 @@ class Workspace(DslWorkspaceElement):
             else:
                 self.model.views.configuration.styles.relationships = style.model
 
-    def to_json(self, path: str, pretty: bool=False) -> None:
+    def _merged_workspace(self) -> 'buildzr.models.Workspace':
+        """
+        Get the merged workspace model, combining extended workspace if present.
 
+        This method handles implied relationships and workspace extension merging.
+
+        Returns:
+            The merged workspace model ready for export.
+        """
         self._imply_relationships()
 
-        # Merge with extended workspace if present
         if self._extended_model:
-            merged_model = self._merge_models(self._extended_model, self._m)
-        else:
-            merged_model = self._m
+            return self._merge_models(self._extended_model, self._m)
+        return self._m
 
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Return workspace as a JSON-serializable dictionary.
+
+        This method is useful for programmatic access to the workspace data
+        and for Jupyter notebook display.
+
+        Returns:
+            Dictionary representation of the workspace with camelCase keys.
+
+        Example:
+            >>> data = workspace.to_dict()
+            >>> print(data['name'])
+        """
+        import json
+        from buildzr.encoders.encoder import JsonEncoder
+        merged = self._merged_workspace()
+        return cast(Dict[str, Any], json.loads(JsonEncoder().encode(merged)))
+
+    def to_json_string(self, pretty: bool = True) -> str:
+        """
+        Return workspace as a JSON string.
+
+        Args:
+            pretty: If True (default), format with 2-space indentation.
+
+        Returns:
+            JSON string representation of the workspace.
+
+        Example:
+            >>> json_str = workspace.to_json_string()
+            >>> print(json_str)
+        """
+        from buildzr.encoders.encoder import JsonEncoder
+        merged = self._merged_workspace()
+        indent = 2 if pretty else None
+        return JsonEncoder(indent=indent).encode(merged)
+
+    def _repr_json_(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Jupyter notebook JSON representation.
+
+        Returns a tuple of (data, metadata) for Jupyter's JSON display.
+        The data is the workspace as a dictionary, and metadata controls display.
+
+        Returns:
+            Tuple of (workspace_dict, display_metadata)
+        """
+        return self.to_dict(), {"expanded": False, "root": "workspace"}
+
+    def to_json(self, path: str, pretty: bool=False) -> None:
+        """
+        Write workspace to a JSON file.
+
+        Args:
+            path: File path where JSON will be written.
+            pretty: If True, format with 2-space indentation.
+
+        Example:
+            >>> workspace.to_json('workspace.json', pretty=True)
+        """
         from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
+        merged = self._merged_workspace()
         sink = JsonSink()
-        sink.write(workspace=merged_model, config=JsonSinkConfig(path=path, pretty=pretty))
+        sink.write(workspace=merged, config=JsonSinkConfig(path=path, pretty=pretty))
+
+    def to_plantuml_string(self) -> Dict[str, str]:
+        """
+        Return PlantUML source for all views as a dictionary.
+
+        Uses the official structurizr-export Java library via JPype to generate
+        C4-PlantUML diagrams from workspace views.
+
+        Returns:
+            Dictionary mapping view keys to PlantUML source strings.
+
+        Raises:
+            ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
+            FileNotFoundError: If structurizr-export JAR cannot be found
+
+        Example:
+            >>> diagrams = workspace.to_plantuml_string()
+            >>> for key, puml in diagrams.items():
+            ...     print(f"{key}: {len(puml)} chars")
+        """
+        from buildzr.sinks.plantuml_sink import PlantUmlSink
+        merged = self._merged_workspace()
+        sink = PlantUmlSink()
+        return sink.export_to_dict(merged)
+
+    def to_svg_string(self) -> Dict[str, str]:
+        """
+        Return SVG content for all views as a dictionary.
+
+        Uses the official structurizr-export Java library and PlantUML to
+        render workspace views as SVG diagrams.
+
+        Returns:
+            Dictionary mapping view keys to SVG content strings.
+
+        Raises:
+            ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
+            FileNotFoundError: If structurizr-export JAR cannot be found
+
+        Example:
+            >>> svgs = workspace.to_svg_string()
+            >>> with open('diagram.svg', 'w') as f:
+            ...     f.write(svgs['SystemContext'])
+        """
+        from buildzr.sinks.plantuml_sink import PlantUmlSink
+        merged = self._merged_workspace()
+        sink = PlantUmlSink()
+        return sink.render_to_svg_dict(merged)
+
+    def _repr_html_(self) -> str:
+        """
+        Jupyter notebook HTML representation with embedded SVG diagrams.
+
+        Displays all workspace views as SVG diagrams stacked vertically,
+        each with a heading showing the view key.
+
+        Returns:
+            HTML string with embedded SVG diagrams.
+
+        Raises:
+            ImportError: If jpype1 is not installed. Install with:
+                pip install buildzr[export-plantuml]
+        """
+        try:
+            svgs = self.to_svg_string()
+        except ImportError as e:
+            raise ImportError(
+                "PlantUML export dependencies not installed. "
+                "Install with: pip install buildzr[export-plantuml]"
+            ) from e
+
+        if not svgs:
+            return "<p><em>No views defined in workspace.</em></p>"
+
+        html_parts = []
+        for view_key, svg_content in svgs.items():
+            html_parts.append(f'<div style="margin-bottom: 2em;">')
+            html_parts.append(f'<h3 style="font-family: sans-serif; color: #333;">{view_key}</h3>')
+            html_parts.append(svg_content)
+            html_parts.append('</div>')
+
+        return '\n'.join(html_parts)
 
     def to_plantuml(
         self,
@@ -443,18 +592,12 @@ class Workspace(DslWorkspaceElement):
             >>> workspace.to_plantuml('output/diagrams')
             >>> workspace.to_plantuml('output', format='svg')
         """
-        self._imply_relationships()
-
-        # Merge with extended workspace if present
-        if self._extended_model:
-            merged_model = self._merge_models(self._extended_model, self._m)
-        else:
-            merged_model = self._m
+        merged = self._merged_workspace()
 
         from buildzr.sinks.plantuml_sink import PlantUmlSink, PlantUmlSinkConfig
         config = PlantUmlSinkConfig(path=path, format=format, **kwargs)  # type: ignore[arg-type]
         sink = PlantUmlSink()
-        sink.write(workspace=merged_model, config=config)
+        sink.write(workspace=merged, config=config)
 
     def _merge_models(
         self,

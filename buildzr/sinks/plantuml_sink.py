@@ -38,6 +38,92 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         >>> sink.write(workspace, config)
     """
 
+    def export_to_dict(self, workspace: Workspace) -> dict[str, str]:
+        """
+        Export workspace views to PlantUML strings without writing files.
+
+        Args:
+            workspace: The workspace to export
+
+        Returns:
+            Dictionary mapping view keys to PlantUML source strings.
+
+        Raises:
+            ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
+            FileNotFoundError: If structurizr-export JAR cannot be found
+        """
+        try:
+            import jpype  # type: ignore
+        except ImportError as e:
+            raise ImportError(
+                "jpype1 is required for PlantUML export. "
+                "Install with: pip install buildzr[export-plantuml]"
+            ) from e
+
+        # Initialize JVM with default config
+        self._ensure_jvm_started(PlantUmlSinkConfig(path=""))
+
+        # Convert workspace to Java
+        from buildzr.exporters.workspace_converter import WorkspaceConverter
+        converter = WorkspaceConverter()
+        java_workspace = converter.to_java(workspace)
+
+        # Export and return
+        return self._export_workspace(java_workspace)
+
+    def render_to_svg_dict(self, workspace: Workspace) -> dict[str, str]:
+        """
+        Export workspace views and render to SVG strings.
+
+        Args:
+            workspace: The workspace to export
+
+        Returns:
+            Dictionary mapping view keys to SVG content strings.
+
+        Raises:
+            ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
+            FileNotFoundError: If structurizr-export JAR cannot be found
+        """
+        # First get PlantUML strings
+        diagrams = self.export_to_dict(workspace)
+
+        # Render each to SVG
+        result: dict[str, str] = {}
+        for view_key, puml_content in diagrams.items():
+            svg_bytes = self._render_to_bytes(puml_content, "svg")
+            result[view_key] = svg_bytes.decode('utf-8')
+
+        return result
+
+    def _render_to_bytes(self, puml_content: str, format: str) -> bytes:
+        """
+        Render PlantUML content to image bytes.
+
+        Args:
+            puml_content: PlantUML source string
+            format: Output format ('svg' or 'png')
+
+        Returns:
+            Image content as bytes.
+        """
+        try:
+            from net.sourceforge.plantuml import SourceStringReader, FileFormatOption, FileFormat  # type: ignore
+            from java.io import ByteArrayOutputStream  # type: ignore
+        except ImportError as e:
+            raise ImportError(
+                "PlantUML rendering not available. "
+                "Ensure the PlantUML JAR is in the classpath."
+            ) from e
+
+        reader = SourceStringReader(puml_content)
+        file_format = FileFormat.SVG if format == 'svg' else FileFormat.PNG
+
+        # Use Java ByteArrayOutputStream for compatibility
+        output = ByteArrayOutputStream()
+        reader.outputImage(output, FileFormatOption(file_format))
+        return bytes(output.toByteArray())
+
     def write(self, workspace: Workspace, config: Optional[PlantUmlSinkConfig] = None) -> None:
         """
         Export workspace views to PlantUML files.
@@ -194,25 +280,20 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
             puml_path: Path to .puml file
             format: Output format ('svg' or 'png')
         """
-        try:
-            from net.sourceforge.plantuml import SourceStringReader, FileFormatOption, FileFormat  # type: ignore
-        except ImportError:
-            print(f"Warning: PlantUML rendering not available. Skipping {format} rendering.")
-            return
-
         # Read PlantUML content
         with open(puml_path, 'r', encoding='utf-8') as f:
             puml_content = f.read()
 
-        # Create reader
-        reader = SourceStringReader(puml_content)
-
-        # Determine file format
-        file_format = FileFormat.SVG if format == 'svg' else FileFormat.PNG
+        # Render to bytes using our helper method
+        try:
+            image_bytes = self._render_to_bytes(puml_content, format)
+        except ImportError:
+            print(f"Warning: PlantUML rendering not available. Skipping {format} rendering.")
+            return
 
         # Write output
         output_path = puml_path.rsplit('.', 1)[0] + f'.{format}'
         with open(output_path, 'wb') as f:
-            reader.outputImage(f, FileFormatOption(file_format))
+            f.write(image_bytes)
 
         print(f"Rendered: {output_path}")
