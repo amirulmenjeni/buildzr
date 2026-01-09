@@ -53,7 +53,7 @@ with Workspace('w') as w:
         auto_layout='lr'
     )
 
-    w.to_json('workspace.json')
+    w.save(path='workspace.json')
 ```
 
 ## System Context View
@@ -92,7 +92,7 @@ with Workspace('w') as w:
         auto_layout='tb'
     )
 
-    w.to_json('workspace.json')
+    w.save(path='workspace.json')
 ```
 
 ## Container View
@@ -140,7 +140,7 @@ with Workspace('w') as w:
         auto_layout='tb'
     )
 
-    w.to_json('workspace.json')
+    w.save(path='workspace.json')
 ```
 
 ## Component View
@@ -192,7 +192,7 @@ with Workspace('w') as w:
         auto_layout='tb'
     )
 
-    w.to_json('workspace.json')
+    w.save(path='workspace.json')
 ```
 
 ## Deployment View
@@ -246,7 +246,7 @@ with Workspace('w') as w:
         auto_layout='tb'
     )
 
-    w.to_json('workspace.json')
+    w.save(path='workspace.json')
 ```
 
 ## Dynamic View
@@ -363,7 +363,7 @@ with Workspace('Online Book Store') as w:
         auto_layout='lr',
     )
 
-    w.to_json('workspace.json')
+    w.save(path='workspace.json')
 ```
 
 ### Scope Options
@@ -442,7 +442,7 @@ with Workspace('IoT System') as w:
         auto_layout='tb'
     )
 
-    w.to_json('workspace.json')
+    w.save(path='workspace.json')
 ```
 
 ### CustomView Parameters
@@ -650,7 +650,7 @@ with Workspace('multi-view-example', implied_relationships=True) as w:
         auto_layout='lr'
     )
 
-    w.to_json('workspace.json')
+    w.save(path='workspace.json')
 ```
 
 ## Next Steps
