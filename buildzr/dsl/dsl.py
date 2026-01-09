@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 import buildzr
 from .factory import GenerateId
 from typing_extensions import (
@@ -41,6 +42,9 @@ from buildzr.dsl.relations import (
     _Relationship,
 )
 from buildzr.dsl.color import Color
+
+# Type alias for save() format parameter
+SaveFormat = Literal['json', 'plantuml', 'svg', 'png']
 
 
 def _child_name_transform(name: str) -> str:
@@ -403,58 +407,296 @@ class Workspace(DslWorkspaceElement):
             else:
                 self.model.views.configuration.styles.relationships = style.model
 
-    def to_json(self, path: str, pretty: bool=False) -> None:
+    def _merged_workspace(self) -> 'buildzr.models.Workspace':
+        """
+        Get the merged workspace model, combining extended workspace if present.
 
+        This method handles implied relationships and workspace extension merging.
+
+        Returns:
+            The merged workspace model ready for export.
+        """
         self._imply_relationships()
 
-        # Merge with extended workspace if present
         if self._extended_model:
-            merged_model = self._merge_models(self._extended_model, self._m)
-        else:
-            merged_model = self._m
-
-        from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
-        sink = JsonSink()
-        sink.write(workspace=merged_model, config=JsonSinkConfig(path=path, pretty=pretty))
-
-    def to_plantuml(
-        self,
-        path: str,
-        format: str = 'puml',
-        **kwargs: Any
-    ) -> None:
+            return self._merge_models(self._extended_model, self._m)
+        return self._m
+    def to_dict(self) -> Dict[str, Any]:
         """
-        Export workspace views to PlantUML files.
+        Return workspace as a JSON-serializable dictionary.
+
+        This method is useful for programmatic access to the workspace data
+        and for Jupyter notebook display.
+
+        Returns:
+            Dictionary representation of the workspace with camelCase keys.
+
+        Example:
+            >>> data = workspace.to_dict()
+            >>> print(data['name'])
+        """
+        import json
+        from buildzr.encoders.encoder import JsonEncoder
+        merged = self._merged_workspace()
+        return cast(Dict[str, Any], json.loads(JsonEncoder().encode(merged)))
+
+    def _sanitize_name(self, name: str) -> str:
+        """Sanitize workspace name for use as filename."""
+        return name.lower().replace(' ', '_')
+
+    def save(
+        self,
+        format: SaveFormat = 'json',
+        path: Optional[Union[str, Path]] = None,
+        pretty: bool = False,
+    ) -> Union[str, List[str]]:
+        """
+        Save workspace to file(s) in the specified format.
+
+        Args:
+            format: Output format. One of:
+                - 'json': Single JSON file (default)
+                - 'plantuml': PlantUML .puml files (one per view)
+                - 'svg': SVG image files (one per view)
+                - 'png': PNG image files (one per view)
+            path: Output path. Behavior depends on format:
+                - For 'json': file path (defaults to '{cwd}/{workspace_name}.json')
+                - For diagram formats: directory path (defaults to '{cwd}/')
+            pretty: For 'json' format only, whether to indent output.
+
+        Returns:
+            - For 'json': The path to the written file (str)
+            - For diagram formats: List of paths to written files
+
+        Raises:
+            ImportError: If 'plantuml'/'svg'/'png' format requested but jpype1
+                not installed. Install with: pip install buildzr[export-plantuml]
+            ValueError: If format is not recognized.
+
+        Example:
+            >>> w.save()  # Saves to ./my_workspace.json
+            >>> w.save(format='json', path='output/arch.json', pretty=True)
+            >>> w.save(format='plantuml', path='diagrams/')
+            >>> w.save(format='svg')  # Saves to ./
+        """
+        merged = self._merged_workspace()
+        workspace_name = self._sanitize_name(self.model.name or 'workspace')
+
+        if format == 'json':
+            return self._save_json(merged, path, workspace_name, pretty)
+        elif format in ('plantuml', 'svg', 'png'):
+            return self._save_diagrams(merged, path, format)
+        else:
+            raise ValueError(
+                f"Unsupported format: {format}. "
+                f"Use one of: 'json', 'plantuml', 'svg', 'png'"
+            )
+
+    def _save_json(
+        self,
+        workspace: 'buildzr.models.Workspace',
+        path: Optional[Union[str, Path]],
+        workspace_name: str,
+        pretty: bool,
+    ) -> str:
+        """Save workspace as JSON file."""
+        import os
+        from buildzr.sinks.json_sink import JsonSink, JsonSinkConfig
+
+        if path is None:
+            path = Path.cwd() / f"{workspace_name}.json"
+
+        path = Path(path)
+
+        # Create parent directories if needed
+        if path.parent and not path.parent.exists():
+            os.makedirs(path.parent, exist_ok=True)
+
+        sink = JsonSink()
+        sink.write(workspace=workspace, config=JsonSinkConfig(
+            path=str(path),
+            pretty=pretty
+        ))
+        return str(path)
+
+    def _save_diagrams(
+        self,
+        workspace: 'buildzr.models.Workspace',
+        path: Optional[Union[str, Path]],
+        format: Literal['plantuml', 'svg', 'png'],
+    ) -> List[str]:
+        """Save workspace views as diagram files."""
+        import os
+
+        try:
+            from buildzr.sinks.plantuml_sink import PlantUmlSink, PlantUmlSinkConfig
+        except ImportError as e:
+            raise ImportError(
+                "jpype1 is required for diagram export. "
+                "Install with: pip install buildzr[export-plantuml]"
+            ) from e
+
+        if path is None:
+            path = Path.cwd()
+
+        path = Path(path)
+
+        # Create directory if needed
+        if not path.exists():
+            os.makedirs(path, exist_ok=True)
+
+        # Map format to PlantUmlSinkConfig format
+        puml_format: Literal['puml', 'svg', 'png']
+        if format == 'plantuml':
+            puml_format = 'puml'
+        else:
+            puml_format = format  # 'svg' or 'png'
+
+        sink = PlantUmlSink()
+        config = PlantUmlSinkConfig(path=str(path), format=puml_format)
+        sink.write(workspace=workspace, config=config)
+
+        # Build list of created files based on views
+        ext = 'puml' if format == 'plantuml' else format
+        created_files: List[str] = []
+
+        if workspace.views:
+            views = workspace.views
+            # Collect all views that have keys
+            all_views: List[Any] = []
+            if views.systemLandscapeViews:
+                all_views.extend(views.systemLandscapeViews)
+            if views.systemContextViews:
+                all_views.extend(views.systemContextViews)
+            if views.containerViews:
+                all_views.extend(views.containerViews)
+            if views.componentViews:
+                all_views.extend(views.componentViews)
+            if views.deploymentViews:
+                all_views.extend(views.deploymentViews)
+            if views.dynamicViews:
+                all_views.extend(views.dynamicViews)
+            if views.customViews:
+                all_views.extend(views.customViews)
+
+            for view in all_views:
+                if view.key:
+                    created_files.append(str(path / f"{view.key}.{ext}"))
+
+        return created_files
+
+    def to_json(self, pretty: bool = True) -> str:
+        """
+        Return workspace as a JSON string.
+
+        Args:
+            pretty: If True (default), format with 2-space indentation.
+
+        Returns:
+            JSON string representation of the workspace.
+
+        Example:
+            >>> json_str = workspace.to_json()
+            >>> print(json_str)
+        """
+        from buildzr.encoders.encoder import JsonEncoder
+        merged = self._merged_workspace()
+        indent = 2 if pretty else None
+        return JsonEncoder(indent=indent).encode(merged)
+
+    def _repr_json_(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Jupyter notebook JSON representation.
+
+        Returns a tuple of (data, metadata) for Jupyter's JSON display.
+        The data is the workspace as a dictionary, and metadata controls display.
+
+        Returns:
+            Tuple of (workspace_dict, display_metadata)
+        """
+        return self.to_dict(), {"expanded": False, "root": "workspace"}
+
+    def to_plantuml(self) -> Dict[str, str]:
+        """
+        Return PlantUML source for all views as a dictionary.
 
         Uses the official structurizr-export Java library via JPype to generate
         C4-PlantUML diagrams from workspace views.
 
-        Args:
-            path: Output directory path where .puml files will be written
-            format: Output format - 'puml' for text files, 'svg'/'png' for rendered images
-            **kwargs: Additional PlantUmlSinkConfig options (e.g., structurizr_export_jar_path)
+        Returns:
+            Dictionary mapping view keys to PlantUML source strings.
 
         Raises:
             ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
             FileNotFoundError: If structurizr-export JAR cannot be found
-            RuntimeError: If JVM initialization or export fails
 
         Example:
-            >>> workspace.to_plantuml('output/diagrams')
-            >>> workspace.to_plantuml('output', format='svg')
+            >>> diagrams = workspace.to_plantuml()
+            >>> for key, puml in diagrams.items():
+            ...     print(f"{key}: {len(puml)} chars")
         """
-        self._imply_relationships()
-
-        # Merge with extended workspace if present
-        if self._extended_model:
-            merged_model = self._merge_models(self._extended_model, self._m)
-        else:
-            merged_model = self._m
-
-        from buildzr.sinks.plantuml_sink import PlantUmlSink, PlantUmlSinkConfig
-        config = PlantUmlSinkConfig(path=path, format=format, **kwargs)  # type: ignore[arg-type]
+        from buildzr.sinks.plantuml_sink import PlantUmlSink
+        merged = self._merged_workspace()
         sink = PlantUmlSink()
-        sink.write(workspace=merged_model, config=config)
+        return sink.export_to_dict(merged)
+
+    def to_svg(self) -> Dict[str, str]:
+        """
+        Return SVG content for all views as a dictionary.
+
+        Uses the official structurizr-export Java library and PlantUML to
+        render workspace views as SVG diagrams.
+
+        Returns:
+            Dictionary mapping view keys to SVG content strings.
+
+        Raises:
+            ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
+            FileNotFoundError: If structurizr-export JAR cannot be found
+
+        Example:
+            >>> svgs = workspace.to_svg()
+            >>> with open('diagram.svg', 'w') as f:
+            ...     f.write(svgs['SystemContext'])
+        """
+        from buildzr.sinks.plantuml_sink import PlantUmlSink
+        merged = self._merged_workspace()
+        sink = PlantUmlSink()
+        return sink.render_to_svg_dict(merged)
+
+    def _repr_html_(self) -> str:
+        """
+        Jupyter notebook HTML representation with embedded SVG diagrams.
+
+        Displays all workspace views as SVG diagrams stacked vertically,
+        each with a heading showing the view key.
+
+        Returns:
+            HTML string with embedded SVG diagrams.
+
+        Raises:
+            ImportError: If jpype1 is not installed. Install with:
+                pip install buildzr[export-plantuml]
+        """
+        try:
+            svgs = self.to_svg()
+        except ImportError as e:
+            raise ImportError(
+                "PlantUML export dependencies not installed. "
+                "Install with: pip install buildzr[export-plantuml]"
+            ) from e
+
+        if not svgs:
+            return "<p><em>No views defined in workspace.</em></p>"
+
+        html_parts = []
+        for view_key, svg_content in svgs.items():
+            html_parts.append(f'<div style="margin-bottom: 2em;">')
+            html_parts.append(f'<h3 style="font-family: sans-serif; color: #333;">{view_key}</h3>')
+            html_parts.append(svg_content)
+            html_parts.append('</div>')
+
+        return '\n'.join(html_parts)
 
     def _merge_models(
         self,
@@ -576,7 +818,10 @@ class Workspace(DslWorkspaceElement):
             raise ValueError('Invalid element type: Trying to add an element of type {} to a workspace.'.format(type(model)))
 
     def __getattr__(self, name: str) -> Union['Person', 'SoftwareSystem', 'Element']:
-        return self._dynamic_attrs[name]
+        try:
+            return self._dynamic_attrs[name]
+        except KeyError:
+            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
     def __getitem__(self, name: str) -> Union['Person', 'SoftwareSystem', 'Element']:
         # Handle integer keys from failed tuple unpacking attempts

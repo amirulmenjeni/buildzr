@@ -1,4 +1,4 @@
-"""Locates the bundled structurizr-export JAR files."""
+"""Locates and downloads required JAR files for PlantUML export."""
 
 import os
 import sys
@@ -6,46 +6,64 @@ from pathlib import Path
 from typing import List
 
 
-def get_bundled_jar_paths() -> List[str]:
-    """
-    Get paths to all bundled structurizr JARs (export and core).
+def get_jars_dir() -> Path:
+    """Get the jars directory path."""
+    return Path(__file__).parent.parent / "jars"
 
-    Searches in multiple locations:
-    1. Relative to this file (development/installed package)
-    2. System-wide installation directories
+
+def get_bundled_jar_paths(auto_download: bool = True) -> List[str]:
+    """
+    Get paths to all required JARs for PlantUML export.
+
+    If JARs are not found and auto_download is True, they will be
+    downloaded from Maven Central automatically.
+
+    Args:
+        auto_download: If True, download missing JARs automatically.
 
     Returns:
         List[str]: Absolute paths to all required JAR files
 
     Raises:
-        FileNotFoundError: If JARs cannot be found
+        FileNotFoundError: If JARs cannot be found and auto_download is False
 
     Example:
         >>> jar_paths = get_bundled_jar_paths()
         >>> print(jar_paths)
-        ['/path/to/buildzr/jars/structurizr-export.jar', '/path/to/buildzr/jars/structurizr-core.jar']
+        ['/path/to/buildzr/jars/structurizr-export.jar', ...]
     """
-    required_jars = ["structurizr-export.jar", "structurizr-core.jar", "commons-logging.jar"]
-    found_jars = []
+    required_jars = [
+        "structurizr-export.jar",
+        "structurizr-core.jar",
+        "commons-logging.jar",
+        "plantuml.jar",
+    ]
 
-    # Check package data location (relative to this file)
-    jars_dir = Path(__file__).parent.parent / "jars"
+    jars_dir = get_jars_dir()
+    found_jars: List[str] = []
+    missing_jars: List[str] = []
 
-    if jars_dir.exists():
-        for jar_name in required_jars:
-            jar_path = jars_dir / jar_name
-            if jar_path.exists():
-                found_jars.append(str(jar_path.resolve()))
+    # Check which JARs exist
+    for jar_name in required_jars:
+        jar_path = jars_dir / jar_name
+        if jar_path.exists():
+            found_jars.append(str(jar_path.resolve()))
+        else:
+            missing_jars.append(jar_name)
 
-    # If we found all JARs, return them
-    if len(found_jars) == len(required_jars):
+    # If all JARs found, return them
+    if not missing_jars:
         return found_jars
 
-    # Fallback: check install locations in sys.path
-    found_jars = []
-    for path_str in sys.path:
-        jars_dir = Path(path_str) / "buildzr" / "jars"
-        if jars_dir.exists():
+    # Try auto-download if enabled
+    if auto_download:
+        print(f"Downloading missing JARs: {missing_jars}")
+        try:
+            from buildzr.exporters.download_jars import download_all_jars
+            download_all_jars()
+
+            # Re-check after download
+            found_jars = []
             for jar_name in required_jars:
                 jar_path = jars_dir / jar_name
                 if jar_path.exists():
@@ -53,19 +71,21 @@ def get_bundled_jar_paths() -> List[str]:
 
             if len(found_jars) == len(required_jars):
                 return found_jars
+        except Exception as e:
+            print(f"Auto-download failed: {e}")
 
-    # Not found - provide helpful error message
-    missing_jars = [jar for jar in required_jars if not any(jar in path for path in found_jars)]
+    # Still missing - raise error with helpful message
     raise FileNotFoundError(
-        f"Required JARs not found: {missing_jars}. "
-        "Please install with PlantUML export support: "
-        "pip install buildzr[export-plantuml]"
+        f"Required JARs not found: {missing_jars}\n\n"
+        "JARs should be downloaded automatically during pip install.\n"
+        "Try reinstalling: pip install buildzr[export-plantuml]\n\n"
+        "Or download manually from Maven Central."
     )
 
 
 def get_bundled_jar_path() -> str:
     """
-    Get path to bundled structurizr-export JAR (legacy method).
+    Get path to structurizr-export JAR (legacy method).
 
     Deprecated: Use get_bundled_jar_paths() instead.
 
@@ -82,14 +102,9 @@ def get_bundled_jar_path() -> str:
 
 def get_jar_version() -> str:
     """
-    Get the version of the bundled structurizr-export JAR.
+    Get the version of the structurizr-export JAR.
 
     Returns:
-        str: Version string (e.g., "5.0.1")
-
-    Note:
-        This is a placeholder. Actual version detection would require
-        reading JAR manifest or using a version file.
+        str: Version string
     """
-    # TODO: Implement actual version detection
-    return "5.0.1"
+    return "3.2.0"

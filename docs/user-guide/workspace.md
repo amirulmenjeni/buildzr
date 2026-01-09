@@ -192,11 +192,11 @@ Once you've defined your architecture, export it to JSON for visualization in to
 with Workspace('My Architecture') as w:
     # ... define your architecture ...
 
-    # Export to JSON
-    w.to_json('workspace.json')
+    # Export to JSON file
+    w.save(path='workspace.json')
 
     # Export with pretty formatting
-    w.to_json('workspace_pretty.json', pretty=True)
+    w.save(path='workspace_pretty.json', pretty=True)
 ```
 
 The JSON file can be uploaded to Structurizr's web interface or used with other C4 model visualization tools.
@@ -208,7 +208,7 @@ You may also export to PlantUML (requires `pip install buildzr[export-plantuml]`
 with Workspace('My Architecture') as w:
     # ... define your architecture ...
 
-    w.to_plantuml('output_directory')
+    w.save(format='plantuml', path='output_directory')
 ```
 
 ## Extending Existing Workspaces
@@ -310,7 +310,7 @@ When extending a workspace, `buildzr` automatically ensures that new elements re
 
 ### Merged Output
 
-When you export the workspace with `to_json()`, the output contains both parent and child elements merged together:
+When you export the workspace with `save()`, the output contains both parent and child elements merged together:
 
 ```python
 # norun
@@ -319,7 +319,7 @@ with Workspace('Extended', extend='parent.json') as w:
     SoftwareSystem('New System')
 
     # Export merges parent + child
-    w.to_json('extended_workspace.json', pretty=True)
+    w.save(path='extended_workspace.json', pretty=True)
 ```
 
 The merged output uses the child workspace's name and description while preserving all parent elements and their relationships.
@@ -403,7 +403,7 @@ with Workspace(
     )
 
     # Export (with pretty json formatting) 💅
-    w.to_json('workspace.json', pretty=True)
+    w.save(path='workspace.json', pretty=True)
 ```
 
 ## Next Steps

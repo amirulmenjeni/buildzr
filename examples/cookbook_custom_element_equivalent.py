@@ -43,5 +43,5 @@ with Workspace('Name') as w:
     )
 
     # Export
-    w.to_json('cookbook_custom_element_buildzr.json', pretty=True)
+    w.save(path='cookbook_custom_element_buildzr.json', pretty=True)
     print(f"Generated: cookbook_custom_element_buildzr.json")

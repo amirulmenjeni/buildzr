@@ -157,7 +157,6 @@ class TestPlantUmlSink:
                 # Restore original directory
                 os.chdir(original_dir)
 
-    @pytest.mark.skip(reason="Rendering requires PlantUML JAR which may not be available")
     def test_plantuml_export_svg_format(self, sample_workspace: Any) -> None:
         """Test export to SVG format (requires PlantUML)."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -174,11 +173,11 @@ class TestPlantUmlSink:
             assert len(svg_files) > 0
             assert len(puml_files) == len(svg_files)
 
-    def test_workspace_to_plantuml_method(self) -> None:
-        """Test the Workspace.to_plantuml() convenience method."""
+    def test_workspace_save_plantuml_method(self) -> None:
+        """Test the Workspace.save(format='plantuml') method."""
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create workspace using DSL
-            with Workspace('Test Workspace', 'Test workspace for to_plantuml()') as w:
+            with Workspace('Test Workspace', 'Test workspace for save()') as w:
                 user = Person('User', 'A user of the system')
 
                 with SoftwareSystem('TestSystem', 'A test system') as test_system:
@@ -192,8 +191,8 @@ class TestPlantUmlSink:
                     description='System context'
                 )
 
-            # Use the to_plantuml() method
-            w.to_plantuml(temp_dir)
+            # Use the save() method
+            w.save(format='plantuml', path=temp_dir)
 
             # Verify output
             puml_files = list(Path(temp_dir).glob("*.puml"))

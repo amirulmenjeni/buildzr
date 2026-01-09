@@ -370,8 +370,8 @@ def test_implied_relationship() -> Optional[None]:
 
         # Invoke imply relationships more than once.
         # Should be no problem.
-        w.to_json('workspace.test.json')
-        w.to_json('workspace2.test.json')
+        w.save(path='workspace.test.json')
+        w.save(path='workspace2.test.json')
 
         assert isinstance(w.u, Person)
         assert isinstance(w.s, SoftwareSystem)
@@ -426,7 +426,7 @@ def test_inverse_implied_relationship() -> Optional[None]:
             description="System context view",
         )
 
-        w.to_json('workspace.inverse.test.json')
+        w.save(path='workspace.inverse.test.json')
 
     # Check that System has an implied relationship to User
     assert len(s.model.relationships) == 1
@@ -1116,7 +1116,7 @@ def test_json_sink() -> Optional[None]:
             software_system_selector=lambda w: w.software_system().software_2,
         )
 
-        w.to_json(path="test.json")
+        w.save(path="test.json")
 
     with open("test.json", "r") as f:
         data = f.read()
@@ -1139,7 +1139,7 @@ def test_json_sink_empty_views() -> Optional[None]:
             desc("Uses") >> s2,
         ]
 
-        w.to_json(path="test.json")
+        w.save(path="test.json")
 
     with open("test.json", "r") as f:
         data = f.read()
@@ -1192,8 +1192,8 @@ def test_deployment_instance_relationships_with_implied_relationships() -> Optio
         )
 
         # Export multiple times to ensure idempotency
-        w.to_json('test_deployment1.json')
-        w.to_json('test_deployment2.json')
+        w.save(path='test_deployment1.json')
+        w.save(path='test_deployment2.json')
 
     # Verify instance relationships exist
     assert api_gw_instance.model.relationships is not None
@@ -1281,7 +1281,7 @@ def test_imply_relationships_before_deployment_environment_not_crashing() -> Opt
             auto_layout='lr',
         )
 
-        w.to_json('amazon_web_services.json', pretty=True)
+        w.save(path='amazon_web_services.json', pretty=True)
 
 def test_software_system_instance_relationships_with_missing_instances() -> Optional[None]:
     """

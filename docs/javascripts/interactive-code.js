@@ -274,20 +274,20 @@ async function runCodeInBrowser(code, index, button) {
             // Wrap code with Workspace context and imports
             codeToRun = imports + `with Workspace('w') as w:
 ${code.split('\n').map(line => '    ' + line).join('\n')}
-    w.to_json('workspace.json')`;
+    w.save(path='workspace.json')`;
         } else {
-            // Has Workspace context - prepend imports if missing and ensure to_json is called
-            const hasToJson = /\.to_json\s*\(/i.test(code);
+            // Has Workspace context - prepend imports if missing and ensure save is called
+            const hasSave = /\.save\s*\(/i.test(code);
 
             if (!hasImports) {
                 codeToRun = imports + code;
             }
 
-            if (!hasToJson) {
+            if (!hasSave) {
                 // Extract workspace variable name from "with Workspace(...) as var_name:"
                 const workspaceVarMatch = code.match(/with\s+Workspace\s*\([^)]*\)\s+as\s+(\w+)\s*:/i);
                 const workspaceVar = workspaceVarMatch ? workspaceVarMatch[1] : 'w';
-                codeToRun = codeToRun + `\n${workspaceVar}.to_json('workspace.json')`;
+                codeToRun = codeToRun + `\n${workspaceVar}.save(path='workspace.json')`;
             }
         }
 

@@ -15,6 +15,7 @@ dependencies:
   - mkdocs-material
   - datamodel-code-generator
   - jpype1>=1.4.0
+  - ipykernel
   - pip:
       - -e ".[export-plantuml]"
       - pypinfo

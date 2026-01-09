@@ -70,4 +70,4 @@ with Workspace('Custom Element Example') as w:
         auto_layout='lr',
     )
 
-    w.to_json('cookbook_custom_element.json', pretty=True)
+    w.save(path='cookbook_custom_element.json', pretty=True)

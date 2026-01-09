@@ -39,4 +39,4 @@ with Workspace("w", scope=None) as w:
         software_system_selector=software_system,
     )
 
-    w.to_json('deployment_groups.json', pretty=True)
+    w.save(path='deployment_groups.json', pretty=True)
