@@ -2,11 +2,11 @@
 
 import importlib.util
 from pathlib import Path
+from types import ModuleType
 
-from hatchling.builders.hooks.plugin.interface import BuildHookInterface
+from hatchling.builders.hooks.plugin.interface import BuildHookInterface # type: ignore[import-not-found]
 
-
-def _load_download_jars_module():
+def _load_download_jars_module() -> ModuleType:
     """Load the download_jars module directly from file path.
 
     This avoids the chicken-and-egg problem where we need to import

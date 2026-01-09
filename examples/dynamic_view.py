@@ -68,4 +68,4 @@ with Workspace('Online Book Store') as w:
         auto_layout='lr',
     )
 
-    w.to_json('dynamic_view.json', pretty=True)
+    w.save(path='dynamic_view.json', pretty=True)

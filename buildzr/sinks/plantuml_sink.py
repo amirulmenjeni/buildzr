@@ -142,7 +142,7 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
 
         # Check for jpype first
         try:
-            import jpype  # type: ignore
+            import jpype
         except ImportError as e:
             raise ImportError(
                 "jpype1 is required for PlantUML export. "

@@ -87,4 +87,4 @@ with Workspace('microservices-example', implied_relationships=True) as w:
         key='deployment-view-production-ecommerce',
     )
 
-    w.to_json('buildzr_models_example.json', pretty=True)
+    w.save(path='buildzr_models_example.json', pretty=True)

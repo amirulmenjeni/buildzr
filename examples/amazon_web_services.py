@@ -123,4 +123,4 @@ with Workspace(
     StyleElements(on=[user], shape='Person')
     StyleElements(on=[db], shape='Cylinder')
 
-    w.to_json('amazon_web_services.json', pretty=True)
+    w.save(path='amazon_web_services.json', pretty=True)

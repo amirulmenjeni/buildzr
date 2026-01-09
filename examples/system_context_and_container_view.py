@@ -43,4 +43,4 @@ with Workspace('w') as w:
         description="Web App Container View",
     )
 
-    w.to_json('workspace.json')
+    w.save(path='workspace.json')

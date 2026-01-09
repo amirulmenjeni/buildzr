@@ -217,7 +217,7 @@ class TestWorkspaceExtension:
                 system_b = w.software_system().system_b
                 new_sys = SoftwareSystem("New System")
                 new_sys >> "Uses" >> system_b
-                w.to_json(output_path)
+                w.save(path=output_path)
 
             with open(output_path, 'r') as f:
                 output = json.load(f)
@@ -244,7 +244,7 @@ class TestWorkspaceExtension:
                 system_b = w.software_system().system_b
                 new_sys = SoftwareSystem("New System")
                 new_sys >> "Calls API of" >> system_b
-                w.to_json(output_path)
+                w.save(path=output_path)
 
             with open(output_path, 'r') as f:
                 output = json.load(f)

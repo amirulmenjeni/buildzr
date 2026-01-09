@@ -61,5 +61,5 @@ with Workspace('Extended Workspace', extend=parent_workspace) as w:
 
     # Export the merged workspace
     output_path = os.path.join(os.path.dirname(__file__), 'workspace_extension.json')
-    w.to_json(output_path, pretty=True)
+    w.save(path=output_path, pretty=True)
     print(f"Exported to: {output_path}")
