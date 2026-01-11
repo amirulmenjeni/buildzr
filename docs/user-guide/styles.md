@@ -386,6 +386,13 @@ StyleElements(
 )
 ```
 
+!!! tip "Cloud Provider Icons"
+    Instead of manually specifying icon URLs, use `buildzr`'s built-in [themes](./themes.md) for AWS, Azure, Google Cloud, and Kubernetes icons:
+    ```python
+    from buildzr.themes import AWS
+    StyleElements(on=[my_container], **AWS.LAMBDA)
+    ```
+
 ### Available Shapes
 
 Your shape-shifting toolkit (unfortunately, no actual shape-shifting included):
@@ -607,7 +614,8 @@ with Workspace('predicate-styling') as w:
     )
 ```
 
-## Next Steps
+## See Also
 
+- [Themes](./themes.md)
 - [Views](./views.md)
 - [API Reference](../api/dsl.md)

@@ -653,7 +653,6 @@ with Workspace('multi-view-example', implied_relationships=True) as w:
     w.save(path='workspace.json')
 ```
 
-## Next Steps
+## See Also
 
 - [Styles](styles.md)
-- [API Reference](../api/dsl.md)
