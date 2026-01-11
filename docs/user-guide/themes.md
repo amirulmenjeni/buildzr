@@ -1,6 +1,6 @@
 # Themes
 
-Add cloud provider icons to your architecture diagrams with zero friction. `buildzr` provides auto-generated theme constants for AWS, Azure, Google Cloud, and Kubernetes.
+Add cloud provider icons to your architecture diagrams with zero friction. `buildzr` provides auto-generated theme constants for AWS, Azure, Google Cloud, Kubernetes, and Oracle Cloud Infrastructure.
 
 ## Overview
 
@@ -29,9 +29,10 @@ The legend will display meaningful names like "Amazon Web Services - EC2" with t
 | Theme | Import | Services |
 |-------|--------|----------|
 | **AWS** | `from buildzr.themes import AWS` | 1000+ services across all versions |
-| **Azure** | `from buildzr.themes import Azure` | 500+ services |
-| **Google Cloud** | `from buildzr.themes import GoogleCloud` | 200+ services |
-| **Kubernetes** | `from buildzr.themes import Kubernetes` | 80+ resources |
+| **Azure** | `from buildzr.themes import AZURE` | 500+ services |
+| **Google Cloud** | `from buildzr.themes import GOOGLE_CLOUD` | 200+ services |
+| **Kubernetes** | `from buildzr.themes import KUBERNETES` | 80+ resources |
+| **Oracle Cloud** | `from buildzr.themes import ORACLE_CLOUD` | 150+ services |
 
 ## Basic Usage
 
@@ -105,19 +106,29 @@ StyleElements(on=[region], **AWS_2020_04_30.REGION)
 ### Azure Versions
 
 ```python
-from buildzr.themes import Azure, Azure_2023_01_24, Azure_2021_01_31
+from buildzr.themes import AZURE, AZURE_2023_01_24
 ```
 
 ### Google Cloud Versions
 
 ```python
-from buildzr.themes import GoogleCloud, GoogleCloud_2022_09_08
+from buildzr.themes import GOOGLE_CLOUD, GOOGLE_CLOUD_V1_5
 ```
 
 ### Kubernetes Versions
 
 ```python
-from buildzr.themes import Kubernetes, Kubernetes_2024_03_26
+from buildzr.themes import KUBERNETES, KUBERNETES_V0_3
+```
+
+### Oracle Cloud Versions
+
+```python
+from buildzr.themes import ORACLE_CLOUD, ORACLE_CLOUD_2023_04_01, ORACLE_CLOUD_2021_04_30, ORACLE_CLOUD_2020_04_30
+
+# ORACLE_CLOUD is an alias for the latest version (ORACLE_CLOUD_2023_04_01)
+StyleElements(on=[db], **ORACLE_CLOUD.AUTONOMOUS_DATABASE)
+StyleElements(on=[api], **ORACLE_CLOUD.API_GATEWAY)
 ```
 
 ## Offline / Self-Contained Workspaces

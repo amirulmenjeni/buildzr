@@ -8,8 +8,10 @@ from .aws import AWS
 from .azure import AZURE
 from .google_cloud import GOOGLE_CLOUD
 from .kubernetes import KUBERNETES
+from .oracle_cloud import ORACLE_CLOUD
 
 from .aws import AWS_2023_01_31, AWS_2022_04_30, AWS_2020_04_30
+from .oracle_cloud import ORACLE_CLOUD_2023_04_01, ORACLE_CLOUD_2021_04_30, ORACLE_CLOUD_2020_04_30
 
 __all__ = [
     "AWS",
@@ -22,4 +24,8 @@ __all__ = [
     "GOOGLE_CLOUD_V1_5",
     "KUBERNETES",
     "KUBERNETES_V0_3",
+    "ORACLE_CLOUD",
+    "ORACLE_CLOUD_2023_04_01",
+    "ORACLE_CLOUD_2021_04_30",
+    "ORACLE_CLOUD_2020_04_30",
 ]

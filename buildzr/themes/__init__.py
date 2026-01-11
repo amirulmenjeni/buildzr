@@ -1,7 +1,8 @@
 """
 buildzr theme system.
 
-Provides IDE-discoverable constants for Structurizr themes (AWS, Google Cloud, Azure, Kubernetes).
+Provides IDE-discoverable constants for Structurizr themes
+(AWS, Azure, Google Cloud, Kubernetes, Oracle Cloud Infrastructure).
 
 Usage:
     from buildzr.dsl import Workspace, DeploymentNode, StyleElements
@@ -30,6 +31,7 @@ from .generated import (
     AZURE,
     GOOGLE_CLOUD,
     KUBERNETES,
+    ORACLE_CLOUD,
 )
 
 # Version-specific imports
@@ -41,6 +43,11 @@ from .generated.aws import (
 from .generated.azure import AZURE_2023_01_24
 from .generated.google_cloud import GOOGLE_CLOUD_V1_5
 from .generated.kubernetes import KUBERNETES_V0_3
+from .generated.oracle_cloud import (
+    ORACLE_CLOUD_2023_04_01,
+    ORACLE_CLOUD_2021_04_30,
+    ORACLE_CLOUD_2020_04_30,
+)
 
 __all__ = [
     # Base class
@@ -50,6 +57,7 @@ __all__ = [
     'AZURE',
     'GOOGLE_CLOUD',
     'KUBERNETES',
+    'ORACLE_CLOUD',
     # Version-specific
     'AWS_2023_01_31',
     'AWS_2022_04_30',
@@ -57,4 +65,7 @@ __all__ = [
     'AZURE_2023_01_24',
     'GOOGLE_CLOUD_V1_5',
     'KUBERNETES_V0_3',
+    'ORACLE_CLOUD_2023_04_01',
+    'ORACLE_CLOUD_2021_04_30',
+    'ORACLE_CLOUD_2020_04_30',
 ]

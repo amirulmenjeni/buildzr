@@ -10,6 +10,7 @@ from buildzr.themes import (
     AZURE,
     GOOGLE_CLOUD,
     KUBERNETES,
+    ORACLE_CLOUD,
     AWS_2023_01_31,
     AWS_2022_04_30,
     AWS_2020_04_30,
@@ -127,6 +128,14 @@ class TestGeneratedThemes:
         """Test Kubernetes theme is available."""
         assert KUBERNETES is not None
         assert KUBERNETES.THEME_NAME == "Kubernetes"
+
+    def test_oracle_cloud_theme_exists(self) -> None:
+        """Test Oracle Cloud theme is available."""
+        assert ORACLE_CLOUD is not None
+        assert ORACLE_CLOUD.THEME_NAME == "Oracle Cloud Infrastructure"
+        # Check some common OCI services exist
+        assert hasattr(ORACLE_CLOUD, 'AUTONOMOUS_DATABASE')
+        assert hasattr(ORACLE_CLOUD, 'FUNCTIONS')
 
     def test_aws_version_classes(self) -> None:
         """Test AWS has version-specific classes."""
