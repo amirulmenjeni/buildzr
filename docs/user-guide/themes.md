@@ -102,9 +102,6 @@ StyleElements(on=[region], **AWS_2020_04_30.CLOUD)
 StyleElements(on=[region], **AWS_2020_04_30.REGION)
 ```
 
-!!! note "Version Differences"
-    Some icons exist only in specific versions. For example, the `CLOUD` and `REGION` icons are only available in `AWS_2020_04_30`, not in newer versions.
-
 ### Azure Versions
 
 ```python
