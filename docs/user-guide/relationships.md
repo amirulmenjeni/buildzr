@@ -198,7 +198,7 @@ The following table shows the allowed relationships between which element types,
 Note that the table shows that `SoftwareSystemInstance` and `ContainerInstance` can only have a relationship with `InfrastructureNode`. Behind the scene, though, when you create a relationship, say, between two `Container`s, `buildzr` will create the implied instance relationships between the instances of the two `ContainerInstance`s if they exists. For an example of this, see the [Deployment Group example](./models.md#deployment-group). (This is a different feature, not to be confused with from what's described in [Implied Relationships](#implied-relationships).)
 
 
-## Next Steps
+## See Also
 
 - [Models](models.md)
 - [Views](views.md)

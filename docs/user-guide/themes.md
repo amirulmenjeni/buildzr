@@ -241,6 +241,7 @@ python generate.py
 
 This fetches theme definitions from URLs in `themes.txt` and generates Python modules in `generated/`.
 
-## Next Steps
+## See Also
 
-- [Views](./views.md) - Create different diagram types
+- [Styles](./styles.md)
+- [Views](./views.md)

@@ -614,8 +614,8 @@ with Workspace('predicate-styling') as w:
     )
 ```
 
-## Next Steps
+## See Also
 
-- [Themes](./themes.md) - Add cloud provider icons (AWS, Azure, GCP, Kubernetes)
-- [Views](./views.md) - Create different diagram types
-- [API Reference](../api/dsl.md) - Full API documentation
+- [Themes](./themes.md)
+- [Views](./views.md)
+- [API Reference](../api/dsl.md)
