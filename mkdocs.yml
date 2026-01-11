@@ -84,6 +84,7 @@ nav:
     - Relationships: user-guide/relationships.md
     - Views: user-guide/views.md
     - Styles: user-guide/styles.md
+    - Themes: user-guide/themes.md
   - API Reference:
     - DSL: api/dsl.md
     - Models: api/models.md

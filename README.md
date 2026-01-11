@@ -98,6 +98,8 @@ Ready to dive in? Check out the [Quick Start Tutorial](https://buildzr.dev/getti
 
 ✅ **Advanced Styling**: Style elements beyond just tags --- target by direct reference, type, group membership, or custom predicates for fine-grained visual control. Just take a look at [Styles](https://buildzr.dev/user-guide/styles/)!
 
+✅ **Cloud Provider Themes**: Add AWS, Azure, Google Cloud, and Kubernetes icons to your diagrams with IDE-discoverable constants. No more memorizing tag strings! See [Themes](https://buildzr.dev/user-guide/themes/).
+
 ✅ **Type Safety**: Write Structurizr diagrams more securely with extensive type hints and [Mypy](https://mypy-lang.org) support.
 
 ✅ **Standards Compliant**: Stays true to the [Structurizr JSON schema](https://github.com/structurizr/json) standards. `buildzr` uses [datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator) to automatically generate the low-level representation of the Workspace model.
