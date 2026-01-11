@@ -781,6 +781,11 @@ class WorkspaceConverter:
         """Convert view configuration and styles."""
         java_config = java_views.getConfiguration()
 
+        # Convert configuration properties (e.g., c4plantuml.tags for sprite support)
+        if hasattr(configuration, 'properties') and configuration.properties:
+            for key, value in configuration.properties.items():
+                java_config.addProperty(key, str(value))
+
         # Convert element styles
         if hasattr(configuration, 'styles') and configuration.styles:
             if hasattr(configuration.styles, 'elements') and configuration.styles.elements:

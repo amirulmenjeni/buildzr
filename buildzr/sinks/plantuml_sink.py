@@ -63,6 +63,9 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         # Initialize JVM with default config
         self._ensure_jvm_started(PlantUmlSinkConfig(path=""))
 
+        # Enable C4-PlantUML tags for icon/sprite support
+        self._ensure_c4plantuml_tags_enabled(workspace)
+
         # Convert workspace to Java
         from buildzr.exporters.workspace_converter import WorkspaceConverter
         converter = WorkspaceConverter()
@@ -152,6 +155,9 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         # Initialize JVM if needed
         self._ensure_jvm_started(config)
 
+        # Enable C4-PlantUML tags for icon/sprite support
+        self._ensure_c4plantuml_tags_enabled(workspace)
+
         # Phase 2: Convert workspace to Java
         from buildzr.exporters.workspace_converter import WorkspaceConverter
         converter = WorkspaceConverter()
@@ -194,6 +200,36 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         # Start JVM with JARs in classpath
         jpype.startJVM(classpath=jar_paths)
         print(f"JVM started with JARs: {', '.join(jar_paths)}")
+
+    def _ensure_c4plantuml_tags_enabled(self, workspace: Workspace) -> None:
+        """
+        Ensure the c4plantuml.tags property is set to enable icon/sprite support.
+
+        The C4PlantUML exporter only outputs AddElementTag() with sprites when
+        the c4plantuml.tags property is set to "true". This method ensures that
+        property is set when the workspace has element styles with icons.
+
+        Args:
+            workspace: The workspace to configure
+        """
+        from buildzr.models.models import Configuration
+
+        if not workspace.views:
+            return
+
+        # Ensure configuration exists
+        if not workspace.views.configuration:
+            workspace.views.configuration = Configuration()
+
+        config = workspace.views.configuration
+
+        # Ensure properties dict exists
+        if not config.properties:
+            config.properties = {}
+
+        # Enable c4plantuml.tags if not explicitly set
+        if 'c4plantuml.tags' not in config.properties:
+            config.properties['c4plantuml.tags'] = 'true'
 
     def _export_workspace(self, java_workspace: Any) -> dict[str, str]:
         """

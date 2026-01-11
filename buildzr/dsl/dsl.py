@@ -3038,6 +3038,7 @@ class StyleElements:
                 Type[Union['Person', 'SoftwareSystem', 'Container', 'Component']],
                 str
             ]],
+            tag: Optional[str]=None,
             shape: Optional[Shapes]=None,
             icon: Optional[str]=None,
             width: Optional[int]=None,
@@ -3121,7 +3122,9 @@ class StyleElements:
 
         # A single unique element to be applied to all elements
         # affected by this style.
-        element_tag = "buildzr-styleelements-{}".format(uuid4().hex)
+        # If a tag is provided (e.g., from a ThemeElement), use it for meaningful
+        # legend display. Otherwise, generate a unique internal tag.
+        element_tag = tag if tag else "buildzr-styleelements-{}".format(uuid4().hex)
 
         # Track which tags we've already created styles for (to avoid duplicates)
         created_tags: set[str] = set()
