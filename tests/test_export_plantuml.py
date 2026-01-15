@@ -202,3 +202,102 @@ class TestPlantUmlSink:
             content = puml_files[0].read_text()
             assert '@startuml' in content
             assert '@enduml' in content
+
+    def test_filter_empty_sprite_tags(self) -> None:
+        """Test that AddElementTag lines with empty sprites are filtered out."""
+        sink = PlantUmlSink()
+
+        puml_content = """@startuml
+AddElementTag("WithIcon", $bgColor="#dddddd", $sprite="img:https://example.com/icon.png", $borderStyle="solid")
+AddElementTag("EmptySprite", $bgColor="#dddddd", $sprite="", $borderStyle="solid")
+AddElementTag("EmptySpriteAlt", $bgColor="#dddddd", $sprite='', $borderStyle="solid")
+AddBoundaryTag("Boundary", $bgColor="#ffffff", $borderColor="#9a9a9a")
+Person(User, "User")
+@enduml"""
+
+        filtered = sink._filter_empty_sprite_tags(puml_content)
+
+        # Lines with icons should be preserved
+        assert 'AddElementTag("WithIcon"' in filtered
+        # Lines with empty sprites should be removed
+        assert 'AddElementTag("EmptySprite"' not in filtered
+        assert 'AddElementTag("EmptySpriteAlt"' not in filtered
+        # AddBoundaryTag should be removed (no icons)
+        assert 'AddBoundaryTag' not in filtered
+        # Other content should be preserved
+        assert 'Person(User' in filtered
+        assert '@startuml' in filtered
+        assert '@enduml' in filtered
+
+    def test_clean_svg_legend(self) -> None:
+        """Test that placeholder characters are removed from SVG content."""
+        sink = PlantUmlSink()
+
+        # SVG content with placeholder character (&#9647; = U+25AF)
+        svg_content = b'<svg><text>&#9647;</text><text>Legend</text></svg>'
+
+        cleaned = sink._clean_svg_legend(svg_content)
+
+        # Placeholder should be removed
+        assert b'&#9647;' not in cleaned
+        # Other content preserved
+        assert b'Legend' in cleaned
+        assert b'<svg>' in cleaned
+
+    def test_clean_svg_legend_unicode_literal(self) -> None:
+        """Test that Unicode literal placeholder is also removed."""
+        sink = PlantUmlSink()
+
+        # SVG content with Unicode literal (▯)
+        svg_content = '▯ Legend'.encode('utf-8')
+
+        cleaned = sink._clean_svg_legend(svg_content)
+
+        # Unicode literal should be removed
+        assert '\u25af'.encode('utf-8') not in cleaned
+        assert b'Legend' in cleaned
+
+    def test_svg_export_no_placeholder_characters(self) -> None:
+        """Test that SVG export removes placeholder characters via save()."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create workspace with styled elements
+            with Workspace('Test', 'Test workspace') as w:
+                user = Person('User')
+                with SoftwareSystem('System') as system:
+                    container = Container('Container')
+                user >> "Uses" >> container
+
+                SystemContextView(system, key='context', description='Test context')
+
+            # Export to SVG
+            w.save(format='svg', path=temp_dir)
+
+            # Check SVG files for placeholder characters
+            svg_files = list(Path(temp_dir).glob("*.svg"))
+            assert len(svg_files) > 0
+
+            for svg_file in svg_files:
+                content = svg_file.read_text()
+                # No placeholder characters should be present
+                assert '&#9647;' not in content, f"Found placeholder in {svg_file.name}"
+                assert '\u25af' not in content, f"Found Unicode placeholder in {svg_file.name}"
+
+    def test_to_svg_no_placeholder_characters(self) -> None:
+        """Test that to_svg() removes placeholder characters (used by Jupyter)."""
+        # Create workspace with styled elements
+        with Workspace('Test', 'Test workspace') as w:
+            user = Person('User')
+            with SoftwareSystem('System') as system:
+                container = Container('Container')
+            user >> "Uses" >> container
+
+            SystemContextView(system, key='context', description='Test context')
+
+        # Get SVG via to_svg() method (used by Jupyter notebooks)
+        svgs = w.to_svg()
+
+        assert len(svgs) > 0
+        for view_key, svg_content in svgs.items():
+            # No placeholder characters should be present
+            assert '&#9647;' not in svg_content, f"Found placeholder in {view_key}"
+            assert '\u25af' not in svg_content, f"Found Unicode placeholder in {view_key}"
