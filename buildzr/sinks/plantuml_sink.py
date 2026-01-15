@@ -1,6 +1,7 @@
 """PlantUML sink for exporting workspaces to PlantUML diagrams."""
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Optional, Literal, Any
 from buildzr.models.models import Workspace
@@ -231,6 +232,44 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         if 'c4plantuml.tags' not in config.properties:
             config.properties['c4plantuml.tags'] = 'true'
 
+    @staticmethod
+    def _filter_empty_sprite_tags(puml_content: str) -> str:
+        """
+        Filter out tag statements that would show empty placeholder characters in legends.
+
+        This prevents the legend from showing empty placeholder characters (U+25AF ▯)
+        for tags that don't have associated icons/sprites.
+
+        Filters out:
+        - AddElementTag with empty $sprite="" parameters
+        - AddBoundaryTag entries (boundaries don't have icons, only show ▯)
+
+        Args:
+            puml_content: The PlantUML diagram content
+
+        Returns:
+            Filtered PlantUML content with problematic tag definitions removed
+        """
+        # Pattern matches AddElementTag lines where $sprite="" (empty sprite)
+        empty_sprite_pattern = r'^AddElementTag\([^)]*\$sprite=["\']["\'][^)]*\)\s*$'
+
+        # Pattern matches AddBoundaryTag lines (boundaries show ▯ without icons)
+        boundary_tag_pattern = r'^AddBoundaryTag\('
+
+        # Split content into lines, filter, and rejoin
+        lines = puml_content.split('\n')
+        filtered_lines = []
+        for line in lines:
+            # Skip lines with empty sprites
+            if re.match(empty_sprite_pattern, line):
+                continue
+            # Skip boundary tag lines (they only show color swatches, no icons)
+            if re.match(boundary_tag_pattern, line):
+                continue
+            filtered_lines.append(line)
+
+        return '\n'.join(filtered_lines)
+
     def _export_workspace(self, java_workspace: Any) -> dict[str, str]:
         """
         Export all views in Java workspace to PlantUML diagrams.
@@ -252,37 +291,37 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         # Export system landscape views
         for view in views.getSystemLandscapeViews():
             diagram = exporter.export(view)
-            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+            diagrams[str(view.getKey())] = self._filter_empty_sprite_tags(str(diagram.getDefinition()))
 
         # Export system context views
         for view in views.getSystemContextViews():
             diagram = exporter.export(view)
-            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+            diagrams[str(view.getKey())] = self._filter_empty_sprite_tags(str(diagram.getDefinition()))
 
         # Export container views
         for view in views.getContainerViews():
             diagram = exporter.export(view)
-            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+            diagrams[str(view.getKey())] = self._filter_empty_sprite_tags(str(diagram.getDefinition()))
 
         # Export component views
         for view in views.getComponentViews():
             diagram = exporter.export(view)
-            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+            diagrams[str(view.getKey())] = self._filter_empty_sprite_tags(str(diagram.getDefinition()))
 
         # Export deployment views
         for view in views.getDeploymentViews():
             diagram = exporter.export(view)
-            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+            diagrams[str(view.getKey())] = self._filter_empty_sprite_tags(str(diagram.getDefinition()))
 
         # Export dynamic views
         for view in views.getDynamicViews():
             diagram = exporter.export(view)
-            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+            diagrams[str(view.getKey())] = self._filter_empty_sprite_tags(str(diagram.getDefinition()))
 
         # Export custom views
         for view in views.getCustomViews():
             diagram = exporter.export(view)
-            diagrams[str(view.getKey())] = str(diagram.getDefinition())
+            diagrams[str(view.getKey())] = self._filter_empty_sprite_tags(str(diagram.getDefinition()))
 
         return diagrams
 
@@ -329,7 +368,34 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
 
         # Write output
         output_path = puml_path.rsplit('.', 1)[0] + f'.{format}'
+
+        # Post-process SVG to remove empty placeholder characters
+        if format == 'svg':
+            image_bytes = self._clean_svg_legend(image_bytes)
+
         with open(output_path, 'wb') as f:
             f.write(image_bytes)
 
         print(f"Rendered: {output_path}")
+
+    @staticmethod
+    def _clean_svg_legend(svg_bytes: bytes) -> bytes:
+        """
+        Remove empty placeholder characters (▯ U+25AF) from SVG legend entries.
+
+        C4-PlantUML renders &#9647; as a color indicator in legends. This character
+        may display as an empty box [] on some systems. This method removes it.
+
+        Args:
+            svg_bytes: Raw SVG content as bytes
+
+        Returns:
+            Cleaned SVG content with placeholder characters removed
+        """
+        svg_content = svg_bytes.decode('utf-8')
+
+        # Remove &#9647; (decimal) and ▯ (literal) characters from the SVG
+        svg_content = svg_content.replace('&#9647;', '')
+        svg_content = svg_content.replace('\u25af', '')
+
+        return svg_content.encode('utf-8')

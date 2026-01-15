@@ -28,6 +28,7 @@ from buildzr.dsl import (
     Group,
     StyleElements,
 )
+from buildzr.themes import AWS
 
 with Workspace('w') as w:
 
@@ -67,24 +68,23 @@ with Workspace('w') as w:
 
     # Stylize the views.
 
-    StyleElements(
-        on=[u],
-        shape='Person',
-        background='blue',
-    )
+    StyleElements(on=['db'], shape='Cylinder')
 
-    StyleElements(
-        on=['db'],
-        shape='Cylinder'
-    )
+    # Apply AWS theme icons.
 
-    # Export to JSON.
+    StyleElements(on=[u], shape='Person', **AWS.USER)
+    StyleElements(on=[api], **AWS.LAMBDA)
+    StyleElements(on=[database], **AWS.RDS)
 
-    w.to_json('workspace.json')
+    # Export to JSON, PlantUML, or SVG.
+
+    w.save()                                  # JSON to {workspace_name}.json
+    w.save(format='plantuml', path='output/') # PlantUML files
+    w.save(format='svg', path='output/')      # SVG files (requires: pip install buildzr[export-plantuml])
 ```
 
-![Example Software System View](./docs/images/example_system_context_view.png)
-![Example Container View](./docs/images/example_container_view.png)
+![Example Software System View](./docs/images/quick_example/web_app_system_context_00.svg)
+![Example Container View](./docs/images/quick_example/web_app_container_view_00.svg)
 
 ## Getting Started
 
@@ -111,5 +111,5 @@ Ready to dive in? Check out the [Quick Start Tutorial](https://buildzr.dev/getti
 
 - [GitHub Repository](https://github.com/amirulmenjeni/buildzr)
 - [Issue Tracker](https://github.com/amirulmenjeni/buildzr/issues)
-- [Roadmap](roadmap.md)
-- [Contributing Guide](contributing.md)
+- [Roadmap](https://buildzr.dev/roadmap/)
+- [Contributing Guide](https://buildzr.dev/contributing/)

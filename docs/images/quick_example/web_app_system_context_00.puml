@@ -1,0 +1,23 @@
+@startuml
+set separator none
+title Corporate Web App - System Context
+
+top to bottom direction
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+AddElementTag("Amazon Web Services - User", $bgColor="#dddddd", $borderColor="#9a9a9a", $fontColor="#242f3e", $sprite="img:https://static.structurizr.com/themes/amazon-web-services-2023.01.31/Res_User_48_Light.png{scale=0.625}", $shadowing="", $borderStyle="solid")
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+Person(WebApplicationUser, "Web Application User", $descr="", $tags="Amazon Web Services - User", $link="")
+System(CorporateWebApp, "Corporate Web App", $descr="", $tags="Element", $link="")
+System(Microsoft365, "Microsoft 365", $descr="", $tags="Element", $link="")
+
+Rel(WebApplicationUser, Microsoft365, "Reads and writes email using", $techn="", $tags="Relationship", $link="")
+Rel(WebApplicationUser, CorporateWebApp, "Create work order using", $techn="", $tags="Relationship", $link="")
+Rel(CorporateWebApp, Microsoft365, "sends notification using", $techn="", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+@enduml
