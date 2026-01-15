@@ -1,9 +1,9 @@
---8<-- "README.md:1:85"
+--8<-- "README.md:1:83"
 
-![Example Software System View](images/example_system_context_view.png)
-![Example Container View](images/example_container_view.png)
+![Example Software System View](images/quick_example/web_app_system_context_00.svg)
+![Example Container View](images/quick_example/web_app_container_view_00.svg)
 
---8<-- "README.md:89:115"
+--8<-- "README.md:89:113"
 
 <!-- Override README links with docs-relative paths -->
 [Quick Start Tutorial]: getting-started/quick-start.md
