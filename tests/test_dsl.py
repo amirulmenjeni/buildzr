@@ -442,6 +442,45 @@ def test_inverse_implied_relationship() -> Optional[None]:
     import os
     os.remove('workspace.inverse.test.json')
 
+def test_implied_relationship_transitive() -> Optional[None]:
+    """Test that implied relationships are transitive across parent hierarchies.
+
+    When Container A (in System A) -> Container B (in System B), we should get:
+    - Container A -> System B (destination parent)
+    - System A -> Container B (source parent)
+    - System A -> System B (both parents - transitive)
+    """
+    from buildzr.dsl import SystemLandscapeView
+
+    with Workspace("w", implied_relationships=True) as w:
+        sys_a = SoftwareSystem('System A')
+        sys_b = SoftwareSystem('System B')
+        with sys_a:
+            container_a = Container('Container A')
+        with sys_b:
+            container_b = Container('Container B')
+
+        container_a >> "Calls" >> container_b
+
+        SystemLandscapeView(key='landscape', description='Landscape')
+
+    # Check System A has relationship to System B (transitive implied)
+    sys_a_rels = sys_a.model.relationships
+    assert sys_a_rels is not None, "System A should have relationships"
+    sys_a_to_sys_b = [r for r in sys_a_rels if r.destinationId == sys_b.model.id]
+    assert len(sys_a_to_sys_b) == 1, (
+        f"Expected System A -> System B relationship. "
+        f"System A relationships: {[(r.destinationId, r.description) for r in sys_a_rels]}"
+    )
+    assert sys_a_to_sys_b[0].description == "Calls"
+    assert sys_a_to_sys_b[0].linkedRelationshipId is not None, "Should be an implied relationship"
+
+    # Verify the relationship appears in the SystemLandscapeView
+    landscape_view_relationships = [x.id for x in w._m.views.systemLandscapeViews[0].relationships]
+    assert sys_a_to_sys_b[0].id in landscape_view_relationships, (
+        "System A -> System B should appear in SystemLandscapeView"
+    )
+
 def test_tags_on_elements() -> Optional[None]:
 
     u = Person('My User', tags={'admin'})

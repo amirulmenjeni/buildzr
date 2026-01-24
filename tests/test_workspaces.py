@@ -115,12 +115,18 @@ def test_export_plantuml(builders: List[AbstractBuilder]) -> Optional[None]:
         module_name = builder.__class__.__module__
 
         # Create output directory structure: tests/samples/export/{filename}/plantuml/
-        output_dir = os.path.join('tests', 'samples', 'export', module_name, 'plantuml')
+        output_dir_puml = os.path.join('tests', 'samples', 'export', module_name, 'plantuml')
+        output_dir_png  = os.path.join('tests', 'samples', 'export', module_name, 'png')
+        output_dir_svg  = os.path.join('tests', 'samples', 'export', module_name, 'svg')
 
         workspace = builder.build()
-        config = PlantUmlSinkConfig(path=output_dir)
+        config_puml = PlantUmlSinkConfig(path=output_dir_puml, format='puml')
+        config_png  = PlantUmlSinkConfig(path=output_dir_png, format='png')
+        config_svg  = PlantUmlSinkConfig(path=output_dir_svg, format='svg')
         try:
-            sink.write(workspace, config)
+            sink.write(workspace, config_puml)
+            sink.write(workspace, config_png)
+            sink.write(workspace, config_svg)
         except Exception as e:
             failures.append((module_name, e))
 
