@@ -96,6 +96,8 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         result: dict[str, str] = {}
         for view_key, puml_content in diagrams.items():
             svg_bytes = self._render_to_bytes(puml_content, "svg")
+            # Apply SVG cleanup to remove placeholder characters
+            svg_bytes = self._clean_svg_legend(svg_bytes)
             result[view_key] = svg_bytes.decode('utf-8')
 
         return result

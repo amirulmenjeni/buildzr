@@ -38,7 +38,7 @@ with Workspace('w') as w:
         u = Person('Web Application User')
         webapp = SoftwareSystem('Corporate Web App')
         with webapp:
-            database = Container('database', tags={'db'})
+            database = Container('database')
             api = Container('api')
             api >> ("Reads and writes data from/to", "http/api") >> database
     with Group("Microsoft") as microsoft:
@@ -66,21 +66,19 @@ with Workspace('w') as w:
         description="Web App Container View",
     )
 
-    # Stylize the views.
+    # Stylize the views, and apply AWS theme icons.
 
-    StyleElements(on=['db'], shape='Cylinder')
-
-    # Apply AWS theme icons.
-
-    StyleElements(on=[u], shape='Person', **AWS.USER)
+    StyleElements(on=[u], **AWS.USER)
     StyleElements(on=[api], **AWS.LAMBDA)
     StyleElements(on=[database], **AWS.RDS)
 
     # Export to JSON, PlantUML, or SVG.
 
     w.save()                                  # JSON to {workspace_name}.json
+
+    # Requires `pip install buildzr[export-plantuml]`
     w.save(format='plantuml', path='output/') # PlantUML files
-    w.save(format='svg', path='output/')      # SVG files (requires: pip install buildzr[export-plantuml])
+    w.save(format='svg', path='output/')      # SVG files
 ```
 
 ![Example Software System View](./docs/images/quick_example/web_app_system_context_00.svg)
@@ -92,7 +90,7 @@ Ready to dive in? Check out the [Quick Start Tutorial](https://buildzr.dev/getti
 
 ## Why use `buildzr`?
 
-✅ **Intuitive Pythonic Syntax**: Use Python's context managers (`with` statements) to create nested structures that naturally mirror your architecture's hierarchy. See the [example](#quick-example) below.
+✅ **Intuitive Pythonic Syntax**: Use Python's context managers (`with` statements) to create nested structures that naturally mirror your architecture's hierarchy. See the [example](#quick-example).
 
 ✅ **Programmatic Creation**: Use `buildzr`'s DSL APIs to programmatically create C4 model architecture diagrams. Great for automation!
 
