@@ -202,3 +202,49 @@ class TestPlantUmlSink:
             content = puml_files[0].read_text()
             assert '@startuml' in content
             assert '@enduml' in content
+
+    def test_plantuml_export_implied_relationships(self) -> None:
+        """Test that implied relationships are properly exported to PlantUML.
+
+        When a Person has a relationship to a Container inside a SoftwareSystem,
+        and the workspace has implied_relationships=True, the SystemContextView
+        should show the implied relationship from Person to SoftwareSystem.
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Create workspace with implied relationships enabled
+            with Workspace('Test Implied', implied_relationships=True) as w:
+                user = Person('User')
+
+                with SoftwareSystem('System') as system:
+                    database = Container('Database')
+
+                # Direct relationship: User -> Database (container)
+                # This should imply: User -> System
+                user >> "Uses" >> database
+
+                # Create a SystemContextView - should show implied relationship
+                SystemContextView(
+                    system,
+                    key='context',
+                    description='System context with implied relationships'
+                )
+
+            # Export to PlantUML
+            w.save(format='plantuml', path=temp_dir)
+
+            # Read the generated file
+            context_file = Path(temp_dir) / 'context.puml'
+            assert context_file.exists(), "context.puml should be created"
+
+            content = context_file.read_text()
+
+            # Verify both elements are present
+            assert 'User' in content, "User should be in the diagram"
+            assert 'System' in content, "System should be in the diagram"
+
+            # Verify the relationship is present
+            # PlantUML C4 format uses Rel() for relationships
+            assert 'Rel(' in content, (
+                "Implied relationship from User to System should be rendered. "
+                f"Content:\n{content}"
+            )

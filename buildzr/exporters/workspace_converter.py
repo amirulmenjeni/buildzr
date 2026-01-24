@@ -403,34 +403,52 @@ class WorkspaceConverter:
         """Recursively convert relationships from deployment nodes, infrastructure nodes, and container instances."""
         if deployment_node.relationships:
             for rel in deployment_node.relationships:
-                self._convert_relationship(rel, java_model)
+                self._convert_relationship(rel, java_model, skip_implied=True)
 
         # Convert infrastructure node relationships
         if deployment_node.infrastructureNodes:
             for infra_node in deployment_node.infrastructureNodes:
                 if infra_node.relationships:
                     for rel in infra_node.relationships:
-                        self._convert_relationship(rel, java_model)
+                        self._convert_relationship(rel, java_model, skip_implied=True)
 
-        # Convert container instance relationships
+        # Convert container instance relationships - skip implied because the
+        # Java library auto-creates implied relationships between instances
+        # based on the underlying container-to-container relationships
         if deployment_node.containerInstances:
             for instance in deployment_node.containerInstances:
                 if instance.relationships:
                     for rel in instance.relationships:
-                        self._convert_relationship(rel, java_model)
+                        self._convert_relationship(rel, java_model, skip_implied=True)
 
         if deployment_node.children:
             for child_node in deployment_node.children:
                 self._convert_deployment_relationships(child_node, java_model)
 
-    def _convert_relationship(self, relationship: Relationship, java_model: Any) -> Optional[Any]:
-        """Convert Python Relationship to Java Relationship."""
+    def _convert_relationship(
+        self,
+        relationship: Relationship,
+        java_model: Any,
+        skip_implied: bool = False
+    ) -> Optional[Any]:
+        """Convert Python Relationship to Java Relationship.
+
+        Args:
+            relationship: The Python Relationship to convert
+            java_model: The Java model to add the relationship to
+            skip_implied: If True, skip implied relationships (those with
+                linkedRelationshipId set). This should be True for deployment
+                relationships where the Java library auto-creates implied
+                relationships between container instances.
+        """
         if not relationship.sourceId or not relationship.destinationId:
             return None
 
-        # Skip implied relationships - the Java library auto-creates these when
-        # container instances are added for containers that have relationships
-        if relationship.linkedRelationshipId is not None:
+        # Skip implied relationships only for deployment elements, where the
+        # Java library auto-creates them when container instances are added.
+        # For static structure elements (Person, SoftwareSystem, Container,
+        # Component), we need to explicitly add implied relationships.
+        if skip_implied and relationship.linkedRelationshipId is not None:
             return None
 
         source = self._element_map.get(relationship.sourceId)
