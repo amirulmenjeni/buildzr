@@ -200,6 +200,11 @@ class Workspace(DslWorkspaceElement):
 
         This process is idempotent, which means this can be called multiple times
         without duplicating similar relationships.
+
+        The algorithm runs in a loop until no new relationships are created,
+        which allows transitive implied relationships (e.g., Container A -> Container B
+        implies System A -> System B when Container A is in System A and
+        Container B is in System B).
         """
 
         if not self._use_implied_relationships:
@@ -207,81 +212,95 @@ class Workspace(DslWorkspaceElement):
 
         from buildzr.dsl.explorer import Explorer
 
-        explorer = Explorer(self)
-        # Take a snapshot of relationships to avoid processing newly created ones
-        relationships = list(explorer.walk_relationships())
-        for relationship in relationships:
-            source = relationship.source
-            destination = relationship.destination
-            destination_parent = destination.parent
+        # Keep processing until no new relationships are created
+        # This allows transitive implied relationships to be created
+        while True:
+            explorer = Explorer(self)
+            # Take a snapshot of relationships to avoid processing newly created ones
+            relationships = list(explorer.walk_relationships())
+            initial_count = len(relationships)
 
-            if isinstance(source, (SoftwareSystemInstance, ContainerInstance)) or \
-               isinstance(destination, (SoftwareSystemInstance, ContainerInstance)):
-                continue
+            for relationship in relationships:
+                source = relationship.source
+                destination = relationship.destination
+                destination_parent = destination.parent
 
-            # Skip relationships that are already implied (have linkedRelationshipId)
-            if relationship.model.linkedRelationshipId is not None:
-                continue
+                if isinstance(source, (SoftwareSystemInstance, ContainerInstance)) or \
+                   isinstance(destination, (SoftwareSystemInstance, ContainerInstance)):
+                    continue
 
-            # Handle case: s >> a.b => s >> a (destination is child)
-            while destination_parent is not None and \
-                isinstance(source, DslElement) and \
-                not isinstance(source.model, buildzr.models.Workspace) and \
-                not isinstance(destination_parent, DslWorkspaceElement):
+                # Note: We do NOT skip implied relationships (those with linkedRelationshipId)
+                # because we need to process them to create transitive implied relationships.
+                # For example, Container A -> Container B creates:
+                # - Container A -> System B (implied from original)
+                # - System A -> Container B (implied from original)
+                # And then processing System A -> Container B creates:
+                # - System A -> System B (implied from the implied relationship)
 
-                # Stop if source is a descendant of destination_parent (parent-child relationship)
-                if self._is_descendant_of(source, destination_parent):
-                    break
+                # Handle case: s >> a.b => s >> a (destination is child)
+                while destination_parent is not None and \
+                    isinstance(source, DslElement) and \
+                    not isinstance(source.model, buildzr.models.Workspace) and \
+                    not isinstance(destination_parent, DslWorkspaceElement):
 
-                rels = source.model.relationships
+                    # Stop if source is a descendant of destination_parent (parent-child relationship)
+                    if self._is_descendant_of(source, destination_parent):
+                        break
 
-                if rels:
-                    already_exists = any(
-                        r.destinationId == destination_parent.model.id and
-                        r.description == relationship.model.description and
-                        r.technology == relationship.model.technology
-                        for r in rels
-                    )
-                    if not already_exists:
-                        r = source.uses(
-                            destination_parent,
-                            description=relationship.model.description,
-                            technology=relationship.model.technology,
+                    rels = source.model.relationships
+
+                    if rels:
+                        already_exists = any(
+                            r.destinationId == destination_parent.model.id and
+                            r.description == relationship.model.description and
+                            r.technology == relationship.model.technology
+                            for r in rels
                         )
-                        r.model.linkedRelationshipId = relationship.model.id
-                destination_parent = destination_parent.parent
+                        if not already_exists:
+                            r = source.uses(
+                                destination_parent,
+                                description=relationship.model.description,
+                                technology=relationship.model.technology,
+                            )
+                            r.model.linkedRelationshipId = relationship.model.id
+                    destination_parent = destination_parent.parent
 
-            # Handle inverse case: s.ss >> a => s >> a (source is child)
-            source_parent = source.parent
-            while source_parent is not None and \
-                isinstance(destination, DslElement) and \
-                not isinstance(destination.model, buildzr.models.Workspace) and \
-                not isinstance(source_parent.model, buildzr.models.Workspace) and \
-                not isinstance(source_parent, DslWorkspaceElement):
+                # Handle inverse case: s.ss >> a => s >> a (source is child)
+                source_parent = source.parent
+                while source_parent is not None and \
+                    isinstance(destination, DslElement) and \
+                    not isinstance(destination.model, buildzr.models.Workspace) and \
+                    not isinstance(source_parent.model, buildzr.models.Workspace) and \
+                    not isinstance(source_parent, DslWorkspaceElement):
 
-                # Stop if destination is a descendant of source_parent (parent-child relationship)
-                if self._is_descendant_of(destination, source_parent):
-                    break
+                    # Stop if destination is a descendant of source_parent (parent-child relationship)
+                    if self._is_descendant_of(destination, source_parent):
+                        break
 
-                rels = source_parent.model.relationships
+                    rels = source_parent.model.relationships
 
-                # The parent source relationship might be empty
-                # (i.e., []).
-                if rels is not None:
-                    already_exists = any(
-                        r.destinationId == destination.model.id and
-                        r.description == relationship.model.description and
-                        r.technology == relationship.model.technology
-                        for r in rels
-                    )
-                    if not already_exists:
-                        r = source_parent.uses(
-                            destination,
-                            description=relationship.model.description,
-                            technology=relationship.model.technology,
+                    # The parent source relationship might be empty
+                    # (i.e., []).
+                    if rels is not None:
+                        already_exists = any(
+                            r.destinationId == destination.model.id and
+                            r.description == relationship.model.description and
+                            r.technology == relationship.model.technology
+                            for r in rels
                         )
-                        r.model.linkedRelationshipId = relationship.model.id
-                source_parent = source_parent.parent
+                        if not already_exists:
+                            r = source_parent.uses(
+                                destination,
+                                description=relationship.model.description,
+                                technology=relationship.model.technology,
+                            )
+                            r.model.linkedRelationshipId = relationship.model.id
+                    source_parent = source_parent.parent
+
+            # Check if any new relationships were created in this pass
+            new_count = len(list(Explorer(self).walk_relationships()))
+            if new_count == initial_count:
+                break  # No new relationships created, we're done
 
     def person(self) -> TypedDynamicAttribute['Person']:
         return TypedDynamicAttribute['Person'](self._dynamic_attrs)
