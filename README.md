@@ -76,7 +76,8 @@ with Workspace('w') as w:
 
     w.save()                                  # JSON to {workspace_name}.json
 
-    # Requires `pip install buildzr[export-plantuml]`
+    # Requires `pip install buildzr[export-plantuml]` + Java 11+ and Graphviz
+    # See: https://buildzr.dev/getting-started/installation/#buildzrexport-plantuml
     w.save(format='plantuml', path='output/') # PlantUML files
     w.save(format='svg', path='output/')      # SVG files
 ```

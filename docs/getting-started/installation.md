@@ -22,7 +22,31 @@ To export your architecture diagrams directly to PlantUML format, install with t
 pip install "buildzr[export-plantuml]"
 ```
 
-Note: This requires Java 11+ to be installed on your system, as it uses Structurizr's Java libraries under the hood via JPype.
+**System Requirements:**
+
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| Java (JDK or JRE) | 11+ | Required for all PlantUML exports (`.puml`, `.svg`, `.png`) |
+| Graphviz (`dot`) | Any recent version | Required only for rendering to `.svg` or `.png` |
+
+**Installing Java:**
+
+- **Ubuntu/Debian:** `sudo apt install openjdk-17-jdk`
+- **macOS:** `brew install openjdk@17`
+- **Windows:** Download from [Adoptium](https://adoptium.net/)
+
+**Installing Graphviz:**
+
+- **Ubuntu/Debian:** `sudo apt install graphviz`
+- **macOS:** `brew install graphviz`
+- **Windows:** Download from [graphviz.org](https://graphviz.org/download/)
+
+Verify your installation:
+
+```bash
+java -version    # Should show 11 or higher
+dot -V           # Should show graphviz version
+```
 
 ## Install from Source
 
