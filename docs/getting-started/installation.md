@@ -72,8 +72,8 @@ Or check the version:
 
 ```python
 # norun
-from buildzr.__about__ import __version__
-print(f"buildzr version: {__version__}")
+from buildzr.__about__ import VERSION
+print(f"buildzr version: {VERSION}")
 ```
 
 ## Next Steps
