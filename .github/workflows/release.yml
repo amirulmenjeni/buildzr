@@ -13,7 +13,7 @@ jobs:
     - name: Set up uv
       uses: astral-sh/setup-uv@v5
       with:
-        version: latest
+        version: 0.12.11
         enable-cache: true
 
     - name: Set up Python

@@ -23,7 +23,8 @@ COPY deps/structurizr-onpremises.sh /usr/local/bin/structurizr-onpremises.sh
 RUN chmod +x /usr/local/bin/structurizr-onpremises.sh
 
 # Install uv system-wide so the devcontainer and CI use the same tool.
-RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+RUN curl -LsSf https://astral.sh/uv/install.sh | \
+    env UV_INSTALL_DIR=/usr/local/bin sh -s -- --version 0.12.11
 
 USER vscode
 ENV PATH="/home/vscode/.local/bin:$PATH"

@@ -37,7 +37,7 @@ dev = [
     "jsondiff==2.0.0",
     "yq==3.4.3",
     "datamodel-code-generator==0.26.2",
-    "ipykernel>=6.0",
+    "ipykernel==7.3.0",
 ]
 docs = [
     "mkdocs>=1.5.0",
