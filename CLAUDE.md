@@ -2,6 +2,9 @@
 
 This file provides guidance for AI assistants working with the buildzr codebase.
 
+See [AGENTS.md](AGENTS.md) for the required devcontainer-based development and
+testing workflow.
+
 ## Project Overview
 
 buildzr is a Structurizr authoring tool for Python programmers. It enables declarative and procedural creation of C4 model architecture diagrams using Pythonic syntax with context managers.
