@@ -23,7 +23,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Install Hatch
-      run: uv tool install hatch
+      run: uv tool install hatch==1.18.0
 
     - name: Update Version
       env:

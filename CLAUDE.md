@@ -15,13 +15,13 @@ buildzr is a Structurizr authoring tool for Python programmers. It enables decla
 
 ```bash
 # Run tests with type checking
-pytest --mypy tests
+uv run --python 3.10 pytest --mypy tests
 
 # Run tests without Java-dependent tests (CI mode)
-pytest --mypy --ignore tests/test_workspaces.py
+uv run --python 3.10 pytest --mypy --ignore tests/test_workspaces.py
 
 # Build package
-python -m build
+uv build
 
 # Setup dev environment
 uv sync --all-extras --python 3.10
