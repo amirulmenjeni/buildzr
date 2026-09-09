@@ -35,7 +35,7 @@ jobs:
         run: uv python install 3.10
 
       - name: Sync dependencies
-        run: uv sync --extra docs --python 3.10
+        run: uv sync --extra docs --locked --python 3.10
 
       - name: Build documentation
         run: uv run --python 3.10 mkdocs build --strict

@@ -32,8 +32,8 @@ ENV PATH="/home/vscode/.local/bin:$PATH"
 # uv manages the project environment and CLI tools consistently with CI.
 
 # For building and versioning the package.
-RUN uv tool install hatch
+RUN uv tool install hatch==1.18.0
 
 # Required for the `buildzr/models/generate.sh` script, for generating `models.py`.
-RUN uv tool install datamodel-code-generator
-RUN uv tool install yq
+RUN uv tool install datamodel-code-generator==0.26.2
+RUN uv tool install yq==3.4.3
