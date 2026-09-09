@@ -4,6 +4,10 @@
 
 - Python 3.10 or higher
 
+The project follows a rolling support policy: CI tests every advertised Python
+minor version, new maintained versions are added when supported by dependencies,
+and the oldest version is dropped only at end-of-life or when tooling makes it impractical.
+
 ## Install from PyPI
 
 The easiest way to install `buildzr` is using `pip`:
