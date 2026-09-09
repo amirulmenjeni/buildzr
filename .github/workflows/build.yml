@@ -175,21 +175,8 @@ jobs:
 
     - name: Update Version
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         version: ${{ steps.semantic-version.outputs.version }}
-      run: |
-        hatch version $version
-        NEW_VERSION=$(hatch version)
-
-        git remote set-url --push origin https://amirulmenjeni:${GITHUB_TOKEN}@github.com/amirulmenjeni/buildzr.git
-
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
-
-        git add buildzr/__about__.py
-        git commit -m "ci: [skip-ci] Update version to $NEW_VERSION"
-
-        git push origin HEAD:${{ github.head_ref }}
+      run: hatch version $version
 
     - name: Build package
       run: |
