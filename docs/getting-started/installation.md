@@ -39,14 +39,14 @@ pip install -e .
 For development work, install [uv](https://docs.astral.sh/uv/) and sync the locked environment:
 
 ```bash
-uv sync --all-extras
+uv sync --all-extras --python 3.10
 ```
 
 This installs the development, documentation, and PlantUML extras. Run tools through the
 project environment with `uv run`, for example:
 
 ```bash
-uv run pytest --mypy tests
+uv run --python 3.10 pytest --mypy tests
 ```
 
 The lockfile keeps local development and CI dependencies reproducible.

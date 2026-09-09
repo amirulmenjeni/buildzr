@@ -2,10 +2,10 @@ version = 1
 revision = 3
 requires-python = ">=3.10"
 resolution-markers = [
+    "python_full_version >= '4'",
     "python_full_version >= '3.12' and python_full_version < '4'",
     "python_full_version == '3.11.*'",
     "python_full_version < '3.11'",
-    "python_full_version >= '4'",
 ]
 
 [[package]]
@@ -150,7 +150,7 @@ export-plantuml = [
 [package.metadata]
 requires-dist = [
     { name = "datamodel-code-generator", marker = "extra == 'dev'", specifier = "==0.26.2" },
-    { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.0" },
+    { name = "ipykernel", marker = "extra == 'dev'", specifier = "==7.3.0" },
     { name = "jpype1", marker = "extra == 'export-plantuml'", specifier = ">=1.4.0" },
     { name = "jsondiff", marker = "extra == 'dev'", specifier = "==2.0.0" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.5.0" },
@@ -698,9 +698,9 @@ name = "ipython"
 version = "9.17.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
+    "python_full_version >= '4'",
     "python_full_version >= '3.12' and python_full_version < '4'",
     "python_full_version == '3.11.*'",
-    "python_full_version >= '4'",
 ]
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },

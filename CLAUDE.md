@@ -24,8 +24,7 @@ pytest --mypy --ignore tests/test_workspaces.py
 python -m build
 
 # Setup dev environment
-conda env create -f environment.yml
-conda activate buildzr-dev
+uv sync --all-extras --python 3.10
 ```
 
 ## Project Structure

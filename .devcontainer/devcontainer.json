@@ -8,7 +8,7 @@
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/buildzr,type=bind",
     "workspaceFolder": "/workspace/buildzr",
     "remoteUser": "vscode",
-    "postCreateCommand": "uv sync --all-extras",
+    "postCreateCommand": "uv sync --all-extras --python 3.10",
     "features": {
         "ghcr.io/devcontainers/features/sshd:1": {
             "version": "latest"
