@@ -110,7 +110,7 @@ jobs:
       run: uv run --python ${{ matrix.python-version }} python -c "import IPython, datamodel_code_generator, jpype, mkdocs, mypy, yq"
 
     - name: Run tests
-      run: uv run --python ${{ matrix.python-version }} pytest --mypy
+      run: uv run --python ${{ matrix.python-version }} pytest --mypy tests
 
   build:
     runs-on: ubuntu-latest
