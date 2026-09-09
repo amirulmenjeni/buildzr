@@ -1,5 +1,9 @@
 # Structurizr for the `buildzr`s 🧱⚒️
 
+[![Build](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml/badge.svg)](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml)
+[![PyPI version](https://img.shields.io/pypi/v/buildzr.svg)](https://pypi.org/project/buildzr/)
+[![Python versions](https://img.shields.io/pypi/pyversions/buildzr.svg)](https://pypi.org/project/buildzr/)
+
 `buildzr` is a [Structurizr](https://structurizr.com/) authoring tool for Python programmers. It allows you to declaratively or procedurally author Structurizr models and diagrams.
 
 If you're not familiar with Structurizr, it is both an open standard (see [Structurizr JSON schema](https://github.com/structurizr/json)) and a [set of tools](https://docs.structurizr.com/usage) for building software architecture diagrams as code. Structurizr derives its architecture modeling paradigm based on the [C4 model](https://c4model.com/), the modeling language for describing software architectures and their relationships.
