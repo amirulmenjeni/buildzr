@@ -13,10 +13,10 @@ Your project now has a complete MkDocs documentation system:
 
 ## 📦 Installation
 
-Install the documentation dependencies:
+Install the documentation dependencies with uv:
 
 ```bash
-pip install -e ".[docs]"
+uv sync --extra docs
 ```
 
 ## 🚀 Local Development
@@ -26,7 +26,7 @@ pip install -e ".[docs]"
 Start a local development server with live reload:
 
 ```bash
-mkdocs serve
+uv run mkdocs serve
 ```
 
 Then visit: http://127.0.0.1:8000
@@ -215,7 +215,7 @@ nav:
 
 **Solution:** Make sure you've installed the docs dependencies:
 ```bash
-pip install -e ".[docs]"
+uv sync --extra docs
 ```
 
 ### Issue: GitHub Actions workflow fails
@@ -234,8 +234,8 @@ pip install -e ".[docs]"
 
 ## 🎉 Next Steps
 
-1. ✅ Install dependencies: `pip install -e ".[docs]"`
-2. ✅ Test locally: `mkdocs serve`
+1. ✅ Install dependencies: `uv sync --extra docs`
+2. ✅ Test locally: `uv run mkdocs serve`
 3. ✅ Enable GitHub Pages in repository settings
 4. ✅ Push to `master` branch
 5. ✅ Visit your live docs at https://amirulmenjeni.github.io/buildzr

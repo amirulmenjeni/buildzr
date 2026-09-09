@@ -8,8 +8,8 @@
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace/buildzr,type=bind",
     "workspaceFolder": "/workspace/buildzr",
     "remoteUser": "vscode",
+    "postCreateCommand": "uv sync --all-extras",
     "features": {
-        "ghcr.io/rocker-org/devcontainer-features/miniforge:2": {},
         "ghcr.io/devcontainers/features/sshd:1": {
             "version": "latest"
         },
