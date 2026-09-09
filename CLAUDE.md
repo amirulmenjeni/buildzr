@@ -15,16 +15,16 @@ buildzr is a Structurizr authoring tool for Python programmers. It enables decla
 
 ```bash
 # Run tests with type checking
-uv run --python 3.10 pytest --mypy tests
+uv run pytest --mypy tests
 
 # Run tests without Java-dependent tests (CI mode)
-uv run --python 3.10 pytest --mypy --ignore tests/test_workspaces.py
+uv run pytest --mypy --ignore tests/test_workspaces.py
 
 # Build package
 uv build
 
 # Setup dev environment
-uv sync --all-extras --python 3.10
+uv sync --all-extras
 ```
 
 ## Project Structure
@@ -52,7 +52,7 @@ docs/                 # MkDocs documentation site
 
 ## Code Conventions
 
-- **Python versions:** 3.10, 3.11, 3.12, and 3.13
+- **Python version:** 3.10+
 - **Type hints:** Strict mypy enforcement (`disallow_untyped_defs = True`)
 - **Docstrings:** Google style
 - **Commits:** Conventional commits (feat:, fix:, docs:, etc.)
