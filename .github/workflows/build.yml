@@ -13,8 +13,8 @@ jobs:
   check_changes:
     runs-on: ubuntu-latest
     outputs:
-      src: ${{ steps.check-src-changed.outputs.changes.src }}
-      docs: ${{ steps.check-src-changed.outputs.changes.docs }}
+      src: ${{ steps.check-src-changed.outputs.src }}
+      docs: ${{ steps.check-src-changed.outputs.docs }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
