@@ -36,27 +36,20 @@ pip install -e .
 
 ## Development Installation
 
-For development work, you'll want to install the development dependencies:
+For development work, install [uv](https://docs.astral.sh/uv/) and sync the locked environment:
 
 ```bash
-pip install -e ".[dev]"
+uv sync --all-extras
 ```
 
-This will install additional tools including:
-
-- `mypy` - Static type checker
-- `pytest` - Testing framework
-- `jsondiff` - JSON comparison for tests
-- `datamodel-code-generator` - Code generation from schemas
-
-## Using Conda
-
-If you prefer using Conda, you can create an environment using the provided `environment.yml`:
+This installs the development, documentation, and PlantUML extras. Run tools through the
+project environment with `uv run`, for example:
 
 ```bash
-conda env create -f environment.yml
-conda activate buildzr-dev
+uv run pytest --mypy tests
 ```
+
+The lockfile keeps local development and CI dependencies reproducible.
 
 ## Verification
 

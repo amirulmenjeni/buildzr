@@ -9,8 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt update && \
     apt install --no-install-recommends -y \
         openjdk-21-jdk \
-        graphviz \
-        pipx
+        graphviz
 
 COPY  deps/install_structurizr_cli.sh ./
 RUN chmod +x install_structurizr_cli.sh
@@ -23,12 +22,17 @@ RUN chmod +x install_structurizr_lite.sh && \
 COPY deps/structurizr-onpremises.sh /usr/local/bin/structurizr-onpremises.sh
 RUN chmod +x /usr/local/bin/structurizr-onpremises.sh
 
+# Install uv system-wide so the devcontainer and CI use the same tool.
+RUN curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh
+
 USER vscode
-ENV PATH="/root/.local/bin:$PATH"
+ENV PATH="/home/vscode/.local/bin:$PATH"
+
+# uv manages the project environment and CLI tools consistently with CI.
 
 # For building and versioning the package.
-RUN pipx install hatch
+RUN uv tool install hatch
 
 # Required for the `buildzr/models/generate.sh` script, for generating `models.py`.
-RUN pipx install datamodel-code-generator
-RUN pipx install yq
+RUN uv tool install datamodel-code-generator
+RUN uv tool install yq

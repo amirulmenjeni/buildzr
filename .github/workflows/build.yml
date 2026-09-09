@@ -83,28 +83,20 @@ jobs:
         sudo ln -s /opt/structurizr-cli/structurizr.sh /usr/bin/structurizr.sh
         rm structurizr-cli.zip
 
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: latest
+        enable-cache: true
+
     - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
+      run: uv python install 3.10
 
-    - name: Set up miniforge
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniforge-version: 'latest'
-        activate-environment: buildzr-dev
-        environment-file: environment.yml
-
-    - name: Verify environment
-      shell: bash -l {0}
-      run: |
-        conda info
-        conda list
+    - name: Sync dependencies
+      run: uv sync --all-extras --python 3.10
 
     - name: Run tests
-      shell: bash -l {0}
-      run: |
-        pytest --mypy
+      run: uv run --python 3.10 pytest --mypy
 
   build:
     runs-on: ubuntu-latest
@@ -121,13 +113,17 @@ jobs:
         fetch-depth: 0 # Get full history and tags
         ref: ${{ github.event.pull_request.head.sha }}
 
-    - name: Install dependencies for building the package
-      run: |
-        python -m pip install --upgrade pip
-        pip install --upgrade build
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: latest
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install 3.10
 
     - name: Install Hatch
-      uses: pypa/hatch@install
+      run: uv tool install hatch
 
     # Note: See https://github.com/PaulHatch/semantic-version?tab=readme-ov-file#outputs
     # for the full list of outputs.
