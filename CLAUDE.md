@@ -52,7 +52,7 @@ docs/                 # MkDocs documentation site
 
 ## Code Conventions
 
-- **Python version:** 3.10+
+- **Python versions:** 3.10, 3.11, 3.12, and 3.13
 - **Type hints:** Strict mypy enforcement (`disallow_untyped_defs = True`)
 - **Docstrings:** Google style
 - **Commits:** Conventional commits (feat:, fix:, docs:, etc.)

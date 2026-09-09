@@ -125,6 +125,7 @@ source = { editable = "." }
 dependencies = [
     { name = "pyhumps" },
     { name = "pytest" },
+    { name = "typing-extensions" },
 ]
 
 [package.optional-dependencies]
@@ -162,6 +163,7 @@ requires-dist = [
     { name = "pymdown-extensions", marker = "extra == 'docs'", specifier = ">=10.0" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "pytest-mypy", marker = "extra == 'dev'", specifier = "==0.10.3" },
+    { name = "typing-extensions", specifier = ">=4.12.2" },
     { name = "yq", marker = "extra == 'dev'", specifier = "==3.4.3" },
 ]
 provides-extras = ["dev", "docs", "export-plantuml"]

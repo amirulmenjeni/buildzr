@@ -36,7 +36,7 @@ You can quickly set up and start contributing to our project using GitHub Codesp
 5. Inside the workspace, sync the locked Python environment:
 
     ```bash
-    uv sync --all-extras --python 3.10
+    uv sync --all-extras --locked --python 3.10
     ```
 
     Run project commands through the environment with `uv run`, for example:
@@ -52,6 +52,10 @@ The codespace environment also includes useful tools developed by the Structuriz
 All tests are located in the `tests` folder. To run the tests, use the following command:
 ```sh
 uv run --python 3.10 pytest --mypy tests
+
+buildzr supports Python 3.10 through 3.13. Replace `3.10` with another
+supported minor version to test against it. The lockfile and `--locked` flag
+ensure that each environment uses the same resolved dependencies as CI.
 ```
 
 ### Testing `buildzr` Samples
