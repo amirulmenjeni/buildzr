@@ -540,10 +540,27 @@ def test_multiple_views() -> Optional[None]:
 
     assert len(w.model.views.systemLandscapeViews) == 1
     assert len(w.model.views.systemContextViews) == 2
-
     assert w.model.views.systemLandscapeViews[0].key == 'nested-groups'
     assert w.model.views.systemContextViews[0].key == 'nested-groups-context-0'
     assert w.model.views.systemContextViews[1].key == 'nested-groups-context-1'
+
+
+def test_duplicate_view_key_raises_across_view_types() -> None:
+    with Workspace('w') as w:
+        system = SoftwareSystem('system')
+        SystemContextView(system, key='duplicate', description='Context view')
+
+        with pytest.raises(ValueError, match="Duplicate view key 'duplicate'.*SystemContextView.*ContainerView"):
+            ContainerView(system, key='duplicate', description='Container view')
+
+
+def test_duplicate_view_key_raises_within_view_type() -> None:
+    with Workspace('w') as w:
+        system = SoftwareSystem('system')
+        SystemContextView(system, key='duplicate', description='First context view')
+
+        with pytest.raises(ValueError, match="Duplicate view key 'duplicate'.*SystemContextView.*SystemContextView"):
+            SystemContextView(system, key='duplicate', description='Second context view')
 
 def test_deployment_view_without_software_instance() -> Optional[None]:
 
@@ -593,7 +610,7 @@ def test_deployment_view_without_software_instance() -> Optional[None]:
         # 3
         DeploymentView(
             environment=env2,
-            key='deployment-view-without-software-instance-2',
+            key='deployment-view-without-software-instance-2-specific-software-system',
             description="Deployment View without Software System Instance 2",
             software_system_selector=s,
         )
@@ -630,7 +647,7 @@ def test_deployment_view_without_software_instance() -> Optional[None]:
     assert w.model.views.deploymentViews[2].elements[3].id == api_instance_2.model.id
     assert w.model.views.deploymentViews[2].elements[4].id == db_instance_2.model.id
 
-    assert w.model.views.deploymentViews[3].key == 'deployment-view-without-software-instance-2'
+    assert w.model.views.deploymentViews[3].key == 'deployment-view-without-software-instance-2-specific-software-system'
     assert w.model.views.deploymentViews[3].environment == env2.name
     assert w.model.views.deploymentViews[3].softwareSystemId == s.model.id
     assert len(w.model.views.deploymentViews[3].elements) == 5
@@ -687,7 +704,7 @@ def test_deployment_view_with_software_instance() -> Optional[None]:
         # 1
         DeploymentView(
             environment=env1,
-            key='deployment-view-with-software-instance',
+            key='deployment-view-with-software-instance-specific-software-system',
             description="Deployment View with Software System Instance",
             software_system_selector=s,
         )
@@ -703,7 +720,7 @@ def test_deployment_view_with_software_instance() -> Optional[None]:
         # 3
         DeploymentView(
             environment=env2,
-            key='deployment-view-with-software-instance-1',
+            key='deployment-view-with-software-instance-1-specific-software-system',
             description="Deployment View with Software System Instance 1",
             software_system_selector=s,
         )
@@ -719,7 +736,7 @@ def test_deployment_view_with_software_instance() -> Optional[None]:
         # 5
         DeploymentView(
             environment=env3,
-            key='deployment-view-with-software-instance-2',
+            key='deployment-view-with-software-instance-2-specific-software-system',
             description="Deployment View with Software System Instance 2",
             software_system_selector=s,
         )
@@ -747,7 +764,7 @@ def test_deployment_view_with_software_instance() -> Optional[None]:
     # `ContainerInstance`s with the rest of the `InfrastructureNode`s that
     # has a relationship with the `ContainerInstance`s. But the
     # `SoftwareSystemInstance` itself should be excluded.
-    assert w.model.views.deploymentViews[1].key == 'deployment-view-with-software-instance'
+    assert w.model.views.deploymentViews[1].key == 'deployment-view-with-software-instance-specific-software-system'
     assert w.model.views.deploymentViews[1].environment == env1.name
     assert w.model.views.deploymentViews[1].softwareSystemId == s.model.id
     assert len(w.model.views.deploymentViews[1].elements) == 4
@@ -775,7 +792,7 @@ def test_deployment_view_with_software_instance() -> Optional[None]:
     # Since we're specifying a specific `SoftwareSystem`, we should
     # include the `ContainerInstance`s without including the
     # `SoftwareSystemInstance`.
-    assert w.model.views.deploymentViews[3].key == 'deployment-view-with-software-instance-1'
+    assert w.model.views.deploymentViews[3].key == 'deployment-view-with-software-instance-1-specific-software-system'
     assert w.model.views.deploymentViews[3].environment == env2.name
     assert w.model.views.deploymentViews[3].softwareSystemId == s.model.id
     assert len(w.model.views.deploymentViews[3].elements) == 4
@@ -792,7 +809,7 @@ def test_deployment_view_with_software_instance() -> Optional[None]:
     assert w.model.views.deploymentViews[4].elements[1].id == vm3.model.id
     assert w.model.views.deploymentViews[4].elements[2].id == s_instance_3.model.id
 
-    assert w.model.views.deploymentViews[5].key == 'deployment-view-with-software-instance-2'
+    assert w.model.views.deploymentViews[5].key == 'deployment-view-with-software-instance-2-specific-software-system'
     assert w.model.views.deploymentViews[5].environment == env3.name
     assert w.model.views.deploymentViews[5].softwareSystemId == s.model.id
     assert len(w.model.views.deploymentViews[5].elements) == 5

@@ -351,6 +351,7 @@ class Workspace(DslWorkspaceElement):
         ]
     ) -> None:
 
+        self._validate_view_key(view.model)
         self._imply_relationships()
 
         view._on_added(self)
@@ -402,6 +403,50 @@ class Workspace(DslWorkspaceElement):
         else:
             raise NotImplementedError("The view {0} is currently not supported", type(view))
 
+    @staticmethod
+    def _iter_view_models(views: Optional[Any]) -> Iterable[Any]:
+        """Yield every view model in a Structurizr views collection."""
+        if views is None:
+            return
+
+        for view_type in (
+            'systemLandscapeViews',
+            'systemContextViews',
+            'containerViews',
+            'componentViews',
+            'deploymentViews',
+            'dynamicViews',
+            'customViews',
+        ):
+            view_models = getattr(views, view_type, None)
+            if view_models:
+                yield from view_models
+
+    def _validate_view_key(self, view: Any) -> None:
+        """Reject a view key that is already used in this workspace."""
+        if not view.key:
+            return
+
+        for existing_view in self._iter_view_models(self.model.views):
+            if existing_view.key == view.key:
+                raise ValueError(
+                    f"Duplicate view key '{view.key}' is used by "
+                    f"{type(existing_view).__name__} and {type(view).__name__}."
+                )
+
+    def _validate_unique_view_keys(self, views: Optional[Any]) -> None:
+        """Reject duplicate view keys in a workspace model."""
+        seen: Dict[str, Any] = {}
+        for view in self._iter_view_models(views):
+            if not view.key:
+                continue
+            if view.key in seen:
+                raise ValueError(
+                    f"Duplicate view key '{view.key}' is used by "
+                    f"{type(seen[view.key]).__name__} and {type(view).__name__}."
+                )
+            seen[view.key] = view
+
     def apply_style( self,
         style: Union['StyleElements', 'StyleRelationships'],
     ) -> None:
@@ -438,8 +483,12 @@ class Workspace(DslWorkspaceElement):
         self._imply_relationships()
 
         if self._extended_model:
-            return self._merge_models(self._extended_model, self._m)
-        return self._m
+            merged = self._merge_models(self._extended_model, self._m)
+        else:
+            merged = self._m
+
+        self._validate_unique_view_keys(merged.views)
+        return merged
     def to_dict(self) -> Dict[str, Any]:
         """
         Return workspace as a JSON-serializable dictionary.
