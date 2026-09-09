@@ -60,6 +60,10 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
     needs:
       - check_skip_flags
       - commitlint
@@ -97,13 +101,16 @@ jobs:
         enable-cache: true
 
     - name: Set up Python
-      run: uv python install 3.10
+      run: uv python install ${{ matrix.python-version }}
 
     - name: Sync dependencies
-      run: uv sync --all-extras --locked --python 3.10
+      run: uv sync --all-extras --locked --python ${{ matrix.python-version }}
+
+    - name: Validate optional dependencies
+      run: uv run --python ${{ matrix.python-version }} python -c "import IPython, datamodel_code_generator, jpype, mkdocs, mypy, yq"
 
     - name: Run tests
-      run: uv run --python 3.10 pytest --mypy
+      run: uv run --python ${{ matrix.python-version }} pytest --mypy
 
   build:
     runs-on: ubuntu-latest
@@ -197,3 +204,49 @@ jobs:
     - name: Display uploaded artifacts
       run: |
         ls -R
+
+  package_validation:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    if: ${{ needs.build.result == 'success' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: 0.12.11
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install ${{ matrix.python-version }}
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build
+        path: dist
+
+    - name: Check wheel and sdist metadata
+      run: uv run --python ${{ matrix.python-version }} --with twine==7.0.0 twine check dist/*
+
+    - name: Install and import wheel
+      run: |
+        uv venv --python ${{ matrix.python-version }} .wheel-venv
+        uv pip install --python .wheel-venv/bin/python dist/*.whl
+        cd dist
+        ../.wheel-venv/bin/python -c "import buildzr"
+
+    - name: Install and import sdist
+      run: |
+        uv venv --python ${{ matrix.python-version }} .sdist-venv
+        uv pip install --python .sdist-venv/bin/python dist/*.tar.gz
+        cd dist
+        ../.sdist-venv/bin/python -c "import buildzr"

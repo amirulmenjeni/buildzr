@@ -90,6 +90,7 @@ nav:
     - Models: api/models.md
   - Development:
     - Contributing: contributing.md
+    - Python Support Policy: support-policy.md
     - Roadmap: roadmap.md
 
 extra:

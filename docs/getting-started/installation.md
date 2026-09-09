@@ -39,7 +39,7 @@ pip install -e .
 For development work, install [uv](https://docs.astral.sh/uv/) and sync the locked environment:
 
 ```bash
-uv sync --all-extras --python 3.10
+uv sync --all-extras --locked --python 3.10
 ```
 
 This installs the development, documentation, and PlantUML extras. Run tools through the
@@ -48,6 +48,11 @@ project environment with `uv run`, for example:
 ```bash
 uv run --python 3.10 pytest --mypy tests
 ```
+
+The project supports Python 3.10, 3.11, 3.12, and 3.13. Use the Python minor
+version you want to work with in both commands; the checked-in `uv.lock` keeps
+the resulting environment reproducible. See the [Python support policy](../support-policy.md)
+for how the supported matrix is maintained.
 
 The lockfile keeps local development and CI dependencies reproducible.
 
