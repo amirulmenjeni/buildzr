@@ -1,6 +1,6 @@
 # Structurizr for the `buildzr`s 🧱⚒️
 
-[![Build](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml/badge.svg)](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml)
+[![Build](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml/badge.svg?branch=master&event=push)](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml)
 [![PyPI version](https://img.shields.io/pypi/v/buildzr.svg)](https://pypi.org/project/buildzr/)
 [![Python versions](https://img.shields.io/pypi/pyversions/buildzr.svg)](https://pypi.org/project/buildzr/)
 
