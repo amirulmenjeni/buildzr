@@ -20,7 +20,7 @@ jobs:
       run: uv python install 3.10
 
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
 
     - name: Install Hatch
       run: uv tool install hatch==1.18.0
