@@ -36,4 +36,4 @@ RUN uv tool install hatch==1.18.0
 
 # Required for the `buildzr/models/generate.sh` script, for generating `models.py`.
 RUN uv tool install datamodel-code-generator==0.83.0
-RUN uv tool install yq==3.4.3
+RUN uv tool install yq==4.2.0
