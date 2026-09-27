@@ -198,3 +198,14 @@ Data is persisted in `~/.structurizr-onpremises/` so your workspaces survive con
 ## Submitting Changes
 
 As usual, just fork the repo, make changes, and submit PRs!
+
+## Releasing
+
+Releases are published from `master` by the `release` workflow. To cut a
+release, open a pull request that sets a final version (for example `0.0.32`)
+in `buildzr/__about__.py`. Once it is merged, the workflow builds the package,
+publishes it to PyPI, and pushes the `v0.0.32` tag.
+
+The workflow skips versions that are already tagged and development or
+pre-release versions such as `0.0.32.dev1` or `0.0.32rc1`. It never pushes
+commits to `master`.

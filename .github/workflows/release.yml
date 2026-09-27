@@ -6,6 +6,9 @@ on:
     branches:
       - master
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -21,62 +24,57 @@ jobs:
 
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        fetch-depth: 0 # Get tags to check whether the version is released
 
     - name: Install Hatch
       run: uv tool install hatch==1.18.0
 
-    - name: Update Version
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Releases are cut by setting a final version (e.g. `0.0.32`) in
+    # `buildzr/__about__.py` through a pull request. This workflow never pushes
+    # commits to master, so master can be protected against direct pushes.
+    - name: Check for unreleased version
+      id: check-version
       run: |
-        hatch version release
+        VERSION="$(hatch version)"
+        TAG="v$VERSION"
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-    - name: Check version changed
-      id: check-version-changed
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        if [[ -n $(git status --porcelain) ]]; then
-          echo "version_changed=true" >> $GITHUB_OUTPUT
+        if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+          echo "$VERSION is not a final release version. Skipping release."
+          echo "release=false" >> "$GITHUB_OUTPUT"
+        elif git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+          echo "$TAG is already released. Skipping release."
+          echo "release=false" >> "$GITHUB_OUTPUT"
         else
-          echo "Version hasn't changed. Skipping the rest of the job."
-          echo "version_changed=false" >> $GITHUB_OUTPUT
+          echo "release=true" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Create and push tags
-      if: steps.check-version-changed.outputs.version_changed == 'true'
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        hatch version release
-        NEW_VERSION="v$(hatch version)"
-
-        git remote set-url --push origin https://amirulmenjeni:${GITHUB_TOKEN}@github.com/amirulmenjeni/buildzr.git
-
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
-
-        git add buildzr/__about__.py
-        git commit -m "ci: [skip-ci] Update version to $NEW_VERSION"
-
-        git tag $NEW_VERSION
-        git push origin ${{ github.ref}}
-        git push origin ${{ github.ref }} --tags
-
     - name: Build package
-      if: steps.check-version-changed.outputs.version_changed == 'true'
+      if: steps.check-version.outputs.release == 'true'
       run: |
         uv build
 
     - name: Upload build
-      if: steps.check-version-changed.outputs.version_changed == 'true'
+      if: steps.check-version.outputs.release == 'true'
       uses: actions/upload-artifact@v7
       with:
         name: build
         path: dist/
 
     - name: Publish package to PyPI
-      if: steps.check-version-changed.outputs.version_changed == 'true'
+      if: steps.check-version.outputs.release == 'true'
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
+        skip-existing: true
+
+    # Tag after publishing so a failed publish can be retried by re-running
+    # the workflow.
+    - name: Push tag
+      if: steps.check-version.outputs.release == 'true'
+      env:
+        TAG: ${{ steps.check-version.outputs.tag }}
+      run: |
+        git tag "$TAG"
+        git push origin "refs/tags/$TAG"
