@@ -1,6 +1,12 @@
-schema_url=https://raw.githubusercontent.com/structurizr/json/master/structurizr.yaml
+set -e
 
-curl $schema_url > structurizr.yaml
+# The schema now lives in the Structurizr monorepo (the standalone
+# structurizr/json repository no longer exists). It is pinned to the first
+# monorepo commit, the closest match to the schema `models.py` was generated
+# from. Move the pin deliberately and review the resulting `models.py` diff.
+schema_url=https://raw.githubusercontent.com/structurizr/structurizr/c6ca69c38c708f498fa7d2bb5471f2c12813e18f/structurizr-json/structurizr.yaml
+
+curl --fail $schema_url > structurizr.yaml
 
 # Change from 'long' (unsupported) to 'integer'
 yq -i -y '.components.schemas.Workspace.properties.id.type = "integer"' structurizr.yaml
