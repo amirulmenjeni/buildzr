@@ -1,0 +1,78 @@
+# Dependabot configuration.
+#
+# This file enables *version updates*: routine dependency bumps opened as PRs.
+# It is separate from *security updates*, which are driven by the GitHub
+# Advisory Database and toggled in the repository's security settings.
+#
+# Commit message prefixes follow Conventional Commits, since the build workflow
+# lints PR commits with commitlint.
+version: 2
+
+updates:
+  # Python dependencies, resolved through uv (pyproject.toml + uv.lock).
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build"
+      prefix-development: "build"
+      include: "scope"
+    groups:
+      # Type checking and test tooling move together; a lone mypy bump is
+      # rarely useful without its plugins.
+      dev-tooling:
+        patterns:
+          - "mypy*"
+          - "pytest*"
+          - "jsondiff"
+        update-types:
+          - "minor"
+          - "patch"
+      docs:
+        patterns:
+          - "mkdocs*"
+          - "mkdocstrings*"
+          - "pymdown-extensions"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # GitHub Actions used by the build, docs, and release workflows.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    groups:
+      actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Dev Container features (sshd, github-cli, docker-in-docker), pinned by
+  # digest in .devcontainer/devcontainer-lock.json.
+  - package-ecosystem: "devcontainers"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "build"
+      include: "scope"
+
+  # Base image for the development container.
+  - package-ecosystem: "docker"
+    directory: "/.devcontainer"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "build"
+      include: "scope"
