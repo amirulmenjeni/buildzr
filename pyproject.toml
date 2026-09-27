@@ -34,9 +34,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "mypy==2.3.1",
-    "mypy_extensions==1.0.0",
+    "mypy_extensions==1.1.0",
     "pytest-mypy==1.0.1",
-    "jsondiff==2.0.0",
+    "jsondiff==2.2.1",
     "yq==4.2.0",
     "datamodel-code-generator==0.83.0",
     "ipykernel==7.3.0",
