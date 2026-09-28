@@ -152,7 +152,7 @@ jobs:
     # Note: See https://github.com/PaulHatch/semantic-version?tab=readme-ov-file#outputs
     # for the full list of outputs.
     - name: Get semantic version
-      uses: paulhatch/semantic-version@v5.4.0
+      uses: paulhatch/semantic-version@v6.0.4
       id: semantic-version
       env:
         PRERELEASE_MODE: true
