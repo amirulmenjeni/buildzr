@@ -198,3 +198,22 @@ Data is persisted in `~/.structurizr-onpremises/` so your workspaces survive con
 ## Submitting Changes
 
 As usual, just fork the repo, make changes, and submit PRs!
+
+## Releasing
+
+Releases are published from `master` by the `release` workflow. To cut a
+release, open a pull request that sets a final version (for example `0.0.33`)
+in `buildzr/__about__.py`. Once it is merged, the workflow builds the package,
+publishes it to PyPI, and pushes the `v0.0.33` tag. It never pushes commits
+to `master`.
+
+Every push to `master` runs the workflow, but it only releases when the
+version is final and its tag does not exist yet. Development, pre-release and
+post-release versions such as `0.0.33.dev0`, `0.0.33rc1` or `0.0.33.post1` are
+skipped, so bumping to `.dev0` does not trigger a release.
+
+If a release fails, no tag is pushed. Re-run the failed run from the Actions
+tab before merging anything else; otherwise the next push to `master`
+releases that version from the newer commit. Files already on PyPI are
+skipped, so a re-run after a failed tag push only pushes the tag. A version
+that reached PyPI cannot be uploaded again: fix forward with a new version.
