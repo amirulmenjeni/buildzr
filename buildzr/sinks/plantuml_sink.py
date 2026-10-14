@@ -125,6 +125,17 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
             ValueError: If layout is not 'dot' or 'smetana'.
         """
         self._validate_layout(layout)
+
+        # Check for jpype first, so a missing jpype1 is reported as ImportError
+        # (with install instructions) even when Graphviz is also missing.
+        try:
+            import jpype  # type: ignore  # noqa: F401
+        except ImportError as e:
+            raise ImportError(
+                "jpype1 is required for PlantUML export. "
+                "Install with: pip install buildzr[export-plantuml]"
+            ) from e
+
         if layout == "dot":
             self._ensure_graphviz_available()
 
