@@ -2,10 +2,26 @@
 
 import os
 import re
+import shutil
 from dataclasses import dataclass
 from typing import Optional, Literal, Any
 from buildzr.models.models import Workspace
 from buildzr.sinks.interfaces import Sink
+
+
+class PlantUmlRenderError(RuntimeError):
+    """Raised when PlantUML cannot render a diagram to an image.
+
+    This covers a missing Graphviz ``dot`` executable as well as PlantUML
+    producing an error image (e.g. for a syntax error) instead of a diagram.
+    """
+
+
+_PLANTUML_ERROR_BANNERS = (
+    "Dot executable does not exist",
+    "Cannot find Graphviz",
+    "Syntax Error?",
+)
 
 
 @dataclass
@@ -88,30 +104,74 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         Raises:
             ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
             FileNotFoundError: If structurizr-export JAR cannot be found
+            PlantUmlRenderError: If Graphviz (``dot``) is not available, or
+                PlantUML fails to render a view.
         """
+        self._ensure_graphviz_available()
+
         # First get PlantUML strings
         diagrams = self.export_to_dict(workspace)
 
         # Render each to SVG
         result: dict[str, str] = {}
         for view_key, puml_content in diagrams.items():
-            svg_bytes = self._render_to_bytes(puml_content, "svg")
+            svg_bytes = self._render_to_bytes(puml_content, "svg", view_key)
             # Apply SVG cleanup to remove placeholder characters
             svg_bytes = self._clean_svg_legend(svg_bytes)
             result[view_key] = svg_bytes.decode('utf-8')
 
         return result
 
-    def _render_to_bytes(self, puml_content: str, format: str) -> bytes:
+    @staticmethod
+    def _graphviz_missing_message(detail: str) -> str:
+        """Build the error message for a missing Graphviz installation."""
+        return (
+            f"Graphviz is required to render svg/png diagrams, but {detail}. "
+            "Install Graphviz (https://graphviz.org/download/) and make sure the "
+            "`dot` executable is on your PATH, or point the GRAPHVIZ_DOT "
+            "environment variable at it."
+        )
+
+    @classmethod
+    def _ensure_graphviz_available(cls) -> None:
+        """
+        Check that the Graphviz ``dot`` executable can be found.
+
+        Mirrors PlantUML's lookup: ``GRAPHVIZ_DOT`` if set, otherwise ``dot`` on PATH.
+
+        Raises:
+            PlantUmlRenderError: If the ``dot`` executable cannot be found.
+        """
+        dot_env = os.environ.get("GRAPHVIZ_DOT")
+        if dot_env:
+            if not os.path.isfile(dot_env):
+                raise PlantUmlRenderError(cls._graphviz_missing_message(
+                    f"GRAPHVIZ_DOT points to '{dot_env}', which does not exist"
+                ))
+        elif shutil.which("dot") is None:
+            raise PlantUmlRenderError(cls._graphviz_missing_message(
+                "the `dot` executable was not found"
+            ))
+
+    def _render_to_bytes(
+        self,
+        puml_content: str,
+        format: str,
+        view_key: Optional[str] = None,
+    ) -> bytes:
         """
         Render PlantUML content to image bytes.
 
         Args:
             puml_content: PlantUML source string
             format: Output format ('svg' or 'png')
+            view_key: Optional view key, used in error messages.
 
         Returns:
             Image content as bytes.
+
+        Raises:
+            PlantUmlRenderError: If PlantUML produced an error image instead of a diagram.
         """
         try:
             from net.sourceforge.plantuml import SourceStringReader, FileFormatOption, FileFormat  # type: ignore
@@ -127,8 +187,23 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
 
         # Use Java ByteArrayOutputStream for compatibility
         output = ByteArrayOutputStream()
-        reader.outputImage(output, FileFormatOption(file_format))
-        return bytes(output.toByteArray())
+        description = reader.outputImage(output, FileFormatOption(file_format))
+        image_bytes = bytes(output.toByteArray())
+
+        error: Optional[str] = None
+        if description is not None and str(description.getDescription()) == "(Error)":
+            error = "PlantUML reported an error (syntax error in the diagram source)"
+        elif format == 'svg':
+            text = image_bytes.decode('utf-8', errors='replace')
+            for banner in _PLANTUML_ERROR_BANNERS:
+                if banner in text:
+                    error = f"PlantUML rendered an error image ('{banner}')"
+                    break
+        if error is not None:
+            where = f" for view '{view_key}'" if view_key else ""
+            raise PlantUmlRenderError(f"Failed to render {format}{where}: {error}.")
+
+        return image_bytes
 
     def write(self, workspace: Workspace, config: Optional[PlantUmlSinkConfig] = None) -> None:
         """
@@ -141,6 +216,9 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         Raises:
             ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
             FileNotFoundError: If structurizr-export JAR cannot be found
+            PlantUmlRenderError: If svg/png output is requested and Graphviz (``dot``)
+                is not available, or PlantUML fails to render a view. A missing
+                Graphviz is reported before any file is written.
             RuntimeError: If JVM initialization or export fails
         """
         if config is None:
@@ -154,6 +232,9 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
                 "jpype1 is required for PlantUML export. "
                 "Install with: pip install buildzr[export-plantuml]"
             ) from e
+
+        if config.format in ('svg', 'png'):
+            self._ensure_graphviz_available()
 
         # Initialize JVM if needed
         self._ensure_jvm_started(config)
@@ -347,15 +428,16 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
 
             # Render to image if requested
             if config.format in ['svg', 'png']:
-                self._render_diagram(puml_path, config.format)
+                self._render_diagram(puml_path, config.format, view_key)
 
-    def _render_diagram(self, puml_path: str, format: str) -> None:
+    def _render_diagram(self, puml_path: str, format: str, view_key: Optional[str] = None) -> None:
         """
         Render PlantUML diagram to image format.
 
         Args:
             puml_path: Path to .puml file
             format: Output format ('svg' or 'png')
+            view_key: Optional view key, used in error messages.
         """
         # Read PlantUML content
         with open(puml_path, 'r', encoding='utf-8') as f:
@@ -363,7 +445,7 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
 
         # Render to bytes using our helper method
         try:
-            image_bytes = self._render_to_bytes(puml_content, format)
+            image_bytes = self._render_to_bytes(puml_content, format, view_key)
         except ImportError:
             print(f"Warning: PlantUML rendering not available. Skipping {format} rendering.")
             return
