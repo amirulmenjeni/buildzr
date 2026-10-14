@@ -8,8 +8,8 @@ Usage:
 
     # From command line arguments
     python -m buildzr.themes.generate \\
-        https://static.structurizr.com/themes/amazon-web-services-2023.01.31/theme.json \\
-        https://static.structurizr.com/themes/google-cloud-platform-v1.5/theme.json
+        https://raw.githubusercontent.com/structurizr/themes/master/amazon-web-services-2023.01.31/theme.json \\
+        https://raw.githubusercontent.com/structurizr/themes/master/google-cloud-platform-v1.5/theme.json
 
     # Or run directly
     ./buildzr/themes/generate.py --urls-file buildzr/themes/themes.txt
@@ -125,9 +125,9 @@ def resolve_icon_url(theme_url: str, icon_path: str) -> str:
     Resolve relative icon path to full URL.
 
     Example:
-        theme_url: "https://static.structurizr.com/themes/aws-2023.01.31/theme.json"
+        theme_url: "https://raw.githubusercontent.com/structurizr/themes/master/aws-2023.01.31/theme.json"
         icon_path: "Arch_Amazon-EC2_48.png"
-        -> "https://static.structurizr.com/themes/aws-2023.01.31/Arch_Amazon-EC2_48.png"
+        -> "https://raw.githubusercontent.com/structurizr/themes/master/aws-2023.01.31/Arch_Amazon-EC2_48.png"
     """
     if not icon_path:
         return ''

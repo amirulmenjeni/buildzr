@@ -42,7 +42,7 @@ with Workspace('w') as w:
         u = Person('Web Application User')
         webapp = SoftwareSystem('Corporate Web App')
         with webapp:
-            database = Container('database')
+            database = Container('database', tags={'db'})
             api = Container('api')
             api >> ("Reads and writes data from/to", "http/api") >> database
     with Group("Microsoft") as microsoft:
@@ -71,6 +71,8 @@ with Workspace('w') as w:
     )
 
     # Stylize the views, and apply AWS theme icons.
+
+    StyleElements(on=['db'], shape='Cylinder')
 
     StyleElements(on=[u], **AWS.USER)
     StyleElements(on=[api], **AWS.LAMBDA)
