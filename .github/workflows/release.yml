@@ -9,8 +9,16 @@ on:
 permissions:
   contents: write
 
+# Queue releases instead of running them in parallel, so two quick merges to
+# master cannot publish at the same time.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   publish:
+    # Only release from master, also when the workflow is run manually.
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
     - name: Set up uv
@@ -40,14 +48,26 @@ jobs:
         TAG="v$VERSION"
         echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-        if [[ ! "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
-          echo "$VERSION is not a final release version. Skipping release."
+        # Final versions only: no leading zeros, no dev, pre or post suffix.
+        if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*$ ]]; then
+          echo "::notice::'$VERSION' is not a final release version. Skipping release."
           echo "release=false" >> "$GITHUB_OUTPUT"
-        elif git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-          echo "$TAG is already released. Skipping release."
+          exit 0
+        fi
+
+        # Check the remote too, in case the tag was pushed after checkout.
+        status=0
+        git rev-parse -q --verify "refs/tags/$TAG" >/dev/null ||
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null ||
+          status=$?
+        if [[ $status -eq 0 ]]; then
+          echo "::notice::$TAG is already released. Skipping release."
           echo "release=false" >> "$GITHUB_OUTPUT"
-        else
+        elif [[ $status -eq 2 ]]; then
           echo "release=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "::error::Could not check whether $TAG exists on origin."
+          exit "$status"
         fi
 
     - name: Build package
@@ -61,6 +81,7 @@ jobs:
       with:
         name: build
         path: dist/
+        overwrite: true # A re-run must not fail on the previous attempt's artifact
 
     - name: Publish package to PyPI
       if: steps.check-version.outputs.release == 'true'
