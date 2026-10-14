@@ -9,13 +9,13 @@ top to bottom direction
 !include <C4/C4_Container>
 
 AddElementTag("Amazon Web Services - Lambda", $bgColor="#dddddd", $borderColor="#9a9a9a", $fontColor="#e2730e", $sprite="img:https://raw.githubusercontent.com/structurizr/themes/master/amazon-web-services-2023.01.31/Arch_AWS-Lambda_48.png{scale=0.46875}", $shadowing="", $borderStyle="solid")
-AddElementTag("Amazon Web Services - RDS", $bgColor="#dddddd", $borderColor="#9a9a9a", $fontColor="#3f51d4", $sprite="img:https://raw.githubusercontent.com/structurizr/themes/master/amazon-web-services-2023.01.31/Arch_Amazon-RDS_48.png{scale=0.46875}", $shadowing="", $borderStyle="solid")
+AddElementTag("Amazon Web Services - RDS,db", $bgColor="#dddddd", $borderColor="#9a9a9a", $fontColor="#3f51d4", $sprite="img:https://raw.githubusercontent.com/structurizr/themes/master/amazon-web-services-2023.01.31/Arch_Amazon-RDS_48.png{scale=0.46875}", $shadowing="", $borderStyle="solid")
 
 AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
 
 
 System_Boundary("CorporateWebApp_boundary", "Corporate Web App", $tags="Element") {
-  Container(CorporateWebApp.database, "database", $techn="", $descr="", $tags="Amazon Web Services - RDS", $link="")
+  ContainerDb(CorporateWebApp.database, "database", $techn="", $descr="", $tags="Amazon Web Services - RDS,db", $link="")
   Container(CorporateWebApp.api, "api", $techn="", $descr="", $tags="Amazon Web Services - Lambda", $link="")
 }
 
