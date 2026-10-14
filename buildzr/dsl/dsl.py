@@ -42,6 +42,7 @@ from buildzr.dsl.relations import (
     _Relationship,
 )
 from buildzr.dsl.color import Color
+from buildzr.sinks.plantuml_sink import PlantUmlLayout
 
 # Type alias for save() format parameter
 SaveFormat = Literal['json', 'plantuml', 'svg', 'png']
@@ -517,6 +518,7 @@ class Workspace(DslWorkspaceElement):
         format: SaveFormat = 'json',
         path: Optional[Union[str, Path]] = None,
         pretty: bool = False,
+        layout: PlantUmlLayout = 'dot',
     ) -> Union[str, List[str]]:
         """
         Save workspace to file(s) in the specified format.
@@ -531,6 +533,12 @@ class Workspace(DslWorkspaceElement):
                 - For 'json': file path (defaults to '{cwd}/{workspace_name}.json')
                 - For diagram formats: directory path (defaults to '{cwd}/')
             pretty: For 'json' format only, whether to indent output.
+            layout: PlantUML layout engine for 'plantuml'/'svg'/'png'; ignored
+                for 'json'. One of:
+                - 'dot': Use Graphviz for layout (default). svg/png need Graphviz.
+                - 'smetana': Pure-Java layout, no Graphviz needed (layout quality
+                  is somewhat worse). Adds ``!pragma layout smetana`` to the
+                  written .puml files as well.
 
         Returns:
             - For 'json': The path to the written file (str)
@@ -539,25 +547,31 @@ class Workspace(DslWorkspaceElement):
         Raises:
             ImportError: If 'plantuml'/'svg'/'png' format requested but jpype1
                 not installed. Install with: pip install buildzr[export-plantuml]
-            PlantUmlRenderError: If 'svg'/'png' format requested but Graphviz
-                (the `dot` executable) is not available, or PlantUML fails to
-                render a view. A missing Graphviz is reported before any file
-                is written.
-            ValueError: If format is not recognized.
+            PlantUmlRenderError: If 'svg'/'png' format requested with layout
+                'dot' but Graphviz (the `dot` executable) is not available, or
+                PlantUML fails to render a view. A missing Graphviz is reported
+                before any file is written.
+            ValueError: If format or layout is not recognized.
 
         Example:
             >>> w.save()  # Saves to ./my_workspace.json
             >>> w.save(format='json', path='output/arch.json', pretty=True)
             >>> w.save(format='plantuml', path='diagrams/')
             >>> w.save(format='svg')  # Saves to ./
+            >>> w.save(format='svg', path='out/', layout='smetana')  # No Graphviz
         """
+        if layout not in ('dot', 'smetana'):
+            raise ValueError(
+                f"Unsupported layout: {layout!r}. Use one of: 'dot', 'smetana'"
+            )
+
         merged = self._merged_workspace()
         workspace_name = self._sanitize_name(self.model.name or 'workspace')
 
         if format == 'json':
             return self._save_json(merged, path, workspace_name, pretty)
         elif format in ('plantuml', 'svg', 'png'):
-            return self._save_diagrams(merged, path, format)
+            return self._save_diagrams(merged, path, format, layout)
         else:
             raise ValueError(
                 f"Unsupported format: {format}. "
@@ -596,6 +610,7 @@ class Workspace(DslWorkspaceElement):
         workspace: 'buildzr.models.Workspace',
         path: Optional[Union[str, Path]],
         format: Literal['plantuml', 'svg', 'png'],
+        layout: PlantUmlLayout = 'dot',
     ) -> List[str]:
         """Save workspace views as diagram files."""
         import os
@@ -625,7 +640,7 @@ class Workspace(DslWorkspaceElement):
             puml_format = format  # 'svg' or 'png'
 
         sink = PlantUmlSink()
-        config = PlantUmlSinkConfig(path=str(path), format=puml_format)
+        config = PlantUmlSinkConfig(path=str(path), format=puml_format, layout=layout)
         sink.write(workspace=workspace, config=config)
 
         # Build list of created files based on views
@@ -712,12 +727,16 @@ class Workspace(DslWorkspaceElement):
         sink = PlantUmlSink()
         return sink.export_to_dict(merged)
 
-    def to_svg(self) -> Dict[str, str]:
+    def to_svg(self, layout: PlantUmlLayout = 'dot') -> Dict[str, str]:
         """
         Return SVG content for all views as a dictionary.
 
         Uses the official structurizr-export Java library and PlantUML to
         render workspace views as SVG diagrams.
+
+        Args:
+            layout: PlantUML layout engine. 'dot' (default) needs Graphviz;
+                'smetana' is pure Java and needs no Graphviz.
 
         Returns:
             Dictionary mapping view keys to SVG content strings.
@@ -725,8 +744,9 @@ class Workspace(DslWorkspaceElement):
         Raises:
             ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
             FileNotFoundError: If structurizr-export JAR cannot be found
-            PlantUmlRenderError: If Graphviz (the `dot` executable) is not
-                available, or PlantUML fails to render a view.
+            PlantUmlRenderError: If layout is 'dot' and Graphviz (the `dot`
+                executable) is not available, or PlantUML fails to render a view.
+            ValueError: If layout is not 'dot' or 'smetana'.
 
         Example:
             >>> svgs = workspace.to_svg()
@@ -736,7 +756,7 @@ class Workspace(DslWorkspaceElement):
         from buildzr.sinks.plantuml_sink import PlantUmlSink
         merged = self._merged_workspace()
         sink = PlantUmlSink()
-        return sink.render_to_svg_dict(merged)
+        return sink.render_to_svg_dict(merged, layout=layout)
 
     def _repr_html_(self) -> str:
         """

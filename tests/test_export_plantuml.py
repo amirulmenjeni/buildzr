@@ -408,3 +408,79 @@ class TestGraphvizMissing:
             sink._render_to_bytes("@startuml\nfoo bar baz ->\n@enduml", "svg", "my-view")
         with pytest.raises(PlantUmlRenderError):
             sink._render_to_bytes("@startuml\nfoo bar baz ->\n@enduml", "png")
+
+
+class TestSmetanaLayout:
+    """layout='smetana' renders svg/png without Graphviz."""
+
+    @pytest.fixture
+    def workspace(self) -> Workspace:
+        with Workspace('smetana-check') as w:
+            user = Person('User')
+            system = SoftwareSystem('System')
+            user >> "uses" >> system
+            SystemContextView(
+                lambda w: w.software_system().system,
+                key='ctx',
+                description='ctx',
+            )
+        return w
+
+    @pytest.fixture
+    def no_dot(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GRAPHVIZ_DOT", raising=False)
+        monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
+
+    @staticmethod
+    def _assert_pragma_after_startuml(puml_path: Path) -> None:
+        lines = puml_path.read_text(encoding='utf-8').split('\n')
+        start = next(i for i, line in enumerate(lines) if line.startswith('@startuml'))
+        assert lines[start + 1] == '!pragma layout smetana'
+
+    def test_svg_without_graphviz(
+        self, workspace: Workspace, no_dot: None, tmp_path: Path
+    ) -> None:
+        files = workspace.save(format='svg', path=tmp_path, layout='smetana')
+        svg = (tmp_path / 'ctx.svg').read_text(encoding='utf-8')
+        assert '<svg' in svg
+        for banner in ("Dot executable does not exist", "Cannot find Graphviz", "Syntax Error?"):
+            assert banner not in svg
+        assert str(tmp_path / 'ctx.svg') in files
+        self._assert_pragma_after_startuml(tmp_path / 'ctx.puml')
+
+    def test_png_without_graphviz(
+        self, workspace: Workspace, no_dot: None, tmp_path: Path
+    ) -> None:
+        workspace.save(format='png', path=tmp_path, layout='smetana')
+        assert (tmp_path / 'ctx.png').read_bytes().startswith(b'\x89PNG')
+        self._assert_pragma_after_startuml(tmp_path / 'ctx.puml')
+
+    def test_plantuml_format_gets_pragma(self, workspace: Workspace, tmp_path: Path) -> None:
+        workspace.save(format='plantuml', path=tmp_path, layout='smetana')
+        self._assert_pragma_after_startuml(tmp_path / 'ctx.puml')
+
+    def test_to_svg_without_graphviz(self, workspace: Workspace, no_dot: None) -> None:
+        svgs = workspace.to_svg(layout='smetana')
+        assert '<svg' in svgs['ctx']
+        assert "Cannot find Graphviz" not in svgs['ctx']
+
+    def test_to_plantuml_has_no_pragma(self, workspace: Workspace) -> None:
+        assert 'pragma' not in workspace.to_plantuml()['ctx']
+
+    def test_default_layout_has_no_pragma(self, workspace: Workspace, tmp_path: Path) -> None:
+        workspace.save(format='plantuml', path=tmp_path)
+        assert 'pragma layout' not in (tmp_path / 'ctx.puml').read_text(encoding='utf-8')
+
+    @pytest.mark.parametrize("fmt", ["json", "plantuml", "svg", "png"])
+    def test_invalid_layout_raises(self, workspace: Workspace, tmp_path: Path, fmt: Any) -> None:
+        with pytest.raises(ValueError, match="layout"):
+            workspace.save(format=fmt, path=tmp_path / 'out', layout='bogus')  # type: ignore[arg-type]
+        assert not (tmp_path / 'out').exists()
+
+    def test_to_svg_invalid_layout_raises(self, workspace: Workspace) -> None:
+        with pytest.raises(ValueError, match="layout"):
+            workspace.to_svg(layout='bogus')  # type: ignore[arg-type]
+
+    def test_graphviz_error_hints_at_smetana(self, workspace: Workspace, no_dot: None, tmp_path: Path) -> None:
+        with pytest.raises(PlantUmlRenderError, match="smetana"):
+            workspace.save(format='svg', path=tmp_path)
