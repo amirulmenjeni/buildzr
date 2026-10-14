@@ -7,7 +7,7 @@ top to bottom direction
 !include <C4/C4>
 !include <C4/C4_Context>
 
-AddElementTag("Amazon Web Services - User", $bgColor="#dddddd", $borderColor="#9a9a9a", $fontColor="#242f3e", $sprite="img:https://static.structurizr.com/themes/amazon-web-services-2023.01.31/Res_User_48_Light.png{scale=0.625}", $shadowing="", $borderStyle="solid")
+AddElementTag("Amazon Web Services - User", $bgColor="#dddddd", $borderColor="#9a9a9a", $fontColor="#242f3e", $sprite="img:https://raw.githubusercontent.com/structurizr/themes/master/amazon-web-services-2023.01.31/Res_User_48_Light.png{scale=0.625}", $shadowing="", $borderStyle="solid")
 
 AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
 
