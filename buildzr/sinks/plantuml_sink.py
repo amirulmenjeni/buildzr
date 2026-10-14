@@ -107,6 +107,16 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
             PlantUmlRenderError: If Graphviz (``dot``) is not available, or
                 PlantUML fails to render a view.
         """
+        # Check for jpype first, so a missing jpype1 is reported as ImportError
+        # (with install instructions) even when Graphviz is also missing.
+        try:
+            import jpype  # type: ignore  # noqa: F401
+        except ImportError as e:
+            raise ImportError(
+                "jpype1 is required for PlantUML export. "
+                "Install with: pip install buildzr[export-plantuml]"
+            ) from e
+
         self._ensure_graphviz_available()
 
         # First get PlantUML strings

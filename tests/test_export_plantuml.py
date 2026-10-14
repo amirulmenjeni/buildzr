@@ -2,6 +2,7 @@
 
 import pytest
 import shutil
+import sys
 import tempfile
 import os
 from pathlib import Path
@@ -384,6 +385,17 @@ class TestGraphvizMissing:
     def test_to_svg_raises_without_graphviz(self, workspace: Workspace, no_dot: None) -> None:
         with pytest.raises(PlantUmlRenderError, match="Graphviz"):
             workspace.to_svg()
+
+    def test_missing_jpype_is_reported_before_missing_graphviz(
+        self, workspace: Workspace, no_dot: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # A None entry in sys.modules makes ``import jpype`` raise ImportError.
+        monkeypatch.setitem(sys.modules, "jpype", None)
+        with pytest.raises(ImportError, match="jpype1"):
+            workspace.to_svg()
+        with pytest.raises(ImportError, match="jpype1"):
+            workspace.save(format='svg', path=tmp_path)
+        assert list(tmp_path.glob("*")) == []
 
     def test_plantuml_format_works_without_graphviz(
         self, workspace: Workspace, no_dot: None, tmp_path: Path
