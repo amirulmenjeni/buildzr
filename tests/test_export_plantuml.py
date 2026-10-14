@@ -1,6 +1,8 @@
 """Tests for PlantUML export functionality."""
 
 import pytest
+import shutil
+import sys
 import tempfile
 import os
 from pathlib import Path
@@ -16,7 +18,7 @@ from buildzr.dsl import (
     SystemContextView,
     ComponentView,
 )
-from buildzr.sinks.plantuml_sink import PlantUmlSink, PlantUmlSinkConfig
+from buildzr.sinks.plantuml_sink import PlantUmlRenderError, PlantUmlSink, PlantUmlSinkConfig
 
 
 class TestPlantUmlSink:
@@ -347,3 +349,74 @@ Person(User, "User")
             # No placeholder characters should be present
             assert '&#9647;' not in svg_content, f"Found placeholder in {view_key}"
             assert '\u25af' not in svg_content, f"Found Unicode placeholder in {view_key}"
+
+
+class TestGraphvizMissing:
+    """Svg/png export must fail loudly instead of writing PlantUML's error image."""
+
+    @pytest.fixture
+    def workspace(self) -> Workspace:
+        with Workspace('graphviz-check') as w:
+            user = Person('User')
+            system = SoftwareSystem('System')
+            user >> "uses" >> system
+            SystemContextView(
+                lambda w: w.software_system().system,
+                key='ctx',
+                description='ctx',
+            )
+        return w
+
+    @pytest.fixture
+    def no_dot(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("GRAPHVIZ_DOT", raising=False)
+        monkeypatch.setattr(shutil, "which", lambda *a, **k: None)
+
+    @pytest.mark.parametrize("fmt", ["svg", "png"])
+    def test_save_image_raises_without_graphviz(
+        self, workspace: Workspace, no_dot: None, tmp_path: Path, fmt: Any
+    ) -> None:
+        with pytest.raises(PlantUmlRenderError, match="Graphviz") as exc:
+            workspace.save(format=fmt, path=tmp_path)
+        assert "dot" in str(exc.value)
+        assert "https://graphviz.org/download/" in str(exc.value)
+        assert list(tmp_path.glob("*")) == []
+
+    def test_to_svg_raises_without_graphviz(self, workspace: Workspace, no_dot: None) -> None:
+        with pytest.raises(PlantUmlRenderError, match="Graphviz"):
+            workspace.to_svg()
+
+    def test_missing_jpype_is_reported_before_missing_graphviz(
+        self, workspace: Workspace, no_dot: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        # A None entry in sys.modules makes ``import jpype`` raise ImportError.
+        monkeypatch.setitem(sys.modules, "jpype", None)
+        with pytest.raises(ImportError, match="jpype1"):
+            workspace.to_svg()
+        with pytest.raises(ImportError, match="jpype1"):
+            workspace.save(format='svg', path=tmp_path)
+        assert list(tmp_path.glob("*")) == []
+
+    def test_plantuml_format_works_without_graphviz(
+        self, workspace: Workspace, no_dot: None, tmp_path: Path
+    ) -> None:
+        files = workspace.save(format='plantuml', path=tmp_path)
+        assert len(files) == 1
+        assert Path(files[0]).exists()
+        assert workspace.to_plantuml()
+
+    def test_graphviz_dot_env_pointing_nowhere_raises(
+        self, workspace: Workspace, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        monkeypatch.setenv("GRAPHVIZ_DOT", str(tmp_path / "nonexistent-dot"))
+        with pytest.raises(PlantUmlRenderError, match="GRAPHVIZ_DOT"):
+            workspace.save(format='svg', path=tmp_path)
+        assert list(tmp_path.glob("*")) == []
+
+    def test_syntax_error_raises_render_error(self) -> None:
+        sink = PlantUmlSink()
+        sink._ensure_jvm_started(PlantUmlSinkConfig(path=""))
+        with pytest.raises(PlantUmlRenderError, match="my-view"):
+            sink._render_to_bytes("@startuml\nfoo bar baz ->\n@enduml", "svg", "my-view")
+        with pytest.raises(PlantUmlRenderError):
+            sink._render_to_bytes("@startuml\nfoo bar baz ->\n@enduml", "png")

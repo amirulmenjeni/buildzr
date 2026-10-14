@@ -539,6 +539,10 @@ class Workspace(DslWorkspaceElement):
         Raises:
             ImportError: If 'plantuml'/'svg'/'png' format requested but jpype1
                 not installed. Install with: pip install buildzr[export-plantuml]
+            PlantUmlRenderError: If 'svg'/'png' format requested but Graphviz
+                (the `dot` executable) is not available, or PlantUML fails to
+                render a view. A missing Graphviz is reported before any file
+                is written.
             ValueError: If format is not recognized.
 
         Example:
@@ -721,6 +725,8 @@ class Workspace(DslWorkspaceElement):
         Raises:
             ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
             FileNotFoundError: If structurizr-export JAR cannot be found
+            PlantUmlRenderError: If Graphviz (the `dot` executable) is not
+                available, or PlantUML fails to render a view.
 
         Example:
             >>> svgs = workspace.to_svg()

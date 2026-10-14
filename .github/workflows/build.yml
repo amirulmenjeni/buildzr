@@ -104,6 +104,12 @@ jobs:
         sudo ln -s /opt/structurizr-cli/structurizr.sh /usr/bin/structurizr.sh
         rm structurizr-cli.zip
 
+    - name: Install Graphviz
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq graphviz
+        dot -V
+
     - name: Set up uv
       uses: astral-sh/setup-uv@v7
       with:
