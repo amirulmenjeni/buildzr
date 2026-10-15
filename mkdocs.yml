@@ -85,6 +85,7 @@ nav:
     - Views: user-guide/views.md
     - Styles: user-guide/styles.md
     - Themes: user-guide/themes.md
+    - Export: user-guide/export.md
   - API Reference:
     - DSL: api/dsl.md
     - Models: api/models.md

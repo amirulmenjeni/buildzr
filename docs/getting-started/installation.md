@@ -27,6 +27,8 @@ pip install "buildzr[export-plantuml]"
 ```
 
 Note: This requires Java 11+ to be installed on your system, as it uses Structurizr's Java libraries under the hood via JPype.
+Rendering `svg`/`png` additionally needs [Graphviz](https://graphviz.org/download/) (`dot`),
+unless you pass `layout='smetana'`. See the [Export](../user-guide/export.md) page.
 
 ## Install from Source
 
@@ -69,8 +71,8 @@ Or check the version:
 
 ```python
 # norun
-from buildzr.__about__ import __version__
-print(f"buildzr version: {__version__}")
+from importlib.metadata import version
+print(version("buildzr"))
 ```
 
 ## Next Steps
