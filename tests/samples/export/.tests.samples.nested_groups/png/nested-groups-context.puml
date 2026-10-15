@@ -1,0 +1,23 @@
+@startuml
+set separator none
+title B - System Context
+
+top to bottom direction
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+System(A, "A", $descr="", $tags="buildzr-styleelements-12f3032ab128451998e49896bd4dc279", $link="")
+System(B, "B", $descr="", $tags="buildzr-styleelements-12f3032ab128451998e49896bd4dc279", $link="")
+System(C, "C", $descr="", $tags="buildzr-styleelements-7493659f1e4540428d1781ce33329a11", $link="")
+System(D, "D", $descr="", $tags="buildzr-styleelements-7493659f1e4540428d1781ce33329a11", $link="")
+
+Rel(A, B, "", $techn="", $tags="Relationship", $link="")
+Rel(B, C, "", $techn="", $tags="Relationship", $link="")
+Rel(C, D, "", $techn="", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+@enduml

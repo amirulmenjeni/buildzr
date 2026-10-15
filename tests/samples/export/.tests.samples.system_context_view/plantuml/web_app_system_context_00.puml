@@ -1,0 +1,19 @@
+@startuml
+set separator none
+title web_app - System Context
+
+top to bottom direction
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+System(web_app, "web_app", $descr="", $tags="Element", $link="")
+System(email_system, "email_system", $descr="", $tags="Element", $link="")
+
+Rel(web_app, email_system, "sends notification using", $techn="", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+@enduml
