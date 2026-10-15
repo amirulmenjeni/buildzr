@@ -109,14 +109,3 @@ try:
 except PlantUmlRenderError as e:
     print(f"Rendering failed: {e}")
 ```
-
-## Known limitations
-
-The PlantUML export path currently has these limitations, tracked in
-[issue #139](https://github.com/amirulmenjeni/buildzr/issues/139). The JSON
-output is unaffected.
-
-- Exporting a workspace that contains a `DynamicView` currently fails with an
-  error.
-- `DeploymentView` include/exclude filters are ignored in the PlantUML output.
-- Using `StyleRelationships` with `thickness` makes the PlantUML export fail.
