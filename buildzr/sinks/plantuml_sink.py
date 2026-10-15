@@ -17,6 +17,11 @@ class PlantUmlRenderError(RuntimeError):
     """
 
 
+# Layout engine used by PlantUML: 'dot' needs Graphviz, 'smetana' is pure Java.
+PlantUmlLayout = Literal["dot", "smetana"]
+
+_PLANTUML_LAYOUTS = ("dot", "smetana")
+
 _PLANTUML_ERROR_BANNERS = (
     "Dot executable does not exist",
     "Cannot find Graphviz",
@@ -34,11 +39,16 @@ class PlantUmlSinkConfig:
         format: Output format - 'puml' for text files, 'svg'/'png' for rendered images
         structurizr_export_jar_path: Optional custom path to structurizr-export JAR.
             If not provided, uses the bundled JAR.
+        layout: PlantUML layout engine. 'dot' (default) uses Graphviz for svg/png
+            rendering. 'smetana' adds ``!pragma layout smetana`` to every diagram
+            so PlantUML lays it out in pure Java, without Graphviz (layout quality
+            is somewhat worse). Applies to the written .puml files too.
     """
 
     path: str
     format: Literal["puml", "svg", "png"] = "puml"
     structurizr_export_jar_path: Optional[str] = None
+    layout: PlantUmlLayout = "dot"
 
 
 class PlantUmlSink(Sink[PlantUmlSinkConfig]):
@@ -91,12 +101,18 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         # Export and return
         return self._export_workspace(java_workspace)
 
-    def render_to_svg_dict(self, workspace: Workspace) -> dict[str, str]:
+    def render_to_svg_dict(
+        self,
+        workspace: Workspace,
+        layout: PlantUmlLayout = "dot",
+    ) -> dict[str, str]:
         """
         Export workspace views and render to SVG strings.
 
         Args:
             workspace: The workspace to export
+            layout: PlantUML layout engine, 'dot' (needs Graphviz) or 'smetana'
+                (pure Java, no Graphviz required).
 
         Returns:
             Dictionary mapping view keys to SVG content strings.
@@ -104,9 +120,12 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         Raises:
             ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
             FileNotFoundError: If structurizr-export JAR cannot be found
-            PlantUmlRenderError: If Graphviz (``dot``) is not available, or
-                PlantUML fails to render a view.
+            PlantUmlRenderError: If layout is 'dot' and Graphviz (``dot``) is not
+                available, or PlantUML fails to render a view.
+            ValueError: If layout is not 'dot' or 'smetana'.
         """
+        self._validate_layout(layout)
+
         # Check for jpype first, so a missing jpype1 is reported as ImportError
         # (with install instructions) even when Graphviz is also missing.
         try:
@@ -117,10 +136,13 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
                 "Install with: pip install buildzr[export-plantuml]"
             ) from e
 
-        self._ensure_graphviz_available()
+        if layout == "dot":
+            self._ensure_graphviz_available()
 
         # First get PlantUML strings
         diagrams = self.export_to_dict(workspace)
+        if layout == "smetana":
+            diagrams = {k: self._apply_layout(v, layout) for k, v in diagrams.items()}
 
         # Render each to SVG
         result: dict[str, str] = {}
@@ -133,13 +155,46 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         return result
 
     @staticmethod
+    def _validate_layout(layout: str) -> None:
+        """Raise ValueError if layout is not a supported layout engine."""
+        if layout not in _PLANTUML_LAYOUTS:
+            raise ValueError(
+                f"Unsupported layout: {layout!r}. Use one of: 'dot', 'smetana'"
+            )
+
+    @staticmethod
+    def _apply_layout(puml_content: str, layout: PlantUmlLayout) -> str:
+        """
+        Apply the layout engine to a PlantUML diagram.
+
+        For 'smetana', inserts ``!pragma layout smetana`` directly after the first
+        ``@startuml`` line. For 'dot' the content is returned unchanged.
+
+        Args:
+            puml_content: PlantUML source string
+            layout: PlantUML layout engine
+
+        Returns:
+            PlantUML source with the layout pragma applied.
+        """
+        if layout != "smetana":
+            return puml_content
+        lines = puml_content.split('\n')
+        for i, line in enumerate(lines):
+            if line.strip().startswith('@startuml'):
+                lines.insert(i + 1, '!pragma layout smetana')
+                break
+        return '\n'.join(lines)
+
+    @staticmethod
     def _graphviz_missing_message(detail: str) -> str:
         """Build the error message for a missing Graphviz installation."""
         return (
             f"Graphviz is required to render svg/png diagrams, but {detail}. "
             "Install Graphviz (https://graphviz.org/download/) and make sure the "
             "`dot` executable is on your PATH, or point the GRAPHVIZ_DOT "
-            "environment variable at it."
+            "environment variable at it, or render without Graphviz using "
+            "layout='smetana'."
         )
 
     @classmethod
@@ -226,9 +281,10 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
         Raises:
             ImportError: If jpype1 is not installed (install with: pip install buildzr[export-plantuml])
             FileNotFoundError: If structurizr-export JAR cannot be found
-            PlantUmlRenderError: If svg/png output is requested and Graphviz (``dot``)
-                is not available, or PlantUML fails to render a view. A missing
-                Graphviz is reported before any file is written.
+            PlantUmlRenderError: If svg/png output is requested with layout 'dot'
+                and Graphviz (``dot``) is not available, or PlantUML fails to render
+                a view. A missing Graphviz is reported before any file is written.
+            ValueError: If config.layout is not 'dot' or 'smetana'.
             RuntimeError: If JVM initialization or export fails
         """
         if config is None:
@@ -243,7 +299,8 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
                 "Install with: pip install buildzr[export-plantuml]"
             ) from e
 
-        if config.format in ('svg', 'png'):
+        self._validate_layout(config.layout)
+        if config.format in ('svg', 'png') and config.layout == 'dot':
             self._ensure_graphviz_available()
 
         # Initialize JVM if needed
@@ -259,6 +316,8 @@ class PlantUmlSink(Sink[PlantUmlSinkConfig]):
 
         # Phase 3: Export using Java exporter
         diagrams = self._export_workspace(java_workspace)
+        if config.layout == 'smetana':
+            diagrams = {k: self._apply_layout(v, config.layout) for k, v in diagrams.items()}
 
         # Phase 4: Write files and render
         self._write_diagrams(diagrams, config)
