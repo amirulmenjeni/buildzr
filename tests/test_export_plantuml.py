@@ -18,6 +18,10 @@ from buildzr.dsl import (
     SystemContextView,
     ComponentView,
     DynamicView,
+    DeploymentEnvironment,
+    DeploymentNode,
+    ContainerInstance,
+    DeploymentView,
 )
 from buildzr.sinks.plantuml_sink import PlantUmlRenderError, PlantUmlSink, PlantUmlSinkConfig
 
@@ -553,3 +557,57 @@ class TestDynamicViewExport:
         assert 'Step' in step
         assert 'JDBC' in step
         assert 'SQL' not in step
+
+
+class TestDeploymentViewFilters:
+    """DeploymentView include/exclude filters are applied in the export."""
+
+    @staticmethod
+    def _build(**view_kwargs: Any) -> Workspace:
+        with Workspace('dep-filter', scope=None) as w:
+            with SoftwareSystem('System') as system:
+                api = Container('API')
+                db = Container('DB')
+                api >> "reads" >> db
+            with DeploymentEnvironment('Prod') as env:
+                with DeploymentNode('NodeA') as a:
+                    ContainerInstance(api)
+                with DeploymentNode('NodeB') as b:
+                    ContainerInstance(db)
+                r = a >> "hidden link" >> b
+                r.add_tags("Hide")
+            DeploymentView(
+                env,
+                key='dep',
+                software_system_selector=system,
+                **view_kwargs,
+            )
+        return w
+
+    @staticmethod
+    def _export(w: Workspace, path: Path) -> str:
+        w.save(format='plantuml', path=path)
+        return (path / 'dep.puml').read_text(encoding='utf-8')
+
+    def test_unfiltered_keeps_everything(self, tmp_path: Path) -> None:
+        puml = self._export(self._build(), tmp_path)
+        assert 'hidden link' in puml
+        assert 'NodeA' in puml and 'NodeB' in puml
+        assert 'reads' in puml
+
+    def test_exclude_relationships(self, tmp_path: Path) -> None:
+        puml = self._export(
+            self._build(exclude_relationships=[lambda w, r: "Hide" in r.tags]),
+            tmp_path,
+        )
+        assert 'hidden link' not in puml
+        assert 'reads' in puml  # implied instance relationship is kept
+
+    def test_exclude_elements(self, tmp_path: Path) -> None:
+        puml = self._export(
+            self._build(exclude_elements=[lambda w, e: e.name == 'NodeB']),
+            tmp_path,
+        )
+        assert 'NodeB' not in puml
+        assert 'NodeA' in puml
+        assert 'hidden link' not in puml
