@@ -60,6 +60,44 @@ jobs:
             printf '%s\n' "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
+  # Catch version bump mistakes before merging, as the release workflow only
+  # notices them after merging (it skips or fails). Compares the version on the
+  # base branch with the version that merging would produce (the default
+  # checkout of a pull_request event is the merge commit, whose first parent is
+  # the base branch), so pull requests that do not change VERSION pass silently.
+  check_version:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # Get the base commit and tags
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: 0.12.11
+
+      - name: Test version bump check
+        run: uv run --no-project --with packaging==26.3 python .github/scripts/test_check_version_bump.py
+
+      - name: Check version bump
+        shell: bash # Adds -o pipefail
+        run: |
+          if ! git rev-parse -q --verify 'HEAD^2' >/dev/null; then
+            echo "::error::Expected the pull request merge commit to be checked out."
+            exit 1
+          fi
+          check() {
+            uv run --no-project --with packaging==26.3 python .github/scripts/check_version_bump.py "$@"
+          }
+          base_version="$(git show HEAD^1:buildzr/__about__.py | check read-version)"
+          head_version="$(git show HEAD:buildzr/__about__.py | check read-version)"
+          git tag --list 'v*' | check "$base_version" "$head_version"
+
   commitlint:
     runs-on: ubuntu-latest
     steps:
