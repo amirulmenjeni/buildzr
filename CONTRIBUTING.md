@@ -212,6 +212,12 @@ version is final and its tag does not exist yet. Development, pre-release and
 post-release versions such as `0.0.33.dev0`, `0.0.33rc1` or `0.0.33.post1` are
 skipped, so bumping to `.dev0` does not trigger a release.
 
+When a pull request changes the version, the `check_version` job of the
+`build` workflow validates it before merging: it fails on a version that is not
+canonical PEP 440 (for example `0.0.033`), on a final version that is already
+tagged, and on a version that is not higher than the latest `v*` tag.
+Otherwise it reports whether merging will release the version to PyPI.
+
 If a release fails, no tag is pushed. Re-run the failed run from the Actions
 tab before merging anything else; otherwise the next push to `master`
 releases that version from the newer commit. Files already on PyPI are
