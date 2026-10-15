@@ -77,6 +77,8 @@ class WorkspaceConverter:
 
         # Maps to track ID -> Java object for relationship resolution
         self._element_map: Dict[str, Any] = {}
+        # Maps Python relationship ID -> Java Relationship (for dynamic view steps)
+        self._relationship_map: Dict[str, Any] = {}
 
     def to_java(self, workspace: Workspace) -> Any:
         """
@@ -90,6 +92,7 @@ class WorkspaceConverter:
         """
         # Clear element map for this conversion
         self._element_map.clear()
+        self._relationship_map.clear()
 
         # Create Java workspace with basic properties
         java_workspace = self.JavaWorkspace(
@@ -514,6 +517,9 @@ class WorkspaceConverter:
             for key, value in relationship.properties.items():
                 java_rel.addProperty(key, str(value))
 
+        if relationship.id:
+            self._relationship_map[relationship.id] = java_rel
+
         return java_rel
 
     def _convert_views(self, views: Views, java_workspace: Any) -> None:
@@ -716,16 +722,22 @@ class WorkspaceConverter:
                 view.description or ""
             )
 
-        # Add relationships in sequence
-        if hasattr(view, 'relationships') and view.relationships:
-            for rel_view in view.relationships:
-                if hasattr(rel_view, 'relationshipId') and rel_view.relationshipId:
-                    # Find the relationship by ID
-                    source_element = self._element_map.get(rel_view.relationshipId) if hasattr(rel_view, 'relationshipId') else None
-                    if source_element:
-                        java_view.add(source_element)
+        # Add relationships as numbered steps (DynamicView has no add(element))
+        def step_order(rel_view: Any) -> float:
+            try:
+                return float(rel_view.order)
+            except (TypeError, ValueError):
+                return float('inf')
 
-        self._apply_common_view_properties(view, java_view)
+        for rel_view in sorted(view.relationships or [], key=step_order):
+            java_rel = self._relationship_map.get(rel_view.id or "")
+            if java_rel is None:
+                continue
+            java_view.add(java_rel, rel_view.description or java_rel.getDescription() or "")
+
+        self._apply_automatic_layout(view, java_view)
+        if view.title:
+            java_view.setTitle(view.title)
         return java_view
 
     def _convert_custom_view(self, view: CustomView, java_views: Any) -> Any:

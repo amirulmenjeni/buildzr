@@ -17,6 +17,7 @@ from buildzr.dsl import (
     ContainerView,
     SystemContextView,
     ComponentView,
+    DynamicView,
 )
 from buildzr.sinks.plantuml_sink import PlantUmlRenderError, PlantUmlSink, PlantUmlSinkConfig
 
@@ -496,3 +497,59 @@ class TestSmetanaLayout:
     def test_graphviz_error_hints_at_smetana(self, workspace: Workspace, no_dot: None, tmp_path: Path) -> None:
         with pytest.raises(PlantUmlRenderError, match="smetana"):
             workspace.save(format='svg', path=tmp_path)
+
+
+class TestDynamicViewExport:
+    """DynamicView steps are exported to PlantUML in order."""
+
+    @pytest.fixture
+    def workspace(self) -> Workspace:
+        with Workspace('dyn-check', scope='software_system') as w:
+            user = Person('User')
+            with SoftwareSystem('System') as system:
+                web = Container('Web')
+                db = Container('DB')
+            DynamicView(
+                key='dyn',
+                description='dyn',
+                scope=system,
+                steps=[
+                    user >> "Opens page" >> web,
+                    web >> "Reads data" >> db,
+                ],
+            )
+        return w
+
+    def test_export_succeeds(self, workspace: Workspace, tmp_path: Path) -> None:
+        workspace.save(format='plantuml', path=tmp_path)
+        assert (tmp_path / 'dyn.puml').exists()
+
+    def test_steps_in_order_with_descriptions(
+        self, workspace: Workspace, tmp_path: Path
+    ) -> None:
+        workspace.save(format='plantuml', path=tmp_path)
+        puml = (tmp_path / 'dyn.puml').read_text(encoding='utf-8')
+        first = puml.index('1. Opens page')
+        second = puml.index('2. Reads data')
+        assert first < second
+
+    def test_step_uses_exact_relationship(self, tmp_path: Path) -> None:
+        with Workspace('dyn-exact', scope='software_system') as w:
+            with SoftwareSystem('System') as system:
+                web = Container('Web')
+                db = Container('DB')
+            web >> ("Reads", "SQL") >> db
+            web >> ("Writes", "JDBC") >> db
+            # Technology acts as a selector for the model relationship.
+            DynamicView(
+                key='dyn',
+                description='dyn',
+                scope=system,
+                steps=[web >> ("Step", "JDBC") >> db],
+            )
+        w.save(format='plantuml', path=tmp_path)
+        puml = (tmp_path / 'dyn.puml').read_text(encoding='utf-8')
+        step = next(line for line in puml.splitlines() if '1. ' in line)
+        assert 'Step' in step
+        assert 'JDBC' in step
+        assert 'SQL' not in step
