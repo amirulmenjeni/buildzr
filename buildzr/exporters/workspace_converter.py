@@ -902,10 +902,11 @@ class WorkspaceConverter:
 
     def _apply_element_style(self, style: Any, java_style: Any) -> None:
         """Apply element style properties."""
+        from java.lang import Integer  # setters take java.lang.Integer, not int
         if hasattr(style, 'width') and style.width:
-            java_style.setWidth(style.width)
+            java_style.setWidth(Integer.valueOf(style.width))
         if hasattr(style, 'height') and style.height:
-            java_style.setHeight(style.height)
+            java_style.setHeight(Integer.valueOf(style.height))
         if hasattr(style, 'background') and style.background:
             java_style.setBackground(style.background)
         if hasattr(style, 'color') and style.color:
@@ -916,12 +917,13 @@ class WorkspaceConverter:
         if hasattr(style, 'icon') and style.icon:
             java_style.setIcon(style.icon)
         if hasattr(style, 'fontSize') and style.fontSize:
-            java_style.setFontSize(style.fontSize)
+            java_style.setFontSize(Integer.valueOf(style.fontSize))
 
     def _apply_relationship_style(self, style: Any, java_style: Any) -> None:
         """Apply relationship style properties."""
+        from java.lang import Integer  # setters take java.lang.Integer, not int
         if hasattr(style, 'thickness') and style.thickness:
-            java_style.setThickness(style.thickness)
+            java_style.setThickness(Integer.valueOf(style.thickness))
         if hasattr(style, 'color') and style.color:
             java_style.setColor(style.color)
         if hasattr(style, 'dashed') and style.dashed is not None:
@@ -930,11 +932,11 @@ class WorkspaceConverter:
             from com.structurizr.view import Routing as JavaRouting
             java_style.setRouting(self._convert_routing(style.routing))
         if hasattr(style, 'fontSize') and style.fontSize:
-            java_style.setFontSize(style.fontSize)
+            java_style.setFontSize(Integer.valueOf(style.fontSize))
         if hasattr(style, 'width') and style.width:
-            java_style.setWidth(style.width)
+            java_style.setWidth(Integer.valueOf(style.width))
         if hasattr(style, 'position') and style.position:
-            java_style.setPosition(style.position)
+            java_style.setPosition(Integer.valueOf(style.position))
 
     def _convert_location(self, location: str) -> Any:
         """Convert Python location string to Java Location enum."""

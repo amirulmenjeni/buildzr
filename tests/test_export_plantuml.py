@@ -22,6 +22,8 @@ from buildzr.dsl import (
     DeploymentNode,
     ContainerInstance,
     DeploymentView,
+    StyleElements,
+    StyleRelationships,
 )
 from buildzr.sinks.plantuml_sink import PlantUmlRenderError, PlantUmlSink, PlantUmlSinkConfig
 
@@ -611,3 +613,39 @@ class TestDeploymentViewFilters:
         assert 'NodeB' not in puml
         assert 'NodeA' in puml
         assert 'hidden link' not in puml
+
+
+class TestStyleIntegerExport:
+    """Integer style properties are converted to java.lang.Integer."""
+
+    @staticmethod
+    def _workspace() -> Workspace:
+        with Workspace('style-ints') as w:
+            u = Person('U')
+            s = SoftwareSystem('S')
+            u >> 'uses' >> s
+            SystemContextView(s, key='ctx', description='')
+        return w
+
+    @pytest.mark.parametrize('kwargs', [
+        {'thickness': 4},
+        {'font_size': 20},
+        {'width': 300},
+        {'position': 40},
+    ])
+    def test_relationship_style(self, kwargs: Any, tmp_path: Path) -> None:
+        with self._workspace() as w:
+            StyleRelationships(**kwargs)
+        w.save(format='plantuml', path=tmp_path)
+        assert (tmp_path / 'ctx.puml').exists()
+
+    @pytest.mark.parametrize('kwargs', [
+        {'width': 300},
+        {'height': 200},
+        {'font_size': 30},
+    ])
+    def test_element_style(self, kwargs: Any, tmp_path: Path) -> None:
+        with self._workspace() as w:
+            StyleElements(on=[Person], **kwargs)
+        w.save(format='plantuml', path=tmp_path)
+        assert (tmp_path / 'ctx.puml').exists()
