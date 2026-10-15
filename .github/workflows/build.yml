@@ -189,10 +189,23 @@ jobs:
       run: |
         jq <<< '${{ steps.semantic-version.outputs.debug_output }}'
 
+    # A release PR sets a final version (e.g. 0.0.33) in buildzr/__about__.py,
+    # which is higher than the computed dev version (e.g. v0.0.33.dev3), and
+    # hatch refuses to bump to a version that is not higher than the current one.
+    # Compare with PEP 440 semantics using the packaging library from hatch's
+    # own tool environment, and build with the file version when it is ahead.
     - name: Update Version
       env:
         version: ${{ steps.semantic-version.outputs.version }}
-      run: hatch version $version
+      run: |
+        current_version="$(hatch version)"
+        hatch_python="$(uv tool dir)/hatch/bin/python"
+        is_higher="$("$hatch_python" -c 'import sys; from packaging.version import Version; print(Version(sys.argv[1]) > Version(sys.argv[2]))' "$version" "$current_version")"
+        if [ "$is_higher" = "True" ]; then
+          hatch version "$version"
+        else
+          echo "::notice::File version $current_version is already ahead of (or equal to) computed version $version; skipping version update."
+        fi
 
     - name: Build package
       run: |
