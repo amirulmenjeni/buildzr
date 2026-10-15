@@ -17,6 +17,13 @@ from buildzr.dsl import (
     ContainerView,
     SystemContextView,
     ComponentView,
+    DynamicView,
+    DeploymentEnvironment,
+    DeploymentNode,
+    ContainerInstance,
+    DeploymentView,
+    StyleElements,
+    StyleRelationships,
 )
 from buildzr.sinks.plantuml_sink import PlantUmlRenderError, PlantUmlSink, PlantUmlSinkConfig
 
@@ -496,3 +503,149 @@ class TestSmetanaLayout:
     def test_graphviz_error_hints_at_smetana(self, workspace: Workspace, no_dot: None, tmp_path: Path) -> None:
         with pytest.raises(PlantUmlRenderError, match="smetana"):
             workspace.save(format='svg', path=tmp_path)
+
+
+class TestDynamicViewExport:
+    """DynamicView steps are exported to PlantUML in order."""
+
+    @pytest.fixture
+    def workspace(self) -> Workspace:
+        with Workspace('dyn-check', scope='software_system') as w:
+            user = Person('User')
+            with SoftwareSystem('System') as system:
+                web = Container('Web')
+                db = Container('DB')
+            DynamicView(
+                key='dyn',
+                description='dyn',
+                scope=system,
+                steps=[
+                    user >> "Opens page" >> web,
+                    web >> "Reads data" >> db,
+                ],
+            )
+        return w
+
+    def test_export_succeeds(self, workspace: Workspace, tmp_path: Path) -> None:
+        workspace.save(format='plantuml', path=tmp_path)
+        assert (tmp_path / 'dyn.puml').exists()
+
+    def test_steps_in_order_with_descriptions(
+        self, workspace: Workspace, tmp_path: Path
+    ) -> None:
+        workspace.save(format='plantuml', path=tmp_path)
+        puml = (tmp_path / 'dyn.puml').read_text(encoding='utf-8')
+        first = puml.index('1. Opens page')
+        second = puml.index('2. Reads data')
+        assert first < second
+
+    def test_step_uses_exact_relationship(self, tmp_path: Path) -> None:
+        with Workspace('dyn-exact', scope='software_system') as w:
+            with SoftwareSystem('System') as system:
+                web = Container('Web')
+                db = Container('DB')
+            web >> ("Reads", "SQL") >> db
+            web >> ("Writes", "JDBC") >> db
+            # Technology acts as a selector for the model relationship.
+            DynamicView(
+                key='dyn',
+                description='dyn',
+                scope=system,
+                steps=[web >> ("Step", "JDBC") >> db],
+            )
+        w.save(format='plantuml', path=tmp_path)
+        puml = (tmp_path / 'dyn.puml').read_text(encoding='utf-8')
+        step = next(line for line in puml.splitlines() if '1. ' in line)
+        assert 'Step' in step
+        assert 'JDBC' in step
+        assert 'SQL' not in step
+
+
+class TestDeploymentViewFilters:
+    """DeploymentView include/exclude filters are applied in the export."""
+
+    @staticmethod
+    def _build(**view_kwargs: Any) -> Workspace:
+        with Workspace('dep-filter', scope=None) as w:
+            with SoftwareSystem('System') as system:
+                api = Container('API')
+                db = Container('DB')
+                api >> "reads" >> db
+            with DeploymentEnvironment('Prod') as env:
+                with DeploymentNode('NodeA') as a:
+                    ContainerInstance(api)
+                with DeploymentNode('NodeB') as b:
+                    ContainerInstance(db)
+                r = a >> "hidden link" >> b
+                r.add_tags("Hide")
+            DeploymentView(
+                env,
+                key='dep',
+                software_system_selector=system,
+                **view_kwargs,
+            )
+        return w
+
+    @staticmethod
+    def _export(w: Workspace, path: Path) -> str:
+        w.save(format='plantuml', path=path)
+        return (path / 'dep.puml').read_text(encoding='utf-8')
+
+    def test_unfiltered_keeps_everything(self, tmp_path: Path) -> None:
+        puml = self._export(self._build(), tmp_path)
+        assert 'hidden link' in puml
+        assert 'NodeA' in puml and 'NodeB' in puml
+        assert 'reads' in puml
+
+    def test_exclude_relationships(self, tmp_path: Path) -> None:
+        puml = self._export(
+            self._build(exclude_relationships=[lambda w, r: "Hide" in r.tags]),
+            tmp_path,
+        )
+        assert 'hidden link' not in puml
+        assert 'reads' in puml  # implied instance relationship is kept
+
+    def test_exclude_elements(self, tmp_path: Path) -> None:
+        puml = self._export(
+            self._build(exclude_elements=[lambda w, e: e.name == 'NodeB']),
+            tmp_path,
+        )
+        assert 'NodeB' not in puml
+        assert 'NodeA' in puml
+        assert 'hidden link' not in puml
+
+
+class TestStyleIntegerExport:
+    """Integer style properties are converted to java.lang.Integer."""
+
+    @staticmethod
+    def _workspace() -> Workspace:
+        with Workspace('style-ints') as w:
+            u = Person('U')
+            s = SoftwareSystem('S')
+            u >> 'uses' >> s
+            SystemContextView(s, key='ctx', description='')
+        return w
+
+    @pytest.mark.parametrize('kwargs', [
+        {'thickness': 4},
+        {'font_size': 20},
+        {'width': 300},
+        {'position': 40},
+    ])
+    def test_relationship_style(self, kwargs: Any, tmp_path: Path) -> None:
+        with self._workspace() as w:
+            StyleRelationships(**kwargs)
+        w.save(format='plantuml', path=tmp_path)
+        assert (tmp_path / 'ctx.puml').exists()
+
+    @pytest.mark.parametrize('kwargs', [
+        {'width': 300},
+        {'height': 200},
+        {'font_size': 30},
+    ])
+    def test_element_style(self, kwargs: Any, tmp_path: Path) -> None:
+        with self._workspace() as w:
+            StyleElements(on=[Person], **kwargs)
+        w.save(format='plantuml', path=tmp_path)
+        assert (tmp_path / 'ctx.puml').exists()

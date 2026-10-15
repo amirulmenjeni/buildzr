@@ -1,6 +1,6 @@
 """Converts buildzr Python workspace objects to Java Workspace objects for JPype."""
 
-from typing import Dict, Any, Optional, Union, TYPE_CHECKING
+from typing import Dict, Any, Optional, Tuple, Union, TYPE_CHECKING
 import jpype  # type: ignore
 import jpype.imports  # type: ignore
 
@@ -77,6 +77,11 @@ class WorkspaceConverter:
 
         # Maps to track ID -> Java object for relationship resolution
         self._element_map: Dict[str, Any] = {}
+        # Maps Python relationship ID -> Java Relationship (for dynamic view steps)
+        self._relationship_map: Dict[str, Any] = {}
+        # Maps Python relationship ID -> (source ID, destination ID), including
+        # implied deployment relationships that Java creates by itself
+        self._relationship_ends: Dict[str, Tuple[str, str]] = {}
 
     def to_java(self, workspace: Workspace) -> Any:
         """
@@ -90,6 +95,8 @@ class WorkspaceConverter:
         """
         # Clear element map for this conversion
         self._element_map.clear()
+        self._relationship_map.clear()
+        self._relationship_ends.clear()
 
         # Create Java workspace with basic properties
         java_workspace = self.JavaWorkspace(
@@ -444,6 +451,11 @@ class WorkspaceConverter:
         if not relationship.sourceId or not relationship.destinationId:
             return None
 
+        if relationship.id:
+            self._relationship_ends[relationship.id] = (
+                relationship.sourceId, relationship.destinationId
+            )
+
         # Skip implied relationships only for deployment elements, where the
         # Java library auto-creates them when container instances are added.
         # For static structure elements (Person, SoftwareSystem, Container,
@@ -513,6 +525,9 @@ class WorkspaceConverter:
         if relationship.properties:
             for key, value in relationship.properties.items():
                 java_rel.addProperty(key, str(value))
+
+        if relationship.id:
+            self._relationship_map[relationship.id] = java_rel
 
         return java_rel
 
@@ -650,8 +665,70 @@ class WorkspaceConverter:
         # at least one common deployment group (cross-group relationships)
         self._remove_cross_group_relationships(java_view)
 
-        self._apply_common_view_properties(view, java_view)
+        # Apply the view's include/exclude filters: the Python view model lists
+        # exactly what should be shown
+        # Don't call _apply_common_view_properties here: re-adding the
+        # elements would bring back the relationships that were just removed.
+        self._remove_filtered_out(view, java_view)
+
+        self._apply_automatic_layout(view, java_view)
+        if view.title:
+            java_view.setTitle(view.title)
         return java_view
+
+    def _remove_filtered_out(self, view: DeploymentView, java_view: Any) -> None:
+        """Remove elements and relationships that the Python view doesn't list.
+
+        Args:
+            view: Python DeploymentView holding the filtered elements/relationships
+            java_view: Java DeploymentView populated by addAllDeploymentNodes()
+        """
+        view_element_ids = {str(ev.id) for ev in view.elements or []}
+        view_relationship_ids = {str(rv.id) for rv in view.relationships or []}
+
+        java_to_python: Dict[str, str] = {
+            str(java_el.getId()): py_id for py_id, java_el in self._element_map.items()
+        }
+
+        # Java relationships we can identify directly, and source/destination
+        # pairs for implied instance relationships that Java created itself
+        kept_java_rel_ids = {
+            str(self._relationship_map[rid].getId())
+            for rid in view_relationship_ids if rid in self._relationship_map
+        }
+        kept_pairs = {
+            self._relationship_ends[rid]
+            for rid in view_relationship_ids
+            if rid in self._relationship_ends and rid not in self._relationship_map
+        }
+
+        mapped_java_rel_ids = {str(r.getId()) for r in self._relationship_map.values()}
+
+        rels_to_remove = []
+        for rel_view in java_view.getRelationships():
+            rel = rel_view.getRelationship()
+            if str(rel.getId()) in kept_java_rel_ids:
+                continue
+            if str(rel.getId()) in mapped_java_rel_ids:
+                rels_to_remove.append(rel)
+                continue
+            pair = (
+                java_to_python.get(str(rel.getSourceId())),
+                java_to_python.get(str(rel.getDestinationId())),
+            )
+            if pair not in kept_pairs:
+                rels_to_remove.append(rel)
+        for rel in rels_to_remove:
+            java_view.remove(rel)
+
+        elements_to_remove = []
+        for element_view in java_view.getElements():
+            element = element_view.getElement()
+            py_id = java_to_python.get(str(element.getId()))
+            if py_id is not None and py_id not in view_element_ids:
+                elements_to_remove.append(element)
+        for element in elements_to_remove:
+            java_view.remove(element)
 
     def _remove_cross_group_relationships(self, java_view: Any) -> None:
         """
@@ -716,16 +793,22 @@ class WorkspaceConverter:
                 view.description or ""
             )
 
-        # Add relationships in sequence
-        if hasattr(view, 'relationships') and view.relationships:
-            for rel_view in view.relationships:
-                if hasattr(rel_view, 'relationshipId') and rel_view.relationshipId:
-                    # Find the relationship by ID
-                    source_element = self._element_map.get(rel_view.relationshipId) if hasattr(rel_view, 'relationshipId') else None
-                    if source_element:
-                        java_view.add(source_element)
+        # Add relationships as numbered steps (DynamicView has no add(element))
+        def step_order(rel_view: Any) -> float:
+            try:
+                return float(rel_view.order)
+            except (TypeError, ValueError):
+                return float('inf')
 
-        self._apply_common_view_properties(view, java_view)
+        for rel_view in sorted(view.relationships or [], key=step_order):
+            java_rel = self._relationship_map.get(rel_view.id or "")
+            if java_rel is None:
+                continue
+            java_view.add(java_rel, rel_view.description or java_rel.getDescription() or "")
+
+        self._apply_automatic_layout(view, java_view)
+        if view.title:
+            java_view.setTitle(view.title)
         return java_view
 
     def _convert_custom_view(self, view: CustomView, java_views: Any) -> Any:
@@ -819,10 +902,11 @@ class WorkspaceConverter:
 
     def _apply_element_style(self, style: Any, java_style: Any) -> None:
         """Apply element style properties."""
+        from java.lang import Integer  # setters take java.lang.Integer, not int
         if hasattr(style, 'width') and style.width:
-            java_style.setWidth(style.width)
+            java_style.setWidth(Integer.valueOf(style.width))
         if hasattr(style, 'height') and style.height:
-            java_style.setHeight(style.height)
+            java_style.setHeight(Integer.valueOf(style.height))
         if hasattr(style, 'background') and style.background:
             java_style.setBackground(style.background)
         if hasattr(style, 'color') and style.color:
@@ -833,12 +917,13 @@ class WorkspaceConverter:
         if hasattr(style, 'icon') and style.icon:
             java_style.setIcon(style.icon)
         if hasattr(style, 'fontSize') and style.fontSize:
-            java_style.setFontSize(style.fontSize)
+            java_style.setFontSize(Integer.valueOf(style.fontSize))
 
     def _apply_relationship_style(self, style: Any, java_style: Any) -> None:
         """Apply relationship style properties."""
+        from java.lang import Integer  # setters take java.lang.Integer, not int
         if hasattr(style, 'thickness') and style.thickness:
-            java_style.setThickness(style.thickness)
+            java_style.setThickness(Integer.valueOf(style.thickness))
         if hasattr(style, 'color') and style.color:
             java_style.setColor(style.color)
         if hasattr(style, 'dashed') and style.dashed is not None:
@@ -847,11 +932,11 @@ class WorkspaceConverter:
             from com.structurizr.view import Routing as JavaRouting
             java_style.setRouting(self._convert_routing(style.routing))
         if hasattr(style, 'fontSize') and style.fontSize:
-            java_style.setFontSize(style.fontSize)
+            java_style.setFontSize(Integer.valueOf(style.fontSize))
         if hasattr(style, 'width') and style.width:
-            java_style.setWidth(style.width)
+            java_style.setWidth(Integer.valueOf(style.width))
         if hasattr(style, 'position') and style.position:
-            java_style.setPosition(style.position)
+            java_style.setPosition(Integer.valueOf(style.position))
 
     def _convert_location(self, location: str) -> Any:
         """Convert Python location string to Java Location enum."""
