@@ -2843,8 +2843,12 @@ class DynamicView(DslViewElement):
         destination: DslElement,
         exclude_id: str,
         technology: Optional[str] = None,
+        allowed_ids: Optional[Set[str]] = None,
     ) -> Optional[DslRelationship]:
         """Find an existing relationship between source and destination, excluding a specific ID.
+
+        When several relationships match, the one with the lowest numeric ID is
+        returned so the result does not depend on set iteration order.
 
         Args:
             workspace: The workspace containing relationships.
@@ -2853,22 +2857,25 @@ class DynamicView(DslViewElement):
             exclude_id: Relationship ID to exclude from matching.
             technology: If specified, only match relationships with this exact technology.
                        This follows Structurizr behavior where technology acts as a selector.
+            allowed_ids: If specified, only match relationships with one of these IDs.
+                         Used to skip inline relationships created while evaluating
+                         the steps of a DynamicView.
         """
         from buildzr.dsl.explorer import Explorer
 
         explorer = Explorer(workspace)
-        for rel in explorer.walk_relationships():
-            if rel.source.model.id == source.model.id and \
-               rel.destination.model.id == destination.model.id and \
-               rel.model.id != exclude_id:
-                # If technology is specified, it must match exactly
-                if technology is not None:
-                    if rel.model.technology == technology:
-                        return rel
-                    # Continue searching for a relationship with matching technology
-                else:
-                    return rel
-        return None
+        candidates = [
+            rel for rel in explorer.walk_relationships()
+            if rel.source.model.id == source.model.id
+            and rel.destination.model.id == destination.model.id
+            and rel.model.id != exclude_id
+            and (allowed_ids is None or rel.model.id in allowed_ids)
+            # If technology is specified, it must match exactly
+            and (technology is None or rel.model.technology == technology)
+        ]
+        if not candidates:
+            return None
+        return min(candidates, key=lambda r: int(r.model.id))
 
     def _remove_relationship_from_model(
         self,
@@ -2943,8 +2950,14 @@ class DynamicView(DslViewElement):
             # Check if there's an original relationship (created before this one)
             # If the inline relationship specifies a technology, use it as a selector
             # (following Structurizr behavior where technology acts as a selector, not an override)
+            # The original must have been created before this step's relationship,
+            # so a later step's inline duplicate is never picked.
+            earlier_rel_ids = {
+                rid for rid in pre_existing_rel_ids if int(rid) < int(rel.model.id)
+            }
             original_rel = self._find_original_relationship(
-                workspace, source, destination, rel.model.id, technology=rel_technology
+                workspace, source, destination, rel.model.id,
+                technology=rel_technology, allowed_ids=earlier_rel_ids,
             )
 
             if original_rel is not None:

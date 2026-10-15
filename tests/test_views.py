@@ -1859,6 +1859,73 @@ def test_dynamic_view_multiple_relationships_different_technologies() -> Optiona
     assert dv.relationships[0].description == "Synchronizes data via"
 
 
+def test_dynamic_view_repeated_inline_steps_resolve_to_static_relationship() -> Optional[None]:
+    """Inline steps between the same elements must all resolve to the static relationship.
+
+    Regression test: a step used to be able to resolve to another step's inline
+    duplicate (which is later removed from the model), depending on set order.
+    """
+    with Workspace('w') as w:
+        a = SoftwareSystem('a')
+        b = SoftwareSystem('b')
+        static = a >> "uses" >> b
+
+        DynamicView(
+            key="repeated",
+            description="",
+            steps=[
+                a >> "x" >> b,
+                a >> "x" >> b,
+                a >> "z" >> b,
+            ],
+        )
+
+    dv = w.model.views.dynamicViews[0]
+    assert dv.relationships is not None
+    assert [r.id for r in dv.relationships] == [static.model.id] * 3
+    assert [r.description for r in dv.relationships] == ["x", "x", "z"]
+
+    # Inline duplicates must not remain in the model.
+    assert [r.model.id for r in Explorer(w).walk_relationships()] == [static.model.id]
+
+
+def test_dynamic_view_distinct_inline_steps_resolve_deterministically() -> Optional[None]:
+    """Steps with different descriptions always resolve to the static relationship.
+
+    The old lookup depended on set iteration order (object identity), so the
+    scenario is built many times to catch an order-dependent result.
+    """
+    for _ in range(50):
+        with Workspace('w') as w:
+            a = SoftwareSystem('a')
+            b = SoftwareSystem('b')
+            static = a >> "uses" >> b
+            DynamicView(key="v", steps=[a >> "x" >> b, a >> "y" >> b])
+
+        dv = w.model.views.dynamicViews[0]
+        assert dv.relationships is not None
+        assert [r.id for r in dv.relationships] == [static.model.id] * 2
+
+
+def test_dynamic_view_static_relationship_by_reference_with_inline_step() -> Optional[None]:
+    """A static relationship passed by reference still works next to an inline step."""
+    with Workspace('w') as w:
+        a = SoftwareSystem('a')
+        b = SoftwareSystem('b')
+        static = a >> "uses" >> b
+
+        DynamicView(
+            key="mixed",
+            description="",
+            steps=[static, a >> "again" >> b],
+        )
+
+    dv = w.model.views.dynamicViews[0]
+    assert dv.relationships is not None
+    assert [r.id for r in dv.relationships] == [static.model.id] * 2
+    assert [r.description for r in dv.relationships] == [None, "again"]
+
+
 # ============================================================================
 # Custom Element and CustomView Tests
 # ============================================================================
