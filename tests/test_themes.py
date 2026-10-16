@@ -19,6 +19,7 @@ from buildzr.themes import (
     AWS_2022_04_30,
     AWS_2020_04_30,
 )
+from buildzr.themes.generate import read_urls_file
 
 
 class TestThemeElement:
@@ -194,13 +195,7 @@ class TestThemeURLsValidity:
     def theme_urls(self) -> list[str]:
         """Read all theme URLs from themes.txt."""
         themes_file = Path(__file__).parent.parent / "buildzr" / "themes" / "themes.txt"
-        urls = []
-        with open(themes_file) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    urls.append(line)
-        return urls
+        return read_urls_file(themes_file)
 
     @pytest.mark.network
     def test_all_theme_urls_are_fetchable(self, theme_urls: list[str]) -> None:

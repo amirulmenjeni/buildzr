@@ -1,0 +1,32 @@
+@startuml
+set separator none
+title System Landscape
+
+top to bottom direction
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+Person(PersonalBankingCustomer, "Personal Banking Customer", $descr="", $tags="Element", $link="")
+Person(CustomerServiceStaff, "Customer Service Staff", $descr="", $tags="Element", $link="")
+Person(BackOfficeStaff, "Back Office Staff", $descr="", $tags="Element", $link="")
+System(ATM, "ATM", $descr="", $tags="Element", $link="")
+System(InternetBankingSystem, "Internet Banking System", $descr="", $tags="Element", $link="")
+System(EmailSystem, "Email System", $descr="", $tags="Element", $link="")
+System(MainframeBankingSystem, "Mainframe Banking System", $descr="", $tags="Element", $link="")
+
+Rel(PersonalBankingCustomer, CustomerServiceStaff, "Ask questions to", $techn="", $tags="Relationship", $link="")
+Rel(CustomerServiceStaff, MainframeBankingSystem, "Uses", $techn="", $tags="Relationship", $link="")
+Rel(BackOfficeStaff, MainframeBankingSystem, "Uses", $techn="", $tags="Relationship", $link="")
+Rel(ATM, MainframeBankingSystem, "Uses", $techn="", $tags="Relationship", $link="")
+Rel(InternetBankingSystem, MainframeBankingSystem, "Gets account information from, and makes payments using", $techn="", $tags="Relationship", $link="")
+Rel(InternetBankingSystem, EmailSystem, "Sends e-mail using", $techn="", $tags="Relationship", $link="")
+Rel(EmailSystem, PersonalBankingCustomer, "Sends e-mail to", $techn="", $tags="Relationship", $link="")
+Rel(PersonalBankingCustomer, ATM, "Withdraws cash using", $techn="", $tags="Relationship", $link="")
+Rel(PersonalBankingCustomer, InternetBankingSystem, "Views account balance, and makes payments using", $techn="", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+@enduml

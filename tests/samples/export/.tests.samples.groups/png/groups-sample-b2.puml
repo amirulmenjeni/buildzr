@@ -1,0 +1,27 @@
+@startuml
+set separator none
+title B - Containers
+
+top to bottom direction
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+
+System_Boundary("A_boundary", "A", $tags="Element") {
+  Container(A.a1, "a1", $techn="", $descr="", $tags="Element", $link="")
+}
+
+System_Boundary("B_boundary", "B", $tags="Element") {
+  Container(B.b1, "b1", $techn="", $descr="", $tags="Element", $link="")
+  Container(B.b2, "b2", $techn="", $descr="", $tags="Element", $link="")
+}
+
+Rel(A.a1, B.b1, "Uses", $techn="", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+@enduml

@@ -1,0 +1,19 @@
+@startuml
+set separator none
+title B - System Context
+
+top to bottom direction
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+System(A, "A", $descr="", $tags="Element", $link="")
+System(B, "B", $descr="", $tags="Element", $link="")
+
+Rel(A, B, "Uses", $techn="", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+@enduml

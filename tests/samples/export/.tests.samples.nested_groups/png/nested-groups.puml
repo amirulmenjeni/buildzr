@@ -1,0 +1,23 @@
+@startuml
+set separator none
+title System Landscape
+
+top to bottom direction
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+
+AddRelTag("Relationship", $textColor="#707070", $lineColor="#707070", $lineStyle = "")
+
+System(A, "A", $descr="", $tags="buildzr-styleelements-3759114981be4f5f873c6dfce9186b6e", $link="")
+System(B, "B", $descr="", $tags="buildzr-styleelements-3759114981be4f5f873c6dfce9186b6e", $link="")
+System(C, "C", $descr="", $tags="buildzr-styleelements-24014de8d0fe438ab66f0246ddf11b8d", $link="")
+System(D, "D", $descr="", $tags="buildzr-styleelements-24014de8d0fe438ab66f0246ddf11b8d", $link="")
+
+Rel(A, B, "", $techn="", $tags="Relationship", $link="")
+Rel(B, C, "", $techn="", $tags="Relationship", $link="")
+Rel(C, D, "", $techn="", $tags="Relationship", $link="")
+
+SHOW_LEGEND(true)
+@enduml
