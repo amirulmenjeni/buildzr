@@ -59,7 +59,8 @@ export default async function zoom(browser, srv, F, name) {
     // (b) no frame label ever gets bigger on screen while zooming out, the step where a frame collapses included
     // (a frame's name is capped at 2x its child frames' names, which does not depend on what is expanded or focused).
     for (const [id, l] of Object.entries(now.labels)) {
-      if (id in prev.labels) t.ok(l.px <= prev.labels[id].px + 0.01, `label of ${id} grew: ${prev.labels[id].px.toFixed(3)} -> ${l.px.toFixed(3)} px at step ${i}`);
+      if (id in prev.labels) t.ok(l.px <= prev.labels[id].px * 1.005 + 0.01, // 0.5%: the line box snaps to 1/64 local px (labels.mjs)
+           `label of ${id} grew: ${prev.labels[id].px.toFixed(3)} -> ${l.px.toFixed(3)} px at step ${i}`);
       // (c) < 6 px is invisible, >= 12 px is opaque
       if (l.px < 6) t.ok(l.op <= 0.05, `label of ${id} is ${l.px.toFixed(2)} px but opacity ${l.op}`);
       if (l.px >= 12) t.ok(l.op >= 0.95, `label of ${id} is ${l.px.toFixed(2)} px but opacity ${l.op}`);
