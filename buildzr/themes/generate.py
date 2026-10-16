@@ -3,13 +3,15 @@
 Generate Python theme modules from Structurizr theme JSON files.
 
 Usage:
-    # From URLs file
+    # From URLs file. A "@ref <commit>" line in the file replaces "{ref}" in
+    # every URL, so the structurizr/themes commit is pinned in one place.
+    # Plain full URLs without "{ref}" work unchanged.
     python -m buildzr.themes.generate --urls-file buildzr/themes/themes.txt
 
     # From command line arguments
     python -m buildzr.themes.generate \\
-        https://raw.githubusercontent.com/structurizr/themes/master/amazon-web-services-2023.01.31/theme.json \\
-        https://raw.githubusercontent.com/structurizr/themes/master/google-cloud-platform-v1.5/theme.json
+        https://raw.githubusercontent.com/structurizr/themes/67da2b503abc708f941e5aa2ea35dd553f742c3a/amazon-web-services-2023.01.31/theme.json \\
+        https://raw.githubusercontent.com/structurizr/themes/67da2b503abc708f941e5aa2ea35dd553f742c3a/google-cloud-platform-v1.5/theme.json
 
     # Or run directly
     ./buildzr/themes/generate.py --urls-file buildzr/themes/themes.txt
@@ -125,9 +127,9 @@ def resolve_icon_url(theme_url: str, icon_path: str) -> str:
     Resolve relative icon path to full URL.
 
     Example:
-        theme_url: "https://raw.githubusercontent.com/structurizr/themes/master/aws-2023.01.31/theme.json"
+        theme_url: "https://raw.githubusercontent.com/structurizr/themes/67da2b503abc708f941e5aa2ea35dd553f742c3a/aws-2023.01.31/theme.json"
         icon_path: "Arch_Amazon-EC2_48.png"
-        -> "https://raw.githubusercontent.com/structurizr/themes/master/aws-2023.01.31/Arch_Amazon-EC2_48.png"
+        -> "https://raw.githubusercontent.com/structurizr/themes/67da2b503abc708f941e5aa2ea35dd553f742c3a/aws-2023.01.31/Arch_Amazon-EC2_48.png"
     """
     if not icon_path:
         return ''
@@ -310,6 +312,31 @@ def generate_init(
     print(f'Generated: {output_file}')
 
 
+def read_urls_file(path: Path) -> List[str]:
+    """Read theme URLs from a file, expanding the optional ``@ref`` pin.
+
+    Blank lines and ``#`` comments are skipped. A ``@ref <commit>`` line
+    replaces ``{ref}`` in every URL; URLs without ``{ref}`` are returned as is.
+
+    Raises:
+        ValueError: If a URL uses ``{ref}`` but the file has no ``@ref`` line.
+    """
+    ref = None
+    urls: List[str] = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith('@ref '):
+                ref = line[len('@ref '):].strip()
+            elif line and not line.startswith('#'):
+                urls.append(line)
+    if ref is not None:
+        return [u.replace('{ref}', ref) for u in urls]
+    if any('{ref}' in u for u in urls):
+        raise ValueError('URLs use {ref} but the file has no "@ref <commit>" line')
+    return urls
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description='Generate Python theme modules from Structurizr theme JSON files.',
@@ -343,11 +370,11 @@ def main() -> None:
             print(f'Error: URLs file not found: {args.urls_file}', file=sys.stderr)
             sys.exit(1)
 
-        with open(args.urls_file) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    urls.append(line)
+        try:
+            urls.extend(read_urls_file(args.urls_file))
+        except ValueError as e:
+            print(f'Error: {e}', file=sys.stderr)
+            sys.exit(1)
 
     if not urls:
         print('Error: No URLs provided. Use positional arguments or --urls-file.', file=sys.stderr)

@@ -1,21 +1,25 @@
 # Structurizr theme URLs for code generation
 # Run: python -m buildzr.themes.generate --urls-file buildzr/themes/themes.txt
+#
+# URLs are pinned to a structurizr/themes commit via {ref}. To bump the pin,
+# change the @ref line below and re-run the command above.
+@ref 67da2b503abc708f941e5aa2ea35dd553f742c3a
 
 # Amazon Web Services
-https://raw.githubusercontent.com/structurizr/themes/master/amazon-web-services-2023.01.31/theme.json
-https://raw.githubusercontent.com/structurizr/themes/master/amazon-web-services-2022.04.30/theme.json
-https://raw.githubusercontent.com/structurizr/themes/master/amazon-web-services-2020.04.30/theme.json
+https://raw.githubusercontent.com/structurizr/themes/{ref}/amazon-web-services-2023.01.31/theme.json
+https://raw.githubusercontent.com/structurizr/themes/{ref}/amazon-web-services-2022.04.30/theme.json
+https://raw.githubusercontent.com/structurizr/themes/{ref}/amazon-web-services-2020.04.30/theme.json
 
 # Google Cloud Platform
-https://raw.githubusercontent.com/structurizr/themes/master/google-cloud-platform-v1.5/theme.json
+https://raw.githubusercontent.com/structurizr/themes/{ref}/google-cloud-platform-v1.5/theme.json
 
 # Microsoft Azure
-https://raw.githubusercontent.com/structurizr/themes/master/microsoft-azure-2023.01.24/theme.json
+https://raw.githubusercontent.com/structurizr/themes/{ref}/microsoft-azure-2023.01.24/theme.json
 
 # Kubernetes
-https://raw.githubusercontent.com/structurizr/themes/master/kubernetes-v0.3/theme.json
+https://raw.githubusercontent.com/structurizr/themes/{ref}/kubernetes-v0.3/theme.json
 
 # Oracle Cloud Infrastructure
-https://raw.githubusercontent.com/structurizr/themes/master/oracle-cloud-infrastructure-2023.04.01/theme.json
-https://raw.githubusercontent.com/structurizr/themes/master/oracle-cloud-infrastructure-2021.04.30/theme.json
-https://raw.githubusercontent.com/structurizr/themes/master/oracle-cloud-infrastructure-2020.04.30/theme.json
+https://raw.githubusercontent.com/structurizr/themes/{ref}/oracle-cloud-infrastructure-2023.04.01/theme.json
+https://raw.githubusercontent.com/structurizr/themes/{ref}/oracle-cloud-infrastructure-2021.04.30/theme.json
+https://raw.githubusercontent.com/structurizr/themes/{ref}/oracle-cloud-infrastructure-2020.04.30/theme.json
