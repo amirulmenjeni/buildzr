@@ -16,7 +16,7 @@ export interface NodeData extends Record<string, unknown> {
   expanded: boolean;
   focused: boolean; // the deepest expanded frame
   owner: { w: number; h: number } | null; // size of the expanded frame this node is drawn inside (its children fade with the zoom relative to that frame's fit)
-  nameCap: number | null; // ancestor frames: max name font size (local px), so it stays <= 2x the focused frame's name on screen
+  nameCap: number | null; // frames with child frames: max name font size (local px), so the name stays <= 2x the largest child-frame name on screen
   frameBadge: string | null; // "3 containers" on collapsed frames
   matchBadge: string | null; // "2 matches"
   selected: boolean;
@@ -100,12 +100,27 @@ export function compose(inp: ComposeInput): Composed {
   const last = levels.length - 1;
   const focusId = levels[last].frameId; // null on the landscape or in a view
   let minScale = 1;
-  // on-screen name size (px at zoom 1) of the focused frame: the reference for ancestor frame names
-  let focusNamePx = 0;
-  if (focusId && last >= 1) {
-    const fn = levels[last - 1].scene.nodes.find((n) => n.id === focusId);
-    if (fn) focusNamePx = (fn.label.lines.find((x) => x.tier === 0)?.size ?? fn.style.fontSize) * levels[last - 1].K;
-  }
+  /** Name size (px at zoom 1) of a scene node, before any cap or floor. */
+  const nameSize = (n: SceneNode): number => n.label.lines.find((x) => x.tier === 0)?.size ?? n.style.fontSize;
+  /**
+   * Cap on the name size of frame `n` drawn at cumulative scale `K`, in px at zoom 1: twice the largest name among its own child
+   * frames (the model children that can expand) at their scene's scale; Infinity when it has none. The viewer applies it at the
+   * zoom at hand with the child names' 9 px floor (nodes.tsx `capSize`). It does not depend on what is expanded or focused, so a
+   * name keeps its size when the frame collapses. A child's name size comes from its scene when that is loaded, else it is taken
+   * to be the frame's own, which is what the scenes use.
+   */
+  const capPx = (n: SceneNode, K: number): number => {
+    if (!n.frame) return Infinity;
+    const kids = (m.byId.get(n.id)?.children ?? []).filter((c) => m.expandable.has(c));
+    if (kids.length === 0) return Infinity;
+    const sc = scenes['e/' + n.id];
+    let widest = 0;
+    for (const c of kids) {
+      const cn = sc?.nodes.find((x) => x.id === c);
+      widest = Math.max(widest, (cn ? nameSize(cn) : nameSize(n)) * K * n.frame.scale);
+    }
+    return 2 * widest;
+  };
 
   function absRect(l: Level, n: SceneNode): Rect {
     const [bx, by] = [l.scene.bounds[0], l.scene.bounds[1]];
@@ -175,7 +190,7 @@ export function compose(inp: ComposeInput): Composed {
         data: {
           n, K: l.K, opacity: Math.min(state * sty, lit && !isLit ? OPACITY.filtered : 1),
           owner, lit: isLit, hit: !!match?.set.has(n.id), expanded, focused: n.id === focusId,
-          nameCap: expanded && n.id !== focusId && focusNamePx > 0 ? (2 * focusNamePx) / l.K : null, frameBadge: fb,
+          nameCap: n.frame && Number.isFinite(capPx(n, l.K)) ? capPx(n, l.K) / l.K : null, frameBadge: fb,
           matchBadge: nm > 0 ? plural(nm, 'match').replace('matchs', 'matches') : null,
           selected: selection === n.id,
         },

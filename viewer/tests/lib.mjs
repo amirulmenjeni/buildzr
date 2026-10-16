@@ -87,3 +87,23 @@ export async function hitPoint(p, id) {
 }
 export const mouseClick = async (p, id) => { const [x, y] = await hitPoint(p, id); await p.mouse.click(x, y); };
 export const mouseDbl = async (p, id) => { const [x, y] = await hitPoint(p, id); await p.mouse.dblclick(x, y); };
+
+// ---- zoom helpers shared by the zoom, label and expand tests
+export const raf = (p, n = 3) => p.evaluate((n) => new Promise((r) => { const f = (i) => (i ? requestAnimationFrame(() => f(i - 1)) : r()); f(n); }), n);
+
+/** Zoom about the canvas centre, instantly (what a wheel zoom does to the viewport, minus the animation). */
+export async function zoomTo(p, z) {
+  await p.evaluate((z) => {
+    const v = window.__viewer.viewport();
+    const el = document.querySelector('.react-flow');
+    const cx = el.clientWidth / 2, cy = el.clientHeight / 2;
+    const k = z / v.zoom;
+    window.__viewer.setViewport({ zoom: z, x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k });
+  }, z);
+  await raf(p, 3);
+  await p.waitForTimeout(25);
+}
+
+
+export const fitOf = async (p, srv, hash) => { await open(p, srv.url, hash); return (await snapshot(p)).vp.zoom; };
+

@@ -1,25 +1,9 @@
 // Zoom behaviour: zooming out collapses expanded frames (deepest first), labels shrink and fade, children fade before the collapse.
 // Run: node tests/run.mjs --only zoom --data <dir>   (needs a data dir with an element that is expandable and whose parent is too, or at least one expandable)
-import { newPage, open, settle, snapshot, hashOf, T } from './lib.mjs';
+import { newPage, open, settle, snapshot, hashOf, raf, zoomTo, fitOf, T } from './lib.mjs';
 
-const raf = (p, n = 3) => p.evaluate((n) => new Promise((r) => { const f = (i) => (i ? requestAnimationFrame(() => f(i - 1)) : r()); f(n); }), n);
 const pathOf = (h) => decodeURIComponent(h.replace(/^#\/m\/?/, '').split('?')[0]);
 const selOf = (h) => { const m = /[?&]sel=([^&]*)/.exec(h); return m ? decodeURIComponent(m[1]) : null; };
-
-/** Zoom about the canvas centre, instantly (what a wheel zoom does to the viewport, minus the animation). */
-async function zoomTo(p, z) {
-  await p.evaluate((z) => {
-    const v = window.__viewer.viewport();
-    const el = document.querySelector('.react-flow');
-    const cx = el.clientWidth / 2, cy = el.clientHeight / 2;
-    const k = z / v.zoom;
-    window.__viewer.setViewport({ zoom: z, x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k });
-  }, z);
-  await raf(p, 3);
-  await p.waitForTimeout(25);
-}
-
-const fitOf = async (p, srv, hash) => { await open(p, srv.url, hash); return (await snapshot(p)).vp.zoom; };
 
 /** Everything the tests look at, at this instant. */
 const probe = (p, subtreeOf) => p.evaluate((sub) => {
@@ -72,10 +56,10 @@ export default async function zoom(browser, srv, F, name) {
     await zoomTo(p, zs[i]);
     const now = await probe(p, cur);
     const path = pathOf(now.hash);
-    // (b) no frame label ever gets bigger on screen while zooming out. The one exception is the step where a frame collapses:
-    // its parent becomes the focused frame and stops being capped to 2x the focused name (see v4-zoom-report.md), a one-off change of role.
+    // (b) no frame label ever gets bigger on screen while zooming out, the step where a frame collapses included
+    // (a frame's name is capped at 2x its child frames' names, which does not depend on what is expanded or focused).
     for (const [id, l] of Object.entries(now.labels)) {
-      if (id in prev.labels && path === cur) t.ok(l.px <= prev.labels[id].px + 0.01, `label of ${id} grew: ${prev.labels[id].px.toFixed(3)} -> ${l.px.toFixed(3)} px at step ${i}`);
+      if (id in prev.labels) t.ok(l.px <= prev.labels[id].px + 0.01, `label of ${id} grew: ${prev.labels[id].px.toFixed(3)} -> ${l.px.toFixed(3)} px at step ${i}`);
       // (c) < 6 px is invisible, >= 12 px is opaque
       if (l.px < 6) t.ok(l.op <= 0.05, `label of ${id} is ${l.px.toFixed(2)} px but opacity ${l.op}`);
       if (l.px >= 12) t.ok(l.op >= 0.95, `label of ${id} is ${l.px.toFixed(2)} px but opacity ${l.op}`);

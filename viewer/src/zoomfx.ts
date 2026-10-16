@@ -4,6 +4,17 @@
 export const CHILD_FADE = { full: 0.8, gone: 0.5 };
 /** A frame label's opacity ramps from 1 at `full` on-screen px (font size) to 0 at `gone` px. */
 export const LABEL_FADE = { full: 12, gone: 6 };
+/** The name of a leaf node or collapsed frame is kept readable at this on-screen size (px) while it fits its box. */
+export const NAME_FLOOR_PX = 9;
+/**
+ * Floor, but fade when it does not fit. `inner` = share of the box's width the floored name may use. Its opacity is 1 while the
+ * text is at most that wide, then falls linearly to 0 when the text is `gone` x that width: at 1.25 x 0.8 the text is exactly as
+ * wide as the box, so a visible label (opacity > 0.05) is never wider than its box.
+ */
+export const NAME_FIT = { inner: 0.8, full: 1, gone: 1.25 };
+/** Reduced motion: no ramp, the name is shown up to this ratio of its inner width and hidden above it. */
+export const NAME_FIT_STEP = 1.1;
+
 /** With reduced motion nothing is faded gradually: labels switch at this size. */
 export const LABEL_STEP_PX = 9;
 
@@ -30,3 +41,7 @@ export const labelFade = (px: number, reduced: boolean): number =>
 
 /** An expanded frame goes back to collapsed when it is drawn smaller than this x its fit zoom. */
 export const shouldCollapse = (ratio: number): boolean => ratio < CHILD_FADE.gone;
+
+/** Opacity of a floored name whose text is `ratio` x the inner width of its box. */
+export const fitFade = (ratio: number, reduced: boolean): number =>
+  reduced ? (ratio <= NAME_FIT_STEP ? 1 : 0) : q(clamp01((NAME_FIT.gone - ratio) / (NAME_FIT.gone - NAME_FIT.full)));
