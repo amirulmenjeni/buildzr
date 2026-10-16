@@ -7,6 +7,10 @@ from typing import (
     Generic,
     Optional,
     Callable,
+    AbstractSet,
+    TypeVar,
+    Iterable,
+    Iterator,
     Sequence,
     Dict,
     cast,
@@ -24,6 +28,143 @@ from buildzr.dsl.interfaces import (
 )
 from buildzr.dsl.factory import GenerateId
 import buildzr
+
+T = TypeVar('T')
+
+
+class OrderedSet(Set[T]):
+    """A ``set`` that iterates in insertion order (used for tags and relationships).
+
+    Subclasses ``set`` so the public ``Set[str]`` type of ``tags`` is unchanged,
+    but ``__iter__`` follows a side ``dict``. ``','.join(tags)`` is therefore
+    independent of ``PYTHONHASHSEED``.
+    """
+
+    def __init__(self, *iterables: Iterable[T]) -> None:
+        super().__init__()
+        self._order: Dict[T, None] = {}
+        for it in iterables:
+            self.update(it)
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self._order)
+
+    def add(self, item: T) -> None:
+        super().add(item)
+        self._order.setdefault(item, None)
+
+    def update(self, *others: Iterable[T]) -> None:
+        for other in others:
+            # A plain set/frozenset has no order of its own: sort it so the
+            # result does not depend on PYTHONHASHSEED. Ordered inputs
+            # (list, tuple, OrderedTags, dict) keep their order.
+            items = sorted(other) if type(other) in (set, frozenset) and all(isinstance(i, str) for i in other) else other  # type: ignore[type-var]
+            for item in items:
+                self.add(item)
+
+    def discard(self, item: T) -> None:
+        super().discard(item)
+        self._order.pop(item, None)
+
+    def remove(self, item: T) -> None:
+        super().remove(item)
+        self._order.pop(item, None)
+
+    def pop(self) -> T:
+        item = next(iter(self._order))
+        self.remove(item)
+        return item
+
+    def clear(self) -> None:
+        super().clear()
+        self._order.clear()
+
+    def union(self, *others: Iterable[T]) -> 'OrderedSet[T]':
+        return OrderedSet(self, *others)
+
+    def copy(self) -> 'OrderedSet[T]':
+        return OrderedSet(self)
+
+    def difference_update(self, *others: Iterable[T]) -> None:
+        for other in others:
+            for item in other:
+                self.discard(item)
+
+    def __ior__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override,misc]
+        self.update(other)
+        return self
+
+    # Set algebra keeps the left operand's order first (right-hand variants:
+    # the left operand is then the plain set/iterable `other`).
+    def intersection(self, *others: Iterable[T]) -> 'OrderedSet[T]':
+        keep = set(self)
+        for other in others:
+            keep &= set(other)
+        return OrderedSet(t for t in self if t in keep)
+
+    def difference(self, *others: Iterable[T]) -> 'OrderedSet[T]':
+        drop: Set[T] = set()
+        for other in others:
+            drop |= set(other)
+        return OrderedSet(t for t in self if t not in drop)
+
+    def symmetric_difference(self, other: Iterable[T]) -> 'OrderedSet[T]':
+        other_list = list(OrderedSet(other))
+        o, s = set(other_list), set(self)
+        return OrderedSet([t for t in self if t not in o], [t for t in other_list if t not in s])
+
+    def __or__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override]
+        return self.union(other) if isinstance(other, AbstractSet) else NotImplemented
+
+    def __and__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override]
+        return self.intersection(other) if isinstance(other, AbstractSet) else NotImplemented
+
+    def __sub__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override]
+        return self.difference(other) if isinstance(other, AbstractSet) else NotImplemented
+
+    def __xor__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override]
+        return self.symmetric_difference(other) if isinstance(other, AbstractSet) else NotImplemented
+
+    def __ror__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override]
+        return OrderedSet(other, self) if isinstance(other, AbstractSet) else NotImplemented
+
+    def __rand__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override]
+        return OrderedSet(other).intersection(self) if isinstance(other, AbstractSet) else NotImplemented
+
+    def __rsub__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override]
+        return OrderedSet(other).difference(self) if isinstance(other, AbstractSet) else NotImplemented
+
+    def __rxor__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override]
+        return OrderedSet(other).symmetric_difference(self) if isinstance(other, AbstractSet) else NotImplemented
+
+    def intersection_update(self, *others: Iterable[T]) -> None:
+        result = self.intersection(*others)
+        self.clear()
+        self.update(result)
+
+    def symmetric_difference_update(self, other: Iterable[T]) -> None:
+        result = self.symmetric_difference(other)
+        self.clear()
+        self.update(result)
+
+    def __iand__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override,misc]
+        self.intersection_update(other)
+        return self
+
+    def __isub__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override,misc]
+        self.difference_update(other)
+        return self
+
+    def __ixor__(self, other: Any) -> 'OrderedSet[T]':  # type: ignore[override,misc]
+        self.symmetric_difference_update(other)
+        return self
+
+    def __repr__(self) -> str:
+        return '{' + ', '.join(repr(t) for t in self._order) + '}' if self._order else 'set()'
+
+
+OrderedTags = OrderedSet[str]
+
 
 @dataclass
 class With:
@@ -87,7 +228,7 @@ class _Relationship(DslRelationship[TSrc, TDst]):
         ) -> None:
 
         self._m = uses_data.relationship
-        self._tags = {'Relationship'}.union(tags)
+        self._tags = OrderedSet(['Relationship'], tags)
         self._src = uses_data.source
         self._dst = destination
         self.model.tags = ','.join(self._tags)

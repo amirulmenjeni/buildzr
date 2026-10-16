@@ -37,6 +37,8 @@ from buildzr.dsl.interfaces import (
     DslElementInstance,
 )
 from buildzr.dsl.relations import (
+    OrderedTags,
+    OrderedSet,
     DslElementRelationOverrides,
     DslRelationship,
     _Relationship,
@@ -978,8 +980,8 @@ class SoftwareSystem(DslElementRelationOverrides[
         self._children: Optional[List['Container']] = []
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
-        self._relationships: Set[DslRelationship] = set()
-        self._tags = {'Element', 'Software System'}.union(tags)
+        self._relationships: Set[DslRelationship] = OrderedSet()
+        self._tags = OrderedTags(['Element', 'Software System'], tags)
         self._dynamic_attrs: Dict[str, 'Container'] = {}
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
@@ -1010,8 +1012,8 @@ class SoftwareSystem(DslElementRelationOverrides[
         instance._children = []
         instance._sources = []
         instance._destinations = []
-        instance._relationships = set()
-        instance._tags = set(model.tags.split(',')) if model.tags else {'Element', 'Software System'}
+        instance._relationships = OrderedSet()
+        instance._tags = OrderedTags(model.tags.split(',') if model.tags else ['Element', 'Software System'])
         instance._dynamic_attrs = {}
         instance._label = None
 
@@ -1122,8 +1124,8 @@ class Person(DslElementRelationOverrides[
         self._parent: Optional[Workspace] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
-        self._relationships: Set[DslRelationship] = set()
-        self._tags = {'Element', 'Person'}.union(tags)
+        self._relationships: Set[DslRelationship] = OrderedSet()
+        self._tags = OrderedTags(['Element', 'Person'], tags)
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
@@ -1157,8 +1159,8 @@ class Person(DslElementRelationOverrides[
         instance._parent = None
         instance._sources = []
         instance._destinations = []
-        instance._relationships = set()
-        instance._tags = set(model.tags.split(',')) if model.tags else {'Element', 'Person'}
+        instance._relationships = OrderedSet()
+        instance._tags = OrderedTags(model.tags.split(',') if model.tags else ['Element', 'Person'])
         instance._label = None
         return instance
 
@@ -1228,8 +1230,8 @@ class Element(DslElementRelationOverrides[
         self._parent: Optional[Workspace] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
-        self._relationships: Set[DslRelationship] = set()
-        self._tags = {'Element'}.union(tags)
+        self._relationships: Set[DslRelationship] = OrderedSet()
+        self._tags = OrderedTags(['Element'], tags)
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
@@ -1261,8 +1263,8 @@ class Element(DslElementRelationOverrides[
         instance._parent = None
         instance._sources = []
         instance._destinations = []
-        instance._relationships = set()
-        instance._tags = set(model.tags.split(',')) if model.tags else {'Element'}
+        instance._relationships = OrderedSet()
+        instance._tags = OrderedTags(model.tags.split(',') if model.tags else ['Element'])
         instance._label = None
         return instance
 
@@ -1316,8 +1318,8 @@ class Container(DslElementRelationOverrides[
         self._children: Optional[List['Component']] = []
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
-        self._relationships: Set[DslRelationship] = set()
-        self._tags = {'Element', 'Container'}.union(tags)
+        self._relationships: Set[DslRelationship] = OrderedSet()
+        self._tags = OrderedTags(['Element', 'Container'], tags)
         self._dynamic_attrs: Dict[str, 'Component'] = {}
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
@@ -1346,8 +1348,8 @@ class Container(DslElementRelationOverrides[
         instance._children = []
         instance._sources = []
         instance._destinations = []
-        instance._relationships = set()
-        instance._tags = set(model.tags.split(',')) if model.tags else {'Element', 'Container'}
+        instance._relationships = OrderedSet()
+        instance._tags = OrderedTags(model.tags.split(',') if model.tags else ['Element', 'Container'])
         instance._dynamic_attrs = {}
         instance._label = None
 
@@ -1454,8 +1456,8 @@ class Component(DslElementRelationOverrides[
         self._parent: Optional[Container] = None
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
-        self._relationships: Set[DslRelationship] = set()
-        self._tags = {'Element', 'Component'}.union(tags)
+        self._relationships: Set[DslRelationship] = OrderedSet()
+        self._tags = OrderedTags(['Element', 'Component'], tags)
         self._label: Optional[str] = None
         self.model.id = GenerateId.for_element()
         self.model.name = name
@@ -1489,8 +1491,8 @@ class Component(DslElementRelationOverrides[
         instance._parent = parent
         instance._sources = []
         instance._destinations = []
-        instance._relationships = set()
-        instance._tags = set(model.tags.split(',')) if model.tags else {'Element', 'Component'}
+        instance._relationships = OrderedSet()
+        instance._tags = OrderedTags(model.tags.split(',') if model.tags else ['Element', 'Component'])
         instance._label = None
         return instance
 
@@ -1832,12 +1834,12 @@ class DeploymentNode(DslDeploymentNodeElement, DslElementRelationOverrides[
                 'InfrastructureNode',
                 'DeploymentNode']]
             ] = []
-        self._tags = {'Element', 'Deployment Node'}.union(tags)
+        self._tags = OrderedTags(['Element', 'Deployment Node'], tags)
         self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
-        self._relationships: Set[DslRelationship] = set()
+        self._relationships: Set[DslRelationship] = OrderedSet()
 
         # If the deployment stack is not empty, then we're inside the context of
         # another deployment node. Otherwise, we're at the root of the
@@ -1933,12 +1935,12 @@ class InfrastructureNode(DslInfrastructureNodeElement, DslElementRelationOverrid
         self._m.technology = technology
         self._m.properties = properties
         self._parent: Optional[DeploymentNode] = None
-        self._tags = {'Element', 'Infrastructure Node'}.union(tags)
+        self._tags = OrderedTags(['Element', 'Infrastructure Node'], tags)
         self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
-        self._relationships: Set[DslRelationship] = set()
+        self._relationships: Set[DslRelationship] = OrderedSet()
 
         stack = _current_deployment_node_stack.get()
         if stack:
@@ -1997,12 +1999,12 @@ class SoftwareSystemInstance(DslElementInstance, DslElementRelationOverrides[
         self._parent: Optional[DeploymentNode] = None
         self._element = software_system
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
-        self._tags = {'Software System Instance'}.union(tags)
+        self._tags = OrderedTags(['Software System Instance'], tags)
         self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
-        self._relationships: Set[DslRelationship] = set()
+        self._relationships: Set[DslRelationship] = OrderedSet()
 
         stack = _current_deployment_node_stack.get()
         if stack:
@@ -2066,12 +2068,12 @@ class ContainerInstance(DslElementInstance, DslElementRelationOverrides[
         self._parent: Optional[DeploymentNode] = None
         self._element = container
         self._m.deploymentGroups = [g.name for g in deployment_groups] if deployment_groups else ["Default"]
-        self._tags = {'Container Instance'}.union(tags)
+        self._tags = OrderedTags(['Container Instance'], tags)
         self._m.tags = ','.join(self._tags)
 
         self._sources: List[DslElement] = []
         self._destinations: List[DslElement] = []
-        self._relationships: Set[DslRelationship] = set()
+        self._relationships: Set[DslRelationship] = OrderedSet()
 
         stack = _current_deployment_node_stack.get()
         if stack:
