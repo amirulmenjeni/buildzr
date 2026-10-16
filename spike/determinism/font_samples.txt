@@ -1,0 +1,8 @@
+font: Inter
+'Amazon Web Services'    14px normal inter= 149.81  old_stub= 148.96
+'Amazon Web Services'    14px bold   inter= 154.81  old_stub= 159.60
+'iiiiiiii'               14px normal inter=  27.12  old_stub=  62.72
+'WWWWWWWW'               14px normal inter= 110.36  old_stub=  62.72
+'Hello, world!'          12px normal inter=  70.99  old_stub=  87.36
+'é'                      14px normal inter=   7.86  old_stub=   7.84
+['Amazon Web', 'Services', 'Singapore region', 'router']

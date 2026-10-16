@@ -1,0 +1,13 @@
+html, body, #root { margin: 0; height: 100%; font-family: Inter, sans-serif; }
+.toolbar { position: absolute; z-index: 10; top: 8px; left: 8px; right: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  background: rgba(255,255,255,.95); border: 1px solid #ccc; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+.toolbar input[type=text] { width: 220px; padding: 3px 6px; }
+.chip { border: 1px solid #999; border-radius: 12px; padding: 1px 8px; background: #fff; cursor: pointer; font-size: 12px; }
+.chip.on { background: #1168bd; color: #fff; border-color: #1168bd; }
+.c4el, .c4b { position: relative; box-sizing: border-box; transition: none; }
+.c4el:focus, .c4b:focus { outline: 2px solid #f90; outline-offset: 2px; }
+.c4el.hit, .c4b.hit { outline: 3px solid #e8590c; outline-offset: 2px; }
+.c4el > div:not(svg) { pointer-events: none; }
+.react-flow__node { transition: none !important; }
+.edge-label { background: rgba(255,255,255,.85); pointer-events: none; }
+.react-flow, .react-flow__node, .edge-label, button, input, select { font-family: Inter, sans-serif; }

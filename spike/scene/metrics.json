@@ -1,0 +1,99 @@
+{
+ "_total_build_wall_s": 4.91,
+ "aws-deployment-view": {
+  "edge_label_pairs_overlapping": 0,
+  "edge_labels_overlapping_elements": 0,
+  "edges": 6,
+  "elk_median5_ms": 13.1,
+  "elk_single_ms": 48.5,
+  "low_contrast_nodes": 0,
+  "max_endpoint_gap_px": 0.0,
+  "node_wall_ms": 131.3,
+  "nodes": 19,
+  "sibling_overlaps": 0,
+  "size_px": [
+   1777.53,
+   788
+  ]
+ },
+ "synthetic-120": {
+  "edge_label_pairs_overlapping": 0,
+  "edge_labels_overlapping_elements": 0,
+  "edges": 200,
+  "elk_median5_ms": 212.0,
+  "elk_single_ms": 339.3,
+  "low_contrast_nodes": 24,
+  "max_endpoint_gap_px": 0.0,
+  "node_wall_ms": 425.7,
+  "nodes": 120,
+  "sibling_overlaps": 0,
+  "size_px": [
+   7779.45,
+   11671.75
+  ]
+ },
+ "synthetic-120-dense": {
+  "edge_label_pairs_overlapping": 0,
+  "edge_labels_overlapping_elements": 0,
+  "edges": 200,
+  "elk_median5_ms": 287.4,
+  "elk_single_ms": 400.1,
+  "low_contrast_nodes": 24,
+  "max_endpoint_gap_px": 0.0,
+  "node_wall_ms": 489.0,
+  "nodes": 120,
+  "sibling_overlaps": 0,
+  "size_px": [
+   18068.95,
+   11011
+  ]
+ },
+ "web_app_container_view_00": {
+  "edge_label_pairs_overlapping": 0,
+  "edge_labels_overlapping_elements": 0,
+  "edges": 1,
+  "elk_median5_ms": 5.9,
+  "elk_single_ms": 34.1,
+  "low_contrast_nodes": 0,
+  "max_endpoint_gap_px": 0,
+  "node_wall_ms": 115.8,
+  "nodes": 4,
+  "sibling_overlaps": 0,
+  "size_px": [
+   803.18,
+   288
+  ]
+ },
+ "web_app_system_context_00": {
+  "edge_label_pairs_overlapping": 0,
+  "edge_labels_overlapping_elements": 0,
+  "edges": 1,
+  "elk_median5_ms": 6.3,
+  "elk_single_ms": 35.5,
+  "low_contrast_nodes": 0,
+  "max_endpoint_gap_px": 0,
+  "node_wall_ms": 118.7,
+  "nodes": 4,
+  "sibling_overlaps": 0,
+  "size_px": [
+   816.81,
+   216
+  ]
+ },
+ "x_context_00": {
+  "edge_label_pairs_overlapping": 0,
+  "edge_labels_overlapping_elements": 0,
+  "edges": 1,
+  "elk_median5_ms": 4.7,
+  "elk_single_ms": 31.1,
+  "low_contrast_nodes": 0,
+  "max_endpoint_gap_px": 0,
+  "node_wall_ms": 114.2,
+  "nodes": 2,
+  "sibling_overlaps": 0,
+  "size_px": [
+   264,
+   376.75
+  ]
+ }
+}

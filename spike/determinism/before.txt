@@ -1,0 +1,82 @@
+## BEFORE unmasked (seeds 1,2)
+seed 1 amazon_web_services: ok (596 lines)
+seed 1 system_context_and_container_view: ok (183 lines)
+seed 1 deployment_groups: ok (310 lines)
+seed 1 dynamic_view: ok (201 lines)
+seed 1 workspace_extension: ok (145 lines)
+seed 2 amazon_web_services: ok (596 lines)
+seed 2 system_context_and_container_view: ok (183 lines)
+seed 2 deployment_groups: ok (310 lines)
+seed 2 dynamic_view: ok (201 lines)
+seed 2 workspace_extension: ok (145 lines)
+-- compare seed1 vs seed2
+amazon_web_services.json: DIFFERENT, 44 differing lines
+    -                    "tags": "Amazon Web Services - EC2 Instance,Element,Deployment Node",
+    +                    "tags": "Deployment Node,Amazon Web Services - EC2 Instance,Element",
+    -                "tags": "Element,Deployment Node,Amazon Web Services - Autoscaling Group",
+    +                "tags": "Deployment Node,Amazon Web Services - Autoscaling Group,Element",
+    -                    "tags": "Amazon Web Services - RDS MySQL instance,Element,Deployment Node",
+deployment_groups.json: DIFFERENT, 14 differing lines
+    -            "tags": "Element,Deployment Node",
+    +            "tags": "Deployment Node,Element",
+    -        "tags": "Element,Deployment Node",
+    +        "tags": "Deployment Node,Element",
+    -            "tags": "Element,Deployment Node",
+dynamic_view.json: DIFFERENT, 32 differing lines
+    -        "tags": "Element,Person"
+    +        "tags": "Person,Element"
+    -            "tags": "Element,Container",
+    +            "tags": "Container,Element",
+    -            "tags": "Element,Container",
+system_context_and_container_view.json: DIFFERENT, 10 differing lines
+    -        "tags": "Element,Person"
+    +        "tags": "Person,Element"
+    -            "tags": "Element,Container",
+    +            "tags": "Container,Element",
+    -            "tags": "Element,Container",
+workspace_extension.json: DIFFERENT, 4 differing lines
+    -            "tags": "Element,Container",
+    +            "tags": "Container,Element",
+    -            "tags": "Element,Container",
+    +            "tags": "Container,Element",
+## BEFORE masked (seeds 1,2)
+seed 1 amazon_web_services: ok (596 lines)
+seed 1 system_context_and_container_view: ok (183 lines)
+seed 1 deployment_groups: ok (310 lines)
+seed 1 dynamic_view: ok (201 lines)
+seed 1 workspace_extension: ok (145 lines)
+seed 2 amazon_web_services: ok (596 lines)
+seed 2 system_context_and_container_view: ok (183 lines)
+seed 2 deployment_groups: ok (310 lines)
+seed 2 dynamic_view: ok (201 lines)
+seed 2 workspace_extension: ok (145 lines)
+-- compare seed1 vs seed2
+amazon_web_services.json: DIFFERENT, 38 differing lines
+    -                    "tags": "Amazon Web Services - EC2 Instance,Element,Deployment Node",
+    +                    "tags": "Deployment Node,Amazon Web Services - EC2 Instance,Element",
+    -                "tags": "Element,Deployment Node,Amazon Web Services - Autoscaling Group",
+    +                "tags": "Deployment Node,Amazon Web Services - Autoscaling Group,Element",
+    -                    "tags": "Amazon Web Services - RDS MySQL instance,Element,Deployment Node",
+deployment_groups.json: DIFFERENT, 14 differing lines
+    -            "tags": "Element,Deployment Node",
+    +            "tags": "Deployment Node,Element",
+    -        "tags": "Element,Deployment Node",
+    +        "tags": "Deployment Node,Element",
+    -            "tags": "Element,Deployment Node",
+dynamic_view.json: DIFFERENT, 32 differing lines
+    -        "tags": "Element,Person"
+    +        "tags": "Person,Element"
+    -            "tags": "Element,Container",
+    +            "tags": "Container,Element",
+    -            "tags": "Element,Container",
+system_context_and_container_view.json: DIFFERENT, 10 differing lines
+    -        "tags": "Element,Person"
+    +        "tags": "Person,Element"
+    -            "tags": "Element,Container",
+    +            "tags": "Container,Element",
+    -            "tags": "Element,Container",
+workspace_extension.json: DIFFERENT, 4 differing lines
+    -            "tags": "Element,Container",
+    +            "tags": "Container,Element",
+    -            "tags": "Element,Container",
+    +            "tags": "Container,Element",

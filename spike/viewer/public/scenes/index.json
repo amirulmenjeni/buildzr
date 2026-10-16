@@ -1,0 +1,50 @@
+[
+ {
+  "file": "aws-deployment-view.scene.json",
+  "kind": "deployment",
+  "title": "Amazon Web Services Deployment",
+  "view": "aws-deployment-view"
+ },
+ {
+  "file": "synthetic-120.scene.json",
+  "kind": "synthetic",
+  "title": "Synthetic 120-node graph (seed 42)",
+  "view": "synthetic-120"
+ },
+ {
+  "file": "synthetic-120-dense.scene.json",
+  "kind": "synthetic",
+  "title": "Synthetic 120-node graph (seed 42), dense",
+  "view": "synthetic-120-dense"
+ },
+ {
+  "file": "web_app_container_view_00.scene.json",
+  "kind": "container",
+  "title": "Web App Container View",
+  "view": "web_app_container_view_00"
+ },
+ {
+  "file": "web_app_system_context_00.scene.json",
+  "kind": "systemContext",
+  "title": "Web App System Context",
+  "view": "web_app_system_context_00"
+ },
+ {
+  "file": "x_context_00.scene.json",
+  "kind": "systemContext",
+  "title": "System context of X",
+  "view": "x_context_00"
+ },
+ {
+  "view": "aws-mini",
+  "title": "AWS deployment (hand-written fixture)",
+  "kind": "deployment",
+  "file": "aws-mini.scene.json"
+ },
+ {
+  "view": "synthetic-gen",
+  "title": "Synthetic 120 nodes (viewer-local generator)",
+  "kind": "synthetic",
+  "file": "synthetic-gen.scene.json"
+ }
+]

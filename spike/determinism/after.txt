@@ -1,0 +1,72 @@
+## AFTER (macOS host only, arm64, Python 3.10; not Linux/Windows)
+Darwin 24.6.0
+Seeds 1,2,3 plus three more runs of seed 1 (run2..run4), unmasked and masked. Only differences are printed; 'identical' lines are kept.
+-- unmasked: seed 1 vs 2
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- unmasked: seed 1 vs 3
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- unmasked: seed 1 vs 1run2
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- unmasked: seed 1 vs 1run3
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- unmasked: seed 1 vs 1run4
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- masked: seed 1 vs 2
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- masked: seed 1 vs 3
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- masked: seed 1 vs 1run2
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- masked: seed 1 vs 1run3
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- masked: seed 1 vs 1run4
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- sample tags (AWS, seed 1)
+   2                             "tags": "Relationship",
+   4                         "tags": "Container Instance"
+   2                     "tags": "Element,Deployment Node,Amazon Web Services - EC2 Instance",
+   2                     "tags": "Element,Deployment Node,Amazon Web Services - RDS MySQL instance",
+   5                     "tags": "Relationship",
+   2                 "tags": "Element,Component",
+   2                 "tags": "Element,Deployment Node,Amazon Web Services - Autoscaling Group",
+   2                 "tags": "Element,Deployment Node,Amazon Web Services - RDS Instance",

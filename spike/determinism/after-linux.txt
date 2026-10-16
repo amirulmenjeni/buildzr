@@ -1,0 +1,19 @@
+## Linux (devcontainer, aarch64, CPython 3.10.21) seeds 1,2,3 unmasked
+-- seed 1 vs 2
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- seed 1 vs 3
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical
+-- Linux seed 1 vs macOS seed 1
+amazon_web_services.json: identical
+deployment_groups.json: identical
+dynamic_view.json: identical
+system_context_and_container_view.json: identical
+workspace_extension.json: identical

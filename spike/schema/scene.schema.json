@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buildzr.dev/schema/scene/1",
+  "title": "buildzr scene graph, one file per view (spike, schema buildzr.scene/1)",
+  "description": "Renderer-agnostic, fully laid-out view. All coordinates are ABSOLUTE (view space, y down), rounded to 0.01. Styles are fully resolved: renderers never consult the model or Structurizr styles. See spike/schema/README.md for the ordering and canonical-bytes rules.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "view", "kind", "title", "modelHash", "layout", "bounds", "nodes", "edges"],
+  "properties": {
+    "schema": { "const": "buildzr.scene/1" },
+    "view": { "type": "string", "description": "View key, e.g. 'aws-deployment-view'." },
+    "kind": {
+      "enum": ["systemLandscape", "systemContext", "container", "component", "deployment", "dynamic", "synthetic"]
+    },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "modelHash": { "$ref": "#/$defs/hash", "description": "sha256 of canonical model.json bytes; 'sha256:unknown' allowed in the spike." },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "version", "inputHash"],
+      "properties": {
+        "engine": { "enum": ["elkjs", "hand"] },
+        "version": { "type": "string", "description": "e.g. '0.12.0'" },
+        "inputHash": { "$ref": "#/$defs/hash", "description": "sha256 of the canonical ELK input graph JSON (including layoutOptions)." },
+        "direction": { "enum": ["RIGHT", "DOWN", "LEFT", "UP"] },
+        "options": { "type": "object", "additionalProperties": { "type": "string" }, "description": "ELK layoutOptions actually used at the root." }
+      }
+    },
+    "bounds": {
+      "$ref": "#/$defs/rect4",
+      "description": "[minX, minY, width, height] of everything drawn, including edge labels, plus margin."
+    },
+    "nodes": {
+      "type": "array",
+      "description": "Pre-order depth-first: every parent appears before its children (React Flow requires this). Siblings sorted by id.",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "description": "Sorted by id.",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:([0-9a-f]{64}|unknown)$" },
+    "num": { "type": "number", "description": "Rounded to 2 decimals; integers are written without a fraction (Python json of round(v, 2), with -0.0 normalised to 0)." },
+    "rect4": { "type": "array", "items": { "$ref": "#/$defs/num" }, "minItems": 4, "maxItems": 4 },
+    "point": { "type": "array", "items": { "$ref": "#/$defs/num" }, "minItems": 2, "maxItems": 2 },
+    "color": { "type": "string", "pattern": "^#[0-9a-f]{6}$", "description": "Lower-case #rrggbb only." },
+    "labelLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "description": "Already wrapped by the build step; renderers must not re-wrap." },
+        "weight": { "enum": ["normal", "bold"], "default": "normal" },
+        "size": { "type": "number", "description": "Font size in px; defaults to node style.fontSize." },
+        "italic": { "type": "boolean", "default": false }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "modelId", "role", "type", "parent", "x", "y", "w", "h", "shape", "style", "label", "tags", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]*(/[a-z0-9][a-z0-9._-]*)*$",
+          "description": "Stable path slug, parent path + '/' + slug(name), '-2' suffix on collision (design E). Unique within the view."
+        },
+        "modelId": { "type": "string", "description": "buildzr's current numeric element id (unstable; kept for cross-reference only)." },
+        "role": {
+          "enum": ["element", "boundary"],
+          "description": "element = drawn as a shape with centred label; boundary = enclosing box (software system/container boundary, deployment node, group) with children and a corner label."
+        },
+        "type": {
+          "enum": ["Person", "SoftwareSystem", "Container", "Component", "DeploymentNode", "InfrastructureNode", "SoftwareSystemInstance", "ContainerInstance", "Group"]
+        },
+        "parent": { "type": ["string", "null"], "description": "id of the enclosing boundary node in THIS view, or null." },
+        "x": { "$ref": "#/$defs/num" },
+        "y": { "$ref": "#/$defs/num" },
+        "w": { "$ref": "#/$defs/num" },
+        "h": { "$ref": "#/$defs/num" },
+        "shape": {
+          "enum": ["Box", "RoundedBox", "Person", "Cylinder", "Pipe", "Folder", "Hexagon", "Circle", "Ellipse", "Component", "WebBrowser", "MobileDevicePortrait", "MobileDeviceLandscape", "Robot", "Diamond"]
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fill", "stroke", "color", "fontSize"],
+          "properties": {
+            "fill": { "$ref": "#/$defs/color" },
+            "stroke": { "$ref": "#/$defs/color" },
+            "color": { "$ref": "#/$defs/color", "description": "Text colour." },
+            "fontSize": { "type": "number" },
+            "strokeWidth": { "type": "number", "default": 1 },
+            "dash": { "type": "array", "items": { "type": "number" }, "description": "SVG dash array; omitted = solid. Boundaries default to [6,4]." },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 }
+          }
+        },
+        "label": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lines", "anchor"],
+          "properties": {
+            "lines": { "type": "array", "items": { "$ref": "#/$defs/labelLine" } },
+            "anchor": { "enum": ["center", "bottom-left", "top-left"], "description": "element -> center; boundary -> bottom-left (Structurizr convention) or top-left." }
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Canonical order: as in model.json after the tag-order fix (insertion order, defaults first). Never set order."
+        },
+        "name": { "type": "string" },
+        "technology": { "type": "string" },
+        "description": { "type": "string" },
+        "lod": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "detail": { "type": "array", "items": { "enum": ["name", "type", "technology", "description"] } } }
+        },
+        "link": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["view"],
+          "properties": { "view": { "type": "string" } }
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "modelId", "source", "target", "points", "style", "tags"],
+      "properties": {
+        "id": { "type": "string", "description": "'<source>-><target>', plus ':<slug(description)>' only when a pair has several relationships." },
+        "modelId": { "type": "string" },
+        "source": { "type": "string", "description": "Scene node id." },
+        "target": { "type": "string", "description": "Scene node id." },
+        "points": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/point" },
+          "description": "ABSOLUTE polyline from source boundary to target boundary: ELK startPoint, bendPoints..., endPoint, converted from LCA-relative coordinates."
+        },
+        "label": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lines", "x", "y", "w", "h"],
+          "properties": {
+            "lines": { "type": "array", "items": { "$ref": "#/$defs/labelLine" } },
+            "x": { "$ref": "#/$defs/num", "description": "Top-left x, absolute." },
+            "y": { "$ref": "#/$defs/num", "description": "Top-left y, absolute." },
+            "w": { "$ref": "#/$defs/num" },
+            "h": { "$ref": "#/$defs/num" }
+          }
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["stroke", "arrow"],
+          "properties": {
+            "stroke": { "$ref": "#/$defs/color" },
+            "color": { "$ref": "#/$defs/color", "description": "Label text colour; defaults to stroke." },
+            "width": { "type": "number", "default": 1.5 },
+            "dash": { "type": "array", "items": { "type": "number" } },
+            "arrow": { "enum": ["end", "start", "both", "none"] },
+            "fontSize": { "type": "number", "default": 12 },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 }
+          }
+        },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "technology": { "type": "string" },
+        "order": { "type": ["string", "null"], "description": "Dynamic-view step number; null elsewhere." }
+      }
+    }
+  }
+}
