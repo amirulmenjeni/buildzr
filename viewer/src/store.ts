@@ -38,6 +38,8 @@ export interface State {
   setPath(path: string): void;
   collapse(): void;
   zoomCollapse(to: string): void;
+  zoomExpand(id: string): void;
+  prefetch(id: string): void;
   openView(key: string, sel?: string | null): void;
   showInModel(): void;
   select(id: string | null, opts?: { reveal?: boolean; zoom?: boolean }): void;
@@ -74,6 +76,17 @@ export const useStore = create<State>()((set, get) => {
         .catch((e: unknown) => set({ status: 'error', error: String(e) }))
         .finally(() => loading.delete(key));
     }
+  };
+
+  /** Fetch the scene of a frame ahead of its expansion. A failure is silent: the expansion itself reports it. */
+  const prefetchScene = (key: string): void => {
+    const s = get();
+    if (!s.index || s.scenes[key] || loading.has(key) || !(key in s.index.scenes)) return;
+    loading.add(key);
+    loadScene(s.index, key)
+      .then((sc) => set((cur) => ({ scenes: { ...cur.scenes, [key]: sc } })))
+      .catch(() => undefined)
+      .finally(() => loading.delete(key));
   };
 
   const openAncestors = (ids: (string | null)[]): Record<string, boolean> => {
@@ -191,6 +204,15 @@ export const useStore = create<State>()((set, get) => {
       const gone = chain[at + 1]; // the highest frame that goes back to collapsed
       commit({ path: to, selection: gone, notice: null, announce: `Collapsed ${m.byId.get(gone)!.name}` }, true);
     },
+
+    /** Zooming in: expand `id`. The same state change as a click (`expand`: one history entry, hash, tree, selection, announcement), but the camera stays where the user put it. */
+    zoomExpand(id) {
+      const m = get().m!;
+      if (!m.expandable.has(id)) return;
+      commit({ view: null, path: id, selection: id, notice: null, treeOpen: { ...openAncestors([id]), [id]: true }, announce: announceExpand(id) }, true);
+    },
+
+    prefetch(id) { prefetchScene('e/' + id); },
 
     openView(key, sel = null) {
       const m = get().m!;

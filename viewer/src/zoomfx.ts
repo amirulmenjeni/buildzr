@@ -45,3 +45,11 @@ export const shouldCollapse = (ratio: number): boolean => ratio < CHILD_FADE.gon
 /** Opacity of a floored name whose text is `ratio` x the inner width of its box. */
 export const fitFade = (ratio: number, reduced: boolean): number =>
   reduced ? (ratio <= NAME_FIT_STEP ? 1 : 0) : q(clamp01((NAME_FIT.gone - ratio) / (NAME_FIT.gone - NAME_FIT.full)));
+
+/**
+ * Zoom-in expand (the `zoomExpand` setting): a collapsed frame expands when the viewport centre is inside it and it is drawn at
+ * `at` x its fit zoom or more, well above the collapse threshold (CHILD_FADE.gone), so there is a dead band in which nothing changes.
+ * Its child scene is fetched from `prefetch` x on.
+ */
+export const EXPAND = { prefetch: 0.6, at: 0.9 };
+export const shouldExpand = (ratio: number): boolean => ratio >= EXPAND.at;

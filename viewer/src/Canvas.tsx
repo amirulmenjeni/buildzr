@@ -7,7 +7,7 @@ import { C4Boundary, C4Element } from './nodes';
 import { defaults, type SettingValues } from './settings';
 import { useStore } from './store';
 import { usePhone } from './usePhone';
-import { fitZoom, shouldCollapse } from './zoomfx';
+import { EXPAND, fitZoom, shouldCollapse, shouldExpand } from './zoomfx';
 
 const nodeTypes = { c4element: C4Element, c4boundary: C4Boundary };
 const edgeTypes = { elk: ElkEdge };
@@ -108,6 +108,42 @@ function ZoomCollapse({ composed, m }: { composed: Composed; m: ModelIndex }) {
   return null;
 }
 
+/**
+ * Zooming in expands (setting `zoomExpand`, default off): a collapsed frame of the current scene whose box contains the viewport
+ * centre expands when it is drawn at EXPAND.at x its fit zoom, one level per step (the next level is judged after the new scene is
+ * drawn). Its scene is prefetched from EXPAND.prefetch x. It only acts while the zoom is increasing, so Back, a collapse, fit view
+ * or a camera move never expand anything, and it is paused under the same conditions as the collapse. Collapse is below
+ * CHILD_FADE.gone, so between the two thresholds nothing changes and a wiggle around either causes at most one change.
+ */
+function ZoomExpand({ composed, m }: { composed: Composed; m: ModelIndex }) {
+  const flowStore = useStoreApi();
+  const zoom = useFlowStore((s) => s.transform[2]);
+  const last = useRef(zoom);
+  const latest = useRef({ composed, m });
+  latest.current = { composed, m };
+  useEffect(() => {
+    const before = last.current;
+    last.current = zoom;
+    const { composed: c, m: model } = latest.current;
+    const st = useStore.getState();
+    if (!st.settings.zoomExpand || !window.__viewer.autoCollapse || st.view || !c.complete || window.__viewer.cameraDone !== st.camera.seq) return;
+    const { width, height, maxZoom, transform } = flowStore.getState();
+    const cx = (width / 2 - transform[0]) / zoom, cy = (height / 2 - transform[1]) / zoom;
+    const phoneNow = phone();
+    for (const node of c.nodes) {
+      const d = node.data;
+      if (!d.n.frame || d.expanded || !model.expandable.has(node.id) || (model.byId.get(node.id)?.parent ?? '') !== st.path) continue;
+      const r = c.rects.get(node.id);
+      if (!r || cx < r.x || cx > r.x + r.w || cy < r.y || cy > r.y + r.h) continue;
+      const ratio = zoom / fitZoom(r.w, r.h, width, height, phoneNow, maxZoom);
+      if (ratio >= EXPAND.prefetch) st.prefetch(node.id);
+      if (zoom > before && shouldExpand(ratio)) st.zoomExpand(node.id);
+      break; // frames do not overlap: only one can hold the centre
+    }
+  }, [zoom, flowStore]);
+  return null;
+}
+
 function Flow() {
   const m = useStore((s) => s.m)!;
   const scenes = useStore((s) => s.scenes);
@@ -145,6 +181,7 @@ function Flow() {
         {!phoneNow && <Controls showInteractive={false} />}
         <Camera composed={composed} />
         <ZoomCollapse composed={composed} m={m} />
+        <ZoomExpand composed={composed} m={m} />
       </ReactFlow>
     </div>
   );

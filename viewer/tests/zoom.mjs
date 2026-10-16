@@ -125,7 +125,7 @@ export default async function zoom(browser, srv, F, name) {
     }
     t.eq(await hashOf(p), h0, 'hash unchanged by zooming in');
     t.eq((await probe(p, null)).hist, hist0, 'no history entry added by zooming in');
-    t.eq(await p.locator('.react-flow__node[data-expanded=true]').count(), 0, 'no expanded frame after zooming in');
+    t.eq(await p.locator('[data-expanded=true]').count(), 0, 'no expanded frame after zooming in');
   }
 
   // ---------------------------------------------------------------- 3. hysteresis: wiggle +-3% around the threshold
