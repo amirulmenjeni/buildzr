@@ -1,0 +1,47 @@
+"""Text measurement used by the layout stage to size labels.
+
+Per-character advance widths (no kerning) for ASCII 32-126, regular (400) and bold (700), from
+Inter (@fontsource/inter 5.3.0, SIL OFL-1.1; licence text in ``OFL-1.1.txt`` next to this file).
+The table lives in ``font_metrics.json``. Characters outside ASCII 32-126 use the font's average
+advance. Reused from the viewer spike (``spike/tools/font_metrics.py``).
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+_DATA = json.loads((Path(__file__).with_name("font_metrics.json")).read_text(encoding="utf-8"))
+_UPM: int = _DATA["unitsPerEm"]
+
+FONT_FAMILY: str = _DATA["font"]
+LINE_HEIGHT = 1.25  # line box height = size * LINE_HEIGHT
+
+
+def advance(ch: str, size: float, weight: str = "normal") -> float:
+    """Advance width in px of one character."""
+    key = "bold" if weight == "bold" else "regular"
+    o = ord(ch)
+    units = _DATA["advances"][key][o - 32] if 32 <= o <= 126 else _DATA["average"][key]
+    return float(size * units / _UPM)
+
+
+def measure(text: str, size: float, weight: str = "normal") -> float:
+    """Width in px of a single line of text (no kerning)."""
+    return sum(advance(c, size, weight) for c in text)
+
+
+def wrap_words(text: str, size: float, max_width: float, weight: str = "normal") -> list[str]:
+    """Greedy word wrap; a single word longer than ``max_width`` gets its own line."""
+    lines: list[str] = []
+    cur = ""
+    for word in text.split():
+        trial = word if not cur else cur + " " + word
+        if cur and measure(trial, size, weight) > max_width:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = trial
+    if cur:
+        lines.append(cur)
+    return lines

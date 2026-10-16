@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buildzr.dev/schema/index/2",
+  "title": "buildzr site index (buildzr.index/2)",
+  "description": "data/index.json: where the viewer finds model.json and every scene. Paths are relative to the directory holding index.json. The viewer loads index.json, then model.json, then scenes lazily by key.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "modelHash", "model", "scenes"],
+  "properties": {
+    "schema": { "const": "buildzr.index/2" },
+    "modelHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "model": { "$ref": "#/$defs/file" },
+    "scenes": {
+      "type": "object",
+      "description": "Scene key ('landscape', 'e/<path>', 'v/<view key>') -> file. Every frame.scene and every model view.scene has an entry.",
+      "propertyNames": { "pattern": "^(landscape|e/[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*|v/[a-z0-9][a-z0-9-]*)$" },
+      "additionalProperties": { "$ref": "#/$defs/file" }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "hash"],
+      "properties": {
+        "file": { "type": "string", "description": "e.g. 'scene/e/billing.3f2a9c1b.json' (content hash in the name in built sites; fixtures may omit it)." },
+        "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "sha256 of the file's bytes." }
+      }
+    }
+  }
+}

@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 import buildzr
@@ -3108,6 +3109,36 @@ class CustomView(DslViewElement):
             self._m.relationships.append(RelationshipView(id=relationship_id))
 
 
+def _selector_key(item: Any) -> str:
+    """Stable text for one entry of a style selector (never an address or uuid)."""
+    if isinstance(item, str):
+        return 'str:' + item
+    if isinstance(item, Group):
+        return 'group:' + item.full_name()
+    if isinstance(item, type):
+        return 'type:' + item.__name__
+    if isinstance(item, (DslElement, DslRelationship)):
+        return '{}:{}'.format(type(item).__name__, item.model.id)
+    if callable(item):
+        return 'fn:{}.{}'.format(getattr(item, '__module__', ''), getattr(item, '__qualname__', ''))
+    return 'obj:' + type(item).__name__
+
+
+def _style_tag(prefix: str, selector: Optional[List[Any]], props: Dict[str, Any]) -> str:
+    """Deterministic style tag: ``<prefix>-<sha256(selector + style)[:12]>``.
+
+    The style properties are part of the hash, so two selectors that collide
+    (e.g. two lambdas with the same qualname) can only collide when they also
+    carry the identical style, which is harmless.
+    """
+    import hashlib
+    payload = json.dumps(
+        {'on': [_selector_key(i) for i in (selector or [])], 'props': props},
+        sort_keys=True, default=str,
+    )
+    return '{}-{}'.format(prefix, hashlib.sha256(payload.encode('utf-8')).hexdigest()[:12])
+
+
 class StyleElements:
 
     from buildzr.dsl.expression import WorkspaceExpression, ElementExpression
@@ -3188,7 +3219,6 @@ class StyleElements:
         # makes more concise and flexible.
 
         from buildzr.dsl.expression import ElementExpression
-        from uuid import uuid4
 
         if background:
             assert Color.is_valid_color(background), "Invalid background color: {}".format(background)
@@ -3233,7 +3263,11 @@ class StyleElements:
         # affected by this style.
         # If a tag is provided (e.g., from a ThemeElement), use it for meaningful
         # legend display. Otherwise, generate a unique internal tag.
-        element_tag = tag if tag else "buildzr-styleelements-{}".format(uuid4().hex)
+        element_tag = tag if tag else _style_tag('buildzr-styleelements', on, dict(
+            shape=shape, icon=icon, width=width, height=height,
+            background=background, color=color, stroke=stroke,
+            stroke_width=stroke_width, font_size=font_size, border=border,
+            opacity=opacity, metadata=metadata, description=description))
 
         # Track which tags we've already created styles for (to avoid duplicates)
         created_tags: set[str] = set()
@@ -3317,8 +3351,6 @@ class StyleRelationships:
         opacity: Optional[int]=None,
     ) -> None:
 
-        from uuid import uuid4
-
         if color is not None:
             assert Color.is_valid_color(color), "Invalid color: {}".format(color)
 
@@ -3337,7 +3369,10 @@ class StyleRelationships:
 
         # A single unique tag to be applied to all relationships
         # affected by this style.
-        relation_tag = "buildzr-stylerelationships-{}".format(uuid4().hex)
+        relation_tag = _style_tag('buildzr-stylerelationships', on, dict(
+            thickness=thickness, color=color, routing=routing,
+            font_size=font_size, width=width, dashed=dashed,
+            position=position, opacity=opacity))
 
         if on is None:
             self._m.append(buildzr.models.RelationshipStyle(

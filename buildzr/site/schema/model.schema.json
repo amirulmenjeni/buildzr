@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buildzr.dev/schema/model/2",
+  "title": "buildzr model export (buildzr.model/2)",
+  "description": "The model the viewer is about: every element with its containment, explicit relationships only, and authored views. Written by buildzr/site/model.py as canonical JSON (sort_keys, compact separators, UTF-8, trailing newline). Design note v4, section C. Readers MUST ignore element 'type' values they do not know (deployment types arrive later).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "modelHash", "workspace", "elements", "relationships", "views", "deployment"],
+  "properties": {
+    "schema": { "const": "buildzr.model/2" },
+    "modelHash": {
+      "$ref": "#/$defs/hash",
+      "description": "sha256 of the canonical bytes of this object with modelHash set to the empty string."
+    },
+    "workspace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": ["string", "null"] }
+      }
+    },
+    "elements": {
+      "type": "array",
+      "description": "Pre-order depth-first over the containment tree (every parent before its children). Roots in model order: people first, then software systems; children in model order.",
+      "items": { "$ref": "#/$defs/element" }
+    },
+    "relationships": {
+      "type": "array",
+      "description": "Explicit relationships only: none that buildzr implied (Structurizr linkedRelationshipId). Sorted by id.",
+      "items": { "$ref": "#/$defs/relationship" }
+    },
+    "views": {
+      "type": "array",
+      "description": "Authored views in workspace order.",
+      "items": { "$ref": "#/$defs/view" }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environments"],
+      "properties": {
+        "environments": { "type": "array", "maxItems": 0, "description": "Empty in v4; reserved for deployment (design C)." }
+      }
+    }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "path": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$",
+      "description": "Slug path: parent path + '/' + slug(name). slug = lower-case, runs of characters outside [a-z0-9] become '-', trimmed of '-'; empty -> 'element'. On collision among siblings (or among roots) the 2nd, 3rd ... in model order get '-2', '-3' ..."
+    },
+    "properties": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "element": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "modelId", "type", "parent", "children", "name", "description", "technology", "tags", "properties", "url", "group", "views"],
+      "properties": {
+        "id": { "$ref": "#/$defs/path" },
+        "modelId": { "type": "string", "description": "Structurizr numeric id as exported today (not stable across edits)." },
+        "type": {
+          "type": "string",
+          "description": "v4 writes Person, SoftwareSystem, Container, Component. Later: DeploymentNode, InfrastructureNode, ContainerInstance, SoftwareSystemInstance. Readers ignore unknown types.",
+          "minLength": 1
+        },
+        "parent": { "oneOf": [{ "$ref": "#/$defs/path" }, { "type": "null" }] },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/path" }, "description": "Child ids in model order." },
+        "name": { "type": "string" },
+        "description": { "type": ["string", "null"] },
+        "technology": { "type": ["string", "null"] },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "As in the Structurizr JSON (insertion order, defaults first). Never re-sorted." },
+        "properties": { "$ref": "#/$defs/properties" },
+        "url": { "type": ["string", "null"] },
+        "group": { "type": ["string", "null"], "description": "Group name, nested groups joined by '/' as Structurizr writes them." },
+        "views": { "type": "array", "items": { "type": "string" }, "description": "Keys of the authored views this element appears in, in workspace view order." },
+        "instanceOf": { "$ref": "#/$defs/path", "description": "Reserved for deployment instances." }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "modelId", "source", "destination", "description", "technology", "tags", "properties"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9/-]+->[a-z0-9/-]+(:[a-z0-9-]+)?$",
+          "description": "'<source path>-><destination path>'; when a pair has several relationships, every one of them gets ':<slug(description)>' (empty description -> 'rel'), with '-2', '-3' ... on remaining collisions in model order."
+        },
+        "modelId": { "type": "string" },
+        "source": { "$ref": "#/$defs/path" },
+        "destination": { "$ref": "#/$defs/path" },
+        "description": { "type": ["string", "null"] },
+        "technology": { "type": ["string", "null"] },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "properties": { "$ref": "#/$defs/properties" }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "title", "scope", "scene"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "slug(Structurizr view key), '-2' on collision."
+        },
+        "viewKey": { "type": "string", "description": "The original Structurizr view key." },
+        "kind": { "enum": ["systemLandscape", "systemContext", "container", "component", "dynamic", "deployment", "filtered", "custom"] },
+        "title": { "type": "string" },
+        "description": { "type": ["string", "null"] },
+        "scope": { "oneOf": [{ "$ref": "#/$defs/path" }, { "type": "null" }], "description": "Scoped element path; null for landscape/deployment views." },
+        "scene": { "type": "string", "pattern": "^v/[a-z0-9][a-z0-9-]*$", "description": "Scene key 'v/<key>' (see index.json)." }
+      }
+    }
+  }
+}

@@ -21,4 +21,13 @@ build
 dist
 
 # MkDocs build output.
-site/
+/site/
+
+# v4 viewer build output and local test data.
+buildzr/site/static/
+viewer/node_modules/
+viewer/.data/
+viewer/.shots/
+viewer/test-results/
+viewer/playwright-report/
+.v4out/
