@@ -13,7 +13,7 @@ button { font: inherit; }
 .top { grid-area: top; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 6px 12px; border-bottom: 1px solid var(--line); }
 .top h1 { font-size: 15px; margin: 0; }
 .notice { grid-area: notice; background: #fff4ce; padding: 6px 12px; border-bottom: 1px solid var(--line); }
-.left { grid-area: left; overflow: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 4px 0; }
+.left { grid-area: left; display: flex; flex-direction: column; overflow: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 4px 0; }
 .center { grid-area: center; position: relative; min-width: 0; min-height: 0; }
 .inspector { grid-area: right; overflow: auto; border-left: 1px solid var(--line); background: var(--panel); padding: 8px 14px; }
 .canvas { position: absolute; inset: 0; }
@@ -33,7 +33,20 @@ button { font: inherit; }
 .views button { width: 100%; text-align: left; border: 0; border-left: 3px solid transparent; background: none; padding: 5px 12px; cursor: pointer; display: flex; gap: 8px; }
 .views button.on { background: #dbe9f9; border-left-color: var(--accent); }
 .views button:focus-visible, .link:focus-visible, .chip:focus-visible, .toolbar button:focus-visible, .crumbs button:focus-visible { outline: 2px solid #f90; outline-offset: 1px; }
+.left > * { flex: none; }
 .legal { font-size: 11px; margin: 12px; color: var(--muted); }
+
+/* settings: gear at the bottom-right of the left panel, popover above it */
+.left-foot { position: sticky; bottom: 0; margin-top: auto; display: flex; justify-content: flex-end; padding: 6px 8px; background: var(--panel); }
+.gear { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--fg); cursor: pointer; padding: 0; }
+.gear[aria-expanded=true] { background: #dbe9f9; border-color: var(--accent); }
+.gear:focus-visible, .setting input:focus-visible { outline: 2px solid #f90; outline-offset: 2px; }
+.settings-panel { position: absolute; right: 8px; bottom: calc(100% + 4px); width: min(256px, calc(100% - 16px)); background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.18); padding: 8px 12px 10px; z-index: 5; }
+.settings-panel h2 { font-size: 13px; margin: 0 0 6px; }
+.setting { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; }
+.setting input { margin: 0; width: 18px; height: 18px; }
+.setting label { font-weight: 700; }
+.setting-desc { grid-column: 1 / -1; margin: 2px 0 0; font-size: 12px; color: var(--muted); }
 
 .crumbs ol { display: flex; gap: 4px; align-items: center; }
 .crumbs li + li::before { content: '›'; margin-right: 4px; color: var(--muted); }
@@ -107,6 +120,12 @@ button { font: inherit; }
   .tabs button { flex: 1; min-height: 48px; border: 0; background: none; cursor: pointer; border-bottom: 3px solid transparent; }
   .tabs button[aria-selected=true] { border-bottom-color: var(--accent); font-weight: 700; }
   .tabs .close { flex: none; width: 48px; font-size: 22px; }
+  .gear { width: 44px; height: 44px; }
+  .left-foot { padding: 8px 10px; }
+  .setting { grid-template-columns: 44px 1fr; column-gap: 0; }
+  .setting input { width: 44px; height: 44px; }
+  .setting label { min-height: 44px; display: flex; align-items: center; }
+  .setting-desc { grid-column: 1 / -1; }
   .tree .row { min-height: 44px; }
   .twisty { width: 28px; text-align: center; }
   .views button { min-height: 44px; }

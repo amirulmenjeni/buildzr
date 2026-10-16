@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { loadIndex, loadModel, loadScene } from './data';
 import { ancestors, chainOf, computeMatches, indexModel, typeLabel, type MatchInfo, type ModelIndex } from './model';
 import { buildHash, emptyFilter, parseHash, type Filter, type Route } from './route';
+import { loadSettings, saveSettings, type SettingId, type SettingValues } from './settings';
 import type { IndexJson, ModelJson, Scene } from './types';
 
 export interface CameraRequest { seq: number; kind: 'path' | 'node' | 'zoom'; id: string | null }
@@ -29,6 +30,7 @@ export interface State {
   sheet: 'peek' | 'half' | 'full';
   searchOpen: boolean;
   camera: CameraRequest;
+  settings: SettingValues; // persisted in localStorage (settings.ts)
   // actions
   init(): Promise<void>;
   applyRoute(r: Route): void;
@@ -44,6 +46,7 @@ export interface State {
   toggleTree(id: string, open?: boolean): void;
   setRolled(v: boolean): void;
   dismissNotice(): void;
+  setSetting(id: SettingId, value: boolean): void;
   setUi(p: Partial<Pick<State, 'drawer' | 'drawerTab' | 'sheet' | 'searchOpen'>>): void;
 }
 
@@ -108,7 +111,7 @@ export const useStore = create<State>()((set, get) => {
   return {
     status: 'loading', error: null, index: null, model: null, m: null, scenes: {},
     path: '', view: null, selection: null, filter: emptyFilter,
-    notice: null, announce: '', treeOpen: {}, rolled: false, drawer: false, drawerTab: 'model', sheet: 'peek', searchOpen: false, camera: { seq: 0, kind: 'path', id: null },
+    notice: null, announce: '', treeOpen: {}, rolled: false, drawer: false, drawerTab: 'model', sheet: 'peek', searchOpen: false, camera: { seq: 0, kind: 'path', id: null }, settings: loadSettings(),
 
     async init() {
       try {
@@ -250,6 +253,11 @@ export const useStore = create<State>()((set, get) => {
     },
     setRolled(v) { set({ rolled: v }); },
     dismissNotice() { set({ notice: null }); },
+    setSetting(id, value) {
+      const settings = { ...get().settings, [id]: value };
+      set({ settings });
+      saveSettings(settings);
+    },
     setUi(p) { set(p); },
   };
 });

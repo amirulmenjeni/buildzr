@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Canvas } from './Canvas';
 import { Inspector } from './Inspector';
+import { SettingsButton } from './SettingsPanel';
 import { Breadcrumbs, Toolbar } from './Toolbar';
 import { Tree, ViewsList } from './Tree';
 import { installRouter, useStore } from './store';
@@ -59,6 +60,7 @@ export function App() {
         {(!phone || drawerTab === 'model') && (<><h2 className="h">Model</h2><Tree /></>)}
         {(!phone || drawerTab === 'views') && (<><h2 className="h">Views</h2><ViewsList m={m} /></>)}
         <p className="legal"><a href={oflUrl} target="_blank" rel="noreferrer">Inter font licence (OFL-1.1)</a></p>
+        <SettingsButton />
       </nav>
       <main className="center"><Canvas /></main>
       <div className={'sheet-wrap' + (phone ? ` sheet-${sheet}` : '')} data-sheet={phone ? (sheetOpen ? sheet : 'closed') : undefined} {...(phone && !sheetOpen ? { inert: true, 'aria-hidden': true } : {})}>

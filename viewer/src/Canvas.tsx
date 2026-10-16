@@ -4,6 +4,7 @@ import { compose, pathRect, type Composed, type FlowEdge, type FlowNode } from '
 import { ElkEdge } from './edge';
 import { chainOf, computeMatches, type ModelIndex } from './model';
 import { C4Boundary, C4Element } from './nodes';
+import { defaults, type SettingValues } from './settings';
 import { useStore } from './store';
 import { usePhone } from './usePhone';
 import { fitZoom, shouldCollapse } from './zoomfx';
@@ -19,11 +20,13 @@ declare global {
       setViewport(v: { x: number; y: number; zoom: number }): void;
       ready: boolean;
       cameraDone: number;
+      readonly settings: SettingValues; // the current settings (read-only view of the store)
       autoCollapse: boolean; // test hook: false pauses the zoom-out collapse (tests that restore an old viewport on purpose)
     };
   }
 }
-window.__viewer = { positions: () => ({}), viewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: () => {}, ready: false, cameraDone: 0, autoCollapse: true };
+window.__viewer = { positions: () => ({}), viewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: () => {}, ready: false, cameraDone: 0, autoCollapse: true, settings: defaults() };
+Object.defineProperty(window.__viewer, 'settings', { get: () => useStore.getState().settings });
 
 const reduced = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const phone = (): boolean => matchMedia('(max-width: 767px)').matches;
