@@ -1,6 +1,8 @@
-# UI settings
+# Viewer settings
 
 The buildzr viewer has a small settings panel for options that change how the canvas behaves.
+
+Settings belong to the browser of the reader. They are not part of the site, `buildzr.yaml` does not set them, and a [viewer link](viewer-hash-routes.md) does not carry them. Two people who open the same link can see it with different settings.
 
 ## Where it is
 
@@ -18,7 +20,7 @@ Settings are stored in the browser's `localStorage` under the key `buildzr-ui:se
 
 Tests and scripts can read the current values from `window.__viewer.settings`.
 
-## Adding a setting
+## Adding a setting (for contributors)
 
 All settings are defined in one list, `SETTINGS` in `viewer/src/settings.ts`. Add an entry:
 

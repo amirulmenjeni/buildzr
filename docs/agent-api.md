@@ -1,6 +1,6 @@
 # The agent API
 
-`buildzr serve` does more than show the diagrams. For every site it also answers questions about the architecture as JSON, so a program, an AI assistant or a person with `curl` can ask "what talks to the database?" without opening the viewer and without knowing anything about the Python code that produced the model.
+`buildzr serve` does more than show the diagrams. For every [site](cli.md) it also answers questions about the architecture as JSON, so a program, an AI assistant or a person with `curl` can ask "what talks to the database?" without opening the viewer and without knowing anything about the Python code that produced the model.
 
 The API is **read-only**. It only answers `GET` (and `HEAD`). It lives next to the viewer, at `api/v1/` below the site's address:
 
