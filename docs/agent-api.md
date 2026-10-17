@@ -137,6 +137,23 @@ All of them are `GET` requests below `<site>/api/v1/`. Element ids go in query p
 
 Unknown parameters are errors, so a typo does not silently give the wrong answer. A parameter that is not repeatable cannot be given twice.
 
+### Endpoint index
+
+The orientation document lists the same endpoints as URL templates. This table is written from that document by `scripts/gen_api_reference.py`, so it follows the code. Do not edit the lines between the two markers; run the script instead. Names in the first column are the keys of `endpoints` in the orientation document (`search` is the path `elements`).
+
+<!-- BEGIN generated: endpoints -->
+| Name | Template | Required | Optional | `limit` (default / largest) |
+|---|---|---|---|---|
+| `element` | `/api/v1/element?id={id}` | `id` | none | none |
+| `search` | `/api/v1/elements{?q,type,tag,within,limit,cursor}` | none | `q`, `type`, `tag`, `within`, `limit`, `cursor` | 50 / 200 |
+| `tree` | `/api/v1/tree{?id,depth,limit}` | none | `id`, `depth`, `limit` | 500 / 1000 |
+| `neighbours` | `/api/v1/neighbours?id={id}{&direction,depth,type,limit}` | `id` | `direction`, `depth`, `type`, `limit` | 200 / 1000 |
+| `path` | `/api/v1/path?from={from}&to={to}{&maxHops,limit}` | `from`, `to` | `maxHops`, `limit` | 3 / 5 |
+| `relationships` | `/api/v1/relationships{?from,to,edge,tag,limit,cursor}` | none | `from`, `to`, `edge`, `tag`, `limit`, `cursor` | 50 / 200 |
+| `views` | `/api/v1/views{?scope}` | none | `scope` | none |
+| `view` | `/api/v1/view?key={key}` | `key` | none | none |
+<!-- END generated: endpoints -->
+
 ### `element`
 
 ```http
