@@ -86,9 +86,18 @@ nav:
     - Styles: user-guide/styles.md
     - Themes: user-guide/themes.md
     - Export: user-guide/export.md
+  - Publishing:
+    - Command line: cli.md
+    - buildzr.yaml: config.md
+    - Deploying to an instance: deploy.md
+    - Recipes: publishing-recipes.md
+    - The site store: store.md
+    - Viewer settings: ui-settings.md
+    - Viewer links: viewer-hash-routes.md
   - API Reference:
     - DSL: api/dsl.md
     - Models: api/models.md
+    - Agent API: agent-api.md
   - Development:
     - Contributing: contributing.md
     - Roadmap: roadmap.md
