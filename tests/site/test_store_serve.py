@@ -563,3 +563,61 @@ def test_readers_never_see_an_error_or_a_mixed_release_while_sites_are_installed
     assert saved["sites"][""]["last"] == 22
     if grace == 0:
         assert len(os.listdir(Path(store.dir) / "sites" / site_key(""))) == 2
+
+
+# --- the real layout (needs Node) -----------------------------------------------------------------------
+
+HAS_NODE = bool(shutil.which("node") or os.environ.get("BUILDZR_NODE"))
+SMALL_PY = os.path.join(ROOT, "tests", "site", "small_workspace.py")
+
+
+@pytest.mark.skipif(not HAS_NODE, reason="the real layout needs Node")
+def test_two_real_sites_side_by_side(tmp_path: Path) -> None:
+    """Two sites built with the real layout (two different models), installed and served; every file their
+    index.json lists is served under its own site path and has the hash the index says."""
+    import hashlib
+    static = make_static(tmp_path / "static")
+    ws = tmp_path / "ws.py"
+    ws.write_text(WS_TEXT)
+    build_site(EXAMPLE_PY, str(tmp_path / "a"), static_dir=str(static))
+    env0 = os.environ.get("PYTHONPATH", "")
+    os.environ["PYTHONPATH"] = ROOT + os.pathsep + env0
+    try:
+        build_site(str(ws), str(tmp_path / "b"), static_dir=str(static))
+    finally:
+        os.environ["PYTHONPATH"] = env0
+    store = Store.open(str(tmp_path / "store"), create=True)
+    put(store, tmp_path / "a", "")
+    put(store, tmp_path / "b", "pr/42")
+    env = start_store(store)
+    try:
+        hashes = {}
+        for prefix in ("/", "/pr/42/"):
+            idx = index_of(env.port, prefix)
+            hashes[prefix] = idx["modelHash"]
+            files = [idx["model"]] + [e for e in idx["scenes"].values()]
+            assert len(files) > 2
+            for entry in files:
+                status, _, body = get(env.port, prefix + "data/" + entry["file"])
+                assert status == 200, (prefix, entry["file"])
+                assert "sha256:" + hashlib.sha256(body).hexdigest() == entry["hash"]
+            api = jget(env.port, prefix + "api/v1/")
+            assert api["modelHash"] == idx["modelHash"] and api["viewerUrl"] == prefix
+            top = api["topLevel"][0]
+            el = jget(env.port, prefix + "api/v1/element?id=" + top)["element"]
+            assert el["viewerUrl"].startswith(prefix + "#/m")
+        assert hashes["/"] != hashes["/pr/42/"]
+        sites = jget(env.port, "/_buildzr/v1/sites")["sites"]
+        assert [(s["sitePath"], s["modelHash"]) for s in sites] == [("", hashes["/"]), ("pr/42", hashes["/pr/42/"])]
+        assert all(s["elements"] and s["relationships"] for s in sites)
+        # a second release of the root: every file the first one listed is still served (from the previous release)
+        old_idx = index_of(env.port, "/")
+        put(store, tmp_path / "b", "")
+        new_idx = index_of(env.port, "/")
+        assert new_idx["modelHash"] == hashes["/pr/42/"] != old_idx["modelHash"]
+        for entry in [old_idx["model"]] + list(old_idx["scenes"].values()):
+            status, _, body = get(env.port, "/data/" + entry["file"])
+            assert status == 200 and "sha256:" + hashlib.sha256(body).hexdigest() == entry["hash"]
+    finally:
+        env.srv.shutdown()
+        env.srv.server_close()
