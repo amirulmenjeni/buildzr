@@ -740,3 +740,90 @@ def test_50_readers_during_20_deploys_and_5_rollbacks(tmp_path: Path, sites: lis
     assert deploys == 20 and rollbacks == 5 and counts["sequences"] >= 100
     print(f"concurrency: 50 readers, {counts['requests']} GETs in {counts['sequences']} sequences during {deploys} "
           f"deploys and {rollbacks} rollbacks in {time.monotonic() - t0:.1f} s; {counts['misses']} allowed misses")
+
+
+# --- crash safety: SIGKILL in the middle of an upload and of an install ----------------------------------
+
+
+def _launch(store: Path, rport: int, dport: int, kill_at: str = "") -> Any:
+    import subprocess
+    import sys
+    env = {**os.environ, "PYTHONPATH": os.getcwd()}
+    env.pop("BUILDZR_TEST_KILL_AT", None)
+    if kill_at:
+        env["BUILDZR_TEST_KILL_AT"] = kill_at
+    p = subprocess.Popen([sys.executable, os.path.join("tests", "site", "deploy_instance.py"), str(store), str(rport),
+                          str(dport)], env=env, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    assert p.stdout is not None
+    assert p.stdout.readline().startswith("Serving store") and p.stdout.readline().startswith("Accepting deploys")
+    return p
+
+
+def _ports() -> tuple[int, int]:
+    out = []
+    for _ in range(2):
+        s = socket.socket()
+        s.bind(("127.0.0.1", 0))
+        out.append(s.getsockname()[1])
+        s.close()
+    return out[0], out[1]
+
+
+def _consistent(store: Path, rport: int, dport: int, allowed: set[str]) -> str:
+    """Restart on the store; it opens, incoming/ is empty, only listed releases exist, and the served site is the
+    current one of the store file. Returns the served modelHash."""
+    p = _launch(store, rport, dport)
+    try:
+        assert os.listdir(store / "incoming") == []
+        saved = json.loads((store / "buildzr-store.json").read_text())
+        cur = saved["sites"][""]["current"]
+        listed = {cur["release"]} | ({saved["sites"][""]["previous"]["release"]} if saved["sites"][""]["previous"] else set())
+        key_dirs = os.listdir(store / "sites")
+        assert len(key_dirs) == 1 and set(os.listdir(store / "sites" / key_dirs[0])) == listed
+        served = request(rport, "GET", "/data/index.json")[2]["modelHash"]
+        assert served == cur["modelHash"] and served in allowed
+        return str(served)
+    finally:
+        p.kill()
+        p.wait()
+
+
+def test_kill_in_the_middle_of_an_upload(tmp_path: Path, sites: list[Path]) -> None:
+    rport, dport = _ports()
+    store = tmp_path / "store"
+    p = _launch(store, rport, dport)
+    try:
+        assert put_site(dport, sites[0])[0] == 200
+        body = pack_site(str(sites[1]))[0]
+        s = socket.create_connection(("127.0.0.1", dport), timeout=10)
+        s.sendall(_put_head(dport, f"Content-Length: {len(body)}\r\n\r\n".encode()) + body[:len(body) // 2])
+        deadline = time.monotonic() + 5
+        while not os.listdir(store / "incoming") and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert os.listdir(store / "incoming")  # the upload is half way in
+    finally:
+        p.kill()
+        p.wait()
+    s.close()
+    assert _consistent(store, rport, dport, {model_hash(sites[0])}) == model_hash(sites[0])
+
+
+@pytest.mark.parametrize("step", ["renamed", "store-tmp-written", "store-replaced", "routed", "pruned"])
+def test_kill_in_the_middle_of_an_install(tmp_path: Path, sites: list[Path], step: str) -> None:
+    rport, dport = _ports()
+    store = tmp_path / "store"
+    p = _launch(store, rport, dport, kill_at=f"{step}:3")
+    try:
+        assert put_site(dport, sites[0])[0] == 200
+        assert put_site(dport, sites[1])[0] == 200
+        with pytest.raises(Exception):  # the instance dies while answering
+            put_site(dport, sites[2])
+        p.wait(10)
+        assert p.returncode == -9
+    finally:
+        if p.poll() is None:
+            p.kill()
+            p.wait()
+    served = _consistent(store, rport, dport, {model_hash(sites[1]), model_hash(sites[2])})
+    before_replace = step in ("renamed", "store-tmp-written")
+    assert served == model_hash(sites[1] if before_replace else sites[2])

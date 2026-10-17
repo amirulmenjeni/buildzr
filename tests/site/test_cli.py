@@ -456,14 +456,13 @@ def test_path_flag_overrides_the_targets_path(tmp_path: Path, stubbed: None,
     assert code == 2 and "--path: segment" in err
 
 
-def test_deploy_to_a_url_target_is_not_available_yet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                                      capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    msg = ("buildzr: error: deploying to a running instance is not available in this version; "
-           "use a dir target or build\n")
-    for extra in ([], ["--dry-run"]):
-        code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "live", *extra)
-        assert (code, out, err) == (1, "", msg)
+def test_a_url_target_off_this_machine_is_refused_before_building(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                                    capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, DEPLOY_YAML + "  far: {url: \"http://10.1.2.3:8001\"}\n")
+    for extra in ([], ["--dry-run"], ["--rollback"]):
+        code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "far", *extra)
+        assert code == 2 and out == ""
+        assert "10.1.2.3 is not this machine" in err and "ssh -N -L 9001:127.0.0.1:8001" in err
 
 
 def test_base_path_flag_is_gone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -485,7 +484,8 @@ def test_old_target_dir_flag_is_a_name_now(tmp_path: Path, monkeypatch: pytest.M
 def test_rollback_is_not_built(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                capsys: pytest.CaptureFixture[str]) -> None:
     code, _, err = run(project(tmp_path, DEPLOY_YAML), monkeypatch, capsys, "deploy", "-t", "www", "--rollback")
-    assert code == 2 and err == "buildzr: error: --rollback is not available in this version\n"
+    assert code == 2
+    assert err == "buildzr: error: --rollback works with url targets only (a dir target keeps no previous release)\n"
 
 
 def test_checker_failure_exits_1_and_leaves_the_target_alone(
