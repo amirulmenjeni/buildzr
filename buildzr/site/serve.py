@@ -34,6 +34,12 @@ def _etag_matches(header: Optional[str], etag: str) -> bool:
     return any(t.strip().removeprefix("W/") == etag for t in header.split(","))
 
 
+class Server(http.server.ThreadingHTTPServer):
+    """The threading server of every listener; the default backlog of 5 drops connections when many readers connect."""
+
+    request_queue_size = 128
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     """GET and HEAD only; no directory listings; nothing outside the served directory."""
 
@@ -181,7 +187,7 @@ def make_server(directory: str, host: str = "127.0.0.1", port: int = 8000, publi
     def make(*args: Any, **kw: Any) -> Handler:
         h: Handler = handler(*args, directory=root, **kw)
         return h
-    return http.server.ThreadingHTTPServer((host, port), make)
+    return Server((host, port), make)
 
 
 def serve(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url: Optional[str] = None,
@@ -435,10 +441,7 @@ def make_store_server(store: Store, host: str = "127.0.0.1", port: int = 8000, p
     def make(*args: Any, **kw: Any) -> StoreHandler:
         h: StoreHandler = handler(*args, directory=store.dir, **kw)
         return h
-    class StoreServer(http.server.ThreadingHTTPServer):
-        request_queue_size = 128  # the default 5 drops connections when many readers connect at once
-
-    return StoreServer((host, port), make)
+    return Server((host, port), make)
 
 
 def serve_store(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url: Optional[str] = None,

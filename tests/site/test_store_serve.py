@@ -439,6 +439,15 @@ def test_plain_serve_is_unchanged(base_site: Path) -> None:
         srv.server_close()
 
 
+def test_both_servers_listen_with_a_backlog_of_128(base_site: Path, tmp_path: Path) -> None:
+    store = Store.open(str(tmp_path / "store"), create=True)
+    for srv in (make_server(str(base_site), port=0), make_store_server(store, port=0)):
+        try:
+            assert srv.request_queue_size == 128
+        finally:
+            srv.server_close()
+
+
 # --- the command line -----------------------------------------------------------------------------------
 
 
