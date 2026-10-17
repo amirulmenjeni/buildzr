@@ -1,7 +1,7 @@
 """Emit ``buildzr.scene/2`` files and ``index.json`` from laid-out levels.
 
 Input: the ``buildzr.levels/2`` object (what to draw) and the :class:`~buildzr.site.layout.passes.Placed`
-geometry of every level. Output: ``DATA_DIR/model.json``, ``index.json`` and
+geometry of every level. Output: ``DATA_DIR/model.<h8>.json``, ``index.json`` and
 ``scene/<key>.<h8>.json`` (h8 = first 8 hex digits of the file's sha256), all canonical.
 """
 
@@ -99,6 +99,11 @@ def scene_path(key: str, h8: str) -> str:
     return f"scene/{key}.{h8}.json"
 
 
+def model_path(h8: str) -> str:
+    """Relative path (under the data dir) of the model file; the hash in the name keeps two deploys apart."""
+    return f"model.{h8}.json"
+
+
 def _write_bytes(path: str, data: bytes) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "wb") as f:
@@ -106,12 +111,14 @@ def _write_bytes(path: str, data: bytes) -> None:
 
 
 def write_site(out_dir: str, model: Json, levels: Json, placed: dict[str, Placed]) -> Json:
-    """Write model.json, index.json and every scene into ``out_dir``. Returns the index object."""
+    """Write model.<h8>.json, index.json and every scene into ``out_dir``. Returns the index object."""
     model_bytes = dumps(model).encode("utf-8")
-    _write_bytes(os.path.join(out_dir, "model.json"), model_bytes)
+    model_digest = hashlib.sha256(model_bytes).hexdigest()
+    model_rel = model_path(model_digest[:8])
+    _write_bytes(os.path.join(out_dir, model_rel), model_bytes)
     index: Json = {
         "schema": INDEX_SCHEMA, "modelHash": model["modelHash"],
-        "model": {"file": "model.json", "hash": "sha256:" + hashlib.sha256(model_bytes).hexdigest()},
+        "model": {"file": model_rel, "hash": "sha256:" + model_digest},
         "scenes": {},
     }
     for level in levels["levels"]:

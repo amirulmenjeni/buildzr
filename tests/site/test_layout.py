@@ -64,7 +64,11 @@ def test_scene_files_are_content_hashed(built: tuple[Path, Json]) -> None:
         digest = hashlib.sha256(data).hexdigest()
         assert entry["hash"] == "sha256:" + digest
         assert entry["file"] == f"scene/{key}.{digest[:8]}.json"
-    assert (d / "model.json").read_bytes() == (SMALL / "model.json").read_bytes()
+    model_digest = index["model"]["hash"].removeprefix("sha256:")
+    assert index["model"]["file"] == f"model.{model_digest[:8]}.json"
+    assert hashlib.sha256((d / index["model"]["file"]).read_bytes()).hexdigest() == model_digest
+    assert (d / index["model"]["file"]).read_bytes() == (SMALL / "model.json").read_bytes()
+    assert not (d / "model.json").exists()
 
 
 def test_frames_scale_children_and_element_bounds(built: tuple[Path, Json]) -> None:

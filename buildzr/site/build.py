@@ -3,7 +3,7 @@
 Output (relative URLs only, so it works at ``/`` and under any subpath)::
 
     DIR/index.html, DIR/assets/...   the viewer bundle (``buildzr/site/static/``)
-    DIR/data/model.json, index.json, scene/...
+    DIR/data/model.<h8>.json, index.json, scene/...
     DIR/build.json                   versions, k, modelHash, input hash; no timestamps
 """
 
@@ -100,9 +100,8 @@ def build_site(workspace: str, out: str = "site", k: Optional[int] = None, text_
     workspace = os.path.abspath(workspace)
     if not os.path.isfile(workspace):
         raise BuildError(f"workspace file not found: {workspace}")
-    cfg = read_config(workspace)
-    k = int(k if k is not None else cfg.get("k", 4))
-    text_color = str(text_color if text_color is not None else cfg.get("text_color", "wcag"))
+    k = 4 if k is None else k
+    text_color = "wcag" if text_color is None else text_color
     if text_color not in ("wcag", "c4"):
         raise BuildError(f"text_color must be 'wcag' or 'c4', not {text_color!r}")
     if viewer and not os.path.isfile(os.path.join(static_dir, "index.html")):
@@ -116,7 +115,7 @@ def build_site(workspace: str, out: str = "site", k: Optional[int] = None, text_
         stage = os.path.join(tmp, "export")
         if run_export(workspace, stage, text_color=text_color) != 0:
             raise BuildError(f"executing {workspace} failed (see the error above)")
-        with open(os.path.join(stage, "model.json"), encoding="utf-8") as f:
+        with open(os.path.join(stage, "model.json"), encoding="utf-8") as f:  # staging name, not the site's
             model = json.load(f)
         with open(os.path.join(stage, "levels.json"), encoding="utf-8") as f:
             levels = json.load(f)
