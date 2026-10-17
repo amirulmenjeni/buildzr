@@ -21,10 +21,11 @@ from buildzr.site.build import BuildError, build_site, swap_dir
 from buildzr.site.check import check_site
 from buildzr.site.config import DEFAULT_OUT, BuildSettings, Config, ConfigError
 from buildzr.site.serve import serve, serve_store
-from buildzr.site.store import Store, StoreError
+from buildzr.site import deploy_client as dc
+from buildzr.site.deploy import DEFAULT_DEPLOY_PORT, DEFAULT_MAX_UPLOAD_MB, run_instance
+from buildzr.site.store import DEPLOY_GRACE_SECONDS, SitePathError, Store, StoreError, normalise_site_path
 
 MAX_ERRORS_SHOWN = 20
-NOT_YET_URL = "deploying to a running instance is not available in this version; use a dir target or build"
 
 
 class _Parser(argparse.ArgumentParser):
@@ -67,6 +68,13 @@ def _parser() -> argparse.ArgumentParser:
                    help="address of the site as readers see it (http:// or https://); the base of the API's viewerUrl links")
     s.add_argument("--cors-origin", metavar="ORIGIN", action="append", default=[],
                    help="let this web origin read the API from a browser (repeatable; there is no wildcard)")
+    s.add_argument("--accept-deploys", action="store_true",
+                   help="with --store: also accept deploys on a second listener at 127.0.0.1 (this machine only; "
+                        "no authentication); creates the store when DIR is missing or empty")
+    s.add_argument("--deploy-port", type=int, metavar="N", default=None,
+                   help=f"port of the deploy listener (default {DEFAULT_DEPLOY_PORT}); it always binds 127.0.0.1")
+    s.add_argument("--max-upload-mb", type=int, metavar="N", default=None,
+                   help=f"largest upload accepted, compressed (default {DEFAULT_MAX_UPLOAD_MB})")
     d = sub.add_parser("deploy", help="build the site and put it on a target from buildzr.yaml")
     _add_build_args(d)
     d.add_argument("-t", "--target", metavar="NAME", default=None,
@@ -76,7 +84,8 @@ def _parser() -> argparse.ArgumentParser:
                    help="deploy an already built site instead of building (the build flags are then refused)")
     d.add_argument("--dry-run", action="store_true",
                    help="load the config, build and check, print the resolved target; write nothing to it")
-    d.add_argument("--rollback", action="store_true", help="not available in this version")
+    d.add_argument("--rollback", action="store_true",
+                   help="url targets: make the previous release of the site current again (nothing is built)")
     d.add_argument("--base-path", default=None, help=argparse.SUPPRESS)  # removed; kept to explain itself
     return ap
 
@@ -217,6 +226,16 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         origins = list(dict.fromkeys(normalise_origin(o) for o in args.cors_origin))
     except ValueError as e:
         raise _Usage(f"--cors-origin: {e}") from None
+    if not args.accept_deploys:
+        for flag, v in (("--deploy-port", args.deploy_port), ("--max-upload-mb", args.max_upload_mb)):
+            if v is not None:
+                raise _Usage(f"{flag} needs --accept-deploys")
+    if args.accept_deploys:
+        if args.store is None:
+            raise _Usage("--accept-deploys needs --store DIR (deploys go into a store)")
+        if args.dir is not None:
+            raise _Usage("--store and a site DIR cannot be used together")
+        return _serve_deploys(args, public_url, origins)
     if args.store is not None:
         if args.dir is not None:
             raise _Usage("--store and a site DIR cannot be used together")
@@ -245,6 +264,31 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _serve_deploys(args: argparse.Namespace, public_url: Optional[str], origins: list[str]) -> int:
+    deploy_port = DEFAULT_DEPLOY_PORT if args.deploy_port is None else args.deploy_port
+    max_mb = DEFAULT_MAX_UPLOAD_MB if args.max_upload_mb is None else args.max_upload_mb
+    if not 0 <= deploy_port <= 65535:
+        raise _Usage("--deploy-port: expected a port number from 0 to 65535")
+    if deploy_port != 0 and deploy_port == args.port:
+        raise _Usage("--deploy-port must differ from --port")
+    if max_mb < 1:
+        raise _Usage("--max-upload-mb: expected a whole number of at least 1")
+    try:
+        import jsonschema  # noqa: F401
+    except ImportError:
+        return _fail("--accept-deploys checks every upload against the JSON schemas and needs jsonschema; "
+                     "install it with: pip install 'buildzr[serve]'")
+    try:
+        store = Store.open(args.store, create=True, grace=DEPLOY_GRACE_SECONDS)
+    except StoreError as e:
+        return _fail(str(e))
+    try:
+        run_instance(store, args.host, args.port, deploy_port, max_mb, public_url, tuple(origins))
+    except OSError as e:
+        return _fail(f"cannot serve on {args.host}:{args.port} and 127.0.0.1:{deploy_port}: {e.strerror or e}")
+    return 0
+
+
 def _guard_replace(dest: Path) -> None:
     """Refuse to replace a folder that is not a buildzr site (``deploy`` swaps ``dest`` as a whole)."""
     if dest.exists() and not (dest / "build.json").is_file():
@@ -265,8 +309,6 @@ def _previous_hash(dest: Path) -> Optional[str]:
 def _cmd_deploy(args: argparse.Namespace) -> int:
     if args.base_path is not None:
         raise _Usage("--base-path was removed; use --path P (or the target's path: in buildzr.yaml)")
-    if args.rollback:
-        raise _Usage("--rollback is not available in this version")
     path_override: Optional[str] = None
     if args.path is not None:
         path_override, perr = cfgmod._check_path(args.path)
@@ -280,10 +322,17 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
     cfg = _load_config(args.config, required=True)
     assert cfg is not None
     target = cfgmod.resolve_target(cfg, args.target, os.environ)
-    if target.url is not None:
-        return _fail(NOT_YET_URL)
-    assert target.dir is not None
     path = target.path if path_override is None else path_override
+    if args.rollback:
+        if target.url is None:
+            raise _Usage("--rollback works with url targets only (a dir target keeps no previous release)")
+        clash = [f for f, v in (("--workspace", args.workspace), ("--k", args.k), ("--text-color", args.text_color),
+                                ("--no-viewer", args.no_viewer or None), ("--from", args.from_dir)) if v is not None]
+        if clash:
+            raise _Usage(f"{', '.join(clash)} cannot be used with --rollback (nothing is built)")
+    if target.url is not None:
+        return _deploy_url(args, cfg, target.url, target.name, path, target.timeout, target.viewer)
+    assert target.dir is not None
     dest = target.dir / path if path else target.dir
     viewer = target.viewer and not args.no_viewer
 
@@ -336,6 +385,58 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
         return 0
     finally:
         shutil.rmtree(stage_parent, ignore_errors=True)
+
+
+def _deploy_url(args: argparse.Namespace, cfg: Config, url: str, name: str, path: str, timeout: float,
+                target_viewer: bool) -> int:
+    """``deploy`` to a ``url`` target: build (or ``--from``), check, pack and upload; or ``--rollback``."""
+    try:
+        path = normalise_site_path(path)
+    except SitePathError as e:
+        raise _Usage(f"site path: {e}") from None
+    try:
+        dc.parse_address(url)
+    except dc.DeployFailed as e:
+        return dc.report(e)
+    if args.rollback:
+        try:
+            return dc.rollback(url, path, timeout, args.dry_run)
+        except dc.DeployFailed as e:
+            return dc.report(e)
+        except KeyboardInterrupt:
+            return _fail("interrupted; the rollback may or may not have happened (check the instance)", 3)
+    b: Optional[_BuildArgs] = None
+    if args.from_dir is not None:
+        if not os.path.isfile(os.path.join(args.from_dir, "data", "index.json")):
+            return _fail(f"{args.from_dir} does not look like a built site (no data/index.json)")
+    else:
+        b = _BuildArgs(args, cfg, need_out=False)
+        b.need_workspace()
+    stage = tempfile.mkdtemp(prefix="buildzr-deploy-")
+    try:
+        site = os.path.join(stage, "site")
+        if b is None:
+            shutil.copytree(args.from_dir, site, symlinks=True)
+            failed = _check(site)
+            if failed:
+                return failed
+            with open(os.path.join(site, "build.json"), encoding="utf-8") as f:
+                info = json.load(f)
+            print(f"using {_show(Path(os.path.abspath(args.from_dir)))} ({_summary(site, info)})")
+        else:
+            info = build_site(b.need_workspace(), site, b.k, b.text_color, viewer=target_viewer and not args.no_viewer)
+            print(f"built ({_summary(site, info)})")
+            failed = _check(site)
+            if failed:
+                return failed
+        try:
+            return dc.deploy(site, url, path, timeout, args.dry_run)
+        except dc.DeployFailed as e:
+            return dc.report(e)
+        except KeyboardInterrupt:
+            return _fail("interrupted; if the upload was not complete nothing changed on the instance", 3)
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
 
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
