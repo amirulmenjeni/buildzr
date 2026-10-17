@@ -149,9 +149,31 @@ Each site's own API lives next to it, `/pr/42/api/v1/`, with `/pr/42/llms.txt`. 
 buildzr serve --store DIR [-p PORT] [--host HOST] [--public-url URL] [--cors-origin ORIGIN]...
 ```
 
-- `--store DIR` cannot be combined with a site `DIR`. The folder must already be a store (it has `buildzr-store.json`); otherwise the command stops with `buildzr: error: DIR is not a buildzr store (no buildzr-store.json)` and exit code 1.
+The first start of an instance that accepts deploys makes the store folder. After that, the same folder can be served read only:
+
+```text
+$ buildzr serve --store /srv/buildzr --accept-deploys
+Serving store /srv/buildzr (0 sites) at http://127.0.0.1:8000/ (read only)
+Accepting deploys at http://127.0.0.1:8001/ (this machine only; no authentication)
+```
+
+```text
+$ buildzr serve --store /srv/buildzr
+Serving the store /srv/buildzr (0 sites) at http://127.0.0.1:8000/ (Ctrl+C to stop)
+Site list at http://127.0.0.1:8000/_buildzr/v1/sites (read only)
+```
+
+A folder that is not a store is refused:
+
+```text
+$ buildzr serve --store /srv/elsewhere
+buildzr: error: /srv/elsewhere is not a buildzr store (no buildzr-store.json)
+[exit code 1]
+```
+
+- `--store DIR` cannot be combined with a site `DIR`. The folder must already be a store (it has `buildzr-store.json`), except together with `--accept-deploys`, which makes it.
 - The server is read-only: only GET and HEAD are answered. Any other method gets `405` (with problem details) under `/api/v1/` and `/_buildzr/`, and `501` elsewhere. It never writes a file in the store.
-- Restarting the server reads `buildzr-store.json` again, so the same sites are served after a restart.
+- Restarting the server reads `buildzr-store.json` again, so the same sites are served after a restart. A read-only server does not see deploys made after it started, because it keeps its list of sites in memory. Restart it, or let the instance that accepts deploys do the reading too (one instance per store).
 - `buildzr serve DIR` (one site) is unchanged and has no `/_buildzr/` address.
 
 ## What is not there yet
