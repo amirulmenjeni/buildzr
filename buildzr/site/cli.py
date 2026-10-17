@@ -141,6 +141,10 @@ def _human(size: int) -> str:
 
 def _check(site: str) -> Optional[int]:
     """Run the checker on ``site``; print the problems and return 1 when there are any."""
+    try:
+        import jsonschema  # type: ignore[import-untyped]  # noqa: F401
+    except ImportError:
+        print("buildzr: warning: jsonschema is not installed; the site check skips the schema step", file=sys.stderr)
     rep = check_site(os.path.join(site, "data"), require_build_json=True)
     if rep.ok:
         return None

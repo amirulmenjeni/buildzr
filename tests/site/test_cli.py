@@ -528,6 +528,25 @@ def test_deploy_from_a_built_site(tmp_path: Path, stubbed: None, checks: list[tu
     assert code == 1 and "does not look like a built site" in err
 
 
+def test_deploy_warns_when_jsonschema_is_missing(tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch,
+                                                  capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, DEPLOY_YAML)
+    monkeypatch.setattr(cli, "check_site", lambda d, **kw: Report())
+    monkeypatch.setitem(sys.modules, "jsonschema", None)  # makes ``import jsonschema`` raise ImportError
+    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
+    warning = "buildzr: warning: jsonschema is not installed; the site check skips the schema step\n"
+    assert code == 0 and err == warning
+
+
+def test_deploy_does_not_warn_when_jsonschema_is_installed(
+        tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    pytest.importorskip("jsonschema")
+    root = project(tmp_path, DEPLOY_YAML)
+    monkeypatch.setattr(cli, "check_site", lambda d, **kw: Report())
+    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
+    assert (code, err) == (0, "")
+
+
 def test_deploy_viewer_follows_the_target(tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]],
                                           monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     root = project(tmp_path, "workspace: ws/workspace.py\ntargets:\n  d: {dir: out/d, viewer: false}\n")
