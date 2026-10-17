@@ -58,7 +58,50 @@ A request that has started keeps the release it started with, even if a new rele
 
 ## Reading the store
 
+To have something to read, deploy two sites to an instance: the main model at the root and a preview at `pr/42`. This page uses a very small model:
+
+<!-- doctest: file architecture/model.py -->
+```python
+from buildzr.dsl import Workspace, Person, SoftwareSystem
+
+with Workspace("shop") as w:
+    customer = Person("Customer")
+    shop = SoftwareSystem("Shop")
+    customer >> "Buys from" >> shop
+```
+
+<!-- doctest: merge -->
+```yaml
+workspace: architecture/model.py
+targets:
+  main: {url: "http://127.0.0.1:8001"}
+  preview: {url: "http://127.0.0.1:8001", path: "pr/${PR_NUMBER}"}
+```
+
+```text
+$ buildzr deploy -t main
+/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
+built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
+uploading 12 files, 517 KB to http://127.0.0.1:8001 (the root site)
+deployed /: release r-0001, modelHash sha256:87716f3c5b04…
+open: https://preview.example.com/
+api:  https://preview.example.com/api/v1/
+
+$ PR_NUMBER=42 buildzr deploy -t preview
+/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
+built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
+uploading 12 files, 517 KB to http://127.0.0.1:8001 (path pr/42)
+deployed pr/42: release r-0001, modelHash sha256:87716f3c5b04…
+open: https://preview.example.com/pr/42/
+api:  https://preview.example.com/pr/42/api/v1/
+```
+
 `GET /_buildzr/v1/sites` lists the sites, so an agent that knows only the host can find them:
+
+<!-- doctest: api instance shape -->
+```http
+GET /_buildzr/v1/sites
+```
 
 ```json
 {
@@ -66,29 +109,31 @@ A request that has started keeps the release it started with, even if a new rele
   "sites": [
     {
       "sitePath": "",
-      "name": "Small v2",
-      "currentRelease": "r-0002",
-      "modelHash": "sha256:...",
-      "previousModelHash": "sha256:...",
-      "elements": 11,
-      "relationships": 11,
-      "viewerUrl": "/",
-      "apiUrl": "/api/v1/"
+      "name": "shop",
+      "currentRelease": "r-0001",
+      "modelHash": "sha256:87716f3c5b04b965d25a6abb01c53cc577a5f830310e1dca1d4c1d4ad25328a7",
+      "previousModelHash": null,
+      "elements": 2,
+      "relationships": 1,
+      "viewerUrl": "https://preview.example.com/",
+      "apiUrl": "https://preview.example.com/api/v1/"
     },
     {
       "sitePath": "pr/42",
-      "name": "Small v3",
+      "name": "shop",
       "currentRelease": "r-0001",
-      "modelHash": "sha256:...",
+      "modelHash": "sha256:87716f3c5b04b965d25a6abb01c53cc577a5f830310e1dca1d4c1d4ad25328a7",
       "previousModelHash": null,
-      "elements": 11,
-      "relationships": 11,
-      "viewerUrl": "/pr/42/",
-      "apiUrl": "/pr/42/api/v1/"
+      "elements": 2,
+      "relationships": 1,
+      "viewerUrl": "https://preview.example.com/pr/42/",
+      "apiUrl": "https://preview.example.com/pr/42/api/v1/"
     }
   ]
 }
 ```
+
+The addresses start with `/` when the instance was started without `--public-url` (`"viewerUrl": "/pr/42/"`). Here the instance was started with `--public-url https://preview.example.com`.
 
 - `name` is the workspace name of the site's model (what the model was called in the DSL), so a reader can tell `pr/41` from `pr/42` without opening either.
 - `previousModelHash` is `null` when the site has no previous release. `name`, `elements` and `relationships` are `null` when the release's model cannot be read (`name` also when the model has no workspace name).
