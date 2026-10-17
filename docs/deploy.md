@@ -11,6 +11,9 @@ You do not need to know the code to follow it. For the commands and their flags 
 
 | Word | Meaning |
 |---|---|
+| **site** | The folder `buildzr build` writes: the viewer, the data and `build.json`. |
+| **release** | One copy of a site on an instance (`r-0007`). The instance keeps the current and the previous release of every site path. See [the site store](store.md). |
+| **modelHash** | A fingerprint of the model, shown as `sha256:` and the start of a hash. The same model always has the same hash, so two equal hashes mean two equal models. |
 | **instance** | A running `buildzr serve --store DIR --accept-deploys`. It keeps its sites in the store folder `DIR`. |
 | **reading listener** | The address readers use (`--host`, `--port`, default `127.0.0.1:8000`). It only reads: GET and HEAD. |
 | **deploy listener** | A second address of the same instance, **always** `127.0.0.1:<--deploy-port>` (default `8001`). It is the only place that accepts an upload. Nothing can make it listen on another address. |
@@ -123,7 +126,7 @@ Every request body is treated as hostile. In this order:
 
 **The request.**
 
-1. The `Host` header must be `127.0.0.1` or `localhost` (any port, because a tunnel's port differs from the listener's). Anything else: `403`. This stops "DNS rebinding", where a web page makes its own domain name point at `127.0.0.1`.
+1. The `Host` header must be `127.0.0.1`, `localhost` or `[::1]` (any port, because a tunnel's port differs from the listener's). Anything else: `403`. This stops "DNS rebinding", where a web page makes its own domain name point at `127.0.0.1`.
 2. A request with `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host` or `X-Real-IP` is refused (`403`): a request that went through a proxy never deploys.
 3. An upload must carry `X-Buildzr-Deploy: 1` (else `400`) and `Content-Type: application/gzip` (else `415`).
 4. `Content-Length` is required and above 0 (else `411`; chunked uploads are not accepted). Above `--max-upload-mb` the upload is refused with `413` **before** the body is read.
@@ -135,11 +138,11 @@ Every request body is treated as hostile. In this order:
 
 **The archive.** The instance never unpacks with a library's "extract everything". It reads the archive member by member into `incoming/<random>/` of the store:
 
-- names use only letters, digits, `.`, `_`, `-` and `/`; no `.` or `..` part, no leading `/`, at most 255 characters, and no name twice (also not twice with different upper and lower case);
+- names use only letters, digits, `.`, `_`, `-` and `/`; no `.` or `..` part, no leading `/`, at most 255 characters (the client writes the plain `ustar` archive format, so it cannot pack a single name part of more than 100 characters, and says so with exit code 1), and no name twice (also not twice with different upper and lower case);
 - only plain files and folders: symbolic links, hard links, devices, FIFOs and the extended (pax and GNU) headers are refused before the archive reader acts on them;
 - only `index.html`, `assets/`, `data/` and `build.json` at the top; anything else (`.htaccess`, `llms.txt`, an extra page) is refused;
 - files in `assets/` end in `.js`, `.css`, `.woff2`, `.woff` or `.txt` (what the viewer is made of);
-- at most 200 MB unpacked, 20,000 files, 20,000 folders and 16 levels of folders, counted while reading, so a "zip bomb" stops early; `data/index.json` is at most 4 MB and every other file in `data/` at most 32 MB;
+- at most 200 MB unpacked, 20,000 files, 20,000 folders and 16 levels of folders, counted while reading, so a "zip bomb" stops early; past 16 MB, an archive that unpacks to more than 250 times its compressed size is refused too; `data/index.json` is at most 4 MB and every other file in `data/` at most 32 MB;
 - files are written `0644` and folders `0755` whatever the archive says; owners and times are ignored.
 
 **The site.** Then the checker runs on the unpacked copy, in a separate process with a 60 second limit and a memory limit of 1 GB, so no upload can take the instance down with it:
