@@ -5,12 +5,16 @@
 The API is **read-only**. It only answers `GET` (and `HEAD`). It lives next to the viewer, at `api/v1/` below the site's address:
 
 ```text
-$ buildzr serve .buildzr/site
-Serving /repo/.buildzr/site at http://127.0.0.1:8000/ (Ctrl+C to stop)
-Agent API at http://127.0.0.1:8000/api/v1/ (read only)
+$ buildzr build -w examples/buildzr_models_example.py
+/home/you/buildzr/examples/buildzr_models_example.py: 13 elements, 6 relationships, 1 views, 5 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
+built .buildzr/site (13 elements, 6 relationships, 1 view; modelHash sha256:ea077dc27381…)
 
-$ curl -s http://127.0.0.1:8000/api/v1/ | head -c 200
+$ buildzr serve
+Serving /home/you/buildzr/.buildzr/site at http://127.0.0.1:8000/ (Ctrl+C to stop)
+Agent API at http://127.0.0.1:8000/api/v1/ (read only)
 ```
+
+Then ask with any HTTP client, for example `curl -s http://127.0.0.1:8000/api/v1/`. You will get the orientation document shown below.
 
 The examples below were produced by running these calls against the site built from `examples/buildzr_models_example.py`. They show the default output of `buildzr serve`, without `--public-url`.
 
