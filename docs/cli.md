@@ -104,7 +104,7 @@ The flags `--target DIR` and `--base-path`, which older versions had, are gone: 
 | 2 | Usage or config error: an unknown flag, no workspace, a problem in `buildzr.yaml`, an unknown target, a variable that is not set. |
 | 3 | `deploy` to a `url` target could not finish: the instance cannot be reached, the upload was interrupted, the instance stayed busy, or it is out of disk space. Worth trying again. |
 
-Messages from the command itself start with `buildzr: error: `. Problems in `buildzr.yaml` are listed one per line as `buildzr.yaml:<line>: <key>: <message>`.
+In the examples on these pages, a last line such as `[exit code 2]` shows the exit code; the command does not print it. Messages from the command itself start with `buildzr: error: `. Problems in `buildzr.yaml` are listed one per line as `buildzr.yaml:<line>: <key>: <message>`.
 
 ## A first run
 

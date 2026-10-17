@@ -247,7 +247,7 @@ Things to know:
 - Rolling back twice goes forward again: the two releases swap each time. After a third deploy the older one is gone, and then a rollback goes back one step only.
 - If the site has no previous release, the command stops with `nothing to roll back to` and exit code 1.
 - `--rollback` works only for `url` targets. A `dir` target keeps no previous copy, so check out the older version of your model and run `buildzr deploy` again. To make that exact, keep the built site of each release (a CI artifact) and deploy it with `buildzr deploy --from DIR`.
-- A reader who has the viewer open keeps working for about 30 seconds after a change; after that a reload shows the current release. See [the site store](store.md#opening-a-viewer-during-a-change).
+- A reader who has the viewer open during a change keeps working: the instance still serves the files of the old release from the previous one. After two newer deploys those files are gone, and a reload fixes it. See [the site store](store.md#opening-a-viewer-during-a-change).
 
 ## Several models on one instance
 
