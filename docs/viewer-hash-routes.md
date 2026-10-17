@@ -1,4 +1,9 @@
-# Viewer hash routes (v4)
+# Viewer links
+
+A viewer link is the address of the site plus a **hash**, the part after `#`. This page describes the hash. You can write one by hand, or take it from the `viewerUrl` field of an [agent API](agent-api.md) answer. For a short guide to sharing links, see [the recipes](publishing-recipes.md#sharing-a-link-to-one-element).
+
+Links in the forms below keep working in later versions of buildzr.
+
 
 The viewer keeps all navigation state in the URL hash, so every screen is a
 deep link and works on a static file server at any base path. The store
@@ -11,8 +16,8 @@ derived from it and parsed back on load and on `hashchange`.
 hash      = "#/" route [ "?" query ]
 route     = "m" [ "/" elpath ]          ; model canvas
           | "v/" viewkey                ; authored view
-elpath    = segment *( "/" segment )    ; slug path from model.json, e.g. billing/api
-viewkey   = segment                     ; model.json views[].key
+elpath    = segment *( "/" segment )    ; slug path from the model, e.g. billing/api
+viewkey   = segment                     ; the key of an authored view
 segment   = 1*( %x61-7A / DIGIT / "-" ) ; [a-z0-9-], never empty
 query     = param *( "&" param )
 param     = "sel=" ( elpath / edgeid )
@@ -43,6 +48,22 @@ Examples:
 #/m/billing?sel=billing/web-%3Ebilling/api
 ```
 
+## What a link restores and what it cannot
+
+| Restores | Cannot restore |
+|---|---|
+| Which element is expanded (the level), one path from the landscape down | Several unrelated elements expanded at once (one expanded path at a time) |
+| The selected element or arrow | Pan and zoom |
+| An authored view | The inspector tab and the scroll position of the tree |
+| Search text, tags and tag mode | [Viewer settings](ui-settings.md), which each browser keeps for itself |
+
+## When the model changes
+
+A hash holds the names of elements, not fixed numbers. This has two results:
+
+- **Renaming or moving an element changes its path.** An old link then opens the nearest box that still exists, with a notice (see "Resolution of unknown targets" below). Nothing breaks, but the link is less exact.
+- **Siblings with the same name get `-2`, `-3` in model order.** Adding an earlier sibling with the same name shifts those numbers, so an old link can open a different element without any notice. Give siblings different names if links to them must last.
+
 ## History
 
 | Action | History |
@@ -57,7 +78,7 @@ So Back steps out one level at a time: after expanding `billing` and then
 
 ## Resolution of unknown targets
 
-- `#/m/<path>` with a path that is not in `model.json`: the viewer walks up
+- `#/m/<path>` with a path that is not in the model: the viewer walks up
   the path until it finds an existing element (or reaches the landscape),
   expands to that ancestor, replaces the hash with it and shows a notice
   ("`billing/old-api` not found; showing `billing`").
