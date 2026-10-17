@@ -324,7 +324,7 @@ def test_row_busy_waits_then_succeeds_or_gives_up(inst: Instance, sites: list[Pa
 def test_https_to_the_listener_hints_and_fails(inst: Instance, sites: list[Path]) -> None:
     said: list[str] = []
     with pytest.raises(DeployFailed) as e:
-        dc.deploy(str(sites[0]), f"https://127.0.0.1:{inst.port}", "", 10, out=said.append)
+        dc.deploy(str(sites[0]), f"https://127.0.0.1:{inst.port}", "", 10, out=lambda x: None, warn=said.append)
     assert said and "plain http" in said[0]
     assert e.value.code == 3
 
@@ -413,3 +413,75 @@ def test_end_to_end_with_the_real_cli_and_viewer(tmp_path: Path) -> None:
     for p in (rport, dport):  # both listeners are gone
         with pytest.raises(OSError):
             socket.create_connection(("127.0.0.1", p), timeout=1).close()
+
+
+# --- regressions from the review ------------------------------------------------------------------------
+
+
+def test_review_from_with_a_special_file_is_one_line(sites: list[Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                     capsys: pytest.CaptureFixture[str]) -> None:
+    site = tmp_path / "s"
+    shutil.copytree(sites[0], site)
+    os.mkfifo(site / "data" / "pipe")
+    root = repo(tmp_path, f"http://127.0.0.1:{free_port()}")
+    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "preview", "--from", str(site))
+    assert code == 1 and err == f"buildzr: error: {site}: data/pipe is not a regular file\n"
+
+
+def test_review_rollback_of_an_unknown_site(inst: Instance) -> None:
+    with pytest.raises(DeployFailed) as e:
+        dc.rollback(inst.url, "pr/43", 10, out=lambda s: None)
+    assert e.value.code == 1 and "no site at pr/43" in str(e.value)
+
+
+def test_review_a_server_that_is_not_http_is_not_a_deploy_address(sites: list[Path]) -> None:
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+
+    def answer() -> None:
+        while True:
+            try:
+                c, _ = srv.accept()
+            except OSError:
+                return
+            c.sendall(b"SSH-2.0-OpenSSH_9.0\r\n")
+            c.close()
+    threading.Thread(target=answer, daemon=True).start()
+    try:
+        e = deploy_err(sites[0], f"http://127.0.0.1:{srv.getsockname()[1]}")
+        assert e.code == 1 and "is not a buildzr deploy address" in str(e)
+    finally:
+        srv.close()
+
+
+def test_review_the_timeout_is_a_total_limit(sites: list[Path]) -> None:
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+
+    def trickle() -> None:
+        try:
+            c, _ = srv.accept()
+            c.recv(65536)
+            for b in b"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\n" + b"X: " + b"y" * 1000:
+                c.sendall(bytes([b]))
+                time.sleep(0.05)
+        except OSError:
+            pass
+    threading.Thread(target=trickle, daemon=True).start()
+    t0 = time.monotonic()
+    try:
+        with pytest.raises(DeployFailed) as e:
+            dc.Client(parse_address(f"http://127.0.0.1:{srv.getsockname()[1]}"), 2).status()
+        assert e.value.code in (1, 3) and time.monotonic() - t0 < 5
+    finally:
+        srv.close()
+
+
+def test_review_port_0_and_stray_characters_are_refused() -> None:
+    for url in ("http://127.0.0.1:0", "http://127.0.0.1:1/?", "http://127.0.0.1:1/#", "http://127.0.0.1:1\t"):
+        with pytest.raises(DeployFailed) as e:
+            parse_address(url)
+        assert e.value.code == 2, url
+    assert parse_address("http://localhost:9001/").url == "http://localhost:9001"

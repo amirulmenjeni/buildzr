@@ -14,7 +14,9 @@ import json
 import os
 import ssl
 import sys
+import socket
 import tarfile
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
@@ -25,6 +27,7 @@ from buildzr.site.deploy import DEPLOY_ENDPOINT, PROBLEM, ROLLBACK_ENDPOINT, STA
 
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 TOP_LEVEL = ("assets", "build.json", "data", "index.html")
+MAX_ANSWER = 1024 * 1024
 TUNNEL_HINT = ("v1 deploys have no authentication, so the deploy listener only listens on 127.0.0.1 of the instance. "
                "Reach a remote instance through an SSH tunnel, for example: ssh -N -L 9001:127.0.0.1:8001 HOST, "
                "then url: http://127.0.0.1:9001")
@@ -58,34 +61,51 @@ def parse_address(url: str) -> Address:
         raise DeployFailed(f"{url}: the deploy address must be http://127.0.0.1:PORT", 2)
     if host.lower() not in LOOPBACK_HOSTS:
         raise DeployFailed(f"{url}: {host} is not this machine. {TUNNEL_HINT}", 2)
-    if u.path not in ("", "/") or u.query or u.fragment or u.username or u.password:
+    if u.path not in ("", "/") or u.query or u.fragment or u.username or u.password or "?" in url or "#" in url \
+            or any(c.isspace() for c in url):
         raise DeployFailed(f"{url}: the deploy address is just the scheme, host and port (no path, query or user)", 2)
-    return Address(u.scheme, host, port or (443 if u.scheme == "https" else 80), url.rstrip("/"))
+    if port == 0:
+        raise DeployFailed(f"{url}: port 0 is not a deploy address", 2)
+    if port is None:
+        port = 443 if u.scheme == "https" else 80
+    shown = f"[{host}]" if ":" in host else host
+    return Address(u.scheme, host, port, f"{u.scheme}://{shown}:{port}")
 
 
 # --- packing -------------------------------------------------------------------------------------------------
 
 
-def pack_site(site: str) -> tuple[bytes, int, int]:
+def check_tree(site: str, shown: Optional[str] = None) -> None:
+    """Refuse (exit 1) a site folder with entries the instance would refuse, naming them under ``shown``."""
+    shown = shown or site
+    for name in sorted(os.listdir(site)):
+        if name not in TOP_LEVEL:
+            raise DeployFailed(f"{shown}: {name} is not part of a built site (only {', '.join(TOP_LEVEL)} are sent)", 1)
+    for d, dirs, files in os.walk(site):
+        for n in dirs + files:
+            full = os.path.join(d, n)
+            rel = os.path.relpath(full, site).replace(os.sep, "/")
+            if os.path.islink(full):
+                raise DeployFailed(f"{shown}: {rel} is a symbolic link; a site is sent as plain files", 1)
+            if not (os.path.isdir(full) or os.path.isfile(full)):
+                raise DeployFailed(f"{shown}: {rel} is not a regular file", 1)
+            if os.path.isfile(full) and not os.access(full, os.R_OK):
+                raise DeployFailed(f"{shown}: {rel} cannot be read", 1)
+
+
+def pack_site(site: str, shown: Optional[str] = None) -> tuple[bytes, int, int]:
     """A deterministic ``.tar.gz`` of the site's contents; ``(archive, files, unpacked bytes)``.
 
     Only ``index.html``, ``assets/``, ``data/`` and ``build.json`` are packed; anything else at the top, a symbolic
     link or a special file is refused (:class:`DeployFailed`, exit 1), because the instance would refuse it too.
     """
-    for name in sorted(os.listdir(site)):
-        if name not in TOP_LEVEL:
-            raise DeployFailed(f"{site}: {name} is not part of a built site (only {', '.join(TOP_LEVEL)} are sent)", 1)
+    check_tree(site, shown)
     entries: list[tuple[str, str]] = []
     for d, dirs, files in os.walk(site):
         dirs.sort()
         for n in dirs + files:
             full = os.path.join(d, n)
-            rel = os.path.relpath(full, site).replace(os.sep, "/")
-            if os.path.islink(full):
-                raise DeployFailed(f"{site}: {rel} is a symbolic link; a site is sent as plain files", 1)
-            if not (os.path.isdir(full) or os.path.isfile(full)):
-                raise DeployFailed(f"{site}: {rel} is not a regular file", 1)
-            entries.append((rel, full))
+            entries.append((os.path.relpath(full, site).replace(os.sep, "/"), full))
     entries.sort()
     raw = io.BytesIO()
     n_files = size = 0
@@ -101,7 +121,7 @@ def pack_site(site: str) -> tuple[bytes, int, int]:
                 try:
                     tf.addfile(info)
                 except ValueError as e:
-                    raise DeployFailed(f"{site}: {rel}: cannot be packed ({e})", 1) from None
+                    raise DeployFailed(f"{shown or site}: {rel}: cannot be packed ({e})", 1) from None
                 continue
             info.mode = 0o644
             info.size = os.path.getsize(full)
@@ -111,7 +131,7 @@ def pack_site(site: str) -> tuple[bytes, int, int]:
                 try:
                     tf.addfile(info, f)
                 except ValueError as e:
-                    raise DeployFailed(f"{site}: {rel}: cannot be packed ({e})", 1) from None
+                    raise DeployFailed(f"{shown or site}: {rel}: cannot be packed ({e})", 1) from None
     out = io.BytesIO()
     with gzip.GzipFile(filename="", mode="wb", fileobj=out, mtime=0, compresslevel=9) as gz:
         gz.write(raw.getvalue())
@@ -119,6 +139,14 @@ def pack_site(site: str) -> tuple[bytes, int, int]:
 
 
 # --- talking to the instance -------------------------------------------------------------------------------------
+
+
+def _cut(conn: http.client.HTTPConnection) -> None:
+    try:
+        if conn.sock is not None:
+            conn.sock.shutdown(socket.SHUT_RDWR)
+    except OSError:
+        pass
 
 
 def _human(n: int) -> str:
@@ -150,7 +178,12 @@ class Client:
 
     def request(self, method: str, target: str, body: Optional[bytes] = None,
                 headers: Optional[dict[str, str]] = None, timeout: Optional[float] = None) -> Answer:
-        conn = self._conn(timeout if timeout is not None else self.timeout)
+        total = timeout if timeout is not None else self.timeout
+        conn = self._conn(total)
+        # the socket timeout is per operation; this cuts a server that answers one byte at a time
+        watchdog = threading.Timer(total, lambda: _cut(conn))
+        watchdog.daemon = True
+        watchdog.start()
         hdrs = {"Host": f"{'[' + self.a.host + ']' if ':' in self.a.host else self.a.host}:{self.a.port}"}
         hdrs.update(headers or {})
         try:
@@ -168,7 +201,16 @@ class Client:
                 raise DeployFailed(f"cannot reach {self.a.url}: {e.strerror or e}", 3) from None
             try:
                 r = conn.getresponse()
-                data = r.read()
+                data = r.read(MAX_ANSWER + 1)
+                if len(data) > MAX_ANSWER:
+                    raise self._not_ours()
+            except (http.client.BadStatusLine, http.client.LineTooLong, http.client.UnknownProtocol) as e:
+                if isinstance(e, http.client.RemoteDisconnected):
+                    if body:
+                        raise DeployFailed("upload interrupted, nothing changed "
+                                           f"(the connection to {self.a.url} failed: {e})", 3) from None
+                    raise DeployFailed(f"no answer from {self.a.url} ({type(e).__name__}: {e})", 3) from None
+                raise self._not_ours() from None
             except (http.client.HTTPException, OSError) as e:
                 if body:
                     raise DeployFailed("upload interrupted, nothing changed "
@@ -184,6 +226,7 @@ class Client:
                     doc = None
             return Answer(r.status, heads, doc)
         finally:
+            watchdog.cancel()
             conn.close()
 
     def _ours(self, a: Answer) -> bool:
@@ -193,7 +236,7 @@ class Client:
         if a.status == 200:
             return "instanceVersion" in a.doc
         t = a.doc.get("type")
-        return isinstance(t, str) and t.startswith(PROBLEM) and a.status != 404
+        return isinstance(t, str) and t.startswith(PROBLEM) and (a.status != 404 or a.doc.get("code") == "no-site")
 
     def _not_ours(self) -> DeployFailed:
         return DeployFailed(f"{self.a.url} is not a buildzr deploy address (is it the reading port, or another "
@@ -223,6 +266,11 @@ class Client:
         if code == "busy":
             return DeployFailed("the instance is busy with another deploy and did not get free within the timeout "
                                 f"({self.timeout:g} s); nothing changed", 3)
+        if code == "no-site":
+            return DeployFailed(f"the instance has no site at {doc.get('detail', '').rsplit(' ', 1)[-1]} "
+                                "to roll back", 1)
+        if code == "no-previous-release":
+            return DeployFailed(f"nothing to roll back to: {detail}", 1)
         if code in ("invalid-site", "unsupported-schema"):
             errs = [str(e) for e in doc.get("errors") or []]
             return DeployFailed(f"the instance rejected the site ({len(errs)} problem(s)):", 1, errs)
@@ -266,14 +314,20 @@ def _short(h: Optional[str]) -> str:
     return (h[:19] + "…") if h else "none"
 
 
+def _stderr(line: str) -> None:
+    print(line, file=sys.stderr)
+
+
 def deploy(site: str, url: str, path: str, timeout: float, dry_run: bool = False,
-           out: Callable[[str], None] = print) -> int:
-    """Pack ``site`` and upload it to the deploy address ``url`` as the site ``path``. Returns the exit code."""
+           out: Callable[[str], None] = print, warn: Callable[[str], None] = _stderr, shown: Optional[str] = None) -> int:
+    """Pack ``site`` and upload it to the deploy address ``url`` as the site ``path``. Returns the exit code.
+
+    ``shown`` is the folder name used in messages about the site's files (the user's ``--from`` folder)."""
     address = parse_address(url)
     if address.scheme == "https":
-        out(f"buildzr: warning: {url} uses https; the v1 deploy listener speaks plain http (use it through "
+        warn(f"buildzr: warning: {url} uses https; the v1 deploy listener speaks plain http (use it through "
             "localhost or an SSH tunnel), so this will most likely fail")
-    archive, files, size = pack_site(site)
+    archive, files, size = pack_site(site, shown)
     target = DEPLOY_ENDPOINT + "?path=" + quote(path, safe="/")
     if dry_run:
         out(f"packed {files} files, {_human(size)} ({_human(len(archive))} compressed)")

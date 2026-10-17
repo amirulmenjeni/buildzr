@@ -279,7 +279,7 @@ def _serve_deploys(args: argparse.Namespace, public_url: Optional[str], origins:
         return _fail("--accept-deploys checks every upload against the JSON schemas and needs jsonschema; "
                      "install it with: pip install 'buildzr[serve]'")
     try:
-        store = Store.open(args.store, create=True, grace=DEPLOY_GRACE_SECONDS)
+        store = Store.open(args.store, create=True, grace=DEPLOY_GRACE_SECONDS, exclusive=True)
     except StoreError as e:
         return _fail(str(e))
     try:
@@ -415,8 +415,16 @@ def _deploy_url(args: argparse.Namespace, cfg: Config, url: str, name: str, path
     stage = tempfile.mkdtemp(prefix="buildzr-deploy-")
     try:
         site = os.path.join(stage, "site")
+        shown: Optional[str] = None
         if b is None:
-            shutil.copytree(args.from_dir, site, symlinks=True)
+            shown = args.from_dir
+            try:
+                dc.check_tree(args.from_dir)
+                shutil.copytree(args.from_dir, site, symlinks=True)
+            except dc.DeployFailed as e:
+                return dc.report(e)
+            except (shutil.Error, OSError) as e:
+                return _fail(f"cannot read {args.from_dir}: {e}")
             failed = _check(site)
             if failed:
                 return failed
@@ -430,7 +438,7 @@ def _deploy_url(args: argparse.Namespace, cfg: Config, url: str, name: str, path
             if failed:
                 return failed
         try:
-            return dc.deploy(site, url, path, timeout, args.dry_run)
+            return dc.deploy(site, url, path, timeout, args.dry_run, shown=shown)
         except dc.DeployFailed as e:
             return dc.report(e)
         except KeyboardInterrupt:
