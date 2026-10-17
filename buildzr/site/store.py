@@ -169,6 +169,7 @@ class Store:
         self.grace = grace
         self._table = RouteTable(routes)
         self._lock = threading.Lock()
+        self._log_lock = threading.Lock()
         #: Test hook: called with a step name between the steps of install and rollback (may raise).
         self.hook: Optional[Callable[[str], None]] = None
 
@@ -211,12 +212,13 @@ class Store:
         if self.hook is not None:
             self.hook(name)
 
-    def install(self, site_dir: str, site_path: str) -> Installed:
+    def install(self, site_dir: str, site_path: str, log: bool = True) -> Installed:
         """Make the checked site in ``site_dir`` (a folder under ``incoming/``) the current release of ``site_path``.
 
         Steps: rename the folder to ``sites/<key>/r-<n+1>/``; write the new store file (temporary file, fsync,
         ``os.replace``); update the route table; delete the release older than the previous one; append the audit line.
-        After a kill at any step, opening the store again finds it consistent.
+        After a kill at any step, opening the store again finds it consistent. ``log=False`` leaves the audit line to the
+        caller (the deploy listener writes its own, richer one with :meth:`audit`).
         """
         sp = normalise_site_path(site_path)
         incoming = os.path.realpath(os.path.join(self.dir, "incoming"))
@@ -249,10 +251,12 @@ class Store:
             if old and old.previous is not None:
                 self._retire(old.previous.dir)
             self._step("pruned")
+            if not log:
+                return Installed(rid, model_hash, old.current.model_hash if old else None)
             self._log("install", sp, rid, model_hash, old.current.model_hash if old else None, "ok")
             return Installed(rid, model_hash, old.current.model_hash if old else None)
 
-    def rollback(self, site_path: str) -> Installed:
+    def rollback(self, site_path: str, log: bool = True) -> Installed:
         """Swap the current and the previous release of ``site_path``; refused when there is no previous one."""
         sp = normalise_site_path(site_path)
         with self._lock:
@@ -260,7 +264,8 @@ class Store:
             if old is None:
                 raise StoreError(f"no site at {sp or '/'}")
             if old.previous is None:
-                self._log("rollback", sp, old.current.id, old.current.model_hash, None, "refused: no previous release")
+                if log:
+                    self._log("rollback", sp, old.current.id, old.current.model_hash, None, "refused: no previous release")
                 raise StoreError(f"{sp or '/'} has no previous release to roll back to")
             new = Route(sp, old.previous, old.current, old.last)
             routes = {r.site_path: r for r in self._table.routes()}
@@ -268,7 +273,8 @@ class Store:
             self._write(routes)
             self._table = RouteTable(routes)
             self._step("routed")
-            self._log("rollback", sp, new.current.id, new.current.model_hash, old.current.model_hash, "ok")
+            if log:
+                self._log("rollback", sp, new.current.id, new.current.model_hash, old.current.model_hash, "ok")
             return Installed(new.current.id, new.current.model_hash, old.current.model_hash)
 
     def _retire(self, path: str) -> None:
@@ -281,6 +287,14 @@ class Store:
 
     def _write(self, routes: Mapping[str, Route]) -> None:
         _write_store_file(self.dir, routes, step=self._step)
+
+    def audit(self, line: Mapping[str, Any]) -> None:
+        """Append one JSON line to ``deploys.log`` (flushed to disk)."""
+        with self._log_lock:
+            with open(os.path.join(self.dir, LOG_FILE), "a", encoding="utf-8") as f:
+                f.write(json.dumps(dict(line), separators=(",", ":"), ensure_ascii=True) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
 
     def _log(self, action: str, site_path: str, release: str, model_hash: str, previous_hash: Optional[str],
              result: str) -> None:
