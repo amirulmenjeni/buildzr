@@ -224,7 +224,12 @@ def test_too_large_is_refused_before_the_body_is_read(tmp_path: Path) -> None:
     try:
         s = socket.create_connection(("127.0.0.1", i.port), timeout=10)
         s.sendall(_put_head(i.port, b"Content-Length: 5000000000\r\n\r\n"))  # no body is sent at all
-        answer = s.recv(65536)
+        answer = b""
+        while True:  # the server answers, then closes its side
+            chunk = s.recv(65536)
+            if not chunk:
+                break
+            answer += chunk
         s.close()
         assert status_of(answer) == 413
         doc = json.loads(answer.split(b"\r\n\r\n", 1)[1])
