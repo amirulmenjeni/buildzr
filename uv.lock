@@ -216,6 +216,9 @@ docs = [
 export-plantuml = [
     { name = "jpype1" },
 ]
+serve = [
+    { name = "jsonschema" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -224,6 +227,7 @@ requires-dist = [
     { name = "jpype1", marker = "extra == 'export-plantuml'", specifier = ">=1.4.0" },
     { name = "jsondiff", marker = "extra == 'dev'", specifier = "==2.2.1" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = "==4.23.0" },
+    { name = "jsonschema", marker = "extra == 'serve'", specifier = ">=4.23.0" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.5.0" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.0.0" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.24.0" },
@@ -238,7 +242,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.12.2" },
     { name = "yq", marker = "extra == 'dev'", specifier = "==4.2.0" },
 ]
-provides-extras = ["dev", "docs", "export-plantuml"]
+provides-extras = ["dev", "docs", "export-plantuml", "serve"]
 
 [[package]]
 name = "certifi"

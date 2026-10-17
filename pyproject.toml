@@ -53,6 +53,9 @@ docs = [
     "mkdocstrings[python]>=0.24.0",
     "pymdown-extensions>=10.0",
 ]
+serve = [
+    "jsonschema>=4.23.0",
+]
 export-plantuml = [
     "jpype1>=1.4.0",
 ]
