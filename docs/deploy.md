@@ -26,6 +26,7 @@ Accepting deploys at http://127.0.0.1:8001/ (this machine only; no authenticatio
 
 - With `--accept-deploys` the store folder is created when it is missing or empty. Without the flag, `serve --store` works exactly as before (read only, one listener, the folder must already be a store).
 - `--accept-deploys` needs the `jsonschema` package, because every upload is checked against the JSON schemas. Install it with `pip install 'buildzr[serve]'`. Without it, `serve` refuses to start (exit code 1).
+- Only one instance can accept deploys for a store: a second one stops with `another buildzr process accepts deploys for the store ...`. A read-only `serve --store` on the same folder can run next to it, but it does not see new deploys until it is restarted.
 - `--deploy-port N` (default `8001`) and `--max-upload-mb N` (default `50`) only exist together with `--accept-deploys`.
 - `--public-url` is the address readers use. The instance uses it for the links it sends back after a deploy (`open:` and `api:`). Without it, the links use the reading listener's own address.
 - Ctrl+C stops both listeners.
@@ -91,22 +92,24 @@ Every request body is treated as hostile. In this order:
 6. One deploy or rollback at a time. A second one gets `409` with `Retry-After: 5`; there is no queue (`deploy` waits and tries again until its `timeout`).
 7. The whole body must arrive within 60 seconds (else `408`), and exactly `Content-Length` bytes are read. If fewer arrive, the answer is `400` "upload incomplete".
 8. There is no `OPTIONS` answer and no CORS header, ever. Every other method or address gets `405` or `404`.
+9. The request line and all headers must arrive within 30 seconds, headers that cannot be read cleanly are refused (`400`), and the deploy listener serves at most 16 connections at once.
 
 **The archive.** The instance never unpacks with a library's "extract everything". It reads the archive member by member into `incoming/<random>/` of the store:
 
 - names use only letters, digits, `.`, `_`, `-` and `/`; no `.` or `..` part, no leading `/`, at most 255 characters, and no name twice (also not twice with different upper and lower case);
 - only plain files and folders: symbolic links, hard links, devices, FIFOs and the extended (pax and GNU) headers are refused before the archive reader acts on them;
 - only `index.html`, `assets/`, `data/` and `build.json` at the top; anything else (`.htaccess`, `llms.txt`, an extra page) is refused;
-- at most 200 MB unpacked and 20,000 files, counted while reading, so a "zip bomb" stops early;
+- files in `assets/` end in `.js`, `.css`, `.woff2`, `.woff` or `.txt` (what the viewer is made of);
+- at most 200 MB unpacked, 20,000 files, 20,000 folders and 16 levels of folders, counted while reading, so a "zip bomb" stops early; `data/index.json` is at most 4 MB and every other file in `data/` at most 32 MB;
 - files are written `0644` and folders `0755` whatever the archive says; owners and times are ignored.
 
-**The site.** Then the checker runs on the unpacked copy, with a 60 second limit:
+**The site.** Then the checker runs on the unpacked copy, in a separate process with a 60 second limit and a memory limit of 1 GB, so no upload can take the instance down with it:
 
 - the JSON schemas, the hashes in `data/index.json`, the `modelHash` of every file, the geometry checks (as `buildzr build` does);
-- every file named in `data/index.json` stays inside `data/`;
+- every file named in `data/index.json` stays inside `data/`, and `data/` holds no file that `data/index.json` does not name;
 - `build.json` is there and its `modelHash` equals the index's;
 - the schema names must be the ones this instance reads. An upload made by a newer buildzr is refused with, for example: `this instance reads buildzr.model/2; the upload is buildzr.model/3; upgrade the instance`;
-- `index.html`, when there is one, may only refer to files under `assets/` that exist. A site without a viewer (built with `viewer: false`) is accepted.
+- `index.html`, when there is one, may only refer to files under `assets/` that exist, and has no inline script, no inline style, no `on...=` attribute, no `<base>`, `<iframe>`, `<object>`, `<embed>`, `<form>` or refresh. This is a check that the page is a built viewer page, not a sandbox (see the security model). A site without a viewer (built with `viewer: false`) is accepted.
 
 Anything wrong gives `422` with up to 20 problems. Nothing is installed and `incoming/<random>/` is removed. Only a site that passes everything becomes the current release, with the same steps as in [the site store](store.md); readers see it at once. A release replaced by a deploy stays on disk for 30 seconds before it is deleted, so a reader in the middle of a request can finish.
 
@@ -134,7 +137,7 @@ Every deploy, rejection and rollback adds one JSON line to `deploys.log` in the 
 {"time":"2026-10-17T10:41:07Z","action":"deploy","path":"pr/42","result":"ok","release":"r-0007","modelHash":"sha256:d2cb…","previous":"sha256:5a1f…","files":23,"bytes":548211,"senderVersion":"0.0.36","client":"127.0.0.1","ms":412}
 ```
 
-`result` is `ok`, `unchanged` or `rejected`; a rejected line has `status` (the HTTP status) and `error` (the first problem) instead of the release fields. `client` is the address the connection came from (always `127.0.0.1`), `senderVersion` the buildzr version the client sent (or `null` if it did not look like a version). Nothing else from the request is logged: no body and no other header.
+Requests that fail the first checks (a wrong `Host`, a forwarded header, a missing `X-Buildzr-Deploy`) never reach the deploy code and are not logged, so a web page cannot fill the log. `result` is `ok`, `unchanged` or `rejected`; a rejected line has `status` (the HTTP status) and `error` (the first problem) instead of the release fields. `client` is the address the connection came from (always `127.0.0.1`), `senderVersion` the buildzr version the client sent (or `null` if it did not look like a version). Nothing else from the request is logged: no body and no other header.
 
 ## The security model, in plain words
 
