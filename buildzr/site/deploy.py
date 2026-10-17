@@ -15,9 +15,11 @@ reading listener shares the same :class:`~buildzr.site.store.Store`, so readers 
 
 from __future__ import annotations
 
+import email.errors
 import errno
 import gzip
 import hashlib
+import html.parser
 import http.server
 import json
 import os
@@ -25,13 +27,14 @@ import re
 import secrets
 import shutil
 import socket
+import subprocess
 import sys
 import tarfile
 import threading
 import time
 import zlib
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from urllib.parse import parse_qsl, quote
 
 from buildzr.__about__ import VERSION
@@ -52,9 +55,18 @@ BODY_TIMEOUT = 60.0
 CHECK_TIMEOUT = 60.0
 MAX_ERRORS = 20
 MAX_NAME = 255
+MAX_DEPTH = 16
+#: Each JSON file is parsed whole by the checker; these caps keep its memory bounded (it also runs in a child process).
+MAX_INDEX_BYTES = 4 * 1024 * 1024
+MAX_DATA_FILE_BYTES = 32 * 1024 * 1024
+CHECK_MEMORY_BYTES = 1024 * 1024 * 1024
+ASSET_EXTENSIONS = (".js", ".css", ".woff2", ".woff", ".txt")
 #: A legitimate site compresses to about a tenth; past 16 MB unpacked, more than this ratio is a bomb.
 MAX_RATIO = 250
 RETRY_AFTER = 5
+HEADER_TIMEOUT = 30.0
+#: Connections the deploy listener serves at once; more are closed at once (only one deploy can run anyway).
+MAX_CONNECTIONS = 16
 TOP_FILES = frozenset({"index.html", "build.json"})
 TOP_DIRS = frozenset({"assets", "data"})
 FORWARDED = ("Forwarded", "X-Forwarded-For", "X-Forwarded-Host", "X-Real-IP")
@@ -62,10 +74,9 @@ PROBLEM = "urn:buildzr:problem:"
 
 _NAME = re.compile(r"[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*")
 #: Any port: through an SSH tunnel the client's port is not the listener's; the name is what stops DNS rebinding.
-_HOST = re.compile(r"(127\.0\.0\.1|localhost)(:[0-9]{1,5})?")
+_HOST = re.compile(r"(127\.0\.0\.1|localhost|\[::1\])(:[0-9]{1,5})?")
 _VERSION = re.compile(r"[0-9A-Za-z.+_-]{1,40}")
 _SCHEMA = re.compile(r"buildzr\.(index|model|scene)/(\d+)")
-_REF = re.compile(r"""\b(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+))""", re.IGNORECASE)
 _KINDS = {b"1": "a hard link", b"2": "a symbolic link", b"3": "a character device", b"4": "a block device",
           b"6": "a FIFO", b"7": "a contiguous file", b"x": "a pax extended header", b"g": "a pax global header",
           b"L": "a GNU long name", b"K": "a GNU long link name", b"S": "a GNU sparse file", b"V": "a volume label"}
@@ -187,6 +198,43 @@ class _TarGuard:
         return (size + 511) // 512 * 512
 
 
+class _WriteFailed(Exception):
+    """Writing an unpacked file failed for a reason that is not the archive's fault."""
+
+
+def _write(fn: Callable[[], None], where: str) -> None:
+    """Run a write step; the disk being full is 507, a name the file system already has is the archive's fault (two
+    names that this file system treats as one), anything else is the instance's problem (500)."""
+    try:
+        fn()
+    except _Refused:
+        raise
+    except OSError as e:
+        if _disk_full(e):
+            raise _no_space() from None
+        if e.errno in (errno.EEXIST, errno.ENOTDIR, errno.EISDIR):
+            raise _Refused(f"{where}: this file system sees it as a name that is already there") from None
+        raise _WriteFailed(f"cannot write {where}: {e.strerror or e}") from None
+
+
+def _write_member(src: Any, path: str, size: int, where: str) -> None:
+    os.makedirs(os.path.dirname(path), 0o755, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o644)
+    written = 0
+    with os.fdopen(fd, "wb") as out:
+        while True:
+            chunk = src.read(1 << 16)
+            if not chunk:
+                break
+            written += len(chunk)
+            if written > size:
+                raise _Refused(f"{where}: more data than its header says")
+            out.write(chunk)
+    if written != size:
+        raise _Refused(f"{where}: the archive ends inside this file")
+    os.chmod(path, 0o644)
+
+
 def unpack(archive: str, dest: str, max_unpacked: int = MAX_UNPACKED_BYTES, max_files: int = MAX_FILES
            ) -> tuple[int, int]:
     """Unpack the gzip-compressed tar ``archive`` into the new folder ``dest``; ``(files, bytes)``.
@@ -199,16 +247,21 @@ def unpack(archive: str, dest: str, max_unpacked: int = MAX_UNPACKED_BYTES, max_
     """
     os.mkdir(dest, 0o755)
     errors: list[str] = []
-    files: set[str] = set()
-    dirs: set[str] = set()
-    folded: set[str] = set()
-    count = total = 0
+    #: case-folded name -> (kind, name as written) of every file and folder so far, folders implied by a path included
+    known: dict[str, tuple[str, str]] = {}
+    given: set[str] = set()  # case-folded names that were members themselves
+    count = total = folders = 0
     compressed = os.path.getsize(archive)
 
     def bad(msg: str) -> None:
         errors.append(msg)
         if len(errors) >= MAX_ERRORS:
             raise _Refused(msg)
+
+    def fits(name: str, kind: str) -> bool:
+        """``name`` is new, or is the very same folder (same case) already implied by an earlier path."""
+        k = known.get(name.casefold())
+        return k is None or k == (kind, name) == ("folder", name)
 
     try:
         with open(archive, "rb") as f, gzip.GzipFile(fileobj=f, mode="rb") as gz:
@@ -231,6 +284,9 @@ def unpack(archive: str, dest: str, max_unpacked: int = MAX_UNPACKED_BYTES, max_
                         bad(f"{where}: names use letters, digits, '.', '_', '-' and '/' only, with no '.' or '..' "
                             "segment and no leading '/'")
                         continue
+                    if len(segs) > MAX_DEPTH:
+                        bad(f"{where}: more than {MAX_DEPTH} levels of folders")
+                        continue
                     top = segs[0]
                     if top not in TOP_FILES and top not in TOP_DIRS:
                         bad(f"{where}: only index.html, assets/, data/ and build.json may be at the top")
@@ -241,22 +297,31 @@ def unpack(archive: str, dest: str, max_unpacked: int = MAX_UNPACKED_BYTES, max_
                     if top in TOP_DIRS and len(segs) == 1 and not m.isdir():
                         bad(f"{where}: {top} must be a folder")
                         continue
-                    if name.casefold() in folded:
-                        bad(f"{where}: the name appears twice (or twice with different case)")
+                    if m.isreg() and top == "assets" and not name.lower().endswith(ASSET_EXTENSIONS):
+                        bad(f"{where}: files in assets/ are {', '.join(ASSET_EXTENSIONS)} only")
                         continue
+                    if m.isreg() and top == "data" and m.size > (MAX_INDEX_BYTES if name == "data/index.json"
+                                                                 else MAX_DATA_FILE_BYTES):
+                        bad(f"{where}: larger than {(MAX_INDEX_BYTES if name == 'data/index.json' else MAX_DATA_FILE_BYTES) // (1024 * 1024)} MB")
+                        continue
+                    kind = "folder" if m.isdir() else "file"
                     parents = ["/".join(segs[:i]) for i in range(1, len(segs))]
-                    if any(p in files for p in parents) or (m.isreg() and name in dirs):
-                        bad(f"{where}: a file and a folder have the same name")
+                    if name.casefold() in given or not fits(name, kind) or not all(fits(p, "folder") for p in parents):
+                        bad(f"{where}: the name appears twice, or a file and a folder have the same name "
+                            "(also when they differ only in upper and lower case)")
                         continue
-                    folded.add(name.casefold())
-                    path = os.path.join(dest, *segs)
-                    if m.isdir():
-                        dirs.add(name)
-                        dirs.update(parents)
-                        if len(dirs) > max_files:
-                            raise _Refused(f"the archive has more than {max_files} folders")
+                    given.add(name.casefold())
+                    for p in parents + ([name] if kind == "folder" else []):
+                        if p.casefold() not in known:
+                            known[p.casefold()] = ("folder", p)
+                            folders += 1
+                    if folders > max_files:
+                        raise _Refused(f"the archive has more than {max_files} folders")
+                    if kind == "file":
+                        known[name.casefold()] = ("file", name)
+                    if kind == "folder":
                         if not errors:
-                            os.makedirs(path, 0o755, exist_ok=True)
+                            _write(lambda: os.makedirs(os.path.join(dest, *segs), 0o755, exist_ok=True), where)
                         continue
                     count += 1
                     total += m.size
@@ -264,33 +329,17 @@ def unpack(archive: str, dest: str, max_unpacked: int = MAX_UNPACKED_BYTES, max_
                         raise _Refused(f"the archive has more than {max_files} files")
                     if total > max_unpacked:
                         raise _Refused(f"the archive unpacks to more than {max_unpacked // (1024 * 1024)} MB")
-                    files.add(name)
-                    dirs.update(parents)
                     if errors:
                         continue  # keep looking for problems; write nothing more
-                    os.makedirs(os.path.dirname(path), 0o755, exist_ok=True)
                     src = tf.extractfile(m)
                     assert src is not None
-                    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o644)
-                    written = 0
-                    with os.fdopen(fd, "wb") as out:
-                        while True:
-                            chunk = src.read(1 << 16)
-                            if not chunk:
-                                break
-                            written += len(chunk)
-                            if written > m.size:
-                                raise _Refused(f"{where}: more data than its header says")
-                            out.write(chunk)
-                    if written != m.size:
-                        raise _Refused(f"{where}: the archive ends inside this file")
-                    os.chmod(path, 0o644)
+                    _write(lambda: _write_member(src, os.path.join(dest, *segs), m.size, where), where)
     except _Refused as e:
         if not errors or errors[-1] != str(e):
             errors.append(str(e))
+    except _WriteFailed:
+        raise
     except OSError as e:
-        if _disk_full(e):
-            raise _no_space() from None
         errors.append(f"the upload is not a complete gzip-compressed tar archive ({type(e).__name__}: {str(e)[:120]})")
     except (EOFError, zlib.error, tarfile.TarError) as e:
         if isinstance(e, tarfile.ReadError) and str(e) == "empty file":
@@ -320,7 +369,7 @@ def _version_sentence(ours: str, theirs: str) -> str:
 
 
 def _read_small_json(path: str) -> Any:
-    if os.path.islink(path) or not os.path.isfile(path) or os.path.getsize(path) > 64 * 1024 * 1024:
+    if os.path.islink(path) or not os.path.isfile(path) or os.path.getsize(path) > MAX_DATA_FILE_BYTES:
         return None
     try:
         with open(path, "rb") as f:
@@ -359,8 +408,45 @@ def _schema_problem(site: str) -> Optional[str]:
     return None
 
 
+class _PageRefs(html.parser.HTMLParser):
+    """What a viewer page refers to, and what it does that a built viewer page never does."""
+
+    URL_ATTRS = ("src", "href", "srcset", "data", "action", "formaction", "poster", "background", "ping", "manifest")
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.refs: list[str] = []
+        self.problems: list[str] = []
+        self._in: Optional[str] = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, Optional[str]]]) -> None:
+        a = {k.lower(): (v or "") for k, v in attrs}
+        for k in a:
+            if k.startswith("on") or k == "style":
+                self.problems.append(f"index.html: <{tag} {k}=...> is not allowed (no inline script or style)")
+        if tag in ("base", "iframe", "object", "embed", "form", "style"):
+            self.problems.append(f"index.html: <{tag}> is not allowed in a viewer page")
+        if tag == "meta" and a.get("http-equiv", "").lower() == "refresh":
+            self.problems.append("index.html: <meta http-equiv=refresh> is not allowed")
+        for k in self.URL_ATTRS:
+            if k in a:
+                values = [c.strip().split()[0] for c in a[k].split(",") if c.strip()] if k == "srcset" else [a[k]]
+                self.refs.extend(values)
+        self._in = tag if tag == "script" and "src" not in a else None
+
+    def handle_data(self, data: str) -> None:
+        if self._in == "script" and data.strip():
+            self.problems.append("index.html: inline <script> is not allowed; scripts come from assets/")
+
+    def handle_endtag(self, tag: str) -> None:
+        self._in = None
+
+
 def _viewer_problems(site: str) -> list[str]:
-    """``index.html`` (when there is one) may refer only to files under ``assets/`` that exist."""
+    """``index.html`` (when there is one) may refer only to files under ``assets/`` that exist, with no inline script.
+
+    This is an integrity check of a built viewer page, not a sandbox: the deployer is trusted in v1 (``docs/deploy.md``).
+    """
     page = os.path.join(site, "index.html")
     if not os.path.exists(page):
         return []
@@ -371,10 +457,15 @@ def _viewer_problems(site: str) -> list[str]:
             text = f.read().decode("utf-8")
     except (OSError, UnicodeDecodeError):
         return ["index.html: not UTF-8 text"]
-    problems = []
+    parser = _PageRefs()
+    try:
+        parser.feed(text)
+        parser.close()
+    except Exception as e:  # html.parser is lenient; be safe anyway
+        return [f"index.html: cannot be read as HTML ({type(e).__name__})"]
+    problems = parser.problems[:MAX_ERRORS]
     assets = os.path.realpath(os.path.join(site, "assets"))
-    for m in _REF.finditer(text):
-        ref = next(g for g in m.groups() if g is not None)
+    for ref in parser.refs:
         rel = ref[2:] if ref.startswith("./") else ref
         segs = rel.split("/")
         ok = (rel.startswith("assets/") and _NAME.fullmatch(rel) is not None
@@ -389,6 +480,25 @@ def _viewer_problems(site: str) -> list[str]:
     return problems
 
 
+def _unlisted(site: str) -> list[str]:
+    """Files in ``data/`` that ``data/index.json`` does not name (the checker would never look at them)."""
+    index = _read_small_json(os.path.join(site, "data", "index.json"))
+    if not isinstance(index, dict) or not isinstance(index.get("scenes"), dict) or not isinstance(index.get("model"), dict):
+        return []  # the checker reports the index itself
+    listed = {"index.json"}
+    for e in [index["model"], *index["scenes"].values()]:
+        if isinstance(e, dict) and isinstance(e.get("file"), str):
+            listed.add(e["file"])
+    out = []
+    data = os.path.join(site, "data")
+    for d, _dirs, names in os.walk(data):
+        for n in names:
+            rel = os.path.relpath(os.path.join(d, n), data).replace(os.sep, "/")
+            if rel not in listed:
+                out.append(f"data/{rel}: not listed in data/index.json; a site's data holds only listed files")
+    return sorted(out)[:MAX_ERRORS]
+
+
 def check_upload(site: str, check_timeout: Optional[float] = CHECK_TIMEOUT) -> None:
     """The checks between unpacking and installing; raises :class:`Rejected` (422) with the first 20 errors."""
     if not os.path.isfile(os.path.join(site, "data", "index.json")):
@@ -397,9 +507,61 @@ def check_upload(site: str, check_timeout: Optional[float] = CHECK_TIMEOUT) -> N
     if sentence:
         raise Rejected(422, "unsupported-schema", "Unsupported schema", sentence, errors=[sentence])
     rep = check_site(os.path.join(site, "data"), timeout=check_timeout, require_build_json=True)
-    errors = list(rep.errors[:MAX_ERRORS]) + _viewer_problems(site)
+    errors = list(rep.errors[:MAX_ERRORS]) + _unlisted(site) + _viewer_problems(site)
     if errors:
         raise _invalid(errors[:MAX_ERRORS])
+
+
+def _limit_memory(limit: int) -> None:  # pragma: no cover - runs in the child process
+    try:
+        import resource
+        for name in ("RLIMIT_AS", "RLIMIT_DATA"):
+            lim = getattr(resource, name, None)
+            if lim is not None:
+                resource.setrlimit(lim, (limit, limit))
+    except (ImportError, ValueError, OSError):
+        pass
+
+
+def check_in_child(site: str, check_timeout: Optional[float] = CHECK_TIMEOUT, memory: int = CHECK_MEMORY_BYTES) -> None:
+    """:func:`check_upload` in a child process with a memory limit and a wall-clock limit, so no upload can take the
+    instance down with it; raises :class:`Rejected` like :func:`check_upload`."""
+    limit = (check_timeout or CHECK_TIMEOUT) + 30
+    try:
+        r = subprocess.run([sys.executable, "-m", "buildzr.site.deploy", "--check", site,
+                            str(check_timeout if check_timeout is not None else 0), str(memory)],
+                           capture_output=True, timeout=limit)
+    except subprocess.TimeoutExpired:
+        raise _invalid([f"check exceeded {limit:g} s"]) from None
+    try:
+        doc = json.loads(r.stdout.decode("utf-8").strip().splitlines()[-1])
+    except (ValueError, IndexError, UnicodeDecodeError):
+        doc = None
+    if r.returncode == 0 and isinstance(doc, dict) and doc.get("ok") is True:
+        return
+    if isinstance(doc, dict) and isinstance(doc.get("problem"), dict):
+        p = doc["problem"]
+        raise Rejected(int(p["status"]), str(p["code"]), str(p["title"]), str(p["detail"]),
+                       errors=[str(e) for e in p.get("errors") or []][:MAX_ERRORS])
+    if r.returncode in (-9, 137) or b"MemoryError" in r.stderr:
+        raise _invalid([f"the check needed more than {memory // (1024 * 1024)} MB of memory"])
+    raise _invalid([f"the check failed ({r.returncode}): {r.stderr.decode('utf-8', 'replace').strip()[-200:]}"])
+
+
+def _child_main(argv: list[str]) -> int:  # pragma: no cover - runs in the child process
+    site, timeout, memory = argv[1], float(argv[2]), int(argv[3])
+    _limit_memory(memory)
+    try:
+        check_upload(site, timeout or None)
+    except Rejected as r:
+        print(json.dumps({"problem": r.problem()}))
+        return 1
+    except MemoryError:
+        print(json.dumps({"problem": _invalid([f"the check needed more than "
+                                               f"{memory // (1024 * 1024)} MB of memory"]).problem()}))
+        return 1
+    print(json.dumps({"ok": True}))
+    return 0
 
 
 def file_hashes(site: str) -> dict[str, str]:
@@ -435,6 +597,26 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
     public_url: Optional[str]
     busy: threading.Lock
     _raw_path: Optional[str] = None
+    _gated = False
+    _timer: Optional[threading.Timer] = None
+
+    def setup(self) -> None:
+        super().setup()
+        # the request line and the headers must all arrive within HEADER_TIMEOUT, not just each piece of them
+        self._timer = threading.Timer(HEADER_TIMEOUT, self._cut)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _cut(self) -> None:
+        try:
+            self.connection.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+
+    def finish(self) -> None:
+        if self._timer is not None:
+            self._timer.cancel()
+        super().finish()
 
     def log_message(self, format: str, *args: Any) -> None:
         pass
@@ -485,6 +667,10 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
 
     def _gate(self) -> str:
         """The Host and forwarded-header checks; returns the request path (without the query)."""
+        payload = self.headers.get_payload()
+        if payload or any(isinstance(d, (email.errors.MissingHeaderBodySeparatorDefect, email.errors.HeaderDefect))
+                          for d in self.headers.defects):
+            raise Rejected(400, "bad-headers", "Bad headers", "the request headers could not be read cleanly")
         hosts = self.headers.get_all("Host") or []
         if len(hosts) != 1 or not _HOST.fullmatch(hosts[0].strip().lower()):
             raise Rejected(403, "wrong-host", "Wrong Host",
@@ -514,6 +700,7 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
     def _deploy_header(self) -> None:
         if (self.headers.get_all("X-Buildzr-Deploy") or []) != ["1"]:
             raise Rejected(400, "not-a-deploy", "Missing X-Buildzr-Deploy", "deploy requests carry X-Buildzr-Deploy: 1")
+        self._gated = True  # from here on a rejection is a deploy's and goes into the audit log
 
     # --- routing ----------------------------------------------------------------------------------
 
@@ -527,6 +714,8 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
         self._route("POST")
 
     def _route(self, method: str) -> None:
+        if self._timer is not None:
+            self._timer.cancel()
         self._started = time.monotonic()
         self._raw_path = None
         self._body_pending = method in ("PUT", "POST") and (self.headers.get("Content-Length", "0").strip() not in ("", "0")
@@ -549,14 +738,14 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
             else:
                 self._rollback()
         except Rejected as r:
-            if path in action:
+            if path in action and self._gated:  # a request that never got past the gate is not a deploy
                 self._audit({"action": action[path], "path": self._raw_path, "result": "rejected",
                              "status": r.status, "error": (r.errors[0] if r.errors else r.detail)[:300]})
             self._problem(r)
             if self._body_pending:
                 self._linger()
         except Exception as e:  # never a traceback to the client
-            if path in action:
+            if path in action and self._gated:
                 self._audit({"action": action[path], "path": self._raw_path, "result": "rejected", "status": 500,
                              "error": f"internal error: {type(e).__name__}: {str(e)[:200]}"})
             self._problem(Rejected(500, "internal-error", "Internal error", "the deploy failed inside the instance"))
@@ -646,7 +835,7 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
             self._body_pending = False
             site = os.path.join(work, "site")
             files, size = unpack(archive, site)
-            check_upload(site, self.check_timeout)
+            check_in_child(site, self.check_timeout)
             route = self.store.table.route(site_path)
             sender = self._sender()
             viewer, api = self._urls(site_path)
@@ -722,12 +911,36 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
 
 def make_deploy_server(store: Store, port: int = DEFAULT_DEPLOY_PORT, max_upload_bytes: int = DEFAULT_MAX_UPLOAD_MB
                        * 1024 * 1024, reader_base: str = "http://127.0.0.1:8000", public_url: Optional[str] = None,
-                       body_timeout: float = BODY_TIMEOUT, check_timeout: Optional[float] = CHECK_TIMEOUT) -> Server:
+                       body_timeout: float = BODY_TIMEOUT, check_timeout: Optional[float] = CHECK_TIMEOUT) -> "DeployServer":
     """The deploy listener for ``store``, bound to ``127.0.0.1:port`` (there is no way to bind it elsewhere)."""
     handler = type("StoreDeployHandler", (DeployHandler,), {
         "store": store, "max_upload": max_upload_bytes, "body_timeout": body_timeout, "check_timeout": check_timeout,
         "reader_base": reader_base.rstrip("/"), "public_url": public_url, "busy": threading.Lock()})
-    return Server((LOOPBACK, port), handler)
+    return DeployServer((LOOPBACK, port), handler)
+
+
+class DeployServer(Server):
+    """The deploy listener's server: at most :data:`MAX_CONNECTIONS` connections are served at once."""
+
+    def __init__(self, *args: Any, **kw: Any) -> None:
+        self.slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+        super().__init__(*args, **kw)
+
+    def process_request(self, request: Any, client_address: Any) -> None:
+        if not self.slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self.slots.release()
+            raise
+
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.slots.release()
 
 
 def _reader_base(host: str, port: int) -> str:
@@ -765,3 +978,9 @@ def run_instance(store: Store, host: str = "127.0.0.1", port: int = 8000, deploy
         deployer.shutdown()
         deployer.server_close()
         reader.server_close()
+
+
+if __name__ == "__main__":  # pragma: no cover - the checker's child process
+    if len(sys.argv) == 5 and sys.argv[1] == "--check":
+        sys.exit(_child_main(sys.argv[1:]))
+    sys.exit(2)

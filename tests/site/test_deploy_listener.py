@@ -115,7 +115,9 @@ def test_modes_owners_and_times_of_the_archive_are_ignored(inst: Instance, sites
         info.mode, info.uid, info.gid, info.mtime = 0o6777, 1234, 99, 12345
         members.append((info, data))
     assert put(inst.port, tgz(members))[0] == 200
-    rel = inst.store.table.route("").current.dir  # type: ignore[union-attr]
+    route = inst.store.table.route("")
+    assert route is not None
+    rel = route.current.dir
     for d, dirs, files in os.walk(rel):
         for x in dirs:
             assert stat.S_IMODE(os.stat(os.path.join(d, x)).st_mode) == 0o755
@@ -475,7 +477,7 @@ def test_a_crash_inside_the_checks_is_500_not_a_dead_server(inst: Instance, site
                                                              monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(*a: Any, **k: Any) -> Any:
         raise RuntimeError("bug")
-    monkeypatch.setattr(dep, "check_upload", boom)
+    monkeypatch.setattr(dep, "check_in_child", boom)
     s, _, doc = put_site(inst.port, sites[0])
     assert s == 500 and "bug" not in json.dumps(doc)
     assert inst.incoming() == []
@@ -547,7 +549,10 @@ def test_plain_serve_and_serve_store_stay_read_only(tmp_path: Path, sites: list[
     before = snapshot(root)
     built: list[Any] = []
     real_deploy = dep.make_deploy_server
-    monkeypatch.setattr(dep, "make_deploy_server", lambda *a, **k: built.append(a) or real_deploy(*a, **k))
+    def recording(*a: Any, **k: Any) -> Any:
+        built.append(a)
+        return real_deploy(*a, **k)
+    monkeypatch.setattr(dep, "make_deploy_server", recording)
     # the CLI path: one listener only, and run_instance is never reached
     servers: list[Any] = []
     import buildzr.site.serve as srvmod
@@ -619,19 +624,8 @@ def test_cli_creates_the_store_and_prints_the_two_lines(tmp_path: Path, capsys: 
     class Probe(srvmod.Server):
         def serve_forever(self, poll_interval: float = 0.5) -> None:
             started.append(self.server_address)
-            if self.server_address[1] == self._reader_port:
-                raise KeyboardInterrupt
-            super().serve_forever(poll_interval)
-    monkeypatch.setattr(dep, "Server", Probe)
+            raise KeyboardInterrupt  # the reading listener; the deploy listener runs in its thread until shutdown
     monkeypatch.setattr(srvmod, "Server", Probe)
-    Probe._reader_port = 0  # type: ignore[attr-defined]
-    real_store_server = dep.make_store_server
-
-    def reader(*a: Any, **k: Any) -> Any:
-        s = real_store_server(*a, **k)
-        Probe._reader_port = s.server_address[1]  # type: ignore[attr-defined]
-        return s
-    monkeypatch.setattr(dep, "make_store_server", reader)
     d = tmp_path / "new" / "store"
     assert cli.main(["serve", "--store", str(d), "--accept-deploys", "-p", "0", "--deploy-port", "0",
                      "--host", "0.0.0.0", "--public-url", "https://preview.example.com"]) == 0
@@ -640,7 +634,7 @@ def test_cli_creates_the_store_and_prints_the_two_lines(tmp_path: Path, capsys: 
     assert out[0].startswith(f"Serving store {d} (0 sites) at http://0.0.0.0:") and out[0].endswith("/ (read only)")
     assert out[1].startswith("Accepting deploys at http://127.0.0.1:")
     assert out[1].endswith("/ (this machine only; no authentication)")
-    assert {a[0] for a in started} >= {"127.0.0.1", "0.0.0.0"}
+    assert [a[0] for a in started] == ["0.0.0.0"]
     # an existing folder that is not a store and not empty is refused
     (tmp_path / "busy").mkdir()
     (tmp_path / "busy" / "x").write_text("x")
@@ -827,3 +821,167 @@ def test_kill_in_the_middle_of_an_install(tmp_path: Path, sites: list[Path], ste
     served = _consistent(store, rport, dport, {model_hash(sites[1]), model_hash(sites[2])})
     before_replace = step in ("renamed", "store-tmp-written")
     assert served == model_hash(sites[1] if before_replace else sites[2])
+
+
+# --- regressions from the review (one test per finding) -------------------------------------------------
+
+
+def _unpack_err(tmp_path: Path, body: bytes, **kw: Any) -> list[str]:
+    arc = tmp_path / "a.tgz"
+    arc.write_bytes(body)
+    with pytest.raises(dep.Rejected) as e:
+        dep.unpack(str(arc), str(tmp_path / "out"), **kw)
+    assert e.value.status == 422
+    return e.value.errors or []
+
+
+def test_review_folders_implied_by_paths_count_against_the_limit(tmp_path: Path) -> None:
+    body = tgz([member(f"data/{i}/a/b/c/f.json", b"") for i in range(10)])
+    errs = _unpack_err(tmp_path, body, max_files=12)
+    assert any("more than 12 folders" in e for e in errs)
+
+
+def test_review_depth_is_capped(tmp_path: Path) -> None:
+    errs = _unpack_err(tmp_path, tgz([member("data/" + "/".join(["d"] * 20) + "/f.json")]))
+    assert any("levels of folders" in e for e in errs)
+
+
+@pytest.mark.parametrize("names", [["data/X/y", "data/x"], ["data/x", "data/X/y"], ["data/A/x", "data/a/y"],
+                                   ["data/a", "data/a/"]])
+def test_review_case_collisions_through_implied_folders(tmp_path: Path, names: list[str]) -> None:
+    members = [member(n.rstrip("/"), None, tarfile.DIRTYPE) if n.endswith("/") else member(n) for n in names]
+    errs = _unpack_err(tmp_path, tgz(members))
+    assert any("appears twice" in e for e in errs)
+
+
+def test_review_write_errors_are_not_called_a_broken_archive(tmp_path: Path, sites: list[Path],
+                                                             monkeypatch: pytest.MonkeyPatch) -> None:
+    arc = tmp_path / "a.tgz"
+    arc.write_bytes(pack_site(str(sites[0]))[0])
+    real = os.open
+
+    def denied(path: Any, flags: int, mode: int = 0o777, **kw: Any) -> int:
+        if str(path).endswith(".json") and "out" in str(path):
+            raise PermissionError(errno.EACCES, "Permission denied")
+        return real(path, flags, mode, **kw)
+    monkeypatch.setattr(os, "open", denied)
+    with pytest.raises(dep._WriteFailed):
+        dep.unpack(str(arc), str(tmp_path / "out"))
+
+
+@pytest.mark.parametrize("case", ["unlisted-data", "html-in-assets", "big-index", "inline-script", "srcset",
+                                  "style-attr", "meta-refresh", "onload", "base"])
+def test_review_unchecked_content_is_refused(inst: Instance, sites: list[Path], case: str) -> None:
+    base = site_members(sites[0])
+    page = {"inline-script": b"<script>fetch('/x')</script>", "srcset": b'<img srcset="https://evil.example/a.png 1x">',
+            "style-attr": b'<div style="background:url(https://evil.example/)"></div>',
+            "meta-refresh": b'<meta http-equiv="refresh" content="0;url=https://evil.example/">',
+            "onload": b'<body onload="alert(1)">', "base": b'<base href="https://evil.example/">'}
+    if case == "unlisted-data":
+        body = tgz(base + [member("data/evil.svg", b"<svg onload=alert(1)>")])
+    elif case == "html-in-assets":
+        body = tgz(base + [member("assets/evil.html", b"<script>alert(1)</script>")])
+    elif case == "big-index":
+        body = tgz(_replace(base, "data/index.json", b"[" + b"{}," * (2 * 1024 * 1024) + b"{}]"))
+    else:
+        body = tgz(_replace(base, "index.html", page[case] + b'<script type="module" src="./assets/index-AbCdEf12.js"></script>'))
+    before = inst.store_file()
+    s, _, doc = put(inst.port, body)
+    assert s == 422, (case, doc)
+    unchanged_store(inst, before, 0)
+
+
+def test_review_the_real_viewer_page_passes_the_page_check(tmp_path: Path) -> None:
+    static = Path(dep.__file__).parent / "static"
+    if not (static / "index.html").is_file():
+        pytest.skip("the viewer is not built")
+    import shutil
+    shutil.copytree(static, tmp_path / "site")
+    assert dep._viewer_problems(str(tmp_path / "site")) == []
+
+
+def test_review_a_memory_hungry_model_fails_in_the_child_and_the_instance_lives(tmp_path: Path,
+                                                                                sites: list[Path]) -> None:
+    import shutil
+    site = tmp_path / "hungry"
+    shutil.copytree(sites[0], site)
+    idx = json.loads((site / "data" / "index.json").read_text())
+    (site / "data" / idx["model"]["file"]).write_bytes(b"[" + b"{}," * (8 * 1024 * 1024) + b"{}]")  # 24 MB of {}
+    t0 = time.monotonic()
+    with pytest.raises(dep.Rejected) as e:
+        dep.check_in_child(str(site), memory=256 * 1024 * 1024)
+    assert e.value.status == 422 and time.monotonic() - t0 < 60
+    assert any("memory" in x or "model.json" in x for x in e.value.errors or []), e.value.errors
+
+
+def test_review_one_instance_accepts_deploys_per_store(tmp_path: Path, sites: list[Path]) -> None:
+    from buildzr.site.store import StoreError
+    a = Store.open(str(tmp_path / "s"), create=True, exclusive=True)
+    with pytest.raises(StoreError, match="another buildzr process accepts deploys"):
+        Store.open(str(tmp_path / "s"), exclusive=True)
+    work = tmp_path / "s" / "incoming" / "work"
+    work.mkdir()  # a deploy in progress
+    Store.open(str(tmp_path / "s"))  # a read-only serve --store started meanwhile
+    assert work.is_dir()  # it did not clean up under the running instance
+    assert a.table is not None
+
+
+def test_review_requests_that_fail_the_gate_are_not_audited(inst: Instance, sites: list[Path]) -> None:
+    body = pack_site(str(sites[0]))[0]
+    put(inst.port, body, Host="evil.example:1")
+    h = deploy_headers()
+    del h["X-Buildzr-Deploy"]
+    for _ in range(50):
+        request(inst.port, "POST", ROLLBACK_ENDPOINT + "?path=a", headers={"Origin": "https://evil.example",
+                                                                            "Content-Type": "text/plain"})
+    assert inst.log() == []
+
+
+def test_review_a_malformed_header_line_cannot_hide_forwarded_headers(inst: Instance) -> None:
+    req = (f"GET /_buildzr/v1/status HTTP/1.0\r\nHost: 127.0.0.1:{inst.port}\r\nX Bad: y\r\n"
+           "X-Forwarded-For: 1.2.3.4\r\n\r\n").encode()
+    assert status_of(raw(inst.port, req)) == 400
+
+
+def test_review_headers_have_a_total_deadline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dep, "HEADER_TIMEOUT", 1.0)
+    i = Instance(tmp_path / "store")
+    try:
+        s = socket.create_connection(("127.0.0.1", i.port), timeout=10)
+        s.sendall(b"GET /_buildzr/v1/status HTTP/1.0\r\n")
+        t0 = time.monotonic()
+        for _ in range(8):  # one header line every 0.4 s: each is in time, the whole is not
+            try:
+                s.sendall(b"X-A: b\r\n")
+            except OSError:
+                break
+            time.sleep(0.4)
+        s.settimeout(5)
+        try:
+            data = s.recv(100)
+        except OSError:
+            data = b""
+        assert data == b"" and time.monotonic() - t0 < 4
+        s.close()
+    finally:
+        i.close()
+
+
+def test_review_the_deploy_listener_caps_its_connections(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dep, "MAX_CONNECTIONS", 3)
+    i = Instance(tmp_path / "store")
+    try:
+        idle = [socket.create_connection(("127.0.0.1", i.port), timeout=5) for _ in range(3)]
+        time.sleep(0.3)
+        extra = socket.create_connection(("127.0.0.1", i.port), timeout=5)
+        assert extra.recv(10) == b""  # closed at once
+        for s in idle:
+            s.close()
+        time.sleep(0.3)
+        assert request(i.port, "GET", STATUS_ENDPOINT)[0] == 200  # the slots came back
+    finally:
+        i.close()
+
+
+def test_review_ipv6_loopback_host_is_accepted(inst: Instance) -> None:
+    assert request(inst.port, "GET", STATUS_ENDPOINT, headers={"Host": f"[::1]:{inst.port}"})[0] == 200
