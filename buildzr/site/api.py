@@ -189,17 +189,18 @@ class Api:
         viewer: Whether a viewer is served next to the API (``index.html`` exists).
         views_scene: Returns the scene object of a view key, or ``None`` when it cannot be read.
         built_with: The ``build.json`` object, if there is one.
+        base_path: Where the site sits on its instance, as ``/pr/42`` (``""`` for the root); the links carry it.
     """
 
     def __init__(self, model: Json, public_url: Optional[str] = None, viewer: bool = True,
-                 views_scene: Any = None, built_with: Optional[Json] = None) -> None:
+                 views_scene: Any = None, built_with: Optional[Json] = None, base_path: str = "") -> None:
         self.model = model
         self.hash: str = model["modelHash"]
         self.public_url = public_url
         self.viewer = viewer
         self._scene = views_scene
         self.built_with = built_with
-        self.base = (public_url + "/") if public_url else "/"
+        self.base = (public_url or "") + base_path + "/"
         self.api_base = self.base + "api/v1/"
         mi = ModelIndex(model)
         self.el = mi.el
@@ -697,9 +698,10 @@ class Api:
 class Source:
     """Finds the model of a built site through ``data/index.json`` and reloads it when the site is rebuilt."""
 
-    def __init__(self, directory: str, public_url: Optional[str] = None) -> None:
+    def __init__(self, directory: str, public_url: Optional[str] = None, base_path: str = "") -> None:
         self.directory = os.path.abspath(directory)
         self.public_url = public_url
+        self.base_path = base_path
         self._api: Optional[Api] = None
         self._sig: Optional[tuple[int, int, int]] = None
         self._lock = threading.Lock()
@@ -737,7 +739,7 @@ class Source:
                 built = None
             viewer = os.path.isfile(os.path.join(self.directory, "index.html"))
             self._index = index
-            return Api(model, self.public_url, viewer, self._scene, built)
+            return Api(model, self.public_url, viewer, self._scene, built, self.base_path)
         except ApiError:
             raise
         except FileNotFoundError:
