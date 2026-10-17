@@ -160,8 +160,10 @@ class Installed:
 class Store:
     """A store folder. Use :meth:`open`. All writes go through :meth:`install` and :meth:`rollback` (one at a time)."""
 
-    def __init__(self, directory: str, routes: Mapping[str, Route]) -> None:
+    def __init__(self, directory: str, routes: Mapping[str, Route], grace: float = 0.0) -> None:
         self.dir = directory
+        #: Seconds a pruned release stays on disk (a request that started on it can finish); 0 deletes at once.
+        self.grace = grace
         self._table = RouteTable(routes)
         self._lock = threading.Lock()
         #: Test hook: called with a step name between the steps of install and rollback (may raise).
@@ -170,8 +172,11 @@ class Store:
     # --- opening ----------------------------------------------------------------------------------
 
     @classmethod
-    def open(cls, directory: str, create: bool = False) -> "Store":
-        """Open the store in ``directory`` (made when ``create`` is true and the folder is missing or empty)."""
+    def open(cls, directory: str, create: bool = False, grace: float = 0.0) -> "Store":
+        """Open the store in ``directory`` (made when ``create`` is true and the folder is missing or empty).
+
+        ``grace`` is how long a release that install pruned stays on disk before it is deleted (default: not at all).
+        """
         d = os.path.abspath(directory)
         marker = os.path.join(d, STORE_FILE)
         if not os.path.isfile(marker):
@@ -190,7 +195,7 @@ class Store:
             _clean(d, routes)
         except OSError as e:
             raise StoreError(f"cannot read the store {directory}: {e.strerror or e}") from None
-        return cls(d, routes)
+        return cls(d, routes, grace)
 
     @property
     def table(self) -> RouteTable:
@@ -239,7 +244,7 @@ class Store:
             self._table = RouteTable(routes)
             self._step("routed")
             if old and old.previous is not None:
-                shutil.rmtree(old.previous.dir, ignore_errors=True)
+                self._retire(old.previous.dir)
             self._step("pruned")
             self._log("install", sp, rid, model_hash, old.current.model_hash if old else None, "ok")
             return Installed(rid, model_hash, old.current.model_hash if old else None)
@@ -262,6 +267,14 @@ class Store:
             self._step("routed")
             self._log("rollback", sp, new.current.id, new.current.model_hash, old.current.model_hash, "ok")
             return Installed(new.current.id, new.current.model_hash, old.current.model_hash)
+
+    def _retire(self, path: str) -> None:
+        if self.grace <= 0:
+            shutil.rmtree(path, ignore_errors=True)
+            return
+        t = threading.Timer(self.grace, shutil.rmtree, args=(path,), kwargs={"ignore_errors": True})
+        t.daemon = True  # a kill leaves an orphan folder; the next open deletes it
+        t.start()
 
     def _write(self, routes: Mapping[str, Route]) -> None:
         _write_store_file(self.dir, routes, step=self._step)

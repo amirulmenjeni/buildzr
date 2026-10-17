@@ -186,7 +186,7 @@ def test_lookup_is_longest_prefix_on_whole_segments(store: Store, variants: list
     assert t.lookup("/pr/42") == ("pr/42", pr42.current.dir, "")
     other = t.lookup("/pr/420/")
     assert other is not None and other[0] == "pr" and other[2] == "/420/"  # not pr/42
-    assert t.lookup("/pr/43/x") is not None and t.lookup("/pr/43/x")[0] == "pr"  # type: ignore[index]
+    assert t.lookup("/pr/43/x") is not None and t.lookup("/pr/43/x")[0] == "pr"
     assert t.lookup("/nothing/") is None  # no root site
     assert t.lookup("") is None and t.lookup("pr/42") is None
 
@@ -374,3 +374,22 @@ def test_a_release_that_resolves_outside_sites_is_an_error(tmp_path: Path) -> No
     with pytest.raises(StoreError, match="outside sites/"):
         Store.open(d)
     assert outside.is_dir()
+
+
+def test_a_grace_period_keeps_a_pruned_release_a_little_longer(tmp_path: Path, variants: list[Path]) -> None:
+    import time
+    s = Store.open(str(tmp_path / "g"), create=True, grace=0.3)
+    for v in variants[:3]:
+        put(s, v, "")
+    d = Path(s.dir) / "sites" / site_key("")
+    assert sorted(os.listdir(d)) == ["r-0001", "r-0002", "r-0003"]  # r-0001 is no longer routed but still on disk
+    route = s.table.route("")
+    assert route and route.previous and route.previous.id == "r-0002"
+    deadline = time.time() + 5
+    while time.time() < deadline and (d / "r-0001").exists():
+        time.sleep(0.05)
+    assert sorted(os.listdir(d)) == ["r-0002", "r-0003"]
+    # a restart in the grace period deletes the orphan at once
+    put(s, variants[3], "")
+    s2 = Store.open(str(tmp_path / "g"))
+    assert sorted(os.listdir(d)) == ["r-0003", "r-0004"] and s2.table.route("") is not None
