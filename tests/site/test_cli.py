@@ -591,7 +591,7 @@ def test_deploy_viewer_follows_the_target(tmp_path: Path, stubbed: None, checks:
 @pytest.fixture
 def served(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, int]]:
     calls: list[tuple[str, str, int]] = []
-    monkeypatch.setattr(cli, "serve", lambda d, host, port: calls.append((d, host, port)))
+    monkeypatch.setattr(cli, "serve", lambda d, host, port, *a: calls.append((d, host, port)))
     return calls
 
 
@@ -648,7 +648,7 @@ def test_serve_port_in_use_exits_1(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 
 def test_serve_has_no_deploy_flags(capsys: pytest.CaptureFixture[str]) -> None:
-    for flag in ("--accept-deploys", "--deploy-port", "--public-url", "--cors-origin", "--max-upload-mb"):
+    for flag in ("--accept-deploys", "--deploy-port", "--max-upload-mb"):
         assert main(["serve", flag]) == 2
 
 

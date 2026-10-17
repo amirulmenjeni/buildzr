@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Iterable, NoReturn, Optional
 
 from buildzr.site import config as cfgmod
+from buildzr.site.api import normalise_origin, normalise_public_url
 from buildzr.site.build import BuildError, build_site, swap_dir
 from buildzr.site.check import check_site
 from buildzr.site.config import DEFAULT_OUT, BuildSettings, Config, ConfigError
@@ -59,6 +60,10 @@ def _parser() -> argparse.ArgumentParser:
                    help=f"built site (default: build.out of the nearest buildzr.yaml, else {DEFAULT_OUT})")
     s.add_argument("-p", "--port", type=int, default=8000, help="port (default 8000)")
     s.add_argument("--host", default="127.0.0.1", help="default 127.0.0.1; use 0.0.0.0 explicitly to share")
+    s.add_argument("--public-url", metavar="URL", default=None,
+                   help="address of the site as readers see it (http:// or https://); the base of the API's viewerUrl links")
+    s.add_argument("--cors-origin", metavar="ORIGIN", action="append", default=[],
+                   help="let this web origin read the API from a browser (repeatable; there is no wildcard)")
     d = sub.add_parser("deploy", help="build the site and put it on a target from buildzr.yaml")
     _add_build_args(d)
     d.add_argument("-t", "--target", metavar="NAME", default=None,
@@ -201,6 +206,14 @@ def _cmd_build(args: argparse.Namespace) -> int:
 
 
 def _cmd_serve(args: argparse.Namespace) -> int:
+    try:
+        public_url = normalise_public_url(args.public_url) if args.public_url is not None else None
+    except ValueError as e:
+        raise _Usage(f"--public-url: {e}") from None
+    try:
+        origins = list(dict.fromkeys(normalise_origin(o) for o in args.cors_origin))
+    except ValueError as e:
+        raise _Usage(f"--cors-origin: {e}") from None
     directory = args.dir
     if directory is None:
         cfg = _load_config(None)
@@ -209,7 +222,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
             not os.path.isfile(os.path.join(directory, "index.html")):
         return _fail(f"{directory} does not look like a built site (run `buildzr build` first)")
     try:
-        serve(directory, args.host, args.port)
+        serve(directory, args.host, args.port, public_url, origins)
     except OSError as e:
         return _fail(f"cannot serve on {args.host}:{args.port}: {e.strerror or e}")
     return 0
