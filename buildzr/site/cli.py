@@ -266,10 +266,13 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
         b.need_workspace()
 
     _guard_replace(dest)
-    stage_parent = tempfile.mkdtemp() if args.dry_run else None
-    if stage_parent is None:
-        os.makedirs(dest.parent, exist_ok=True)
-        stage_parent = tempfile.mkdtemp(prefix=".buildzr-deploy-", dir=dest.parent)
+    try:
+        stage_parent = tempfile.mkdtemp() if args.dry_run else None
+        if stage_parent is None:
+            os.makedirs(dest.parent, exist_ok=True)
+            stage_parent = tempfile.mkdtemp(prefix=".buildzr-deploy-", dir=dest.parent)
+    except OSError as e:
+        return _fail(f"cannot write to {dest}: {e.strerror or e}")
     try:
         site = os.path.join(stage_parent, "site")
         if b is None:
@@ -294,7 +297,10 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
             return 0
         prev = _previous_hash(dest)
         print(f"writing {n} files, {_human(size)} to {where}")
-        swap_dir(site, str(dest))
+        try:
+            swap_dir(site, str(dest))
+        except OSError as e:
+            return _fail(f"cannot write to {dest}: {e.strerror or e}")
         print(f"deployed {path or target.name}: modelHash {_short_hash(info['modelHash'])}"
               + (f" (previous {_short_hash(prev)})" if prev else ""))
         return 0

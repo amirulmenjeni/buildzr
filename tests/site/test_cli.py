@@ -547,6 +547,36 @@ def test_deploy_does_not_warn_when_jsonschema_is_installed(
     assert (code, err) == (0, "")
 
 
+@pytest.mark.skipif(os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0),
+                    reason="needs a user that file permissions apply to")
+def test_dir_deploy_into_a_read_only_parent_is_an_error_not_a_traceback(
+        tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]], monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, DEPLOY_YAML)
+    (root / "out").mkdir()
+    (root / "out").chmod(0o555)
+    try:
+        code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
+    finally:
+        (root / "out").chmod(0o755)
+    assert code == 1 and out == ""
+    assert err.startswith(f"buildzr: error: cannot write to {root / 'out' / 'www'}: ") and "Traceback" not in err
+    assert err.count("\n") == 1 and os.listdir(root / "out") == []
+
+
+def test_dir_deploy_swap_failure_is_an_error_not_a_traceback(
+        tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]], monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, DEPLOY_YAML)
+
+    def boom(src: str, dest: str) -> None:
+        raise PermissionError(13, "Permission denied")
+    monkeypatch.setattr(cli, "swap_dir", boom)
+    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
+    assert code == 1 and err == f"buildzr: error: cannot write to {root / 'out' / 'www'}: Permission denied\n"
+    assert not [n for n in os.listdir(root / "out") if n.startswith(".")]  # the staging folder is removed
+
+
 def test_deploy_viewer_follows_the_target(tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]],
                                           monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     root = project(tmp_path, "workspace: ws/workspace.py\ntargets:\n  d: {dir: out/d, viewer: false}\n")
