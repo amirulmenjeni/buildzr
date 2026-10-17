@@ -45,6 +45,7 @@ dev = [
     "datamodel-code-generator==0.83.0",
     "ipykernel==7.3.0",
     "jsonschema==4.23.0",
+    "types-PyYAML>=6.0.12",
 ]
 docs = [
     "mkdocs>=1.5.0",
