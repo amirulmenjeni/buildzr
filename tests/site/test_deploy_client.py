@@ -195,6 +195,10 @@ class Fake(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_PUT(self) -> None:
+        if self.mode == "late":  # the whole body arrives, then the instance goes away without answering
+            self.rfile.read(int(self.headers["Content-Length"]))
+            self.connection.shutdown(socket.SHUT_RDWR)
+            return
         self.rfile.read(10)
         if self.mode == "cut":
             self.connection.shutdown(socket.SHUT_RDWR)
@@ -224,10 +228,17 @@ def deploy_err(site: Path, url: str, timeout: float = 10) -> DeployFailed:
 
 
 def test_row_upload_interrupted(sites: list[Path]) -> None:
-    url, srv = fake("cut")
+    url, srv = fake("cut")  # cut while sending; a small body may already be in the socket buffers, then it is "late"
     try:
         e = deploy_err(sites[0], url)
-        assert e.code == 3 and str(e).startswith("upload interrupted, nothing changed")
+        assert e.code == 3 and (str(e).startswith("upload interrupted, nothing changed")
+                                or "may still have installed it" in str(e))
+    finally:
+        srv.shutdown()
+    url, srv = fake("late")
+    try:
+        e = deploy_err(sites[0], url)
+        assert e.code == 3 and "may still have installed it" in str(e)
     finally:
         srv.shutdown()
     url, srv = fake("upload-incomplete")
@@ -485,3 +496,45 @@ def test_review_port_0_and_stray_characters_are_refused() -> None:
             parse_address(url)
         assert e.value.code == 2, url
     assert parse_address("http://localhost:9001/").url == "http://localhost:9001"
+
+
+def test_review_a_corrupt_gzip_inside_a_member_is_422(tmp_path: Path) -> None:
+    import tarfile as tf_
+    raw = io.BytesIO()
+    with tf_.open(fileobj=raw, mode="w", format=tf_.USTAR_FORMAT) as t:
+        info = tf_.TarInfo("data/index.json")
+        data = os.urandom(200_000)
+        info.size = len(data)
+        t.addfile(info, io.BytesIO(data))
+    body = gzip.compress(raw.getvalue()[:100_000]) + b"XXXXXXXX"
+    arc = tmp_path / "a.tgz"
+    arc.write_bytes(body)
+    with pytest.raises(dep.Rejected) as e:
+        dep.unpack(str(arc), str(tmp_path / "out"))
+    assert e.value.status == 422
+
+
+def test_review_the_check_child_ignores_the_current_folder(tmp_path: Path, sites: list[Path],
+                                                           monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_pkg = tmp_path / "cwd" / "buildzr" / "site"
+    fake_pkg.mkdir(parents=True)
+    (tmp_path / "cwd" / "buildzr" / "__init__.py").write_text("")
+    (fake_pkg / "__init__.py").write_text("")
+    (fake_pkg / "deploy.py").write_text("def _child_main(a):\n    print('{\"ok\": true}')\n    return 0\n")
+    monkeypatch.chdir(tmp_path / "cwd")
+    bad = tmp_path / "bad"
+    shutil.copytree(sites[0], bad)
+    (bad / "build.json").write_text('{"modelHash":"sha256:' + "0" * 64 + '"}\n')
+    with pytest.raises(dep.Rejected):
+        dep.check_in_child(str(bad))  # the real checker ran, not the fake one in the current folder
+
+
+def test_review_a_failed_exclusive_open_releases_the_lock(tmp_path: Path) -> None:
+    from buildzr.site.store import Store, StoreError
+    Store.open(str(tmp_path / "s"), create=True)
+    good = (tmp_path / "s" / "buildzr-store.json").read_text()
+    (tmp_path / "s" / "buildzr-store.json").write_text("{not json")
+    with pytest.raises(StoreError):
+        Store.open(str(tmp_path / "s"), exclusive=True)
+    (tmp_path / "s" / "buildzr-store.json").write_text(good)
+    assert Store.open(str(tmp_path / "s"), exclusive=True) is not None

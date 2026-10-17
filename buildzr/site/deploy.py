@@ -207,8 +207,8 @@ def _write(fn: Callable[[], None], where: str) -> None:
     names that this file system treats as one), anything else is the instance's problem (500)."""
     try:
         fn()
-    except _Refused:
-        raise
+    except (_Refused, gzip.BadGzipFile):
+        raise  # the archive's own fault, reported as such by unpack
     except OSError as e:
         if _disk_full(e):
             raise _no_space() from None
@@ -523,14 +523,24 @@ def _limit_memory(limit: int) -> None:  # pragma: no cover - runs in the child p
         pass
 
 
+def _child_code() -> str:
+    """The child's program: isolated mode (no current folder, no PYTHONPATH), then exactly the import path of this
+    process with the folder holding this very ``buildzr`` package first, so the child checks with the same code."""
+    import buildzr
+    root = os.path.dirname(os.path.dirname(os.path.abspath(buildzr.__file__)))
+    paths = [root] + [p for p in sys.path if p and os.path.isabs(p) and p != root]
+    return (f"import sys; sys.path[:0] = {paths!r}; from buildzr.site.deploy import _child_main; "
+            "sys.exit(_child_main(sys.argv[1:]))")
+
+
 def check_in_child(site: str, check_timeout: Optional[float] = CHECK_TIMEOUT, memory: int = CHECK_MEMORY_BYTES) -> None:
     """:func:`check_upload` in a child process with a memory limit and a wall-clock limit, so no upload can take the
     instance down with it; raises :class:`Rejected` like :func:`check_upload`."""
     limit = (check_timeout or CHECK_TIMEOUT) + 30
     try:
-        r = subprocess.run([sys.executable, "-I", "-m", "buildzr.site.deploy", "--check", site,
+        r = subprocess.run([sys.executable, "-I", "-c", _child_code(), "--check", site,
                             str(check_timeout if check_timeout is not None else 0), str(memory)],
-                           capture_output=True, timeout=limit)
+                           capture_output=True, timeout=limit, cwd=site)
     except subprocess.TimeoutExpired:
         raise _invalid([f"check exceeded {limit:g} s"]) from None
     try:

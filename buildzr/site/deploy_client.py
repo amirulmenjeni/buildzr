@@ -141,6 +141,16 @@ def pack_site(site: str, shown: Optional[str] = None) -> tuple[bytes, int, int]:
 # --- talking to the instance -------------------------------------------------------------------------------------
 
 
+def _json_doc(heads: dict[str, str], data: bytes) -> Optional[dict[str, Any]]:
+    if heads.get("content-type", "").split(";")[0].strip() not in ("application/json", "application/problem+json"):
+        return None
+    try:
+        parsed = json.loads(data)
+    except ValueError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
 def _cut(conn: http.client.HTTPConnection) -> None:
     try:
         if conn.sock is not None:
@@ -180,10 +190,12 @@ class Client:
                 headers: Optional[dict[str, str]] = None, timeout: Optional[float] = None) -> Answer:
         total = timeout if timeout is not None else self.timeout
         conn = self._conn(total)
-        # the socket timeout is per operation; this cuts a server that answers one byte at a time
+        # the socket timeout is per operation; this cuts a server that answers one byte at a time. Not for an upload:
+        # the instance may legitimately take long to check it, and cutting it then would hide a finished deploy.
         watchdog = threading.Timer(total, lambda: _cut(conn))
         watchdog.daemon = True
-        watchdog.start()
+        if body is None:
+            watchdog.start()
         hdrs = {"Host": f"{'[' + self.a.host + ']' if ':' in self.a.host else self.a.host}:{self.a.port}"}
         hdrs.update(headers or {})
         try:
@@ -192,8 +204,15 @@ class Client:
             except ConnectionRefusedError:
                 raise DeployFailed(f"nothing is listening at {self.a.url}; start the instance with "
                                    "buildzr serve --store DIR --accept-deploys (or open the SSH tunnel)", 3) from None
-            except (BrokenPipeError, ConnectionResetError):
-                pass  # the instance answered early and closed; its answer may still be readable
+            except (BrokenPipeError, ConnectionResetError) as e:
+                try:  # the instance may have answered early and closed; its answer may still be readable
+                    r0 = conn.getresponse()
+                    data0 = r0.read(MAX_ANSWER)
+                    heads0 = {k.lower(): v for k, v in r0.getheaders()}
+                    return Answer(r0.status, heads0, _json_doc(heads0, data0))
+                except (http.client.HTTPException, OSError):
+                    raise DeployFailed("upload interrupted, nothing changed "
+                                       f"(the connection to {self.a.url} failed while sending: {e})", 3) from None
             except ssl.SSLError as e:
                 raise DeployFailed(f"cannot talk https to {self.a.url} ({e.reason}); the v1 deploy listener speaks "
                                    "plain http: use http://127.0.0.1:PORT", 3) from None
@@ -207,27 +226,24 @@ class Client:
             except (http.client.BadStatusLine, http.client.LineTooLong, http.client.UnknownProtocol) as e:
                 if isinstance(e, http.client.RemoteDisconnected):
                     if body:
-                        raise DeployFailed("upload interrupted, nothing changed "
-                                           f"(the connection to {self.a.url} failed: {e})", 3) from None
+                        raise self._lost(e) from None
                     raise DeployFailed(f"no answer from {self.a.url} ({type(e).__name__}: {e})", 3) from None
                 raise self._not_ours() from None
             except (http.client.HTTPException, OSError) as e:
                 if body:
-                    raise DeployFailed("upload interrupted, nothing changed "
-                                       f"(the connection to {self.a.url} failed: {e})", 3) from None
+                    raise self._lost(e) from None
                 raise DeployFailed(f"no answer from {self.a.url} ({type(e).__name__}: {e})", 3) from None
             heads = {k.lower(): v for k, v in r.getheaders()}
-            doc: Optional[dict[str, Any]] = None
-            if heads.get("content-type", "").split(";")[0].strip() in ("application/json", "application/problem+json"):
-                try:
-                    parsed = json.loads(data)
-                    doc = parsed if isinstance(parsed, dict) else None
-                except ValueError:
-                    doc = None
-            return Answer(r.status, heads, doc)
+            return Answer(r.status, heads, _json_doc(heads, data))
         finally:
             watchdog.cancel()
             conn.close()
+
+    def _lost(self, e: BaseException) -> DeployFailed:
+        """No answer to an upload: a cut while sending changed nothing; a cut after all of it was sent may not have."""
+        return DeployFailed(f"no answer from {self.a.url} after the upload ({type(e).__name__}: {e}); the instance "
+                            "may still have installed it: deploy again (an unchanged site answers \"unchanged\") or "
+                            "look at /_buildzr/v1/sites of the instance", 3)
 
     def _ours(self, a: Answer) -> bool:
         """Whether the answer comes from a buildzr deploy listener."""
@@ -281,7 +297,7 @@ class Client:
         deadline = time.monotonic() + self.timeout
         while True:
             left = deadline - time.monotonic()
-            a = self.request(method, target, body, headers, timeout=max(left, 1.0))
+            a = self.request(method, target, body, headers, timeout=self.timeout if body else max(left, 1.0))
             if a.status == 200 and self._ours(a) and a.doc is not None and a.doc.get("ok") is True:
                 return a.doc
             if not self._ours(a):

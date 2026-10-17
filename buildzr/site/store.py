@@ -21,6 +21,7 @@ import re
 import shutil
 import tempfile
 import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Optional
@@ -197,7 +198,7 @@ class Store:
                 _write_store_file(d, {})
             except OSError as e:
                 raise StoreError(f"cannot create a store in {directory}: {e.strerror or e}") from None
-        lock = _lock(d)
+        lock = _lock(d, wait=5.0 if exclusive else 0.0)
         held = lock is None or lock[1]
         if exclusive and not held:
             assert lock is not None
@@ -212,7 +213,13 @@ class Store:
             else:
                 os.makedirs(os.path.join(d, "incoming"), exist_ok=True)
         except OSError as e:
+            if lock is not None and exclusive:
+                os.close(lock[0])
             raise StoreError(f"cannot read the store {directory}: {e.strerror or e}") from None
+        except BaseException:
+            if lock is not None and exclusive:
+                os.close(lock[0])
+            raise
         finally:
             if lock is not None and not exclusive:
                 os.close(lock[0])  # also releases the lock
@@ -364,8 +371,9 @@ def _write_store_file(directory: str, routes: Mapping[str, Route], step: Optiona
 LOCK_FILE = ".buildzr-store.lock"
 
 
-def _lock(directory: str) -> Optional[tuple[int, bool]]:
-    """Try the store's lock file: ``(fd, held)``, or ``None`` where the platform has no ``flock`` (not locked)."""
+def _lock(directory: str, wait: float = 0.0) -> Optional[tuple[int, bool]]:
+    """Try the store's lock file for up to ``wait`` seconds (a read-only open holds it briefly while it cleans):
+    ``(fd, held)``, or ``None`` where the platform has no ``flock`` (not locked)."""
     try:
         import fcntl
     except ImportError:  # pragma: no cover - Windows
@@ -374,11 +382,15 @@ def _lock(directory: str) -> Optional[tuple[int, bool]]:
         fd = os.open(os.path.join(directory, LOCK_FILE), os.O_RDWR | os.O_CREAT, 0o644)
     except OSError as e:
         raise StoreError(f"cannot open the lock file of the store {directory}: {e.strerror or e}") from None
-    try:
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        return fd, True
-    except OSError:
-        return fd, False
+    deadline = time.monotonic() + wait
+    while True:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return fd, True
+        except OSError:
+            if time.monotonic() >= deadline:
+                return fd, False
+            time.sleep(0.1)
 
 
 def _listed(directory: str, site_path: str, rid: str) -> bool:
