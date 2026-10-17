@@ -2,7 +2,10 @@
 
 `buildzr deploy` can put a built site on a running `buildzr serve` (an **instance**), for example a preview of every pull request at `https://preview.example.com/pr/42/`. This page explains how that works, what the instance checks, what each failure means, and what the security model is.
 
-You do not need to know the code to follow it. For the folder layout of an instance see [the site store](store.md); for the config file see [buildzr.yaml](config.md).
+You do not need to know the code to follow it. For the commands and their flags see the [command line](cli.md) page; for the folder layout of an instance see [the site store](store.md); for the config file see [buildzr.yaml](config.md); for ready-made setups such as a preview per pull request see the [recipes](publishing-recipes.md).
+
+!!! note "Linux and macOS only"
+    The instance (`buildzr serve --store DIR --accept-deploys`) is for POSIX systems. It uses a file lock (`flock`) so that only one instance accepts deploys for a store, and a memory limit (`resource`) for the check of every upload. Neither exists on Windows, so do not run an instance there; use WSL or a container. `buildzr deploy` itself only sends HTTP requests and needs neither.
 
 ## The parts
 
@@ -20,7 +23,7 @@ You do not need to know the code to follow it. For the folder layout of an insta
 
 ```text
 $ buildzr serve --store /srv/buildzr --host 0.0.0.0 --public-url https://preview.example.com --accept-deploys
-Serving store /srv/buildzr (3 sites) at http://0.0.0.0:8000/ (read only)
+Serving store /srv/buildzr (0 sites) at http://0.0.0.0:8000/ (read only)
 Accepting deploys at http://127.0.0.1:8001/ (this machine only; no authentication)
 ```
 
@@ -35,13 +38,26 @@ Accepting deploys at http://127.0.0.1:8001/ (this machine only; no authenticatio
 
 The deploy listener only listens on the server's own `127.0.0.1`. From another machine, open an SSH tunnel:
 
+<!-- doctest: skip ssh needs a real host -->
 ```text
-ssh -N -L 9001:127.0.0.1:8001 preview-host
+$ ssh -N -L 9001:127.0.0.1:8001 preview-host
 ```
 
 Now `http://127.0.0.1:9001` on your machine is the deploy listener of `preview-host`. On the server itself (for example a CI runner that also runs the instance) you can use `http://127.0.0.1:8001` directly.
 
 ### 3. Name the target in `buildzr.yaml`
+
+Any model file will do. This page uses a very small one:
+
+<!-- doctest: file architecture/model.py -->
+```python
+from buildzr.dsl import Workspace, Person, SoftwareSystem
+
+with Workspace("shop") as w:
+    customer = Person("Customer")
+    shop = SoftwareSystem("Shop")
+    customer >> "Buys from" >> shop
+```
 
 ```yaml
 workspace: architecture/model.py
@@ -55,12 +71,15 @@ targets:
 
 ```text
 $ PR_NUMBER=42 buildzr deploy -t preview
-built (13 elements, 6 relationships, 1 view; modelHash sha256:d2cb809b8030…)
-uploading 14 files, 533 KB to http://127.0.0.1:9001 (path pr/42)
-deployed pr/42: release r-0007, modelHash sha256:d2cb809b8030… (previous sha256:5a1f07c2…)
+/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
+built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
+uploading 12 files, 517 KB to http://127.0.0.1:9001 (path pr/42)
+deployed pr/42: release r-0001, modelHash sha256:87716f3c5b04…
 open: https://preview.example.com/pr/42/
 api:  https://preview.example.com/pr/42/api/v1/
 ```
+
+The first line comes from the step that runs your model file. When a site replaces an older release, the `deployed` line ends with `(previous sha256:…)`, the hash of the release it replaced.
 
 What `deploy` does:
 
@@ -72,11 +91,31 @@ What `deploy` does:
 
 Other forms:
 
-- `buildzr deploy -t preview --dry-run` builds, checks and packs, prints the size and the destination, and sends **nothing** (it does not even connect).
-- `buildzr deploy -t preview` a second time with the same site answers `unchanged pr/42: release r-0007 already has these files`. The instance keeps the current release; the audit log still gets a line.
-- `buildzr deploy -t preview --rollback` makes the previous release current again (`POST /_buildzr/v1/rollback?path=pr/42`). Nothing is built. It fails when there is no previous release.
+- `buildzr deploy -t preview --dry-run` builds, checks and packs, prints the size and the destination, and sends **nothing** (it does not even connect):
 
-Exit codes of `deploy`: `0` deployed or unchanged; `1` the instance rejected the site, the local check failed, or the address is not a deploy listener; `2` a usage or config problem; `3` the instance cannot be reached, the upload was interrupted, the instance stayed busy until the timeout, or it is out of disk space (all worth trying again).
+```text
+$ PR_NUMBER=42 buildzr deploy -t preview --dry-run
+/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
+built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
+packed 12 files, 517 KB (192 KB compressed)
+dry run: would upload 12 files, 517 KB to http://127.0.0.1:9001 (path pr/42); nothing was sent
+```
+
+- `buildzr deploy -t preview` a second time with the same site answers `unchanged`. The instance keeps the current release, and the audit log still gets a line:
+
+```text
+$ PR_NUMBER=42 buildzr deploy -t preview
+/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
+built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
+uploading 12 files, 517 KB to http://127.0.0.1:9001 (path pr/42)
+unchanged pr/42: release r-0001 already has these files (modelHash sha256:87716f3c5b04…)
+open: https://preview.example.com/pr/42/
+api:  https://preview.example.com/pr/42/api/v1/
+```
+
+- `buildzr deploy -t preview --rollback` makes the previous release current again (`POST /_buildzr/v1/rollback?path=pr/42`). Nothing is built. It stops with `nothing to roll back to` (exit code 1) when there is no previous release; the [recipes](publishing-recipes.md#rolling-back-a-bad-deploy) show a rollback that works.
+
+Exit codes of `deploy`: `0` deployed or unchanged; `1` the instance rejected the site, the local check failed, or the address is not a deploy listener; `2` a usage or config problem; `3` the instance cannot be reached, the upload was interrupted, the instance stayed busy until the timeout, or it is out of disk space (all worth trying again). The full table is on the [command line](cli.md#exit-codes) page.
 
 ## What the instance checks
 
@@ -133,6 +172,7 @@ In every row the current release on the instance stays as it was.
 
 Every deploy, rejection and rollback adds one JSON line to `deploys.log` in the store and prints it on the instance's stderr:
 
+<!-- doctest: audit -->
 ```json
 {"time":"2026-10-17T10:41:07Z","action":"deploy","path":"pr/42","result":"ok","release":"r-0007","modelHash":"sha256:d2cb…","previous":"sha256:5a1f…","files":23,"bytes":548211,"senderVersion":"0.0.36","client":"127.0.0.1","ms":412}
 ```
