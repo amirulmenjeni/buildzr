@@ -2,6 +2,34 @@
 
 One file per repository holds what the commands need besides flags: the workspace file, the build options and the named deploy targets. The file is optional.
 
+## Commands
+
+Every setting comes from a command-line flag first, then from `buildzr.yaml`, then from the built-in default. No environment variable sets a setting directly; `${VAR}` works only inside the file.
+
+```text
+buildzr build [-w FILE] [-o DIR] [--k N] [--text-color wcag|c4] [--no-viewer] [-c FILE]
+buildzr serve [DIR] [-p PORT] [--host HOST]
+buildzr deploy [-t NAME] [--path P] [--from DIR] [--dry-run] [-w FILE] [--k N] [--text-color wcag|c4] [--no-viewer] [-c FILE]
+```
+
+Without `-c`, the file is searched from the current folder upward (see below). The same five steps cover a normal week:
+
+1. `buildzr build` writes the site to `build.out` (default `.buildzr/site`). `workspace:` in the file saves typing `--workspace`; with neither, the command stops with exit code 2. `build.viewer: false` and `--no-viewer` both write data only.
+2. `buildzr serve` serves `build.out` of the nearest `buildzr.yaml` (else `.buildzr/site`) at `http://127.0.0.1:8000/`. It is read-only: GET and HEAD only. `buildzr serve DIR` does not read the config.
+3. `buildzr deploy -t NAME` builds the site and writes it to the target. A `dir` target gets the site in `<dir>/<path>/`; the old copy is replaced as one step, and the checker must pass on the new one first. The command refuses to replace a folder that is not a buildzr site (no `build.json`). With `path` empty the whole `dir` is replaced, so keep other sites in a `dir` of their own or give each its own `path`. Without `-t`, `default_target` is used. `--path P` overrides the target's `path`.
+4. `buildzr deploy -t NAME --dry-run` loads the file, expands the variables, builds, runs the checker, prints the resolved target with the file count and size, and writes nothing to the target.
+5. `buildzr deploy -t NAME --from DIR` deploys an already built site (for example one site to several targets) without building. The build flags cannot be combined with `--from`.
+
+`url` targets (a running instance) are not available in this version: `deploy` exits with code 1 and says so. `--rollback` is not built yet (exit code 2). The old `--target DIR` and `--base-path` flags are gone: `--target` is a target name, and `--base-path` is the target's `path` (or `--path`). To write a site to a one-off folder, use `buildzr build -o DIR`.
+
+| Exit code | Meaning |
+|---|---|
+| 0 | Done (also a dry run). |
+| 1 | The build, the checker or the write failed; a `url` target; the port is in use. |
+| 2 | Usage or config error: unknown flag, no workspace, a problem in `buildzr.yaml`, an unknown target, a variable that is not set. |
+
+The CLI's own errors start with `buildzr: error: `. Problems in the config file are printed exactly as listed below, one per line.
+
 ## Where it is found
 
 - Start in the current folder and walk up. The first `buildzr.yaml` wins. The search stops after the folder that contains `.git`.
@@ -17,7 +45,7 @@ One file per repository holds what the commands need besides flags: the workspac
 | `build.k` | whole number, at least 1 | `4` | Layout frame budget. |
 | `build.text_color` | `wcag` or `c4` | `wcag` | Node text colour rule. |
 | `build.viewer` | `true` / `false` | `true` | `false` writes data only. |
-| `build.out` | text (path) | `.buildzr/site` | Where `build` writes. |
+| `build.out` | text (path) | `.buildzr/site` | Where `build` writes and `serve` reads by default. |
 | `default_target` | text | the only target, if there is exactly one | Must name a key of `targets`. |
 | `targets.<name>` | mapping | none | Names match `[a-z][a-z0-9_-]*`. |
 | `targets.<name>.dir` | text (path) | none | A folder on this machine. Exactly one of `dir` and `url`. |
