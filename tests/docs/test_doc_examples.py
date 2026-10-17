@@ -125,8 +125,7 @@ class Page:
         (self.dir / "buildzr.yaml").write_text(text, encoding="utf-8")
 
     def argv(self, tokens: list[str]) -> list[str]:
-        out = [self.path(t) if t.startswith("/") else t for t in tokens]
-        out = [str(t) for t in out]
+        out = [str(self.path(t)) if t.startswith("/") else t for t in tokens]
         if out[0] == "serve":
             if "-p" not in out and "--port" not in out:
                 out += ["-p", "0"]
@@ -259,19 +258,32 @@ TESTED = [b for b in BLOCKS if b.lang in ("yaml", "http", "json", "python", "tex
           and (b.lang != "python" or b.directive is not None)]
 
 
+def needs_real_layout(block: Block) -> bool:
+    """A deploy that succeeds (also a dry run) and what reads its result: the checker refuses the stub's scenes, which
+    belong to another model. These blocks run only where Node and the built viewer are."""
+    if block.lang == "text":
+        for cmd, _out, code in parse_steps(block.text):
+            if re.search(r"buildzr deploy\b", cmd) and code in (None, 0):
+                return True
+    d = block.directive
+    return bool(d and (d[0] == "audit" or (d[0] == "api" and d[1].split()[:1] == ["instance"])))
+
+
 @pytest.mark.parametrize("block", TESTED, ids=[b.id for b in TESTED])
 def test_block(block: Block, work: dict[str, Any], sites: dict[str, int], layout: None,
                monkeypatch: pytest.MonkeyPatch) -> None:
     d = block.directive
     if d and d[0] == "skip":
         pytest.skip(d[1] or "opted out")
+    if not REAL and needs_real_layout(block):
+        pytest.skip("needs the real layout (Node and the built viewer)")
     idx = BLOCKS.index(block)
     page = page_of(work, block.page)
     if d and d[0] == "file":
         compile(block.text, d[1], "exec")
-        target = page.path(d[1])
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(block.text, encoding="utf-8")
+        written = page.path(d[1])
+        written.parent.mkdir(parents=True, exist_ok=True)
+        written.write_text(block.text, encoding="utf-8")
     elif block.lang == "yaml" and d and d[0] == "invalid":
         quoted = BLOCKS[idx + 1].text.rstrip("\n").split("\n")
         tmp = page.dir / "invalid" / "buildzr.yaml"

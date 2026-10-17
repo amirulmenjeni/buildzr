@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import os
 import re
+from typing import Any
 from urllib.parse import unquote
 
 import pytest
@@ -22,7 +24,8 @@ def parser_options(command: str) -> tuple[set[str], set[str]]:
     sub = next(a for a in ap._actions if a.choices and command in a.choices)  # the sub parsers action
     found: set[str] = set()
     first: set[str] = set()
-    for action in sub.choices[command]._actions:
+    choices: Any = sub.choices
+    for action in choices[command]._actions:
         if action.help == argparse.SUPPRESS or "-h" in action.option_strings:
             continue
         found.update(action.option_strings)
@@ -41,8 +44,8 @@ def test_cli_page_lists_exactly_the_options_of_the_parser(command: str) -> None:
     table = [l for l in section.split("\n") if l.startswith("| `")]
     documented: set[str] = set()
     for row in table:
-        first = row.split("|")[1]
-        documented.update(o for o in OPTION.findall(first) if o not in ("-h", "--help"))
+        cell = row.split("|")[1]
+        documented.update(o for o in OPTION.findall(cell) if o not in ("-h", "--help"))
     expected, first = parser_options(command)
     assert documented == expected, (sorted(documented - expected), sorted(expected - documented))
     synopsis = re.search(r"```text\n(buildzr " + command + r" .*)\n```", section)
@@ -112,9 +115,8 @@ LINK = re.compile(r"\]\(([^)\s]+)\)")
 
 
 def headings(page: str) -> set[str]:
-    markdown = pytest.importorskip("markdown")
-    from markdown.extensions.toc import slugify
-    del markdown
+    pytest.importorskip("markdown")
+    slugify = importlib.import_module("markdown.extensions.toc").slugify  # the slugs mkdocs makes
     with open(os.path.join(DOCS, page), encoding="utf-8") as f:
         return {slugify(m.group(1).replace("`", ""), "-") for m in re.finditer(r"^#{1,6} (.+?)\s*$", f.read(), re.M)}
 

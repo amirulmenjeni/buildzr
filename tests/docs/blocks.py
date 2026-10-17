@@ -46,7 +46,10 @@ def extract_blocks(page: str) -> list[Block]:
         indent, lang = m.group(1), m.group(2)
         j = i + 1
         body: list[str] = []
-        while j < len(lines) and not (FENCE.match(lines[j]) and not FENCE.match(lines[j]).group(2)):  # type: ignore[union-attr]
+        while j < len(lines):
+            closing = FENCE.match(lines[j])
+            if closing and not closing.group(2):
+                break
             body.append(lines[j][len(indent):] if lines[j].startswith(indent) else lines[j])
             j += 1
         directive: Optional[tuple[str, str]] = None
