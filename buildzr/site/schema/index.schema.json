@@ -23,7 +23,7 @@
       "additionalProperties": false,
       "required": ["file", "hash"],
       "properties": {
-        "file": { "type": "string", "description": "e.g. 'scene/e/billing.3f2a9c1b.json' (content hash in the name in built sites; fixtures may omit it)." },
+        "file": { "type": "string", "pattern": "^(?!(?:.*/)?\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$", "description": "Relative path inside data/, e.g. 'scene/e/billing.3f2a9c1b.json' (content hash in the name in built sites; fixtures may omit it). Letters, digits, '.', '_', '-' and '/' only; no '.' or '..' segment, no leading '/'." },
         "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "sha256 of the file's bytes." }
       }
     }
