@@ -31,30 +31,6 @@ class BuildError(Exception):
     """A build step failed; the message is meant for the user."""
 
 
-def read_config(workspace_file: str) -> dict[str, Any]:
-    """``[tool.buildzr]`` of the nearest ``pyproject.toml`` above ``workspace_file`` (``{}`` if none)."""
-    tomllib: Any = None
-    for name in ("tomllib", "tomli"):  # tomllib is Python 3.11+
-        try:
-            tomllib = importlib.import_module(name)
-            break
-        except ImportError:
-            continue
-    if tomllib is None:
-        return {}
-    d = os.path.dirname(os.path.abspath(workspace_file))
-    while True:
-        cand = os.path.join(d, "pyproject.toml")
-        if os.path.isfile(cand):
-            with open(cand, "rb") as f:
-                cfg = tomllib.load(f).get("tool", {}).get("buildzr", {})
-            return dict(cfg) if isinstance(cfg, dict) else {}
-        parent = os.path.dirname(d)
-        if parent == d:
-            return {}
-        d = parent
-
-
 def _sha256_file(path: str) -> str:
     with open(path, "rb") as f:
         return "sha256:" + hashlib.sha256(f.read()).hexdigest()
@@ -89,13 +65,13 @@ def swap_dir(new: str, dest: str) -> None:
         shutil.rmtree(old, ignore_errors=True)
 
 
-def build_site(workspace: str, out: str = "site", k: Optional[int] = None, text_color: Optional[str] = None,
+def build_site(workspace: str, out: str = ".buildzr/site", k: Optional[int] = None, text_color: Optional[str] = None,
                viewer: bool = True, layout_fn: Optional[LayoutFn] = None,
                static_dir: str = STATIC_DIR) -> dict[str, Any]:
     """Build ``workspace`` into ``out``. Returns the ``build.json`` object.
 
-    ``k`` and ``text_color`` default to ``[tool.buildzr]`` in the nearest ``pyproject.toml`` and then to
-    4 and ``"wcag"``. The output directory is replaced atomically.
+    ``k`` and ``text_color`` default to 4 and ``"wcag"``; the CLI fills them from ``buildzr.yaml`` first.
+    The output directory is replaced atomically.
     """
     workspace = os.path.abspath(workspace)
     if not os.path.isfile(workspace):
@@ -122,8 +98,7 @@ def build_site(workspace: str, out: str = "site", k: Optional[int] = None, text_
         site = os.path.join(tmp, "site")
         data = os.path.join(site, "data")
         os.makedirs(data)
-        canonical.write(os.path.join(data, "model.json"), model)
-        layout(levels, model, data, k=k)
+        layout(levels, model, data, k=k)  # writes data/model.<h8>.json, index.json and the scenes
         if viewer:
             for name in sorted(os.listdir(static_dir)):
                 src = os.path.join(static_dir, name)
