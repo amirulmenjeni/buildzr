@@ -74,9 +74,26 @@ buildzr deploy [-h] [-w FILE] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c
 | `--from DIR` | Deploy an already built site instead of building one. The build flags are then refused. |
 | `--dry-run` | Load the config, build and check, and print what would happen. Nothing is written or sent. |
 | `--rollback` | For `url` targets: make the previous release of the site current again. Nothing is built. |
-| `-w`, `--k`, `--text-color`, `--no-viewer`, `-c` | As for `build`. |
+| `-w`, `--workspace`, `--k`, `--text-color`, `--no-viewer`, `-c`, `--config` | As for `build`. |
 
 For a `dir` target the site is written to `<dir>/<path>/` in one step. For a `url` target it is sent to a running instance. [Deploying to an instance](deploy.md) explains that flow, and [`buildzr.yaml`](config.md) explains targets.
+
+### What `deploy` does with each kind of target
+
+A **`dir` target** gets the site in `<dir>/<path>/`.
+
+- The old copy is replaced as one step, and only after the checker passed on the new one. If the check fails, the target is left as it was.
+- The command refuses to replace a folder that exists, is not empty and is not a buildzr site (it has no `build.json`). This stops a typo such as `dir: ~` from emptying a folder.
+- With an empty `path`, the whole `dir` is replaced. Keep other sites in a `dir` of their own, or give each site its own `path`.
+- The parent folder of the destination must be writable. If it is not, the command prints `buildzr: error: cannot write to <path>: <reason>` and exits with code 1.
+- Without the `jsonschema` package, the check of the built site skips the schema step. `deploy` says so once, as `buildzr: warning: jsonschema is not installed; the site check skips the schema step`, and carries on. Install it with `pip install jsonschema` for the full check.
+- `--rollback` is not available: a folder keeps no previous copy (the command exits with code 2). Deploy the older version again instead.
+
+A **`url` target** sends the site to a running instance. The `url` must be on this machine (`127.0.0.1`, `localhost` or `[::1]`); to reach another machine, open an SSH tunnel as [Deploying to an instance](deploy.md) shows. `--rollback` makes the previous release of the site current again.
+
+`--from DIR` builds nothing. It checks and deploys the site in `DIR` as it is, which is useful to send the same bytes to several targets. A site built without a viewer stays without one, and a site with a viewer keeps it, whatever the target's `viewer:` says.
+
+The flags `--target DIR` and `--base-path`, which older versions had, are gone: `--target` is now a target name, and the base path is the target's `path` (or `--path`). To write a site to a one-off folder, use `buildzr build -o DIR`.
 
 ## Exit codes
 

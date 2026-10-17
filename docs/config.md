@@ -2,38 +2,17 @@
 
 One file per repository holds what the commands need besides flags: the workspace file, the build options and the named deploy targets. The file is optional.
 
-## Commands
+## How the commands use this file
 
-Every setting comes from a command-line flag first, then from `buildzr.yaml`, then from the built-in default. No environment variable sets a setting directly; `${VAR}` works only inside the file.
+Every setting comes from a command-line flag first, then from `buildzr.yaml`, then from the built-in default. No environment variable sets a setting directly; `${VAR}` works only inside the file (see below).
 
-```text
-buildzr build [-w FILE] [-o DIR] [--k N] [--text-color wcag|c4] [--no-viewer] [-c FILE]
-buildzr serve [DIR | --store DIR [--accept-deploys [--deploy-port N] [--max-upload-mb N]]] [-p PORT] [--host HOST] [--public-url URL] [--cors-origin ORIGIN]...
-buildzr deploy [-t NAME] [--path P] [--from DIR] [--dry-run] [--rollback] [-w FILE] [--k N] [--text-color wcag|c4] [--no-viewer] [-c FILE]
-```
+The three commands, their flags and their exit codes are on the [Command line](cli.md) page. In short:
 
-Without `-c`, the file is searched from the current folder upward (see below). The same five steps cover a normal week:
+- `buildzr build` reads `workspace` and `build.*`. `buildzr serve` reads `build.out` only, and not at all when you give it a folder.
+- `buildzr deploy -t NAME` reads the target `NAME` (or `default_target`) and everything `build` reads.
+- A `dir` target is a folder on this machine. A `url` target is the deploy address of a running instance; see [Deploying to an instance](deploy.md).
 
-1. `buildzr build` writes the site to `build.out` (default `.buildzr/site`). `workspace:` in the file saves typing `--workspace`; with neither, the command stops with exit code 2. `build.viewer: false` and `--no-viewer` both write data only.
-2. `buildzr serve` serves `build.out` of the nearest `buildzr.yaml` (else `.buildzr/site`) at `http://127.0.0.1:8000/`. It is read-only: GET and HEAD only. `buildzr serve DIR` does not read the config. Besides the files, it answers the [agent API](agent-api.md) under `/api/v1/` and a generated `/llms.txt`. Two flags belong to that API:
-    - `--public-url URL` is the address readers use for the site (`http://` or `https://`, a trailing `/` is dropped, no query or fragment). The API builds its `viewerUrl` links from it. Without it the links start with `/`. A site built with `viewer: false` has no viewer to link to, so its links are `null` unless `--public-url` names the place where a viewer is.
-    - `--cors-origin ORIGIN` lets a web page from that origin (for example `https://tool.example.com`, no path) read the API from a browser. Repeat it for more origins. There is no wildcard. Without the flag the API sends no CORS headers.
-
-    `buildzr serve --store DIR` serves every site of a [store](store.md) folder (for example the main model at `/` and a preview at `/pr/42/`), each with its own API, and lists them at `/_buildzr/v1/sites`. `DIR` must already be a store; `--store` cannot be combined with a site `DIR`; `--public-url` and `--cors-origin` apply as above. The reading listener is always read-only. `--accept-deploys` (with `--store` only) adds a second listener on `127.0.0.1:<--deploy-port>` (default 8001) that accepts uploads from `deploy`, creates the store when `DIR` is missing or empty, and needs `pip install 'buildzr[serve]'`; see [deploying to an instance](deploy.md). `--deploy-port` and `--max-upload-mb` (default 50) need `--accept-deploys`.
-3. `buildzr deploy -t NAME` builds the site and writes it to the target. A `dir` target gets the site in `<dir>/<path>/`; the old copy is replaced as one step, and the checker must pass on the new one first. The command refuses to replace a folder that is not a buildzr site (no `build.json`). With `path` empty the whole `dir` is replaced, so keep other sites in a `dir` of their own or give each its own `path`. Without `-t`, `default_target` is used. `--path P` overrides the target's `path`. If the destination cannot be written (for example its parent folder is read-only), the command prints `buildzr: error: cannot write to <path>: <reason>` and exits with code 1. If the `jsonschema` package is not installed, the check of the built site skips the schema step and `deploy` says so with one warning line on stderr (`buildzr: warning: jsonschema is not installed; the site check skips the schema step`).
-4. `buildzr deploy -t NAME --dry-run` loads the file, expands the variables, builds, runs the checker, prints the resolved target with the file count and size, and writes nothing to the target.
-5. `buildzr deploy -t NAME --from DIR` deploys an already built site (for example one site to several targets) without building. The build flags cannot be combined with `--from`.
-
-`url` targets send the site to a running instance; see [deploying to an instance](deploy.md) for the flow, the SSH tunnel, the output and the failures. The `url` must be on this machine (`127.0.0.1`, `localhost` or `[::1]`, exit code 2 otherwise). `--rollback` makes the previous release of a `url` target's site current again (exit code 2 for a `dir` target). The old `--target DIR` and `--base-path` flags are gone: `--target` is a target name, and `--base-path` is the target's `path` (or `--path`). To write a site to a one-off folder, use `buildzr build -o DIR`.
-
-| Exit code | Meaning |
-|---|---|
-| 0 | Done (also a dry run). |
-| 1 | The build, the checker or the write failed (also a destination that cannot be written); the instance rejected the site; the `url` is not a deploy address; the port is in use; `--accept-deploys` without `jsonschema`. |
-| 2 | Usage or config error: unknown flag, no workspace, a problem in `buildzr.yaml`, an unknown target, a variable that is not set, a bad `--public-url` or `--cors-origin`, a `url` that is not on this machine. |
-| 3 | `deploy` to a `url` target: the instance cannot be reached, the upload was interrupted, the instance stayed busy until the target's `timeout`, or it is out of disk space. Worth trying again. |
-
-The CLI's own errors start with `buildzr: error: `. Problems in the config file are printed exactly as listed below, one per line.
+Without `-c`, the file is searched from the current folder upward (see below). Problems in the file are printed exactly as listed in [the four messages](#the-four-messages), one per line, and the command exits with code 2.
 
 ## Where it is found
 
@@ -81,10 +60,19 @@ In the text values `workspace`, `build.out`, `dir`, `url` and `path`:
 
 ## Examples
 
-A single person, no instance:
+One author, no instance:
 
 ```yaml
 workspace: architecture/model.py
+```
+
+A static web server folder and a data-only copy:
+
+```yaml
+workspace: model.py
+targets:
+  www:  {dir: /var/www/architecture}
+  data: {dir: /srv/buildzr-data, viewer: false}
 ```
 
 A team with a preview instance for pull requests and a production instance:
@@ -100,22 +88,50 @@ targets:
   prod:    {url: "http://127.0.0.1:9101"}
 ```
 
-A static web server folder and a data-only copy:
-
-```yaml
-workspace: model.py
-targets:
-  www:  {dir: /var/www/architecture}
-  data: {dir: /srv/buildzr-data, viewer: false}
-```
-
 ## The four messages
 
+Each message names the line of the file and the key it is about. First, a value of the wrong kind:
+
+<!-- doctest: invalid -->
+```yaml
+workspace: architecture/model.py
+build:
+  k: four
+```
+
 ```text
-buildzr.yaml:4: build.k: expected a whole number of at least 1, got the text "four"
-buildzr.yaml:9: targets.prod: unknown key "token". Secrets never go in this file; keep them in an environment variable.
-buildzr.yaml:8: targets.preview.path: environment variable PR_NUMBER is not set (used in "pr/${PR_NUMBER}")
-buildzr: error: no target named "staging"; targets in /repo/buildzr.yaml: dev (default), preview, prod
+buildzr.yaml:3: build.k: expected a whole number of at least 1, got the text "four"
+```
+
+Secrets never go in the file. The message says where to keep them instead:
+
+<!-- doctest: invalid -->
+```yaml
+workspace: architecture/model.py
+targets:
+  prod:
+    url: "http://127.0.0.1:9101"
+    token: abc123
+```
+
+```text
+buildzr.yaml:5: targets.prod: unknown key "token". Secrets never go in this file; keep them in an environment variable.
+```
+
+A `${VAR}` that is used by the target you deploy to must be set. With the team example above and no `PR_NUMBER`:
+
+```text
+$ buildzr deploy -t preview
+buildzr.yaml:7: targets.preview.path: environment variable PR_NUMBER is not set (used in "pr/${PR_NUMBER}")
+[exit code 2]
+```
+
+And a target that does not exist lists the ones that do:
+
+```text
+$ buildzr deploy -t staging
+buildzr: error: no target named "staging"; targets in /home/you/shop/buildzr.yaml: dev (default), preview, prod
+[exit code 2]
 ```
 
 ## Python API
