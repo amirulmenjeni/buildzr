@@ -402,13 +402,16 @@ class StoreHandler(Handler):
         state = []
         for r in self.store.table.routes():
             counts: dict[str, Any] = {"elements": None, "relationships": None}
+            name: Optional[str] = None
             try:
                 model = self._source(r).current().model
                 counts = {"elements": len(model["elements"]), "relationships": len(model["relationships"])}
+                ws = model.get("workspace")
+                name = ws.get("name") if isinstance(ws, dict) and isinstance(ws.get("name"), str) else None
             except Exception:
                 pass
             base = self._site_url(r.site_path)
-            sites.append({"sitePath": r.site_path, "currentRelease": r.current.id, "modelHash": r.current.model_hash,
+            sites.append({"sitePath": r.site_path, "name": name, "currentRelease": r.current.id, "modelHash": r.current.model_hash,
                           "previousModelHash": r.previous.model_hash if r.previous else None,
                           "elements": counts["elements"], "relationships": counts["relationships"],
                           "viewerUrl": base, "apiUrl": base + "api/v1/"})

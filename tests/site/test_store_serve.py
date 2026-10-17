@@ -312,11 +312,12 @@ def test_sites_endpoint_shape_and_etag(two: Env) -> None:
     doc = json.loads(body)
     assert doc["apiVersion"] == "1"
     root, pr = doc["sites"]
-    assert root == {"sitePath": "", "currentRelease": "r-0002", "modelHash": model_hash_of_variant(2),
+    assert root == {"sitePath": "", "name": "Small v2", "currentRelease": "r-0002", "modelHash": model_hash_of_variant(2),
                     "previousModelHash": model_hash_of_variant(1), "elements": root["elements"],
                     "relationships": root["relationships"], "viewerUrl": "/", "apiUrl": "/api/v1/"}
     assert root["elements"] > 5 and root["relationships"] > 3
     assert pr["sitePath"] == "pr/42" and pr["previousModelHash"] is None and pr["apiUrl"] == "/pr/42/api/v1/"
+    assert pr["name"] == "Small v3"
     etag = hdr["etag"]
     assert get(two.port, "/_buildzr/v1/sites", {"If-None-Match": etag})[0] == 304
     assert "access-control-allow-origin" not in hdr
