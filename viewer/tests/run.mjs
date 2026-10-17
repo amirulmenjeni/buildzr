@@ -1,5 +1,5 @@
 // Acceptance tests (stage 2 and 3). Usage, inside the devcontainer with the viewer built:
-//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings] [--shots]
+//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|viewerurl] [--shots]
 // A data dir holds index.json, model.json and scene/ (e.g. tests/site/fixtures/small).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -556,6 +556,7 @@ for (const dir of dataDirs) {
   if (!only || only === 'zoom') { const t = await (await import('./zoom.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'labels') { const t = await (await import('./labels.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'expand') { const t = await (await import('./expand.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
+  if (!only || only === 'viewerurl') { const t = await (await import('./viewerurl.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'settings') { const t = await (await import('./settings.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (shots) await import('./shots.mjs').then((m) => m.default(browser, srv, F, name));
   srv.close();
