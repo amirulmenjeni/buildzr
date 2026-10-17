@@ -20,7 +20,9 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
+import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
 
@@ -66,15 +68,77 @@ def _rounded(v: float) -> bool:
     return abs(v * 100 - round(v * 100)) < 1e-6
 
 
-def _load(path: str, rep: Report, where: str) -> Optional[Any]:
+# A ``file`` entry of index.json: relative, ``/``-separated, safe characters only, no ``.`` or ``..``
+# segment (``fullmatch``: Python's ``$`` would let a trailing newline through). The same rule is the
+# ``pattern`` of ``file`` in schema/index.schema.json.
+_FILE_RE = re.compile(r"^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$")
+
+
+class _Timeout(Exception):
+    """Raised by :meth:`_Deadline.check` once the time limit is over."""
+
+
+class _Deadline:
+    """Cooperative time limit: call :meth:`check` between phases and inside long loops."""
+
+    def __init__(self, seconds: Optional[float]) -> None:
+        self.seconds = seconds
+        self.end = None if seconds is None else time.monotonic() + seconds
+
+    def check(self) -> None:
+        if self.end is not None and time.monotonic() > self.end:
+            raise _Timeout()
+
+
+def _short(v: Any) -> str:
+    r = repr(v)
+    return r if len(r) <= 80 else r[:77] + "..."
+
+
+def _safe_file(data_dir: str, rel: Any) -> Optional[str]:
+    """Return the real path of ``data_dir/rel`` or None if ``rel`` is not a relative path inside ``data_dir``.
+
+    ``rel`` must match :data:`_FILE_RE` and have no ``.`` or ``..`` segment; after symlinks are resolved
+    the path must still be inside the real ``data_dir``. Nothing is opened here.
+    """
+    if not isinstance(rel, str) or not _FILE_RE.fullmatch(rel) or any(seg in (".", "..") for seg in rel.split("/")):
+        return None
+    root = os.path.realpath(data_dir)
+    real = os.path.realpath(os.path.join(root, *rel.split("/")))
+    if os.path.commonpath([root, real]) != root or real == root:
+        return None
+    return real
+
+
+def _read_json(path: str, rep: Report, where: str, expect_hash: Optional[str] = None) -> Optional[Any]:
+    """Read ``path`` once, check its hash if given, parse it and check the bytes are canonical.
+
+    Every failure (unreadable, not a regular file, not UTF-8, not JSON, too deeply nested) is an error in
+    ``rep`` and the result is None.
+    """
     try:
-        with open(path, encoding="utf-8") as f:
-            raw = f.read()
+        if not os.path.isfile(path):
+            raise OSError("not a regular file")
+        with open(path, "rb") as f:
+            data = f.read()
     except OSError as e:
         rep.err(where, f"cannot read {path}: {e}")
         return None
-    obj = json.loads(raw)
-    if raw != dumps(obj):
+    if expect_hash is not None:
+        h = "sha256:" + hashlib.sha256(data).hexdigest()
+        if h != expect_hash:
+            rep.err(where, f"hash {expect_hash} != file bytes {h}")
+    try:
+        raw = data.decode("utf-8")
+        obj = json.loads(raw)
+    except (ValueError, RecursionError) as e:  # UnicodeDecodeError and JSONDecodeError are ValueErrors
+        rep.err(where, f"not valid UTF-8 JSON: {type(e).__name__}: {str(e)[:120]}")
+        return None
+    try:
+        canonical = raw == dumps(obj)
+    except (ValueError, RecursionError, TypeError):
+        canonical = False
+    if not canonical:
         rep.err(where, "bytes are not canonical (sort_keys, compact separators, trailing newline)")
     return obj
 
@@ -126,9 +190,9 @@ class ModelIndex:
         self.roots = [e["id"] for e in model["elements"] if e["parent"] is None]
 
     def ancestors_or_self(self, path: str) -> list[str]:
-        out = []
+        out: list[str] = []
         cur: Optional[str] = path
-        while cur is not None:
+        while cur is not None and len(out) <= len(self.el):  # bounded: a parent cycle must not hang
             out.append(cur)
             cur = self.el[cur]["parent"] if cur in self.el else None
         return out
@@ -192,8 +256,10 @@ def check_model(model: Json, rep: Report, where: str = "model.json") -> None:
 # --- one scene -----------------------------------------------------------------
 
 
-def check_scene(scene: Json, rep: Report, mi: Optional[ModelIndex] = None) -> dict[str, Any]:
+def check_scene(scene: Json, rep: Report, mi: Optional[ModelIndex] = None,
+                deadline: Optional[_Deadline] = None) -> dict[str, Any]:
     """Check one scene on its own (plus rollups against the model if given). Returns metrics."""
+    dl = deadline or _Deadline(None)
     where = f"scene {scene.get('key', '?')}"
     m: dict[str, Any] = {"nodes": 0, "edges": 0, "bad_edges": 0, "edge_end_gap_px": 0.0}
     for e in _schema_errors(scene, "scene.schema.json"):
@@ -259,14 +325,15 @@ def check_scene(scene: Json, rep: Report, mi: Optional[ModelIndex] = None) -> di
         rep.err(where, "duplicate edge id")
 
     def anc(nid: str) -> set[str]:
-        out = set()
+        out: set[str] = set()
         cur: Optional[str] = nid
-        while cur is not None and cur in by_id:
+        while cur is not None and cur in by_id and cur not in out:  # `not in out`: a parent cycle must not hang
             out.add(cur)
             cur = by_id[cur]["parent"]
         return out
 
     for e in scene["edges"]:
+        dl.check()
         ew = f"{where} edge {e['id']}"
         ends: list[Optional[str]] = []
         for end_key, pt in (("source", e["points"][0]), ("target", e["points"][-1])):
@@ -352,6 +419,7 @@ def check_scene(scene: Json, rep: Report, mi: Optional[ModelIndex] = None) -> di
                  if isinstance(e["source"], str) and isinstance(e["target"], str)}
         for a in level_nodes:
             for b in level_nodes:
+                dl.check()  # each rollup scans every relationship, so look at the clock per pair
                 if a != b and (a, b) not in drawn and mi.rollup(a, b):
                     rep.err(where, f"missing rolled-up edge {a}->{b} ({len(mi.rollup(a, b))} rels)")
     return m
@@ -369,10 +437,13 @@ def _endpoint_point(edge: Json, node_id: str) -> tuple[Optional[str], list[float
     return None, edge["points"][0]
 
 
-def check_frames(scenes: dict[str, Json], rep: Report, mi: Optional[ModelIndex]) -> dict[str, Any]:
+def check_frames(scenes: dict[str, Json], rep: Report, mi: Optional[ModelIndex],
+                 deadline: Optional[_Deadline] = None) -> dict[str, Any]:
     """Frames and ports: child scene placement, port sets, continuity, rels conservation."""
+    dl = deadline or _Deadline(None)
     m: dict[str, Any] = {"frames": 0, "ports": 0, "port_gap_px": 0.0, "port_sides_kept": 0}
     for key, parent in scenes.items():
+        dl.check()
         for n in parent["nodes"]:
             fr = n.get("frame")
             if not fr:
@@ -394,6 +465,7 @@ def check_frames(scenes: dict[str, Json], rep: Report, mi: Optional[ModelIndex])
             if set(incident) != set(cports):
                 rep.err(where, f"child ports {sorted(cports)} != parent edges at the frame {sorted(incident)}")
             for pid, p in cports.items():
+                dl.check()
                 pe = incident.get(pid)
                 if pe is None:
                     continue
@@ -437,58 +509,136 @@ def check_frames(scenes: dict[str, Json], rep: Report, mi: Optional[ModelIndex])
     return m
 
 
-def check_site(data_dir: str) -> Report:
-    """Check index.json, model.json and every scene under ``data_dir``."""
+def check_site(data_dir: str, timeout: Optional[float] = 60, require_build_json: bool = False) -> Report:
+    """Check index.json, model.json and every scene under ``data_dir``.
+
+    Safe on untrusted input: every ``file`` in index.json must be a relative path inside ``data_dir``
+    (nothing outside it is opened), and any problem, including an unexpected exception, is returned as an
+    error, never raised. ``timeout`` (seconds, ``None`` for no limit) stops the check with the error
+    ``check exceeded N s``; it is cooperative, so it is looked at between phases and inside the long loops.
+    ``<data_dir>/../build.json`` is checked when present (``require_build_json``: it must be there).
+    """
     rep = Report()
-    index = _load(os.path.join(data_dir, "index.json"), rep, "index.json")
+    dl = _Deadline(timeout)
+    try:
+        _check_site(data_dir, rep, dl, require_build_json)
+    except _Timeout:
+        rep.err("check", f"check exceeded {timeout:g} s")
+    except Exception as e:  # untrusted input must never crash the caller
+        rep.err("check", f"internal error while checking: {type(e).__name__}: {str(e)[:200]}")
+    return rep
+
+
+def _guarded(rep: Report, where: str, fn: Any, *args: Any, **kw: Any) -> Any:
+    """Run one check phase; an unexpected exception becomes an error and the other phases still run."""
+    try:
+        return fn(*args, **kw)
+    except _Timeout:
+        raise
+    except Exception as e:
+        rep.err(where, f"malformed content, check aborted: {type(e).__name__}: {str(e)[:200]}")
+        return None
+
+
+def _check_build_json(data_dir: str, index: Json, rep: Report, required: bool) -> None:
+    path = os.path.join(os.path.dirname(os.path.realpath(data_dir)), "build.json")
+    if os.path.islink(path) or not os.path.lexists(path):
+        if os.path.islink(path):
+            rep.err("build.json", "must be a regular file, not a symlink")
+        elif required:
+            rep.err("build.json", "missing")
+        return
+    info = _read_json(path, rep, "build.json")
+    if info is None:
+        return
+    if not isinstance(info, dict) or not isinstance(info.get("modelHash"), str):
+        rep.err("build.json", "must be an object with a modelHash string")
+    elif info["modelHash"] != index["modelHash"]:
+        rep.err("build.json", f"modelHash {info['modelHash']} != index.json modelHash {index['modelHash']}")
+
+
+def _check_site(data_dir: str, rep: Report, dl: _Deadline, require_build_json: bool) -> None:
+    real_index = _safe_file(data_dir, "index.json")
+    if real_index is None:
+        rep.err("index.json", "is not inside the data directory")
+        return
+    index = _read_json(real_index, rep, "index.json")
     if index is None:
-        return rep
+        return
+    if not isinstance(index, dict):
+        rep.err("index.json", "must be a JSON object")
+        return
     for e in _schema_errors(index, "index.schema.json"):
         rep.err("index.json", e)
     if index.get("schema") != INDEX_SCHEMA:
-        return rep
+        return
+    # What the checker itself relies on; the schema says the same but is skipped without jsonschema.
+    def entry_ok(entry: Any, where: str) -> bool:
+        if not (isinstance(entry, dict) and isinstance(entry.get("file"), str) and isinstance(entry.get("hash"), str)):
+            rep.err(where, "index entry must be an object with string 'file' and 'hash'")
+            return False
+        if _safe_file(data_dir, entry["file"]) is None:
+            rep.err(where, f"file {_short(entry['file'])} is not a relative path inside data/ "
+                           "(letters, digits, . _ - and /; no '.' or '..' segment)")
+            return False
+        return True
+
+    if not isinstance(index.get("modelHash"), str) or not isinstance(index.get("scenes"), dict) \
+            or not isinstance(index.get("model"), dict):
+        rep.err("index.json", "needs a string modelHash, an object model and an object scenes")
+        return
+    dl.check()
 
     def load_entry(entry: Json, where: str) -> Optional[Any]:
-        path = os.path.join(data_dir, entry["file"])
-        if os.path.exists(path):
-            with open(path, "rb") as f:
-                h = "sha256:" + hashlib.sha256(f.read()).hexdigest()
-            if h != entry["hash"]:
-                rep.err(where, f"hash {entry['hash']} != file bytes {h}")
-        return _load(path, rep, where)
+        if not entry_ok(entry, where):
+            return None
+        real = _safe_file(data_dir, entry["file"])
+        assert real is not None
+        return _read_json(real, rep, where, expect_hash=entry["hash"])
 
+    _check_build_json(data_dir, index, rep, require_build_json)
     model = load_entry(index["model"], "model.json")
     mi = None
+    if model is not None and not isinstance(model, dict):
+        rep.err("model.json", "must be a JSON object")
+        model = None
     if model is not None:
-        check_model(model, rep)
-        mi = ModelIndex(model)
+        _guarded(rep, "model.json", check_model, model, rep)
+        mi = _guarded(rep, "model.json", ModelIndex, model)
         if index["modelHash"] != model.get("modelHash"):
             rep.err("index.json", "modelHash differs from model.json")
     scenes: dict[str, Json] = {}
     for key, entry in sorted(index["scenes"].items()):
+        dl.check()
         s = load_entry(entry, f"scene {key}")
-        if s is not None:
+        if s is not None and not isinstance(s, dict):
+            rep.err(f"scene {key}", "must be a JSON object")
+        elif s is not None:
             if s.get("key") != key:
                 rep.err(f"scene {key}", f"file declares key {s.get('key')}")
             scenes[key] = s
     totals: dict[str, Any] = {"scenes": len(scenes), "nodes": 0, "edges": 0, "bad_edges": 0, "edge_end_gap_px": 0.0}
     for key, s in scenes.items():
-        sm = check_scene(s, rep, mi)
-        for k in ("nodes", "edges", "bad_edges"):
-            totals[k] += sm[k]
-        totals["edge_end_gap_px"] = max(totals["edge_end_gap_px"], sm["edge_end_gap_px"])
+        dl.check()
+        sm = _guarded(rep, f"scene {key}", check_scene, s, rep, mi, dl)
+        if sm is not None:
+            for k in ("nodes", "edges", "bad_edges"):
+                totals[k] += sm[k]
+            totals["edge_end_gap_px"] = max(totals["edge_end_gap_px"], sm["edge_end_gap_px"])
         if model is not None and s.get("modelHash") != model.get("modelHash"):
             rep.err(f"scene {key}", "modelHash differs from model.json")
     if model is not None:
-        for v in model["views"]:
-            if v["scene"] not in index["scenes"]:
-                rep.err("index.json", f"view {v['key']}: scene {v['scene']} missing")
+        views = _guarded(rep, "model.json", lambda: [(v["key"], v["scene"]) for v in model["views"]]) or []
+        for vkey, vscene in views:
+            if vscene not in index["scenes"]:
+                rep.err("index.json", f"view {vkey}: scene {vscene} missing")
         if "landscape" not in index["scenes"]:
             rep.err("index.json", "no landscape scene")
-    totals.update(check_frames(scenes, rep, mi))
+    fm = _guarded(rep, "frames", check_frames, scenes, rep, mi, dl)
+    if fm is not None:
+        totals.update(fm)
     totals = {k: round(v, 2) if isinstance(v, float) else v for k, v in totals.items()}
     rep.metrics["scenes"] = totals
-    return rep
 
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
@@ -496,10 +646,12 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     ap.add_argument("data_dir", nargs="+", help="directory holding index.json")
     ap.add_argument("--json", action="store_true", help="print metrics as JSON")
     ap.add_argument("--max-errors", type=int, default=50)
+    ap.add_argument("--timeout", type=float, default=60, help="seconds for the whole check per directory (0: no limit)")
+    ap.add_argument("--require-build-json", action="store_true", help="a missing ../build.json is an error")
     args = ap.parse_args(list(argv) if argv is not None else None)
     bad = 0
     for d in args.data_dir:
-        rep = check_site(d)
+        rep = check_site(d, timeout=args.timeout or None, require_build_json=args.require_build_json)
         print(f"{'OK' if rep.ok else f'FAIL ({len(rep.errors)})'}  {d}")
         for e in rep.errors[: args.max_errors]:
             print(f"    {e}")
