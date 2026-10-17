@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://buildzr.dev/schema/index/2",
   "title": "buildzr site index (buildzr.index/2)",
-  "description": "data/index.json: where the viewer finds model.json and every scene. Paths are relative to the directory holding index.json. The viewer loads index.json, then model.json, then scenes lazily by key.",
+  "description": "data/index.json: where the viewer finds the model (model.<h8>.json, h8 = first 8 hex digits of its sha256) and every scene. Paths are relative to the directory holding index.json. The viewer loads index.json, then the model file, then scenes lazily by key.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "modelHash", "model", "scenes"],
