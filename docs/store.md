@@ -2,8 +2,8 @@
 
 A **store** is a folder in which one `buildzr serve` process keeps several built sites, each at its own address. One site might be the main model at `/`, another a preview of a pull request at `/pr/42/`. Each site has its own viewer, its own [agent API](agent-api.md) and its own `llms.txt`.
 
-!!! note "What is in this version"
-    `buildzr serve --store DIR` serves a store **read-only**. There is no upload, no `--accept-deploys` option and no `deploy` to an instance yet; those come in the next step. Until then a store is filled and changed only by the Python functions described at the end of this page (the next step and the tests use them).
+!!! note "Filling a store"
+    `buildzr serve --store DIR` serves a store **read-only**. With `--accept-deploys` the same instance also accepts uploads from `buildzr deploy` on a second listener that only this machine can reach; see [deploying to an instance](deploy.md). The Python functions at the end of this page do the same steps for tests and scripts.
 
 ## Words used here
 
@@ -20,7 +20,7 @@ A **store** is a folder in which one `buildzr serve` process keeps several built
 | `buildzr-store.json` | Marks the folder as a store. For each site path it lists the current and the previous release and the `modelHash` of each. |
 | `sites/<key>/r-0007/` | One release: an ordinary built site. `<key>` is the first 16 hex characters of the sha256 of the site path, so a site path never becomes a folder name and a path such as `../x` cannot reach the file system. |
 | `incoming/<random>/` | Sites being unpacked and checked. Emptied whenever the store is opened. |
-| `deploys.log` | One JSON line per install or rollback: `time`, `sitePath`, `release`, `modelHash`, `previousModelHash`, `action` and `result`. |
+| `deploys.log` | One JSON line per install or rollback. Lines written by the deploy listener have the fields of [the audit log](deploy.md#the-audit-log); lines written by the Python functions below have `time`, `sitePath`, `release`, `modelHash`, `previousModelHash`, `action` and `result`. |
 
 When the store is opened, `buildzr` reads `buildzr-store.json` strictly. A file that is not JSON, has the wrong shape, has an unknown `version`, lists a release folder that is missing, or names a release that would leave `sites/` is reported as one line (`buildzr: error: buildzr-store.json: ...`), never as a traceback. Release folders that the file does not list (left by an interrupted install) are deleted.
 
@@ -110,11 +110,10 @@ buildzr serve --store DIR [-p PORT] [--host HOST] [--public-url URL] [--cors-ori
 
 ## What is not there yet
 
-- Uploading a site to an instance, `--accept-deploys`, the deploy lock and the `deploy` client. These come next. The functions below are what they will call.
-- Any way to change a store over HTTP. Nothing in `serve --store` can write.
+- Any way to change a store through the reading listener. Without `--accept-deploys` nothing in `serve --store` can write; with it, only the separate deploy listener can.
 - Removing a site from a store.
 
-## Python functions (for the next step and for tests)
+## Python functions (for scripts and tests)
 
 ```python
 from buildzr.site.store import Store
@@ -128,4 +127,4 @@ store.rollback("pr/42")                                # current and previous sw
 
 - `install` accepts only a folder under `incoming/` of the same store. It renames the folder to `sites/<key>/r-<n+1>/`, writes `buildzr-store.json` through a temporary file (flushed to disk, then `os.replace`), updates the routes in memory, deletes the release older than the previous one and appends a line to `deploys.log`.
 - After a crash at any of these steps, opening the store again finds a consistent store: either the old state or the new one, with no folder that the file does not list.
-- `Store.open(..., grace=SECONDS)` keeps a pruned release on disk that long before deleting it (default `0`: at once), so a request that started on it can finish.
+- `Store.open(..., grace=SECONDS)` keeps a pruned release on disk that long before deleting it (default `0`: at once), so a request that started on it can finish. The deploy listener opens its store with `DEPLOY_GRACE_SECONDS` (30).

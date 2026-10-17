@@ -90,6 +90,10 @@ with Workspace('w') as w:
 ![Example Software System View](./docs/images/quick_example/web_app_system_context_00.svg)
 ![Example Container View](./docs/images/quick_example/web_app_container_view_00.svg)
 
+## Command line
+
+`pip install buildzr` also installs the `buildzr` command: `buildzr build` turns a workspace file into a browsable model site, `buildzr serve` serves it (with a read-only [agent API](docs/agent-api.md)), and `buildzr deploy` writes it to a folder or sends it to a running instance (`buildzr serve --store DIR --accept-deploys`). See [the config file and commands](docs/config.md), [the site store](docs/store.md) and [deploying to an instance](docs/deploy.md).
+
 ## Getting Started
 
 Ready to dive in? Check out the [Quick Start Tutorial](https://buildzr.dev/getting-started/quick-start/) and [User Guides](https://buildzr.dev/user-guide/core-concepts/).
