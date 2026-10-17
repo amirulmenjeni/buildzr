@@ -418,8 +418,8 @@ def check_scene(scene: Json, rep: Report, mi: Optional[ModelIndex] = None,
         drawn = {(e["source"], e["target"]) for e in scene["edges"]
                  if isinstance(e["source"], str) and isinstance(e["target"], str)}
         for a in level_nodes:
-            dl.check()
             for b in level_nodes:
+                dl.check()  # each rollup scans every relationship, so look at the clock per pair
                 if a != b and (a, b) not in drawn and mi.rollup(a, b):
                     rep.err(where, f"missing rolled-up edge {a}->{b} ({len(mi.rollup(a, b))} rels)")
     return m
