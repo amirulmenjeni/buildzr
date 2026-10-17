@@ -528,7 +528,7 @@ def check_in_child(site: str, check_timeout: Optional[float] = CHECK_TIMEOUT, me
     instance down with it; raises :class:`Rejected` like :func:`check_upload`."""
     limit = (check_timeout or CHECK_TIMEOUT) + 30
     try:
-        r = subprocess.run([sys.executable, "-m", "buildzr.site.deploy", "--check", site,
+        r = subprocess.run([sys.executable, "-I", "-m", "buildzr.site.deploy", "--check", site,
                             str(check_timeout if check_timeout is not None else 0), str(memory)],
                            capture_output=True, timeout=limit)
     except subprocess.TimeoutExpired:
