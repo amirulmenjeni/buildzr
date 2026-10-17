@@ -29,6 +29,7 @@ dependencies = [
     "pytest>=8.3.3",
     "pyhumps==3.8.0",
     "typing-extensions>=4.12.2",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
