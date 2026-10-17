@@ -20,7 +20,8 @@ from buildzr.site.api import normalise_origin, normalise_public_url
 from buildzr.site.build import BuildError, build_site, swap_dir
 from buildzr.site.check import check_site
 from buildzr.site.config import DEFAULT_OUT, BuildSettings, Config, ConfigError
-from buildzr.site.serve import serve
+from buildzr.site.serve import serve, serve_store
+from buildzr.site.store import Store, StoreError
 
 MAX_ERRORS_SHOWN = 20
 NOT_YET_URL = "deploying to a running instance is not available in this version; use a dir target or build"
@@ -58,6 +59,8 @@ def _parser() -> argparse.ArgumentParser:
     s = sub.add_parser("serve", help="serve a built site directory (read-only)")
     s.add_argument("dir", nargs="?", default=None, metavar="DIR",
                    help=f"built site (default: build.out of the nearest buildzr.yaml, else {DEFAULT_OUT})")
+    s.add_argument("--store", metavar="DIR", default=None,
+                   help="serve every site of the store folder DIR, read only (instead of one site DIR)")
     s.add_argument("-p", "--port", type=int, default=8000, help="port (default 8000)")
     s.add_argument("--host", default="127.0.0.1", help="default 127.0.0.1; use 0.0.0.0 explicitly to share")
     s.add_argument("--public-url", metavar="URL", default=None,
@@ -214,6 +217,20 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         origins = list(dict.fromkeys(normalise_origin(o) for o in args.cors_origin))
     except ValueError as e:
         raise _Usage(f"--cors-origin: {e}") from None
+    if args.store is not None:
+        if args.dir is not None:
+            raise _Usage("--store and a site DIR cannot be used together")
+        try:
+            Store.open(args.store)  # refuses a folder that is not a store, with one line
+        except StoreError as e:
+            return _fail(str(e))
+        try:
+            serve_store(args.store, args.host, args.port, public_url, origins)
+        except StoreError as e:
+            return _fail(str(e))
+        except OSError as e:
+            return _fail(f"cannot serve on {args.host}:{args.port}: {e.strerror or e}")
+        return 0
     directory = args.dir
     if directory is None:
         cfg = _load_config(None)
