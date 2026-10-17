@@ -31,6 +31,9 @@ LOG_FILE = "deploys.log"
 
 #: Segment names no site path may contain: a nested site could hide a file of the site above it.
 RESERVED = frozenset({"api", "assets", "data", "_buildzr", "index.html", "build.json", "llms.txt"})
+#: Seconds a release pruned by a deploy stays on disk, so a reader that started on it can finish (``serve
+#: --accept-deploys`` opens its store with this grace).
+DEPLOY_GRACE_SECONDS = 30
 MAX_SEGMENTS = 8
 MAX_LENGTH = 128
 _SEGMENT = re.compile(r"[a-z0-9][a-z0-9._-]*\Z")
