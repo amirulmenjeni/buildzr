@@ -77,7 +77,7 @@ def test_open_refuses_a_folder_that_is_not_a_store(tmp_path: Path) -> None:
 
 def test_create_makes_the_layout_and_refuses_a_folder_with_other_files(tmp_path: Path) -> None:
     s = Store.open(str(tmp_path / "s"), create=True)
-    assert sorted(os.listdir(s.dir)) == ["buildzr-store.json", "incoming", "sites"]
+    assert sorted(os.listdir(s.dir)) == [".buildzr-store.lock", "buildzr-store.json", "incoming", "sites"]
     assert json.loads((tmp_path / "s" / STORE_FILE).read_text()) == {"sites": {}, "version": 1}
     (tmp_path / "other").mkdir()
     (tmp_path / "other" / "x.txt").write_text("hi")

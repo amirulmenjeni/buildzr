@@ -14,7 +14,7 @@ import sys
 from buildzr.site.deploy import run_instance
 from buildzr.site.store import Store
 
-store = Store.open(sys.argv[1], create=True)
+store = Store.open(sys.argv[1], create=True, exclusive=True)
 kill_at = os.environ.get("BUILDZR_TEST_KILL_AT")
 if kill_at:
     step, _, nth = kill_at.partition(":")

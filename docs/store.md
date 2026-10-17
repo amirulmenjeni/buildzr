@@ -20,6 +20,7 @@ A **store** is a folder in which one `buildzr serve` process keeps several built
 | `buildzr-store.json` | Marks the folder as a store. For each site path it lists the current and the previous release and the `modelHash` of each. |
 | `sites/<key>/r-0007/` | One release: an ordinary built site. `<key>` is the first 16 hex characters of the sha256 of the site path, so a site path never becomes a folder name and a path such as `../x` cannot reach the file system. |
 | `incoming/<random>/` | Sites being unpacked and checked. Emptied whenever the store is opened. |
+| `.buildzr-store.lock` | An empty file the instance that accepts deploys keeps locked while it runs, so a second one cannot start on the same store and a read-only `serve --store` started meanwhile does not clean up what a deploy is writing. |
 | `deploys.log` | One JSON line per install or rollback. Lines written by the deploy listener have the fields of [the audit log](deploy.md#the-audit-log); lines written by the Python functions below have `time`, `sitePath`, `release`, `modelHash`, `previousModelHash`, `action` and `result`. |
 
 When the store is opened, `buildzr` reads `buildzr-store.json` strictly. A file that is not JSON, has the wrong shape, has an unknown `version`, lists a release folder that is missing, or names a release that would leave `sites/` is reported as one line (`buildzr: error: buildzr-store.json: ...`), never as a traceback. Release folders that the file does not list (left by an interrupted install) are deleted.

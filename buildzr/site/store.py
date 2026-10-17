@@ -170,16 +170,20 @@ class Store:
         self._table = RouteTable(routes)
         self._lock = threading.Lock()
         self._log_lock = threading.Lock()
+        self._lock_fd: Optional[int] = None
         #: Test hook: called with a step name between the steps of install and rollback (may raise).
         self.hook: Optional[Callable[[str], None]] = None
 
     # --- opening ----------------------------------------------------------------------------------
 
     @classmethod
-    def open(cls, directory: str, create: bool = False, grace: float = 0.0) -> "Store":
+    def open(cls, directory: str, create: bool = False, grace: float = 0.0, exclusive: bool = False) -> "Store":
         """Open the store in ``directory`` (made when ``create`` is true and the folder is missing or empty).
 
         ``grace`` is how long a release that install pruned stays on disk before it is deleted (default: not at all).
+        ``exclusive`` (the deploy listener) holds the store's lock file for the life of the process and refuses to open
+        a store another process holds. Without it, the leftovers of an interrupted install are cleaned only when no
+        other process holds the lock (cleaning under a running deploy would delete its work).
         """
         d = os.path.abspath(directory)
         marker = os.path.join(d, STORE_FILE)
@@ -193,13 +197,28 @@ class Store:
                 _write_store_file(d, {})
             except OSError as e:
                 raise StoreError(f"cannot create a store in {directory}: {e.strerror or e}") from None
+        lock = _lock(d)
+        held = lock is None or lock[1]
+        if exclusive and not held:
+            assert lock is not None
+            os.close(lock[0])
+            raise StoreError(f"another buildzr process accepts deploys for the store {directory}; "
+                             "only one instance may accept deploys for a store")
         try:
             routes = _read_store_file(d)
             os.makedirs(os.path.join(d, "sites"), exist_ok=True)
-            _clean(d, routes)
+            if held:
+                _clean(d, routes)
+            else:
+                os.makedirs(os.path.join(d, "incoming"), exist_ok=True)
         except OSError as e:
             raise StoreError(f"cannot read the store {directory}: {e.strerror or e}") from None
-        return cls(d, routes, grace)
+        finally:
+            if lock is not None and not exclusive:
+                os.close(lock[0])  # also releases the lock
+        store = cls(d, routes, grace)
+        store._lock_fd = lock[0] if lock is not None and exclusive else None
+        return store
 
     @property
     def table(self) -> RouteTable:
@@ -340,6 +359,26 @@ def _write_store_file(directory: str, routes: Mapping[str, Route], step: Optiona
         raise
     if step:
         step("store-replaced")
+
+
+LOCK_FILE = ".buildzr-store.lock"
+
+
+def _lock(directory: str) -> Optional[tuple[int, bool]]:
+    """Try the store's lock file: ``(fd, held)``, or ``None`` where the platform has no ``flock`` (not locked)."""
+    try:
+        import fcntl
+    except ImportError:  # pragma: no cover - Windows
+        return None
+    try:
+        fd = os.open(os.path.join(directory, LOCK_FILE), os.O_RDWR | os.O_CREAT, 0o644)
+    except OSError as e:
+        raise StoreError(f"cannot open the lock file of the store {directory}: {e.strerror or e}") from None
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fd, True
+    except OSError:
+        return fd, False
 
 
 def _listed(directory: str, site_path: str, rid: str) -> bool:
