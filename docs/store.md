@@ -136,6 +136,7 @@ GET /_buildzr/v1/sites
 The addresses start with `/` when the instance was started without `--public-url` (`"viewerUrl": "/pr/42/"`). Here the instance was started with `--public-url https://preview.example.com`.
 
 - `name` is the workspace name of the site's model (what the model was called in the DSL), so a reader can tell `pr/41` from `pr/42` without opening either.
+- `viewerUrl` is `null` for a site that has no viewer (a data-only site, with no `index.html`), with or without `--public-url`. `apiUrl` is always there.
 - `previousModelHash` is `null` when the site has no previous release. `name`, `elements` and `relationships` are `null` when the release's model cannot be read (`name` also when the model has no workspace name).
 - With `--public-url https://models.example.com` the two URLs start with that address (`https://models.example.com/pr/42/`).
 - The answer has an `ETag` that changes when any site, release or `modelHash` changes; `If-None-Match` gets `304`. As in the Model API there are no CORS headers unless `--cors-origin` is given.

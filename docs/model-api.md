@@ -116,7 +116,7 @@ GET /api/v1/
 - `counts`, `tags` and `topLevel` describe the model; `topLevel` lists the ids to start from.
 - `endpoints` are URL templates: replace the `{...}` parts. Parameters after `?` or `&` inside braces are optional.
 - `limits` are the largest values each parameter accepts (see [Limits](#limits-and-paging)).
-- `viewerUrl` is the address of the viewer. It is `null` when the site has no viewer and no `--public-url` was given, and `notes` says so.
+- `viewerUrl` is the address of the viewer. It is `null` when the site has no viewer (no `index.html`), and `notes` says so.
 - `builtWith` is `null` when the site has no `build.json`.
 
 ## Endpoints
@@ -651,7 +651,7 @@ buildzr serve --public-url https://models.example.com/pr/42/
 
 Links, `endpoints` and `next` are then absolute: `https://models.example.com/pr/42/#/m/e-commerce-system?sel=...`. The address is never guessed from request headers. A trailing `/` is dropped; the value must start with `http://` or `https://` and have no `?` or `#`.
 
-A site built with `viewer: false` has data only. `buildzr serve` still starts and the API works. Its `viewerUrl` links are `null` (and `notes` in the orientation document says so) unless `--public-url` is given: the links then point at that address, where the viewer is expected to be served from.
+A site built with `viewer: false` has data only. `buildzr serve` still starts and the API works. Its `viewerUrl` links are `null` (and `notes` in the orientation document says so), also when `--public-url` is given: the address is only used for the links of a site that has a viewer.
 
 ## `llms.txt`
 

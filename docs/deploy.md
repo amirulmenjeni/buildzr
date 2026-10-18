@@ -34,7 +34,7 @@ Accepting deploys at http://127.0.0.1:8001/ (this machine only; no authenticatio
 - `--accept-deploys` needs the `jsonschema` package, because every upload is checked against the JSON schemas. Install it with `pip install 'buildzr[serve]'`. Without it, `serve` refuses to start (exit code 1).
 - Only one instance can accept deploys for a store: a second one stops with `another buildzr process accepts deploys for the store ...`. A read-only `serve --store` on the same folder can run next to it, but it does not see new deploys until it is restarted.
 - `--deploy-port N` (default `8001`) and `--max-upload-mb N` (default `50`) only exist together with `--accept-deploys`.
-- `--public-url` is the address readers use. The instance uses it for the links it sends back after a deploy (`open:` and `api:`). Without it, the links use the reading listener's own address.
+- `--public-url` is the address readers use. The instance uses it for the links it sends back after a deploy (`open:` and `api:`; a data-only site has no viewer, so its answer has no `viewerUrl` and `deploy` prints no `open:` line). Without it, the links use the reading listener's own address.
 - Ctrl+C stops both listeners.
 
 ### 2. Reach the deploy listener (from your machine or CI)

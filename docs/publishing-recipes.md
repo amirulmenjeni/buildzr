@@ -127,13 +127,10 @@ $ buildzr deploy -t model
 built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
 uploading 6 files, 12 KB to http://127.0.0.1:8001 (path model)
 deployed model: release r-0001, modelHash sha256:87716f3c5b04…
-open: https://preview.example.com/model/
 api:  https://preview.example.com/model/api/v1/
 ```
 
-The site has 6 files instead of 12 because the viewer is left out. The [Model API](model-api.md) works as before. What changes is `viewerUrl`, the link in every answer that a person can open to see an element:
-
-- When you run `buildzr serve` on a data-only site and give no `--public-url`, there is no viewer to link to, so `viewerUrl` is `null` everywhere and the orientation document says so in `notes`:
+The site has 6 files instead of 12 because the viewer is left out. The [Model API](model-api.md) works as before. What changes is `viewerUrl`, the link in every answer that a person can open to see an element. There is no viewer to link to, so `viewerUrl` is `null` everywhere, with or without `--public-url`, and the orientation document says so in `notes`. The `deploy` command above prints no `open:` line for the same reason. The `api:` link is always there:
 
 <!-- doctest: api data-only -->
 ```http
@@ -166,43 +163,6 @@ GET /api/v1/elements?q=mongo
   "truncated": false
 }
 ```
-
-- When you give `--public-url`, the links point at that address, on the assumption that a viewer is served there. Use this when the data-only copy and a full copy of the same model live at different addresses, and `--public-url` names the full one:
-
-<!-- doctest: api data-only-public -->
-```http
-GET /api/v1/elements?q=mongo
-```
-
-```json
-{
-  "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
-  "total": 1,
-  "items": [
-    {
-      "id": "e-commerce-system/database",
-      "name": "Database",
-      "type": "Container",
-      "parent": "e-commerce-system",
-      "description": null,
-      "technology": "MongoDB",
-      "tags": [
-        "Element",
-        "Container"
-      ],
-      "childCount": 0,
-      "viewerUrl": "https://models.example.com/#/m/e-commerce-system?sel=e-commerce-system/database",
-      "matched": "technology"
-    }
-  ],
-  "next": null,
-  "truncated": false
-}
-```
-
-!!! note "On an instance"
-    An instance started with `--public-url` builds every link of every site from that address plus the site path. For a data-only site this means the `viewerUrl` links and the `open:` line point at the site's own address, where there is no viewer. An assistant that reads such a site should ignore `viewerUrl`.
 
 ## Rolling back a bad deploy
 
