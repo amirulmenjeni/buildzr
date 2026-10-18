@@ -23,7 +23,9 @@ A built workspace uses relative addresses only, so it works at any path of any w
 | `llms.txt` | Does not work | `buildzr serve` generates it from the model. |
 | The list of workspaces at `/` and `/_buildzr/v1/workspaces` | Does not work | `buildzr serve` makes them from the build output. Link to each workspace yourself. |
 
-A static host that shows the files of a folder at its address also shows `build.json`, which holds the version of buildzr, the build options and the path of the model file inside your workspaces folder. Nothing else of your project is in a built workspace.
+A static host that shows the files of a folder at its address also shows `build.json`, which holds the version of buildzr, the build options, whether the workspace is broken (with its errors), the path of the model file inside your workspaces folder and the path of the workspaces folder relative to the build output. Nothing else of your project is in a built workspace.
+
+A broken workspace works on a static host too: its viewer reads `build.json` and shows that it is broken. See [When a workspace is broken](cli.md#when-a-workspace-is-broken).
 
 ## Copy the build output
 

@@ -54,7 +54,7 @@ All tests are located in the `tests` folder. To run the tests, use the following
 uv run pytest --mypy tests
 ```
 
-`python -m buildzr.site.check DATA_DIR` checks the `data/` folder of one built workspace (for example `.buildzr/build/shop/data`) against the data contract: the JSON schemas in `buildzr/site/schema/` plus what they cannot express, such as canonical bytes, containment, counts, frames and ports. It prints `OK` or each error and exits 1 on errors. It is a tool for contributors: the test suite (and so CI) uses it, and `buildzr build` does not run it.
+`python -m buildzr.site.check DATA_DIR` checks the `data/` folder of one built workspace (for example `.buildzr/build/shop/data`) against the data contract: the JSON schemas in `buildzr/site/schema/` plus what they cannot express, such as canonical bytes, containment, counts, frames and ports. It prints `OK` or each error and exits 1 on errors. `buildzr build` runs the same check on every workspace it builds and writes a broken workspace when it fails, so the command is for contributors who want to check a data folder on its own. `jsonschema`, which it needs, is a normal dependency of buildzr.
 
 ### Testing `buildzr` Samples
 

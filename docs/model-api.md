@@ -49,6 +49,7 @@ GET /microservices-example/api/v1/
   "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
   "name": "microservices-example",
   "description": null,
+  "status": "ok",
   "builtWith": {
     "buildzr": "0.0.35",
     "k": 4
@@ -124,6 +125,7 @@ GET /microservices-example/api/v1/
 - `limits` are the largest values each parameter accepts (see [Limits](#limits-and-paging)).
 - `viewerUrl` is the address of the viewer. It is `null` when the workspace has no viewer (no `index.html`), and `notes` says so.
 - `builtWith` is `null` when the workspace has no `build.json`.
+- `status` is `ok`, or `broken` when building the workspace failed (see [When a workspace is broken](cli.md#when-a-workspace-is-broken)). A broken workspace that still has its data, because only its checks failed, answers every request as usual, but its orientation document also has `stage` (`check`), `errors` (the first 10) and a sentence in `notes`, and its answers may be wrong. A broken workspace without data answers 503, as below.
 
 ## Endpoints
 
@@ -602,6 +604,19 @@ Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html) problem detai
 | 405 | `method-not-allowed` | Any method but `GET` and `HEAD`. The answer has `Allow: GET, HEAD`. |
 | 409 | `cursor-stale` | A `cursor` from another model. |
 | 503 | `model-unavailable` | The workspace has no readable model (for example while it is being rebuilt). Try again. |
+| 503 | `workspace-broken` | Building the workspace failed at the `model` or `layout` step, so it has no data. `stage` names the step and `errors` lists the first 10 errors. Fix the model and build again. |
+
+A broken workspace without data answers every request below `api/v1/`, and `llms.txt`, like this:
+
+```text
+HTTP/1.0 503
+Content-Type: application/problem+json
+
+{"type": "urn:buildzr:problem:workspace-broken", "title": "Workspace broken", "status": 503,
+ "detail": "building this workspace failed at the model step, so it has no model data: NameError: name 'shopp' is not defined",
+ "instance": "/shop/api/v1/", "code": "workspace-broken", "stage": "model",
+ "errors": ["NameError: name 'shopp' is not defined", "shop.py, line 6: customer >> \"Buys from\" >> shopp"]}
+```
 
 ```http
 GET /microservices-example/api/v1/element?id=e-commerce-system/web-ap

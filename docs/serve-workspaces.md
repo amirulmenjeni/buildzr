@@ -158,6 +158,7 @@ GET /_buildzr/v1/workspaces
       "name": "billing",
       "path": "/billing/",
       "workspaceName": "Billing",
+      "status": "ok",
       "viewerUrl": "/billing/",
       "apiUrl": "/billing/api/v1/",
       "llmsUrl": "/billing/llms.txt",
@@ -173,6 +174,7 @@ The answer above is shortened to its first workspace. Each entry has:
 
 - `name` and `path`: the name of the built workspace and where it is served.
 - `workspaceName`: the name you gave the `Workspace` in Python.
+- `status`: `ok`, or `broken` when building the workspace failed. A broken entry also has `stage` and `errors` (the first 10); see [When a workspace is broken](#8-when-a-workspace-is-broken).
 - `viewerUrl`: the address of its viewer, or `null` for a [data-only workspace](publishing-recipes.md#a-workspace-for-programs-only).
 - `apiUrl` and `llmsUrl`: its [Model API](model-api.md) and its `llms.txt` page.
 - `modelHash`: the fingerprint of the model itself. It changes only when the model changes.
@@ -197,6 +199,90 @@ Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
 - If a web page from another address must read the Model API in a browser, allow that address with `--cors-origin`, for example `--cors-origin https://dashboard.example.com`. Repeat the option for each address. By default, browsers do not let other web pages read the API.
 
 `serve` itself still listens on `http://127.0.0.1:8000/`; point the proxy there. The [Command reference](cli.md#buildzr-serve) lists every option.
+
+## 8. When a workspace is broken
+
+A workspace is **broken** when building it failed because of the workspace itself: its model file raised an error, the layout failed on it, or its data failed the checks that `build` runs on every workspace. A broken workspace replaces its previous built workspace, so nobody looks at an old diagram that no longer matches the model, and everything that shows the workspace says that it is broken.
+
+Make a typo in `workspaces/shop.py`, so that the last line names `shopp` instead of `shop`:
+
+<!-- doctest: file workspaces/shop.py -->
+```python hl_lines="6"
+from buildzr.dsl import Workspace, Person, SoftwareSystem
+
+with Workspace("Shop") as w:
+    customer = Person("Customer")
+    shop = SoftwareSystem("Web Shop")
+    customer >> "Buys from" >> shopp
+```
+
+Build again. Python prints its error first, then `build` prints a block for each broken workspace and exits with code 1. Billing is still built:
+
+```text
+$ buildzr build
+...
+NameError: name 'shopp' is not defined
+built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:9c8b7a6f5e4d…)
+buildzr: BROKEN: workspace shop (workspaces/shop.py) failed at the model step
+    NameError: name 'shopp' is not defined
+    shop.py, line 6: customer >> "Buys from" >> shopp
+  this workspace is broken; the viewer says so
+[exit code 1]
+```
+
+In a terminal, the block is red. Each block names the workspace, its model file, the step that failed (`model`, `layout` or `check`) and the first 10 errors.
+
+`buildzr serve` shows the broken workspace too, and prints the same block when it starts:
+
+```text
+$ buildzr serve
+up to date: billing, shop
+buildzr: BROKEN: workspace shop (workspaces/shop.py) failed at the model step
+    NameError: name 'shopp' is not defined
+    shop.py, line 6: customer >> "Buys from" >> shopp
+  this workspace is broken; the viewer says so
+Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+  http://127.0.0.1:8000/billing/
+  http://127.0.0.1:8000/shop/
+Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
+```
+
+`serve` did not build Shop again: the broken workspace has the fingerprint of the file as it is now, so it is up to date until you change the file.
+
+- **The list at `/`** shows `broken` in red next to the workspace, with the step and the first error. In `/_buildzr/v1/workspaces`, its `status` is `broken`, with `stage` and `errors`.
+- **The viewer** of a workspace that has no data, because its model file or its layout failed, shows only the error:
+
+![The viewer at /shop/: a red bar that says This workspace is broken: building it failed at the model step, then the workspace name Shop, the two errors in a grey box, and the line Fix the error in shop.py and run buildzr build again, or restart buildzr serve](images/serve/serve-broken-model.png)
+
+*A workspace broken at the model step. There is no diagram, because there is no data to draw.*
+
+- **The viewer** of a workspace whose data failed the checks still draws the diagram, under a red bar that you cannot close. **Show the errors** opens the list:
+
+![The viewer of Billing with a red bar at the top that says This workspace is broken: the data failed its checks, a Hide the errors button, and below it one error about an edge of the landscape that is 40 px from the border of Invoicing; the toolbar and the diagram follow below](images/serve/serve-broken-check.png)
+
+*A workspace broken at the check step. The data is kept, so you can see what is wrong; trust the diagram less than usual. For this picture, one arrow was moved on purpose after the layout. A check failure is rare: it means a bug in buildzr or damaged files, so please [report it](https://github.com/amirulmenjeni/buildzr/issues) with the errors.*
+
+- **The [Model API](model-api.md)** of a workspace without data answers `503` with the stage and the errors. With data, it answers as usual and its orientation document has `status: broken` and the errors.
+
+Fix the typo and build again. Shop is an ordinary workspace again, and the viewer shows the diagram:
+
+<!-- doctest: file workspaces/shop.py -->
+```python
+from buildzr.dsl import Workspace, Person, SoftwareSystem
+
+with Workspace("Shop") as w:
+    customer = Person("Customer")
+    shop = SoftwareSystem("Web Shop")
+    customer >> "Buys from" >> shop
+```
+
+```text
+$ buildzr build
+built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:9c8b7a6f5e4d…)
+built .buildzr/build/shop (2 elements, 1 relationship, 0 views; modelHash sha256:7f1e2d3c4b5a…)
+```
+
+If Node.js is missing, the disk is full or the build is killed, the workspace is not at fault: `build` writes nothing, keeps the previous built workspace and prints an error line instead. The [Command reference](cli.md#when-a-workspace-is-broken) lists which failures are which.
 
 ## Next steps
 

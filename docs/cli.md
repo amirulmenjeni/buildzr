@@ -83,7 +83,7 @@ The tables below list every option. `buildzr COMMAND --help` prints the same lis
 buildzr build [-h] [-w PATH] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c FILE] [-v] [-o DIR]
 ```
 
-`build` runs every model file of the workspaces folder, each in a fresh Python process, lays out the diagrams of every workspace the files create, and writes each one to `<build output>/<name>/`. It always builds every workspace; `serve` is the command that builds only what is out of date.
+`build` runs every model file of the workspaces folder, each in a fresh Python process, lays out the diagrams of every workspace the files create, checks the result, and writes each one to `<build output>/<name>/`. It always builds every workspace; `serve` is the command that builds only what is out of date.
 
 | Option | What it does |
 |---|---|
@@ -112,14 +112,37 @@ Each workspace is written to a folder named after the workspace, and served at t
 - These names are reserved, because they would hide a file or an address of `buildzr serve`: `api`, `assets`, `data`, `_buildzr`, `index.html`, `build.json` and `llms.txt`. A workspace with one of them fails; rename it.
 - When two workspaces get the same name, `build` stops before it writes anything, with one error that names both workspaces and their files.
 
-#### When a workspace fails
+#### When a workspace is broken
 
-- If a model file or one of its workspaces fails, the other workspaces are still built. Each failure is printed with the name of its file, and `build` exits with code 1.
-- A failed workspace keeps its previous built folder, unchanged. A built workspace is written to a temporary folder first and then put in place in one step, so a reader never sees half of one.
+Before `build` puts a built workspace in place, it checks its data: the JSON schemas, and rules that the schemas cannot express, such as boxes inside their frames and arrows that end on the border of their boxes. What happens when a step fails depends on what is at fault:
+
+| At fault | Examples | What `build` does | Exit code |
+|---|---|---|---|
+| The workspace | Its model file raises an error. The layout fails on this model. The data fails its checks. | Writes a **broken** built workspace, which replaces the previous one, and prints a block for it. | 1 |
+| The machine | Node.js is missing or too old. The disk is full. Permission is denied. The build process is killed. | Writes nothing: the previous built workspace stays as it was. Prints one error line. | 1 |
+
+- The other workspaces are still built either way.
+- The `build.json` of every built workspace has `status`: `ok`, or `broken`. A broken one also has `stage`, the step that failed (`model`, `layout` or `check`), and `errors`, at most 50 errors of at most 500 characters each.
+- After a failure at the `check` step, the data is kept next to `build.json`, so that you can look at what is wrong. After a failure at the `model` or `layout` step, there is no data: the folder holds `build.json` and the viewer, which shows the errors.
+- A model file that raises an error before it creates any workspace breaks the workspaces it built last time. On its first build, its broken workspace is named after the file.
+- A broken workspace is up to date like an ok one, so `serve` does not build the same broken model file again and again. Change the file, or use `--rebuild`.
+- A workspace with a [reserved name](#the-name-of-a-built-workspace) fails without a broken workspace, because it cannot be written under that name.
+- Every built workspace, ok or broken, is written to a temporary folder first and then put in place in one step, so a reader never sees half of one.
+
+The block of a broken workspace, red in a terminal:
+
+```text
+buildzr: BROKEN: workspace billing (workspaces/billing.py) failed at the model step
+    NameError: name 'ledger' is not defined
+    billing.py, line 6: invoicing >> "Collects payments through" >> ledger
+  this workspace is broken; the viewer says so
+```
+
+[Serve your workspaces](serve-workspaces.md#8-when-a-workspace-is-broken) shows what the viewer, the list at `/` and the Model API show for a broken workspace.
 
 #### Removing built workspaces you no longer build
 
-A full build, without `-w` or with `-w` and a folder, removes a built workspace when its model file was deleted, or when its model file ran without failure in this build and no longer creates it (you renamed or removed the workspace in the file). It prints one line for each, such as `removed old-name: its model file workspaces/old-name.py is gone`. A model file that failed keeps all its previous built workspaces. A folder without a `build.json` that names its model file is never removed, nor is anything when you build one file with `-w FILE`. `serve` never removes anything: run `buildzr build` to tidy the build output.
+A full build, without `-w` or with `-w` and a folder, removes a built workspace when its model file was deleted, or when its model file ran without failure in this build and no longer creates it (you renamed or removed the workspace in the file). It prints one line for each, such as `removed old-name: its model file workspaces/old-name.py is gone`. A model file that failed because of the machine keeps all its previous built workspaces. Only built workspaces built from the same workspaces folder are removed: `build.json` records that folder, so `buildzr build -w other/folder` never removes the workspaces of your workspaces folder. A folder without a `build.json` that names its model file is never removed, nor is anything when you build one file with `-w FILE`. `serve` never removes anything: run `buildzr build` to tidy the build output.
 
 ### Choosing a value for `--k`
 
@@ -182,7 +205,7 @@ File dates are not used. Code that a model file imports from **outside** the wor
 | `/` | With one workspace, a redirect (HTTP 302) to `/<name>/`. With several, a page that links to each one. |
 | `/_buildzr/v1/workspaces` | The list of workspaces as JSON. See [Serve your workspaces](serve-workspaces.md#6-list-the-workspaces-from-a-program). |
 
-- When `serve` starts, it prints each build failure, as `build` does, and serves the workspaces that did build. If nothing can be served, it exits with code 1.
+- When `serve` starts, it prints each build failure as `build` does, and a block for every broken workspace in the build output, also those built earlier. It serves every built workspace, broken ones included: `/` marks them as broken, and `/_buildzr/v1/workspaces` gives their `status`, `stage` and `errors`. If nothing can be served, it exits with code 1.
 - If a workspace must be built but Node is not installed, `serve` says so in one line and serves what is already built.
 - `serve` looks at the build output again when someone opens `/` or the list, and when an address names a workspace it does not know yet. A workspace that `buildzr build` adds in another terminal therefore appears without a restart. A workspace in the middle of being replaced is not served for that moment: its address answers 404.
 
@@ -191,7 +214,7 @@ File dates are not used. Code that a model file imports from **outside** the wor
 | Code | Meaning |
 |---|---|
 | 0 | Success. `serve` exits with 0 when you stop it with Ctrl+C. |
-| 1 | A workspace failed to build, there was nothing to serve, or the port is in use. |
+| 1 | A workspace is broken or could not be built, there was nothing to serve, or the port is in use. |
 | 2 | A usage or config error: an unknown option, a workspaces folder or path that does not exist, or a problem in `buildzr.yaml`. |
 
 Error messages from the command start with `buildzr: error: `. Problems in `buildzr.yaml` are listed one per line, as `buildzr.yaml:<line>: <key>: <message>`.

@@ -113,7 +113,7 @@ uvx buildzr serve
 Installing buildzr also installs the `buildzr` command. It turns each workspace of your **workspaces folder** (`workspaces/`, a folder of model files) into web pages that draw your diagrams in a browser.
 
 - `buildzr serve` builds every workspace that is new or changed, then serves them all: each one at `/<name>/` of `http://127.0.0.1:8000/`.
-- `buildzr build` builds every workspace into `.buildzr/build/<name>/`, for example to copy them to a web server you already have.
+- `buildzr build` builds and checks every workspace into `.buildzr/build/<name>/`, for example to copy them to a web server you already have. A workspace whose model file fails is written as a broken workspace, and the viewer says so.
 
 Scripts, CI (continuous integration) jobs, dashboards and AI assistants can read each model through the read-only [Model API](https://buildzr.dev/model-api/) of `buildzr serve`.
 

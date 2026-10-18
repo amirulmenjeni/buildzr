@@ -33,6 +33,7 @@ from typing import Any, Iterator, Optional
 
 import pytest
 
+import buildzr.site.build as build_mod
 import buildzr.site.cli as cli
 from buildzr.site.build import STATIC_DIR, build_workspace
 from buildzr.site.config import ConfigError, load_config
@@ -159,6 +160,7 @@ def layout(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFac
 
     monkeypatch.setattr(cli, "build_all", stub_build_all)
     monkeypatch.setattr(cli, "_node_problem", lambda: None)
+    monkeypatch.setattr(build_mod, "check_workspace", lambda data_dir: [])  # the stub's scenes fit no page model
 
 
 # --- servers for the API examples -----------------------------------------------------------------------
@@ -173,7 +175,12 @@ def servers(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, int]
         build_workspace(EXAMPLE_PY, str(built))
     else:
         static = make_static(tmp / "static")
-        build_workspace(EXAMPLE_PY, str(built), layout_fn=stub_layout, static_dir=str(static))
+        real_check = build_mod.check_workspace
+        build_mod.check_workspace = lambda data_dir: []  # the stub's scenes do not fit the example
+        try:
+            build_workspace(EXAMPLE_PY, str(built), layout_fn=stub_layout, static_dir=str(static))
+        finally:
+            build_mod.check_workspace = real_check
     shutil.copytree(built, tmp / "data-only" / EXAMPLE_NAME)
     (tmp / "data-only" / EXAMPLE_NAME / "index.html").unlink()
     shutil.rmtree(tmp / "data-only" / EXAMPLE_NAME / "assets")

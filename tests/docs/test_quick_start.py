@@ -56,6 +56,7 @@ def test_the_complete_example_builds_a_workspace(tmp_path: Path, monkeypatch: py
             return real(path, out, *a, **{**kw, "layout_fn": stub_layout, "static_dir": str(static)})
 
         monkeypatch.setattr(cli, "build_all", stub_build_all)
+        monkeypatch.setattr("buildzr.site.build.check_workspace", lambda data_dir: [])  # the stub fits no page model
     (tmp_path / ".git").mkdir()  # so that the config search stops here
     (tmp_path / "workspaces").mkdir()
     (tmp_path / "workspaces" / "hello.py").write_text(model_blocks()[-1].text, encoding="utf-8")
