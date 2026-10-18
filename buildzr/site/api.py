@@ -239,7 +239,7 @@ class Api:
 
     @property
     def links_to_viewer(self) -> bool:
-        return self.viewer or self.public_url is not None
+        return self.viewer
 
     def viewer_url(self, path: str) -> Optional[str]:
         """The link that opens the viewer at element ``path`` (``docs/viewer-hash-routes.md``), or ``None``."""
@@ -370,10 +370,8 @@ class Api:
         sample = next((e["id"] for e in self.model["elements"] if e["parent"]), None) or \
             (self.model["elements"][0]["id"] if self.model["elements"] else "name")
         notes = []
-        if not self.viewer and self.public_url is None:
-            notes.append("This site has no viewer and no --public-url was given, so viewerUrl is null everywhere.")
-        elif not self.viewer:
-            notes.append("This site serves data only; viewerUrl points at --public-url, where the viewer is expected.")
+        if not self.viewer:
+            notes.append("This site has no viewer, so viewerUrl is null everywhere.")
         out = self.envelope(
             name=ws["name"], description=ws["description"],
             builtWith={"buildzr": bw.get("buildzr"), "k": bw.get("k")} if bw else None,

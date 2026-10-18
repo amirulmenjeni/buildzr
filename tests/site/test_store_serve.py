@@ -306,6 +306,35 @@ def test_a_broken_release_is_a_problem_not_a_traceback(two: Env) -> None:
 # --- the list of sites ----------------------------------------------------------------------------------
 
 
+def data_only(site: Path) -> Path:
+    os.remove(site / "index.html")
+    shutil.rmtree(site / "assets")
+    return site
+
+
+@pytest.mark.parametrize("public_url", [None, "https://models.example.com"])
+def test_a_data_only_site_has_no_viewer_links_next_to_a_normal_one(base_site: Path, tmp_path: Path,
+                                                                    public_url: Optional[str]) -> None:
+    store = Store.open(str(tmp_path / "s"), create=True)
+    put(store, variant(base_site, tmp_path / "a", 1), "")
+    put(store, data_only(variant(base_site, tmp_path / "b", 2)), "data-only")
+    env = start_store(store, public_url=public_url)
+    base = public_url or ""
+    try:
+        sites = {s["sitePath"]: s for s in jget(env.port, "/_buildzr/v1/sites")["sites"]}
+        assert sites[""]["viewerUrl"] == base + "/" and sites[""]["apiUrl"] == base + "/api/v1/"
+        assert sites["data-only"]["viewerUrl"] is None
+        assert sites["data-only"]["apiUrl"] == base + "/data-only/api/v1/"
+        doc = jget(env.port, "/data-only/api/v1/")
+        assert doc["viewerUrl"] is None and doc["notes"] == ["This site has no viewer, so viewerUrl is null everywhere."]
+        assert jget(env.port, "/data-only/api/v1/element?id=billing")["element"]["viewerUrl"] is None
+        assert jget(env.port, "/api/v1/")["viewerUrl"] == base + "/" and jget(env.port, "/api/v1/")["notes"] == []
+        assert jget(env.port, "/api/v1/element?id=billing")["element"]["viewerUrl"].startswith(base + "/#/m/billing")
+    finally:
+        env.srv.shutdown()
+        env.srv.server_close()
+
+
 def test_sites_endpoint_shape_and_etag(two: Env) -> None:
     status, hdr, body = get(two.port, "/_buildzr/v1/sites")
     assert status == 200 and hdr["content-type"].startswith("application/json")

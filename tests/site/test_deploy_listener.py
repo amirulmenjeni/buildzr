@@ -109,6 +109,29 @@ def test_a_data_only_site_is_accepted(inst: Instance, tmp_path: Path) -> None:
     assert s == 200 and doc["release"] == "r-0001"
 
 
+def test_a_data_only_site_gets_no_viewer_link_in_the_answers(tmp_path: Path, sites: list[Path]) -> None:
+    for public in (None, "https://models.example.com"):
+        i = Instance(tmp_path / f"store-{public is not None}", public_url=public)
+        try:
+            base = (public or f"http://127.0.0.1:{i.rport}") + "/"
+            h = deploy_headers()
+            del h["Content-Type"]
+            only = [valid_site(tmp_path / f"d{public is not None}{n}", n, viewer=False) for n in (1, 2)]
+            doc = put_site(i.port, only[0], "pr/1")[2]
+            assert doc["viewerUrl"] is None and doc["apiUrl"] == base + "pr/1/api/v1/"
+            doc = put_site(i.port, only[0], "pr/1")[2]  # unchanged
+            assert doc["unchanged"] is True and doc["viewerUrl"] is None and doc["apiUrl"] == base + "pr/1/api/v1/"
+            put_site(i.port, only[1], "pr/1")
+            doc = request(i.port, "POST", ROLLBACK_ENDPOINT + "?path=pr/1", headers=h)[2]
+            assert doc["rolledBack"] is True and doc["viewerUrl"] is None and doc["apiUrl"] == base + "pr/1/api/v1/"
+            # a normal site on the same instance keeps its link, also after a rollback
+            put_site(i.port, sites[0], "pr/2")
+            assert put_site(i.port, sites[1], "pr/2")[2]["viewerUrl"] == base + "pr/2/"
+            assert request(i.port, "POST", ROLLBACK_ENDPOINT + "?path=pr/2", headers=h)[2]["viewerUrl"] == base + "pr/2/"
+        finally:
+            i.close()
+
+
 def test_modes_owners_and_times_of_the_archive_are_ignored(inst: Instance, sites: list[Path]) -> None:
     members = []
     for info, data in site_members(sites[0]):

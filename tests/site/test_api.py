@@ -840,8 +840,14 @@ def test_data_only_site_still_serves_the_api(small_site: Path, tmp_path: Path) -
         assert c.call("GET", "/")[0] == 404 and c.call("GET", "/llms.txt")[0] == 200
         assert "Viewer for people" not in c.call("GET", "/llms.txt")[2].decode()
         d2 = Client(port2)
-        assert d2.ok("/api/v1/")["viewerUrl"] == "https://viewer.example.com/" and any("data only" in n for n in d2.ok("/api/v1/")["notes"])
-        assert d2.ok("/api/v1/element?id=customer")["element"]["viewerUrl"] == "https://viewer.example.com/#/m?sel=customer"
+        # with --public-url there is still no viewer on this site, so there is still no viewer link
+        doc2 = d2.ok("/api/v1/")
+        assert doc2["viewerUrl"] is None and doc2["publicUrlConfigured"] is True and doc2["notes"] == doc["notes"]
+        assert d2.ok("/api/v1/element?id=customer")["element"]["viewerUrl"] is None
+        assert d2.ok("/api/v1/views")["items"][0]["viewerUrl"] is None
+        assert all(i["viewerUrl"] is None for i in d2.ok("/api/v1/elements")["items"])
+        assert "Viewer for people" not in d2.call("GET", "/llms.txt")[2].decode()
+        assert doc2["endpoints"] and all(u.startswith("https://viewer.example.com/api/v1/") for u in doc2["endpoints"].values())
     finally:
         for s in (srv, srv2):
             s.shutdown()

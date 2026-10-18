@@ -773,9 +773,10 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
         v = self.headers.get("X-Buildzr-Version")
         return v if v is not None and _VERSION.fullmatch(v) else None
 
-    def _urls(self, site_path: str) -> tuple[str, str]:
+    def _urls(self, site_path: str, folder: str) -> tuple[Optional[str], str]:
+        """The viewer link (``None`` when the release in ``folder`` has no ``index.html``) and the API address."""
         base = (self.public_url or self.reader_base) + "/" + (quote(site_path, safe="/") + "/" if site_path else "")
-        return base, base + "api/v1/"
+        return (base if os.path.isfile(os.path.join(folder, "index.html")) else None), base + "api/v1/"
 
     def _length(self) -> int:
         if self.headers.get("Transfer-Encoding") is not None:
@@ -848,7 +849,7 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
             check_in_child(site, self.check_timeout)
             route = self.store.table.route(site_path)
             sender = self._sender()
-            viewer, api = self._urls(site_path)
+            viewer, api = self._urls(site_path, site)
             if route is not None and file_hashes(site) == file_hashes(route.current.dir):
                 answer = {"ok": True, "path": site_path, "release": route.current.id,
                           "modelHash": route.current.model_hash, "previousModelHash": route.current.model_hash,
@@ -898,7 +899,8 @@ class DeployHandler(http.server.BaseHTTPRequestHandler):
                 raise Rejected(409, "no-previous-release", "No previous release", str(e)) from None
         finally:
             self.busy.release()
-        viewer, api = self._urls(site_path)
+        now = self.store.table.route(site_path)
+        viewer, api = self._urls(site_path, now.current.dir if now is not None else "")
         self._audit({"action": "rollback", "path": site_path, "result": "ok", "release": done.release,
                      "modelHash": done.model_hash, "previous": done.previous_model_hash})
         self._json(200, {"ok": True, "path": site_path, "release": done.release, "modelHash": done.model_hash,

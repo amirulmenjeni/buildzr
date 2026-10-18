@@ -417,10 +417,11 @@ class StoreHandler(Handler):
             except Exception:
                 pass
             base = self._site_url(r.site_path)
+            has_viewer = os.path.isfile(os.path.join(r.current.dir, "index.html"))
             sites.append({"sitePath": r.site_path, "name": name, "currentRelease": r.current.id, "modelHash": r.current.model_hash,
                           "previousModelHash": r.previous.model_hash if r.previous else None,
                           "elements": counts["elements"], "relationships": counts["relationships"],
-                          "viewerUrl": base, "apiUrl": base + "api/v1/"})
+                          "viewerUrl": base if has_viewer else None, "apiUrl": base + "api/v1/"})
             state.append([r.site_path, r.current.id, r.current.model_hash, r.previous.id if r.previous else None])
         etag = '"' + hashlib.sha256(json.dumps(state, separators=(",", ":")).encode()).hexdigest()[:32] + '"'
         if _etag_matches(self.headers.get("If-None-Match"), etag):

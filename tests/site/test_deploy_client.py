@@ -120,6 +120,21 @@ def test_only_loopback_addresses(url: str, ok: bool) -> None:
 # --- the CLI against an instance in this process ------------------------------------------------------
 
 
+def test_no_open_line_for_a_site_without_a_viewer(inst: Instance, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                 capsys: pytest.CaptureFixture[str]) -> None:
+    root = repo(tmp_path, inst.url)
+    only = [valid_site(tmp_path / f"only{n}", n, viewer=False) for n in (1, 2)]
+    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "preview", "--from", str(only[0]))
+    assert code == 0, err
+    assert "open:" not in out and out.splitlines()[-1] == f"api:  http://127.0.0.1:{inst.rport}/pr/42/api/v1/"
+    code, out, _ = run(root, monkeypatch, capsys, "deploy", "-t", "preview", "--from", str(only[0]))
+    assert code == 0 and "unchanged pr/42" in out and "open:" not in out and "api:  " in out
+    run(root, monkeypatch, capsys, "deploy", "-t", "preview", "--from", str(only[1]))
+    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "preview", "--rollback")
+    assert code == 0, err
+    assert out.startswith("rolled back pr/42") and "open:" not in out and "api:  " in out
+
+
 def test_deploy_unchanged_and_rollback_through_the_cli(inst: Instance, sites: list[Path], tmp_path: Path,
                                                       monkeypatch: pytest.MonkeyPatch,
                                                       capsys: pytest.CaptureFixture[str]) -> None:

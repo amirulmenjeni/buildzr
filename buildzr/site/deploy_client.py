@@ -364,7 +364,8 @@ def deploy(site: str, url: str, path: str, timeout: float, dry_run: bool = False
         prev = doc.get("previousModelHash")
         out(f"deployed {shown}: release {doc.get('release')}, modelHash {_short(doc.get('modelHash'))}"
             + (f" (previous {_short(prev)})" if prev else ""))
-    out(f"open: {doc.get('viewerUrl')}")
+    if doc.get("viewerUrl"):
+        out(f"open: {doc['viewerUrl']}")
     out(f"api:  {doc.get('apiUrl')}")
     return 0
 
@@ -381,7 +382,8 @@ def rollback(url: str, path: str, timeout: float, dry_run: bool = False, out: Ca
                       _headers({"Content-Length": "0"}))
     out(f"rolled back {doc.get('path') or '/'}: release {doc.get('release')} is current again, modelHash "
         f"{_short(doc.get('modelHash'))} (was {_short(doc.get('previousModelHash'))})")
-    out(f"open: {doc.get('viewerUrl')}")
+    if doc.get("viewerUrl"):
+        out(f"open: {doc['viewerUrl']}")
     out(f"api:  {doc.get('apiUrl')}")
     return 0
 

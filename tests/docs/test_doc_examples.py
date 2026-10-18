@@ -10,7 +10,7 @@ Conventions of the pages (the ``<!-- doctest: ... -->`` line goes just before th
 * ``file PATH`` writes the next block to PATH of that folder (the model of the page).
 * an ``http`` block ``GET /path`` is sent to a live server; the ``json`` block after it is compared with the answer
   (same keys, same types, same values unless the directive is ``shape``).
-* ``api NAME`` chooses the server of an ``http`` block: ``example`` (default), ``data-only``, ``data-only-public``
+* ``api NAME`` chooses the server of an ``http`` block: ``example`` (default), ``data-only``
   or ``instance`` (the instance that the commands of the page deployed to).
 * ``merge`` (before a ``yaml`` block): its targets are added to the config of the page instead of replacing it.
 * ``audit`` (before a ``json`` block): the block is a line of ``deploys.log``; it is compared, by shape, with the
@@ -205,8 +205,7 @@ def sites(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, int]]:
     shutil.rmtree(tmp / "data-only" / "assets")
     servers = []
     ports = {}
-    for name, d, kw in (("example", "site", {}), ("data-only", "data-only", {}),
-                        ("data-only-public", "data-only", {"public_url": "https://models.example.com"})):
+    for name, d, kw in (("example", "site", {}), ("data-only", "data-only", {})):
         srv = make_server(str(tmp / d), port=0, **kw)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         servers.append(srv)
