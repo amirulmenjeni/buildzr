@@ -140,7 +140,10 @@ def _export_all(path: str, out: str, text_color: str, quiet: bool) -> int:
         if isinstance(e, SystemExit) and e.code in (None, 0):
             found = created
         else:
-            traceback.print_exc()
+            tb = e.__traceback__  # print from the model file's first frame: buildzr's own frames say nothing
+            while tb is not None and os.path.abspath(tb.tb_frame.f_code.co_filename) != path:
+                tb = tb.tb_next
+            traceback.print_exception(type(e), e, tb or e.__traceback__)
             os.makedirs(out, exist_ok=True)
             canonical.write(os.path.join(out, "workspaces.json"), {
                 "workspaces": [], "created": [_workspace_name(ws) for ws in created],
