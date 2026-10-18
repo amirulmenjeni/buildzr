@@ -110,6 +110,30 @@ get "http://127.0.0.1:$PORT/_buildzr/v1/workspaces" "$WORK/list.json"
 python -I -c 'import json, sys; names = [w["name"] for w in json.load(open(sys.argv[1]))["workspaces"]]; sys.exit(names != ["a", "b"])' \
   "$WORK/list.json" || fail "/_buildzr/v1/workspaces does not list a and b"
 
+step "buildzr build with a broken workspace (exit code 1, shown as broken)"
+printf 'from buildzr.dsl import Workspace\nwith Workspace("broken") as w:\n    raise RuntimeError("smoke: boom")\n' >workspaces/broken.py
+set +e
+buildzr build >"$WORK/build-broken.log" 2>&1
+code=$?
+set -e
+cat "$WORK/build-broken.log"
+[[ "$code" = 1 ]] || fail "buildzr build exited with $code for a broken workspace, expected 1"
+grep -q '^buildzr: BROKEN: workspace broken (workspaces/broken.py) failed at the model step$' "$WORK/build-broken.log" \
+  || fail "buildzr build printed no BROKEN block for the broken workspace"
+# The running serve finds the new workspace on the next request to the list.
+get "http://127.0.0.1:$PORT/_buildzr/v1/workspaces" "$WORK/list-broken.json"
+python -I -c '
+import json, sys
+ws = {w["name"]: w for w in json.load(open(sys.argv[1]))["workspaces"]}
+b = ws.get("broken", {})
+ok = [ws[n]["status"] for n in ("a", "b")] == ["ok", "ok"]
+sys.exit(0 if ok and b.get("status") == "broken" and b.get("stage") == "model"
+         and "RuntimeError: smoke: boom" in b.get("errors", []) else 1)' "$WORK/list-broken.json" \
+  || fail "/_buildzr/v1/workspaces does not show broken as broken next to a and b: $(cat "$WORK/list-broken.json")"
+code="$(status "http://127.0.0.1:$PORT/broken/api/v1/")"
+[[ "$code" = 503 ]] || fail "GET /broken/api/v1/ answered $code, expected 503"
+echo "503 http://127.0.0.1:$PORT/broken/api/v1/ (broken, no data)"
+
 step "buildzr serve of a project with one workspace (it builds, / redirects)"
 mkdir "$WORK/one" && cd "$WORK/one"
 mkdir workspaces
