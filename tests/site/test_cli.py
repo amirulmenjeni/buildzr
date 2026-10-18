@@ -99,7 +99,7 @@ def test_missing_layout_stage_message(tmp_path: Path, ws_file: str) -> None:
         pytest.skip("layout stage present")
     except ImportError:
         pass
-    assert main(["build", "--workspace", ws_file, "--out", str(tmp_path / "o"), "--no-viewer"]) == 1
+    assert main(["build", "--workspaces", ws_file, "--out", str(tmp_path / "o"), "--no-viewer"]) == 1
 
 
 def test_build_failure_keeps_previous_output(tmp_path: Path, ws_file: str) -> None:
@@ -248,7 +248,7 @@ def run(root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixtu
 
 def test_build_driven_by_the_file_with_no_flags(tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch,
                                                  capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {k: 3, text_color: c4, viewer: false, out: out/site}\n")
+    root = project(tmp_path, "workspaces: ws/workspace.py\nbuild: {k: 3, text_color: c4, viewer: false, out: out/site}\n")
     code, out, err = run(root, monkeypatch, capsys, "build")
     assert (code, err) == (0, "")
     assert out.startswith("built out/site/small-fixture (") and "modelHash sha256:" in out and "11 elements" in out
@@ -271,7 +271,7 @@ SUMMARY = re.compile(r"^.*: \d+ elements, \d+ relationships, \d+ views, \d+ leve
 
 def test_build_is_quiet_about_the_model_run_unless_verbose(tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch,
                                                            capfd: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false}\n")
+    root = project(tmp_path, "workspaces: ws/workspace.py\nbuild: {viewer: false}\n")
     code, out, err = runfd(root, monkeypatch, capfd, "build")
     assert (code, err) == (0, "")
     assert not SUMMARY.search(out)
@@ -288,7 +288,7 @@ def test_build_is_quiet_about_the_model_run_unless_verbose(tmp_path: Path, stubb
 @pytest.mark.parametrize("verbose", [False, True])
 def test_a_failing_model_still_shows_its_error(tmp_path: Path, stubbed: None, command: list[str], verbose: bool,
                                                monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false}\n")
+    root = project(tmp_path, "workspaces: ws/workspace.py\nbuild: {viewer: false}\n")
     (root / "ws" / "workspace.py").write_text("import sys\nprint('model output')\nraise RuntimeError('boom in the model')\n")
     code, out, err = runfd(root, monkeypatch, capfd, *command, *(["-v"] if verbose else []))
     assert code == 1
@@ -300,7 +300,7 @@ def test_a_failing_model_still_shows_its_error(tmp_path: Path, stubbed: None, co
 
 def test_build_from_a_subfolder_uses_the_file_folder_for_relative_paths(
         tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false}\n")
+    root = project(tmp_path, "workspaces: ws/workspace.py\nbuild: {viewer: false}\n")
     (root / "deep" / "er").mkdir(parents=True)
     code, _, err = run(root / "deep" / "er", monkeypatch, capsys, "build")
     assert (code, err) == (0, "")
@@ -309,7 +309,7 @@ def test_build_from_a_subfolder_uses_the_file_folder_for_relative_paths(
 
 def test_flag_beats_file_beats_default(tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch,
                                        capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: nope.py\nbuild: {k: 3, text_color: c4, viewer: false, out: from-file}\n")
+    root = project(tmp_path, "workspaces: nope.py\nbuild: {k: 3, text_color: c4, viewer: false, out: from-file}\n")
     ws = str(root / "ws" / "workspace.py")
     code, _, err = run(root, monkeypatch, capsys, "build", "-w", ws, "--k", "2", "--text-color", "wcag",
                        "-o", "from-flag")
@@ -332,10 +332,10 @@ def test_flag_beats_file_beats_default(tmp_path: Path, stubbed: None, monkeypatc
 
 def test_no_viewer_flag_and_viewer_false_both_mean_data_only(
         tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: ws/workspace.py\n")  # build.viewer defaults to true
+    root = project(tmp_path, "workspaces: ws/workspace.py\n")  # build.viewer defaults to true
     code, _, _ = run(root, monkeypatch, capsys, "build", "--no-viewer", "-o", "a")
     assert code == 0 and sorted(os.listdir(root / "a" / "small-fixture")) == ["build.json", "data"]
-    (root / "buildzr.yaml").write_text("workspace: ws/workspace.py\nbuild: {viewer: false}\n")
+    (root / "buildzr.yaml").write_text("workspaces: ws/workspace.py\nbuild: {viewer: false}\n")
     code, _, _ = run(root, monkeypatch, capsys, "build", "-o", "b")
     assert code == 0 and sorted(os.listdir(root / "b" / "small-fixture")) == ["build.json", "data"]
 
@@ -345,7 +345,7 @@ def test_build_without_a_workspaces_folder_is_a_usage_error(tmp_path: Path, monk
     code, out, err = run(project(tmp_path), monkeypatch, capsys, "build")
     assert code == 2 and out == ""
     assert err == ("buildzr: error: workspaces not found; create the workspaces folder, pass -w PATH "
-                   "or set workspace: in buildzr.yaml\n")
+                   "or set workspaces: in buildzr.yaml\n")
 
 
 def test_config_problems_are_printed_as_the_loader_formats_them(
@@ -362,16 +362,16 @@ def test_missing_config_file_flag_and_misnamed_file(tmp_path: Path, monkeypatch:
     root = project(tmp_path)
     code, _, err = run(root, monkeypatch, capsys, "build", "-c", "nope.yaml")
     assert code == 2 and err == "buildzr: error: config file not found: nope.yaml\n"
-    (root / "buildzr.yml").write_text("workspace: x.py\n")
+    (root / "buildzr.yml").write_text("workspaces: x.py\n")
     code, _, err = run(root, monkeypatch, capsys, "build")
     assert code == 2 and err == "found buildzr.yml; the config file must be named buildzr.yaml\n"
 
 
 def test_explicit_config_flag(tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch,
                               capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: nope.py\n")  # discovered file would fail
+    root = project(tmp_path, "workspaces: nope.py\n")  # discovered file would fail
     other = root / "other.yaml"
-    other.write_text("workspace: ws/workspace.py\nbuild: {viewer: false, out: o}\n")
+    other.write_text("workspaces: ws/workspace.py\nbuild: {viewer: false, out: o}\n")
     code, _, err = run(root, monkeypatch, capsys, "build", "-c", str(other))
     assert (code, err) == (0, "")
     assert (root / "o" / "small-fixture" / "data" / "index.json").is_file()
@@ -420,7 +420,7 @@ def served(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, int]]:
 def test_serve_default_is_build_out_of_the_nearest_config(
         tmp_path: Path, stubbed: None, served: list[tuple[str, str, int]], monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: ws\nbuild: {out: public/built, viewer: false}\n")
+    root = project(tmp_path, "workspaces: ws\nbuild: {out: public/built, viewer: false}\n")
     (root / "sub").mkdir()
     code, out, err = run(root / "sub", monkeypatch, capsys, "serve", "-p", "9123")
     assert (code, err) == (0, "")
@@ -433,7 +433,7 @@ def test_serve_without_a_workspaces_folder(tmp_path: Path, served: list[tuple[st
     root = project(tmp_path, ws=False)
     code, _, err = run(root, monkeypatch, capsys, "serve")
     assert code == 2
-    assert err == ("buildzr: error: workspaces not found; create the workspaces folder, pass PATH, set workspace: "
+    assert err == ("buildzr: error: workspaces not found; create the workspaces folder, pass PATH, set workspaces: "
                    "in buildzr.yaml, or serve .buildzr/build as it is with --no-build\n")
     code, _, err = run(root, monkeypatch, capsys, "serve", "--no-build")
     assert code == 1 and err == "buildzr: error: nothing to serve: .buildzr/build holds no built workspace\n"
@@ -502,7 +502,7 @@ def test_serve_stays_read_only(tmp_path: Path) -> None:
 def test_real_build_passes_the_checker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                        capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setenv("PYTHONPATH", ROOT)
-    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false, out: out/site}\n")
+    root = project(tmp_path, "workspaces: ws/workspace.py\nbuild: {viewer: false, out: out/site}\n")
     code, out, err = run(root, monkeypatch, capsys, "build")
     assert (code, err) == (0, ""), err
     site = root / "out" / "site" / "small-fixture"

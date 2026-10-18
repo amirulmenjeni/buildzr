@@ -19,7 +19,7 @@ from buildzr.site.config import (
     find_config,
     load_config,
     resolve_build,
-    resolve_workspace,
+    resolve_workspaces,
 )
 
 SCHEMA = Path(__file__).resolve().parents[2] / "buildzr" / "site" / "schema" / "config.schema.json"
@@ -41,7 +41,7 @@ def problems(d: Path, text: str) -> list[str]:
 
 
 def test_error_text_not_number(tmp_path: Path) -> None:
-    text = "workspace: model.py\nbuild:\n  text_color: c4\n  k: four\n"
+    text = "workspaces: model.py\nbuild:\n  text_color: c4\n  k: four\n"
     assert problems(tmp_path, text) == [
         'buildzr.yaml:4: build.k: expected a whole number of at least 1, got the text "four"'
     ]
@@ -56,15 +56,15 @@ def test_error_secret_key(tmp_path: Path) -> None:
 
 
 def test_error_unset_variable(tmp_path: Path) -> None:
-    text = "version: 1\n# pad\nworkspace: m.py\nbuild:\n  k: 4\n  # pad\n  # pad\n  out: \"out/${BRANCH}\"\n"
+    text = "version: 1\n# pad\nworkspaces: m.py\nbuild:\n  k: 4\n  # pad\n  # pad\n  out: \"out/${BRANCH}\"\n"
     cfg = load_config(write(tmp_path, text))
     with pytest.raises(ConfigError) as e:
         resolve_build(cfg, {})
     assert e.value.problems == [
         'buildzr.yaml:8: build.out: environment variable BRANCH is not set (used in "out/${BRANCH}")'
     ]
-    # the workspace does not need the variable
-    assert resolve_workspace(cfg, {}) == tmp_path / "m.py"
+    # the workspaces folder does not need the variable
+    assert resolve_workspaces(cfg, {}) == tmp_path / "m.py"
 
 
 # ------------------------------------------------------------ strict YAML reading
@@ -77,21 +77,21 @@ def test_yaml_1_1_traps_stay_text(tmp_path: Path) -> None:
         'buildzr.yaml:3: build.viewer: expected true or false, got the text "yes"',
         'buildzr.yaml:4: build.k: expected a whole number of at least 1, got the text "1:30"',
     ]
-    assert problems(tmp_path, "workspace: 2026-10-17\nbuild: {out: 0755, k: 0755}\n") == [
+    assert problems(tmp_path, "workspaces: 2026-10-17\nbuild: {out: 0755, k: 0755}\n") == [
         'buildzr.yaml:2: build.k: expected a whole number of at least 1, got the text "0755"',
     ]
 
 
 def test_text_values_are_not_converted(tmp_path: Path) -> None:
-    p = write(tmp_path, "workspace: 0755\nbuild: {out: on, text_color: c4}\n")
+    p = write(tmp_path, "workspaces: 0755\nbuild: {out: on, text_color: c4}\n")
     cfg = load_config(p)
-    assert cfg.workspace == "0755"
+    assert cfg.workspaces == "0755"
     assert cfg.build.out == "on"
 
 
 def test_key_on_stays_text(tmp_path: Path) -> None:
     assert problems(tmp_path, "on: 1\n") == [
-        'buildzr.yaml:1: unknown key "on"; allowed keys: version, workspace, build'
+        'buildzr.yaml:1: unknown key "on"; allowed keys: version, workspaces, build'
     ]
 
 
@@ -108,22 +108,22 @@ def test_types_are_checked_not_converted(tmp_path: Path) -> None:
     assert problems(tmp_path, "build: {k: 0}\n") == [
         "buildzr.yaml:1: build.k: expected a whole number of at least 1, got the whole number 0"
     ]
-    assert problems(tmp_path, "workspace: 5\n") == ["buildzr.yaml:1: workspace: expected text, got the whole number 5"]
+    assert problems(tmp_path, "workspaces: 5\n") == ["buildzr.yaml:1: workspaces: expected text, got the whole number 5"]
 
 
 def test_duplicate_keys_rejected(tmp_path: Path) -> None:
-    assert problems(tmp_path, "workspace: a.py\nworkspace: b.py\n") == [
-        'buildzr.yaml:2: duplicate key "workspace" (first used on line 1)'
+    assert problems(tmp_path, "workspaces: a.py\nworkspaces: b.py\n") == [
+        'buildzr.yaml:2: duplicate key "workspaces" (first used on line 1)'
     ]
 
 
 @pytest.mark.parametrize(
     "text, fragment",
     [
-        ("a: &x 1\nworkspace: *x\n", "anchors (&name)"),
-        ("workspace: *x\n", "aliases (*name)"),
-        ("workspace: !!str m.py\n", "tags ("),
-        ("workspace: !custom m.py\n", "tags ("),
+        ("a: &x 1\nworkspaces: *x\n", "anchors (&name)"),
+        ("workspaces: *x\n", "aliases (*name)"),
+        ("workspaces: !!str m.py\n", "tags ("),
+        ("workspaces: !custom m.py\n", "tags ("),
         ("build:\n  <<: {k: 1}\n", "merge keys"),
     ],
 )
@@ -139,11 +139,11 @@ def test_syntax_error_and_multiple_documents(tmp_path: Path) -> None:
 
 def test_empty_file_is_valid(tmp_path: Path) -> None:
     cfg = load_config(write(tmp_path, ""))
-    assert cfg.workspace is None and cfg.build == BuildSettings()
+    assert cfg.workspaces is None and cfg.build == BuildSettings()
 
 
 def test_all_problems_listed_at_once(tmp_path: Path) -> None:
-    out = problems(tmp_path, "version: 2\nbuild: {k: x, bogus: 1, viewer: 1}\nworkspace: 5\ncolour: red\n")
+    out = problems(tmp_path, "version: 2\nbuild: {k: x, bogus: 1, viewer: 1}\nworkspaces: 5\ncolour: red\n")
     assert len(out) == 6, out
     assert [int(line.split(":")[1]) for line in out] == sorted(int(line.split(":")[1]) for line in out)
 
@@ -155,18 +155,31 @@ def test_full_valid_file(tmp_path: Path) -> None:
     cfg = load_config(
         write(
             tmp_path,
-            "version: 1\nworkspace: architecture/model.py\n"
+            "version: 1\nworkspaces: architecture/model.py\n"
             "build: {k: 6, text_color: c4, viewer: false, out: out/site}\n",
         )
     )
     assert cfg.build == BuildSettings(6, "c4", False, "out/site")
-    assert cfg.workspace == "architecture/model.py"
+    assert cfg.workspaces == "architecture/model.py"
 
 
 def test_defaults(tmp_path: Path) -> None:
-    cfg = load_config(write(tmp_path, "workspace: m.py\n"))
+    cfg = load_config(write(tmp_path, "workspaces: m.py\n"))
     b = resolve_build(cfg, {})
     assert (b.k, b.text_color, b.viewer, b.out) == (4, "wcag", True, tmp_path / ".buildzr" / "build")
+
+
+def test_removed_keys_say_what_to_do(tmp_path: Path) -> None:
+    text = "version: 1\nworkspace: model.py\ndefault_target: www\ntargets:\n  www: {dir: /var/www}\n"
+    assert problems(tmp_path, text) == [
+        "buildzr.yaml:2: workspace: removed: use workspaces: (a folder; a single .py file path also works)",
+        "buildzr.yaml:3: default_target: removed: buildzr deploy no longer exists; delete this key",
+        "buildzr.yaml:4: targets: removed: buildzr deploy no longer exists; delete this key",
+    ]
+    # a key of the same name inside build: is just unknown
+    assert problems(tmp_path, "build: {targets: 1}\n") == [
+        'buildzr.yaml:1: build: unknown key "targets"; allowed keys: k, text_color, viewer, out'
+    ]
 
 
 def test_secret_keys_get_their_own_message(tmp_path: Path) -> None:
@@ -212,8 +225,8 @@ def test_dollar_dollar_is_a_literal_dollar(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("value", ["$X", "${x}", "${X", "a$", "${X:-a$b}", "${1X}", "$ {X}"])
 def test_bad_dollar_is_an_error_at_load(tmp_path: Path, value: str) -> None:
-    out = problems(tmp_path, f"workspace: '{value}'\n")
-    assert len(out) == 1 and out[0].startswith('buildzr.yaml:1: workspace: invalid "$"')
+    out = problems(tmp_path, f"workspaces: '{value}'\n")
+    assert len(out) == 1 and out[0].startswith('buildzr.yaml:1: workspaces: invalid "$"')
 
 
 def test_several_unset_variables_all_reported(tmp_path: Path) -> None:
@@ -225,12 +238,12 @@ def test_several_unset_variables_all_reported(tmp_path: Path) -> None:
 
 def test_variables_in_other_text_fields(tmp_path: Path) -> None:
     cfg = load_config(
-        write(tmp_path, "workspace: '${W}'\nbuild: {out: '${O:-o}'}\n")
+        write(tmp_path, "workspaces: '${W}'\nbuild: {out: '${O:-o}'}\n")
     )
-    assert resolve_workspace(cfg, {"W": "m.py"}) == tmp_path / "m.py"
+    assert resolve_workspaces(cfg, {"W": "m.py"}) == tmp_path / "m.py"
     assert resolve_build(cfg, {}).out == tmp_path / "o"
-    with pytest.raises(ConfigError, match="workspace: environment variable W is not set"):
-        resolve_workspace(cfg, {})
+    with pytest.raises(ConfigError, match="workspaces: environment variable W is not set"):
+        resolve_workspaces(cfg, {})
 
 
 def test_variables_are_not_read_by_load_config(tmp_path: Path) -> None:
@@ -243,29 +256,29 @@ def test_variables_are_not_read_by_load_config(tmp_path: Path) -> None:
 
 def test_discovery_finds_nearest_and_walks_up(tmp_path: Path) -> None:
     (tmp_path / ".git").mkdir()
-    cfg = write(tmp_path, "workspace: m.py\n")
+    cfg = write(tmp_path, "workspaces: m.py\n")
     deep = tmp_path / "a" / "b"
     deep.mkdir(parents=True)
     assert find_config(deep) == cfg
-    inner = write(tmp_path / "a", "workspace: n.py\n")
+    inner = write(tmp_path / "a", "workspaces: n.py\n")
     assert find_config(deep) == inner
     assert find_config(tmp_path) == cfg
 
 
 def test_discovery_stops_after_the_git_folder(tmp_path: Path) -> None:
-    write(tmp_path, "workspace: outer.py\n")
+    write(tmp_path, "workspaces: outer.py\n")
     repo = tmp_path / "repo"
     (repo / ".git").mkdir(parents=True)
     sub = repo / "x"
     sub.mkdir()
     assert find_config(sub) is None
     # a config in the folder that holds .git is still found
-    here = write(repo, "workspace: m.py\n")
+    here = write(repo, "workspaces: m.py\n")
     assert find_config(sub) == here
 
 
 def test_discovery_git_file_also_marks_the_root(tmp_path: Path) -> None:
-    write(tmp_path, "workspace: outer.py\n")
+    write(tmp_path, "workspaces: outer.py\n")
     repo = tmp_path / "wt"
     repo.mkdir()
     (repo / ".git").write_text("gitdir: /elsewhere\n")  # a worktree has a .git file
@@ -275,7 +288,7 @@ def test_discovery_git_file_also_marks_the_root(tmp_path: Path) -> None:
 @pytest.mark.parametrize("name", ["buildzr.yml", ".buildzr.yaml"])
 def test_misnamed_file_error(tmp_path: Path, name: str) -> None:
     (tmp_path / ".git").mkdir()
-    write(tmp_path, "workspace: m.py\n", name)
+    write(tmp_path, "workspaces: m.py\n", name)
     sub = tmp_path / "s"
     sub.mkdir()
     with pytest.raises(ConfigError) as e:
@@ -284,20 +297,20 @@ def test_misnamed_file_error(tmp_path: Path, name: str) -> None:
 
 
 def test_correct_name_wins_over_misnamed(tmp_path: Path) -> None:
-    write(tmp_path, "workspace: m.py\n", "buildzr.yml")
-    good = write(tmp_path, "workspace: m.py\n")
+    write(tmp_path, "workspaces: m.py\n", "buildzr.yml")
+    good = write(tmp_path, "workspaces: m.py\n")
     assert find_config(tmp_path) == good
 
 
 def test_relative_paths_resolve_against_the_file_folder(tmp_path: Path) -> None:
     proj = tmp_path / "proj"
     (proj / "sub").mkdir(parents=True)
-    p = write(proj, "workspace: architecture/model.py\nbuild: {out: ../pub}\n")
+    p = write(proj, "workspaces: architecture/model.py\nbuild: {out: ../pub}\n")
     cwd = os.getcwd()
     os.chdir(proj / "sub")
     try:
         cfg = load_config(p)
-        assert resolve_workspace(cfg, {}) == proj / "architecture" / "model.py"
+        assert resolve_workspaces(cfg, {}) == proj / "architecture" / "model.py"
         assert resolve_build(cfg, {}).out == tmp_path / "pub"
     finally:
         os.chdir(cwd)
@@ -327,9 +340,13 @@ def test_import_buildzr_does_not_import_yaml() -> None:
 # fixture name -> (text, valid)
 FIXTURES: dict[str, tuple[str, bool]] = {
     "empty": ("", True),
-    "workspace-only": ("workspace: architecture/model.py\n", True),
+    "workspaces-only": ("workspaces: architecture\n", True),
+    "workspaces-file": ("workspaces: architecture/model.py\n", True),
+    "old-workspace": ("workspace: model.py\n", False),
+    "old-targets": ("targets: {www: {dir: x}}\n", False),
+    "old-default-target": ("default_target: www\n", False),
     "full": (
-        "version: 1\nworkspace: m.py\nbuild: {k: 4, text_color: wcag, viewer: true, out: 'out/${BRANCH:-main}'}\n",
+        "version: 1\nworkspaces: m.py\nbuild: {k: 4, text_color: wcag, viewer: true, out: 'out/${BRANCH:-main}'}\n",
         True,
     ),
     "version-2": ("version: 2\n", False),
@@ -341,7 +358,7 @@ FIXTURES: dict[str, tuple[str, bool]] = {
     "unknown-top": ("colour: 1\n", False),
     "unknown-build": ("build: {colour: 1}\n", False),
     "secret-token": ("build: {token: x}\n", False),
-    "workspace-number": ("workspace: 5\n", False),
+    "workspaces-number": ("workspaces: 5\n", False),
     "build-list": ("build: [a, b]\n", False),
 }
 

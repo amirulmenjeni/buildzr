@@ -33,17 +33,17 @@ class _Usage(Exception):
 def _add_build_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("-w", "--workspaces", dest="workspace", metavar="PATH", default=None,
                    help="the Python file or folder that creates workspaces "
-                        f"(default: workspace: in buildzr.yaml, else {DEFAULT_WORKSPACES}/)")
+                        f"(default: workspaces: in buildzr.yaml, else {DEFAULT_WORKSPACES}/)")
     p.add_argument("--k", type=int, default=None, metavar="N",
                    help="room for a box that contains other boxes, in areas of an empty box; raise it if their insides "
                         "are too small to read, lower it for compact diagrams (default: build.k in buildzr.yaml, else 4)")
     p.add_argument("--text-color", choices=["wcag", "c4"], default=None,
-                   help="node text colour rule (default: build.text_color in buildzr.yaml, else wcag)")
+                   help="text colour on boxes, wcag or c4 (default: build.text_color in buildzr.yaml, else wcag)")
     p.add_argument("--no-viewer", action="store_true", help="write data only, without the viewer bundle")
     p.add_argument("-c", "--config", metavar="FILE", default=None,
                    help="config file (default: buildzr.yaml, searched from the current folder upward)")
     p.add_argument("-v", "--verbose", action="store_true",
-                   help="also show the summary line of the step that runs the model file")
+                   help="also show the summary line of the step that runs each Python file")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -137,7 +137,7 @@ class _BuildArgs:
         self.text_color: str = args.text_color if args.text_color is not None else base.text_color
         self.viewer: bool = base.viewer and not args.no_viewer
         here = cfg.root if cfg is not None else Path(os.getcwd())
-        configured = cfgmod.resolve_workspace(cfg, env) if cfg is not None else None
+        configured = cfgmod.resolve_workspaces(cfg, env) if cfg is not None else None
         #: The workspaces folder of the project: what ``build.json`` records source paths against.
         self.folder: Path = configured if configured is not None else here / DEFAULT_WORKSPACES
         self.path: Path = Path(os.path.abspath(args.workspace)) if args.workspace is not None else self.folder
@@ -159,7 +159,7 @@ class _BuildArgs:
     def need_path(self) -> str:
         if not self.path.exists():
             raise _Usage(f"{_show(self.path)} not found; create the workspaces folder, pass -w PATH "
-                         "or set workspace: in buildzr.yaml")
+                         "or set workspaces: in buildzr.yaml")
         return str(self.path)
 
 
@@ -246,7 +246,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         directory = str(b.out)
         if not args.no_build:
             if not b.path.exists():
-                raise _Usage(f"{_show(b.path)} not found; create the workspaces folder, pass PATH, set workspace: "
+                raise _Usage(f"{_show(b.path)} not found; create the workspaces folder, pass PATH, set workspaces: "
                              f"in buildzr.yaml, or serve {_show(b.out)} as it is with --no-build")
             _build_stale(args, b)
     if not Catalog(directory).entries():

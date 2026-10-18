@@ -34,7 +34,7 @@ __all__ = [
     "find_config",
     "load_config",
     "resolve_build",
-    "resolve_workspace",
+    "resolve_workspaces",
 ]
 
 CONFIG_NAME = "buildzr.yaml"
@@ -77,14 +77,14 @@ class Config:
 
     Attributes:
         path: Absolute path of the file.
-        workspace: The ``workspace:`` text, unexpanded and unresolved, or ``None``.
+        workspaces: The ``workspaces:`` text (a folder or a ``.py`` file), unexpanded and unresolved, or ``None``.
         build: The build settings with defaults.
         lines: Line number of every key, by dotted key (for messages).
     """
 
     path: Path
     version: int = 1
-    workspace: Optional[str] = None
+    workspaces: Optional[str] = None
     build: BuildSettings = field(default_factory=BuildSettings)
     lines: Mapping[str, int] = field(default_factory=dict)
 
@@ -337,8 +337,14 @@ def _expand(parts: list[_Part], text: str, env: Mapping[str, str]) -> tuple[str,
 
 # ----------------------------------------------------------------- the loader
 
-_TOP_KEYS = ("version", "workspace", "build")
+_TOP_KEYS = ("version", "workspaces", "build")
 _BUILD_KEYS = ("k", "text_color", "viewer", "out")
+#: Keys of earlier versions, each with the one line that says what to do instead.
+_REMOVED = {
+    "targets": "removed: buildzr deploy no longer exists; delete this key",
+    "default_target": "removed: buildzr deploy no longer exists; delete this key",
+    "workspace": "removed: use workspaces: (a folder; a single .py file path also works)",
+}
 
 
 class _Validator:
@@ -352,7 +358,9 @@ class _Validator:
             self.lines[f"{key}.{k}" if key else k] = line
             if k in allowed:
                 continue
-            if k in _SECRET_KEYS:
+            if not key and k in _REMOVED:
+                self.p.add(line, k, _REMOVED[k])
+            elif k in _SECRET_KEYS:
                 self.p.add(line, key, f'unknown key "{k}". Secrets never go in this file; keep them in an environment variable.')
             else:
                 self.p.add(line, key, f'unknown key "{k}"; allowed keys: {", ".join(allowed)}')
@@ -422,10 +430,10 @@ def load_config(path: Union[str, "os.PathLike[str]"]) -> Config:
         else:
             version = n.value
 
-    workspace: Optional[str] = None
-    if "workspace" in top:
-        n = top["workspace"]
-        workspace = v.text(n, "workspace", template=True)
+    workspaces: Optional[str] = None
+    if "workspaces" in top:
+        n = top["workspaces"]
+        workspaces = v.text(n, "workspaces", template=True)
 
     build = BuildSettings()
     if "build" in top:
@@ -460,7 +468,7 @@ def load_config(path: Union[str, "os.PathLike[str]"]) -> Config:
 
     if probs:
         raise ConfigError(probs.lines())
-    return Config(cpath, version, workspace, build, dict(v.lines))
+    return Config(cpath, version, workspaces, build, dict(v.lines))
 
 
 # ------------------------------------------------------------------- resolving
@@ -491,22 +499,22 @@ class _Resolver:
             raise ConfigError([m for _, m in sorted(self.errors, key=lambda t: t[0])])
 
 
-def resolve_workspace(cfg: Config, env: Mapping[str, str]) -> Optional[Path]:
-    """The ``workspace:`` file as an absolute path (relative to the config's folder).
+def resolve_workspaces(cfg: Config, env: Mapping[str, str]) -> Optional[Path]:
+    """The ``workspaces:`` folder (or file) as an absolute path (relative to the config's folder).
 
     Returns:
-        The path, or ``None`` when the file does not set ``workspace``.
+        The path, or ``None`` when the file does not set ``workspaces``.
 
     Raises:
         ConfigError: A ``${VAR}`` in it is unset or empty.
     """
-    if cfg.workspace is None:
+    if cfg.workspaces is None:
         return None
     r = _Resolver(cfg, env)
-    text = r.expand("workspace", cfg.workspace)
+    text = r.expand("workspaces", cfg.workspaces)
     r.raise_if_any()
     if text == "":
-        r.problem("workspace", "expected a file, got empty text")
+        r.problem("workspaces", "expected a folder or a file, got empty text")
         r.raise_if_any()
     return r.folder(text)
 

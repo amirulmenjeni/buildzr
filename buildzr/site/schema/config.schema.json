@@ -2,19 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://buildzr.dev/schema/config/1",
   "title": "buildzr config file (buildzr.yaml, version 1)",
-  "description": "buildzr.yaml: the workspace file and the build options. Text values may use ${NAME}, ${NAME:-fallback} and $$; they are expanded when a command uses them, so values that contain '$' are only checked for their type here. Secrets never go in this file. Relative paths are relative to the folder holding the file. The loader (buildzr.site.config) is the authority; this schema lets editors check the same rules.",
+  "description": "buildzr.yaml: the workspaces folder and the build options. Text values may use ${NAME}, ${NAME:-fallback} and $$; they are expanded when a command uses them, so values that contain '$' are only checked for their type here. Secrets never go in this file. Relative paths are relative to the folder holding the file. The loader (buildzr.site.config) is the authority; this schema lets editors check the same rules.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "version": { "const": 1, "description": "Only 1 is accepted." },
-    "workspace": { "type": "string", "minLength": 1, "description": "The DSL .py file that creates a Workspace." },
+    "workspaces": { "type": "string", "minLength": 1, "description": "The workspaces folder: the Python files in it create the workspaces. A single .py file path also works. Default: workspaces." },
     "build": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "k": { "type": "integer", "minimum": 1, "default": 4, "description": "Layout frame budget." },
-        "text_color": { "enum": ["wcag", "c4"], "default": "wcag", "description": "Node text colour rule." },
-        "viewer": { "type": "boolean", "default": true, "description": "false writes data only." },
+        "k": { "type": "integer", "minimum": 1, "default": 4, "description": "Room for a box that contains other boxes, in areas of an empty box; raise it if their insides are too small to read, lower it for compact diagrams." },
+        "text_color": { "enum": ["wcag", "c4"], "default": "wcag", "description": "Text colour on boxes, wcag or c4." },
+        "viewer": { "type": "boolean", "default": true, "description": "false builds data only, without the viewer." },
         "out": { "type": "string", "minLength": 1, "default": ".buildzr/build", "description": "The build output: build writes one folder per workspace here and serve reads it." }
       }
     }
