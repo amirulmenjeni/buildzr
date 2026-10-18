@@ -32,13 +32,13 @@ jobs:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.10
+        run: uv python install
 
       - name: Sync dependencies
-        run: uv sync --extra docs --locked --python 3.10
+        run: uv sync --extra docs --locked
 
       - name: Build documentation
-        run: uv run --python 3.10 mkdocs build --strict
+        run: uv run mkdocs build --strict
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
