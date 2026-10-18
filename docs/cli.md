@@ -18,7 +18,7 @@ This page has three parts. A [tutorial](#tutorial-build-view-and-deploy-your-fir
 | Open your model in a browser | The [tutorial](#tutorial-build-view-and-deploy-your-first-site) on this page |
 | Deploy your model for other people | [Deploying to an instance](deploy.md), then the [recipes](publishing-recipes.md) |
 | Let scripts, CI (continuous integration) jobs, dashboards and AI assistants read your model | [The Model API](model-api.md) |
-| Run one shared server (an instance) that holds many sites | [The site store](store.md) and [Deploying to an instance](deploy.md) |
+| Run one shared instance: a `buildzr serve` that holds many sites | [The site store](store.md) and [Deploying to an instance](deploy.md) |
 | Keep your settings in one file | [`buildzr.yaml`](config.md) |
 | Link to one box of a diagram | [Viewer links](viewer-hash-routes.md) |
 
@@ -148,7 +148,7 @@ built .buildzr/site (5 elements, 3 relationships, 1 view; modelHash sha256:87716
 
 ### 4. Open the site in your browser
 
-Start the server:
+Start `buildzr serve`:
 
 ```text
 $ buildzr serve
@@ -158,9 +158,9 @@ Model API at http://127.0.0.1:8000/api/v1/ (read only)
 
 Open `http://127.0.0.1:8000/` in your browser. The viewer shows the landscape of your model. Click a box to see what is inside it.
 
-The second output line names the [Model API](model-api.md). At that address, the server answers questions about your model as JSON, for scripts and other programs. You do not need it to view the diagrams.
+The second output line names the [Model API](model-api.md). At that address, `buildzr serve` answers questions about your model as JSON, for scripts and other programs. You do not need it to view the diagrams.
 
-To stop the server, press Ctrl+C in the terminal. If port 8000 is already in use, choose another port, for example `buildzr serve -p 8001`.
+To stop `buildzr serve`, press Ctrl+C in the terminal. If port 8000 is already in use, choose another port, for example `buildzr serve -p 8001`.
 
 ### 5. Deploy the site to a folder
 
