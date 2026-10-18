@@ -1,7 +1,7 @@
-"""The read-only Model API of a built site (``<site>/api/v1/``), as pure functions over a loaded model.
+"""The read-only Model API of a built workspace (``/<name>/api/v1/``), as pure functions over a loaded model.
 
 :class:`Api` takes a ``buildzr.model/2`` object and answers the eight endpoints as plain dicts; it knows nothing
-about HTTP. :class:`Source` finds the model through ``data/index.json`` and reloads it when the site is rebuilt.
+about HTTP. :class:`Source` finds the model through ``data/index.json`` and reloads it when the workspace is rebuilt.
 ``serve.py`` does the HTTP part (routing, ETag, problem details, CORS).
 
 Relationships are the explicit ones in ``model.json``. A relationship of a descendant counts for its ancestors,
@@ -189,7 +189,7 @@ class Api:
         viewer: Whether a viewer is served next to the API (``index.html`` exists).
         views_scene: Returns the scene object of a view key, or ``None`` when it cannot be read.
         built_with: The ``build.json`` object, if there is one.
-        base_path: Where the site sits on its instance, as ``/pr/42`` (``""`` for the root); the links carry it.
+        base_path: Where the workspace sits on the server, as ``/shop`` (``""`` for the root); the links carry it.
     """
 
     def __init__(self, model: Json, public_url: Optional[str] = None, viewer: bool = True,
@@ -257,7 +257,7 @@ class Api:
     def view_url(self, key: str) -> Optional[str]:
         return f"{self.base}#/v/{quote(key, safe='/')}" if self.links_to_viewer else None
 
-    def site_url(self) -> Optional[str]:
+    def workspace_url(self) -> Optional[str]:
         return self.base if self.links_to_viewer else None
 
     # --- shapes ---------------------------------------------------------------------------------
@@ -371,14 +371,14 @@ class Api:
             (self.model["elements"][0]["id"] if self.model["elements"] else "name")
         notes = []
         if not self.viewer:
-            notes.append("This site has no viewer, so viewerUrl is null everywhere.")
+            notes.append("This workspace has no viewer, so viewerUrl is null everywhere.")
         out = self.envelope(
             name=ws["name"], description=ws["description"],
             builtWith={"buildzr": bw.get("buildzr"), "k": bw.get("k")} if bw else None,
             counts={"elements": len(self.model["elements"]), "relationships": len(self.model["relationships"]),
                     "views": len(self.model["views"]), "byType": dict(sorted(by_type.items()))},
             tags=tags, topLevel=[e["id"] for e in self.model["elements"] if e["parent"] is None],
-            viewerUrl=self.site_url(), publicUrlConfigured=self.public_url is not None,
+            viewerUrl=self.workspace_url(), publicUrlConfigured=self.public_url is not None,
             howToAsk=(f"Element ids are slug paths such as {sample!r}; give them in query parameters. "
                       "Relationships are the explicit ones in the model. A relationship of a descendant counts for "
                       "its ancestors, so an arrow between two systems is the union of the relationships between "
@@ -694,7 +694,7 @@ class Api:
 
 
 class Source:
-    """Finds the model of a built site through ``data/index.json`` and reloads it when the site is rebuilt."""
+    """Finds the model of a built workspace through ``data/index.json`` and reloads it when it is rebuilt."""
 
     def __init__(self, directory: str, public_url: Optional[str] = None, base_path: str = "") -> None:
         self.directory = os.path.abspath(directory)
@@ -742,10 +742,10 @@ class Source:
             raise
         except FileNotFoundError:
             raise ApiError(503, "model-unavailable", "Model unavailable",
-                           "this site has no readable data/index.json or model file (is a build running?)") from None
+                           "this workspace has no readable data/index.json or model file (is a build running?)") from None
         except (OSError, ValueError, KeyError, TypeError, RecursionError):
             raise ApiError(503, "model-unavailable", "Model unavailable",
-                           "the model of this site cannot be read (data/index.json or the model file is damaged)") from None
+                           "the model of this workspace cannot be read (data/index.json or the model file is damaged)") from None
 
     def _scene(self, key: str) -> Optional[Json]:
         if key in self._scenes:
@@ -761,7 +761,7 @@ class Source:
         return scene
 
     def current(self) -> Api:
-        """The :class:`Api` of the site as it is now; raises a 503 :class:`ApiError` when it cannot be read."""
+        """The :class:`Api` of the workspace as it is now; raises a 503 :class:`ApiError` when it cannot be read."""
         path = os.path.join(self.directory, "data", "index.json")
         try:
             st = os.stat(path)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Write the endpoint index of ``docs/model-api.md`` from the orientation document of a site.
+"""Write the endpoint index of ``docs/model-api.md`` from the orientation document of a workspace.
 
-The orientation document (``GET api/v1/``) lists the endpoints as URL templates and the limits of each. This script
+The orientation document (``GET /<name>/api/v1/``) lists the endpoints as URL templates and the limits of each. This script
 builds the model of ``examples/buildzr_models_example.py`` in this process, asks the API module for that document
 (no server, no subprocess) and writes a table between these two lines of the page::
 
@@ -37,7 +37,7 @@ LIMIT_OF = {"search": "elements", "relationships": "relationships", "neighbours"
 
 
 def orientation() -> dict[str, Any]:
-    """The answer of ``GET api/v1/`` for the models example, without serving anything."""
+    """The answer of ``GET /<name>/api/v1/`` for the models example, without serving anything."""
     if ROOT not in sys.path:
         sys.path.insert(0, ROOT)
     from buildzr.site.api import Api
@@ -51,12 +51,12 @@ def orientation() -> dict[str, Any]:
             workspace = load_workspaces(EXAMPLE)[-1]
         finally:
             os.chdir(here)
-    answer: dict[str, Any] = Api(export_model(workspace)).answer("", "")
+    answer: dict[str, Any] = Api(export_model(workspace), base_path="/<name>").answer("", "")
     return answer
 
 
 def parameters(template: str) -> tuple[list[str], list[str]]:
-    """The required and the optional parameters of a template such as ``/api/v1/path?from={from}&to={to}{&maxHops}``."""
+    """The required and the optional parameters of a template such as ``/<name>/api/v1/path?from={from}&to={to}{&maxHops}``."""
     required = re.findall(r"[?&]([A-Za-z]+)=\{", template)
     optional: list[str] = []
     for group in re.findall(r"\{[?&]([^}]*)\}", template):

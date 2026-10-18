@@ -1,18 +1,32 @@
-"""``buildzr serve``: a read-only server for a built site (standard library only).
+"""``buildzr serve``: a read-only server for the built workspaces of a build output (standard library only).
 
-Static files, plus the Model API of the site at ``/api/v1/`` and a generated ``/llms.txt`` (see
-:mod:`buildzr.site.api`). Only GET and HEAD are answered; nothing is ever written.
+Every built workspace is at ``/<name>/``: its static files (the viewer, ``data/``), the Model API at
+``/<name>/api/v1/`` and a generated ``/<name>/llms.txt`` (see :mod:`buildzr.site.api`). ``/`` redirects to the only
+workspace or lists them; ``/_buildzr/v1/workspaces`` lists them as JSON. Only GET and HEAD are answered; nothing is
+ever written.
+
+The build output is scanned again when ``/`` or the list is asked for, and when a request names a workspace that
+is not known yet, so workspaces built by another ``buildzr build`` show up without a restart. A folder that has no
+``build.json``, or neither ``index.html`` nor ``data/index.json`` (a build is replacing it), is not served.
 """
 
 from __future__ import annotations
 
+import hashlib
+import html
 import http.server
 import json
 import mimetypes
 import os
+import sys
+import threading
+import time
+from dataclasses import dataclass
 from typing import Any, Optional, Sequence
+from urllib.parse import quote, unquote
 
-from buildzr.site.api import PARAMS, Api, ApiError, Source
+from buildzr.site.api import API_VERSION, PARAMS, Api, ApiError, Source
+from buildzr.site.build import read_build_json, safe_name
 
 MIME = {".json": "application/json", ".js": "text/javascript", ".mjs": "text/javascript",
         ".css": "text/css", ".woff2": "font/woff2", ".svg": "image/svg+xml", ".html": "text/html"}
@@ -173,15 +187,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._send(200, "text/plain; charset=utf-8", api.llms_txt().encode(), head, etag=etag)
 
 
-def make_server(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url: Optional[str] = None,
-                cors_origins: Sequence[str] = ()) -> http.server.ThreadingHTTPServer:
-    """A server bound to ``host:port`` (port 0 picks a free one) serving ``directory`` and its API.
+def make_workspace_server(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url: Optional[str] = None,
+                          cors_origins: Sequence[str] = ()) -> http.server.ThreadingHTTPServer:
+    """A server bound to ``host:port`` (port 0 picks a free one) serving ONE built workspace at ``/``.
 
+    The building block of :func:`make_server` (which puts each workspace at ``/<name>/``), kept for tests and tools.
     ``public_url`` (no trailing slash) is the base of the ``viewerUrl`` links; ``cors_origins`` are the only
     origins that get ``Access-Control-Allow-Origin``.
     """
     root = os.path.abspath(directory)
-    handler = type("SiteHandler", (Handler,), {
+    handler = type("OneWorkspaceHandler", (Handler,), {
         "source": Source(root, public_url), "cors_origins": tuple(cors_origins),
         "directory": root})
 
@@ -191,13 +206,302 @@ def make_server(directory: str, host: str = "127.0.0.1", port: int = 8000, publi
     return Server((host, port), make)
 
 
+# --- every built workspace of a build output at /<name>/ ---------------------------------------------------
+
+BUILDZR_PREFIX = "/_buildzr"
+WORKSPACES_ENDPOINT = "/_buildzr/v1/workspaces"
+
+
+def normalise_url_path(raw: str) -> Optional[str]:
+    """Decode the percent-escapes of a request path once and refuse what cannot be a path in a built workspace.
+
+    Returns ``None`` (the caller answers 404) for a path that does not start with ``/``, is not valid UTF-8 once
+    decoded, contains a backslash, a NUL or another control character, an empty segment (a trailing ``/`` is fine) or a
+    ``.``/``..`` segment. The result is never decoded again.
+    """
+    if not raw.startswith("/"):
+        return None
+    try:
+        path = unquote(raw, errors="strict")
+    except UnicodeDecodeError:
+        return None
+    if "\\" in path or any(ord(c) < 0x20 or ord(c) == 0x7F for c in path):
+        return None
+    segments = path[1:].split("/")
+    for i, seg in enumerate(segments):
+        if seg in (".", "..") or (seg == "" and i != len(segments) - 1):
+            return None
+    return path
+
+
+def is_built_workspace(folder: str) -> bool:
+    """Whether ``folder`` holds a complete built workspace: ``build.json`` and ``index.html`` or ``data/index.json``."""
+    return os.path.isfile(os.path.join(folder, "build.json")) and (
+        os.path.isfile(os.path.join(folder, "index.html")) or
+        os.path.isfile(os.path.join(folder, "data", "index.json")))
+
+
+def holds_built_workspaces(folder: str) -> bool:
+    """Whether ``folder`` is a built workspace or has one in a direct subfolder."""
+    if os.path.isfile(os.path.join(folder, "build.json")):
+        return True
+    try:
+        return any(is_built_workspace(e.path) for e in os.scandir(folder) if e.is_dir() and not e.name.startswith("."))
+    except OSError:
+        return False
+
+
+@dataclass(frozen=True)
+class Entry:
+    """One served workspace: its URL segment, its folder and its ``build.json``."""
+
+    name: str
+    folder: str
+    info: dict[str, Any]
+
+
+class Catalog:
+    """The built workspaces of a build output (or one built workspace), found again when the folder changes.
+
+    ``root`` is either a build output (each subfolder with a ``build.json`` is a workspace, named after the folder) or
+    one built workspace (served under the name in its ``build.json``, else its folder name made safe).
+    """
+
+    def __init__(self, root: str) -> None:
+        self.root = os.path.abspath(root)
+        self._lock = threading.Lock()
+        self._sig: Optional[tuple[Any, ...]] = None
+        self._entries: dict[str, Entry] = {}
+
+    def _signature(self) -> tuple[Any, ...]:
+        """The mtimes of the root and of each subfolder: they change when a build adds, removes or replaces one."""
+        try:
+            sig: list[Any] = [os.stat(self.root).st_mtime_ns]
+            for e in sorted(os.scandir(self.root), key=lambda e: e.name):
+                if e.is_dir() and not e.name.startswith("."):
+                    sig.append((e.name, e.stat().st_mtime_ns))
+            return tuple(sig)
+        except OSError:
+            return ()
+
+    def _scan(self) -> dict[str, Entry]:
+        found: dict[str, Entry] = {}
+        if os.path.isfile(os.path.join(self.root, "build.json")):
+            info = read_build_json(self.root) or {}
+            name = info.get("name") if isinstance(info.get("name"), str) else None
+            name = safe_name(name or "", os.path.basename(self.root))
+            if is_built_workspace(self.root):
+                found[name] = Entry(name, self.root, info)
+            return found
+        try:
+            names = sorted(e.name for e in os.scandir(self.root) if e.is_dir() and not e.name.startswith("."))
+        except OSError:
+            return found
+        for name in names:
+            folder = os.path.join(self.root, name)
+            if is_built_workspace(folder):
+                found[name] = Entry(name, folder, read_build_json(folder) or {})
+        return found
+
+    def entries(self, rescan: bool = False) -> dict[str, Entry]:
+        """The workspaces by name; with ``rescan`` the folder is looked at again (only read when it changed)."""
+        with self._lock:
+            if rescan or self._sig is None:
+                sig = self._signature()
+                if sig != self._sig:
+                    self._entries, self._sig = self._scan(), sig
+            return dict(self._entries)
+
+    def find(self, name: str) -> Optional[Entry]:
+        """The workspace ``name``, looking at the folder again when it is not known (it may just have been built)."""
+        entry = self.entries().get(name)
+        if entry is None:
+            entry = self.entries(rescan=True).get(name)
+        if entry is not None and not is_built_workspace(entry.folder):
+            return None  # being replaced right now
+        return entry
+
+
+class WorkspacesHandler(Handler):
+    """GET and HEAD only, over a :class:`Catalog`: routes ``/<name>/...`` to that built workspace."""
+
+    catalog: Catalog
+    public_url: Optional[str] = None
+    sources: dict[str, Source]
+    sources_lock: threading.Lock
+
+    def _api_looking(self) -> bool:
+        p = (getattr(self, "path", "") or "").split("?", 1)[0]
+        return "/api/v1" in p or p == BUILDZR_PREFIX or p.startswith(BUILDZR_PREFIX + "/")
+
+    def send_error(self, code: int, message: Optional[str] = None, explain: Optional[str] = None) -> None:
+        if code == 501 and self.command != "OPTIONS" and self._api_looking():
+            err = ApiError(405, "method-not-allowed", "Method not allowed",
+                           f"{self.command} is not allowed here; the API is read-only (GET and HEAD)")
+            self._send_problem(err, None, head=False, allow=True)
+            return
+        super(Handler, self).send_error(code, message, explain)
+
+    def do_GET(self) -> None:
+        self._serve(head=False)
+
+    def do_HEAD(self) -> None:
+        self._serve(head=True)
+
+    def _not_found(self, head: bool, what: str = "No such page") -> None:
+        if self._api_looking():
+            self._send_problem(ApiError(404, "not-found", "Not found", what), None, head)
+        elif head:
+            self._send(404, "text/plain; charset=utf-8", b"", True)
+        else:
+            self.send_error(404, "Not Found")
+
+    def _source(self, entry: Entry) -> Source:
+        with self.sources_lock:
+            src = self.sources.get(entry.name)
+            if src is None or src.directory != entry.folder:
+                src = self.sources[entry.name] = Source(entry.folder, self.public_url, "/" + entry.name)
+            return src
+
+    def _url(self, name: str) -> str:
+        """Where readers find workspace ``name``: under ``--public-url`` when it is set, else root-relative."""
+        return (self.public_url or "") + "/" + quote(name) + "/"
+
+    # --- routing ----------------------------------------------------------------------------------
+
+    def _serve(self, head: bool) -> None:
+        raw, _, query = self.path.partition("?")
+        path = normalise_url_path(raw)
+        if path is None:
+            self._not_found(head)
+            return
+        if path == BUILDZR_PREFIX or path.startswith(BUILDZR_PREFIX + "/"):
+            if path in (WORKSPACES_ENDPOINT, WORKSPACES_ENDPOINT + "/"):
+                self._list(head)
+            else:
+                self._not_found(head, "No such endpoint; the only one is " + WORKSPACES_ENDPOINT)
+            return
+        if path == "/":
+            self._root(head)
+            return
+        name, slash, rest = path[1:].partition("/")
+        entry = self.catalog.find(name)
+        if entry is None:
+            self._not_found(head)
+            return
+        remainder = slash + rest
+        local = "/" + quote(name) + "/"
+        if remainder == "":
+            self._send(308, "text/plain", b"", head, location=local + (("?" + query) if query else ""))
+            return
+        if remainder == API_PREFIX:
+            self._send(301, "text/plain", b"", head, location=local + "api/v1/" + (("?" + query) if query else ""))
+            return
+        if remainder.startswith(API_PREFIX + "/") or remainder == "/llms.txt":
+            self.source = self._source(entry)
+            try:
+                if remainder == "/llms.txt":
+                    self._llms(head)
+                else:
+                    self._api(remainder, query, head)
+            finally:
+                self.source = None
+            return
+        self._static(entry, remainder, head)
+
+    def _static(self, entry: Entry, remainder: str, head: bool) -> None:
+        self.directory = entry.folder
+        self.path = quote(remainder, safe="/")
+        fs = self.translate_path(self.path)
+        if os.path.isdir(fs) and not remainder.endswith("/"):
+            self._send(308, "text/plain", b"", head,
+                       location="/" + quote(entry.name) + "/" + quote(remainder.lstrip("/"), safe="/") + "/")
+            return
+        if head:
+            http.server.SimpleHTTPRequestHandler.do_HEAD(self)
+        else:
+            http.server.SimpleHTTPRequestHandler.do_GET(self)
+
+    # --- answers about every workspace ------------------------------------------------------------
+
+    def _root(self, head: bool) -> None:
+        entries = self.catalog.entries(rescan=True)
+        if len(entries) == 1:
+            name = next(iter(entries))
+            self._send(302, "text/plain", b"", head, location="/" + quote(name) + "/")
+            return
+        rows = []
+        for e in entries.values():
+            title = e.info.get("workspace") if isinstance(e.info.get("workspace"), str) else None
+            model_hash = e.info.get("modelHash") if isinstance(e.info.get("modelHash"), str) else ""
+            link = html.escape("/" + quote(e.name) + "/", quote=True)
+            rows.append(f'<li><a href="{link}">{html.escape(e.name)}</a>'
+                        + (f" &middot; {html.escape(title)}" if title and title != e.name else "")
+                        + (f" <small><code>{html.escape(model_hash[:19])}</code></small>" if model_hash else "")
+                        + "</li>")
+        body = ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
+                "<title>buildzr workspaces</title><h1>buildzr workspaces</h1>"
+                + (f"<ul>{''.join(rows)}</ul>" if rows else "<p>No built workspace here yet. "
+                   "Run <code>buildzr build</code>.</p>")
+                + f'<p><a href="{WORKSPACES_ENDPOINT}">{WORKSPACES_ENDPOINT}</a> lists them as JSON.</p>').encode()
+        self._send(200, "text/html; charset=utf-8", body, head)
+
+    def _list(self, head: bool) -> None:
+        items = []
+        for e in self.catalog.entries(rescan=True).values():
+            base = self._url(e.name)
+            src = e.info.get("input")
+            try:
+                built_at: Optional[str] = time.strftime(
+                    "%Y-%m-%dT%H:%M:%SZ", time.gmtime(os.stat(os.path.join(e.folder, "build.json")).st_mtime))
+            except OSError:
+                built_at = None
+            items.append({
+                "name": e.name, "path": "/" + e.name + "/",
+                "workspaceName": e.info.get("workspace") if isinstance(e.info.get("workspace"), str) else None,
+                "viewerUrl": base if os.path.isfile(os.path.join(e.folder, "index.html")) else None,
+                "apiUrl": base + "api/v1/", "llmsUrl": base + "llms.txt",
+                "modelHash": e.info.get("modelHash"), "builtAt": built_at,
+                "source": src.get("file") if isinstance(src, dict) else None})
+        body = json.dumps({"apiVersion": API_VERSION, "workspaces": items}, ensure_ascii=False,
+                          separators=(",", ":")).encode()
+        etag = '"' + hashlib.sha256(body).hexdigest()[:32] + '"'
+        if _etag_matches(self.headers.get("If-None-Match"), etag):
+            self._send(304, "", b"", head, etag=etag)
+            return
+        self._send(200, "application/json", body, head, etag=etag)
+
+
+def make_server(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url: Optional[str] = None,
+                cors_origins: Sequence[str] = ()) -> http.server.ThreadingHTTPServer:
+    """A server bound to ``host:port`` (port 0 picks a free one) serving every built workspace of ``directory``.
+
+    ``directory`` is a build output or one built workspace. ``public_url`` (no trailing slash) is the base of the
+    ``viewerUrl`` links; ``cors_origins`` are the only origins that get ``Access-Control-Allow-Origin``.
+    """
+    root = os.path.abspath(directory)
+    handler = type("ServedWorkspacesHandler", (WorkspacesHandler,), {
+        "catalog": Catalog(root), "public_url": public_url, "cors_origins": tuple(cors_origins),
+        "sources": {}, "sources_lock": threading.Lock(), "directory": root})
+
+    def make(*args: Any, **kw: Any) -> WorkspacesHandler:
+        h: WorkspacesHandler = handler(*args, directory=root, **kw)
+        return h
+    return Server((host, port), make)
+
+
 def serve(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url: Optional[str] = None,
-          cors_origins: Sequence[str] = ()) -> None:
-    """Serve ``directory`` until interrupted."""
+          cors_origins: Sequence[str] = (), shown: Optional[str] = None) -> None:
+    """Serve every built workspace of ``directory`` until interrupted; print where each one is."""
     srv = make_server(directory, host, port, public_url, cors_origins)
     url = f"http://{host}:{srv.server_address[1]}/"
-    print(f"Serving {os.path.abspath(directory)} at {url} (Ctrl+C to stop)")
-    print(f"Model API at {(public_url + '/') if public_url else url}api/v1/ (read only)")
+    base = (public_url + "/") if public_url else url
+    entries = Catalog(directory).entries()
+    print(f"Serving {shown or os.path.abspath(directory)} at {url} (Ctrl+C to stop)")
+    for name in entries:
+        print(f"  {base}{quote(name)}/")
+    print(f"Workspace list at {base}{WORKSPACES_ENDPOINT[1:]}")
+    sys.stdout.flush()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

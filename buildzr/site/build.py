@@ -322,6 +322,41 @@ def is_fresh(source_rel: str, fp: str, owned: dict[str, dict[str, Any]]) -> bool
     return True
 
 
+@dataclass
+class Plan:
+    """Which files of a build must run (``todo``) and which built workspaces are up to date (``fresh``)."""
+
+    todo: list[str]
+    fresh: list[Built]
+    fingerprints: dict[str, str]
+
+
+def plan(path: str, out: str, k: int, text_color: str, viewer: bool, root: Optional[str] = None,
+         only_stale: bool = True) -> Plan:
+    """Work out what :func:`build_all` would run: every file, or with ``only_stale`` the stale ones only.
+
+    A file is stale when one of the workspaces it built last time is missing from ``out`` or was built with
+    another fingerprint (see :func:`fingerprint`); a file never built is stale too. File dates are not used.
+    """
+    if not os.path.exists(path):
+        raise BuildError(f"not found: {path}")
+    out = os.path.abspath(out)
+    root = os.path.abspath(root) if root is not None else source_root(path)
+    sources = find_sources(path)
+    helpers = find_helpers(root)
+    owned = _owned(out)
+    fps = {s: fingerprint(s, helpers, root, k, text_color, viewer) for s in sources}
+    result = Plan([], [], fps)
+    for s in sources:
+        rel = relative_source(s, root)
+        if only_stale and is_fresh(rel, fps[s], owned):
+            result.fresh += [Built(n, os.path.join(out, n), rel, i) for n, i in sorted(owned.items())
+                             if i["input"].get("file") == rel]
+        else:
+            result.todo.append(s)
+    return result
+
+
 def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional[str] = None, viewer: bool = True,
               layout_fn: Optional[LayoutFn] = None, static_dir: str = STATIC_DIR, verbose: bool = False,
               only_stale: bool = False, root: Optional[str] = None) -> BuildResult:
@@ -334,24 +369,12 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
     fingerprint is not run (:attr:`BuildResult.fresh`). ``root`` is the workspaces folder the source paths in
     ``build.json`` are relative to (default: ``path`` or the folder holding it).
     """
-    if not os.path.exists(path):
-        raise BuildError(f"not found: {path}")
     k, text_color = _check_options(k, text_color, viewer, static_dir)
     out = os.path.abspath(out)
     root = os.path.abspath(root) if root is not None else source_root(path)
-    sources = find_sources(path)
-    helpers = find_helpers(root)
-    owned = _owned(out)
-    result = BuildResult()
-    fps = {s: fingerprint(s, helpers, root, k, text_color, viewer) for s in sources}
-    todo = []
-    for s in sources:
-        rel = relative_source(s, root)
-        if only_stale and is_fresh(rel, fps[s], owned):
-            result.fresh += [Built(n, os.path.join(out, n), rel, i) for n, i in sorted(owned.items())
-                             if i["input"].get("file") == rel]
-        else:
-            todo.append(s)
+    p = plan(path, out, k, text_color, viewer, root, only_stale)
+    result = BuildResult(fresh=p.fresh)
+    todo, fps = p.todo, p.fingerprints
     if not todo:
         return result
     layout = layout_fn or _default_layout()
@@ -371,7 +394,7 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
         # Names: every workspace of this build, plus the fresh ones already in the output.
         taken: dict[str, tuple[str, str]] = {b.name: (b.source, str(b.info.get("workspace", b.name)))
                                              for b in result.fresh}
-        plan: list[tuple[str, str, dict[str, Any], str, list[str]]] = []
+        jobs: list[tuple[str, str, dict[str, Any], str, list[str]]] = []
         for s, here, listed in exported:
             rel = relative_source(s, root)
             stem = os.path.splitext(os.path.basename(s))[0]
@@ -383,8 +406,8 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
                                      f'and "{e["name"]}" in {rel} (paths in {root}); rename one of them')
                 taken[name] = (rel, e["name"])
             for e, name in zip(listed, names):
-                plan.append((s, os.path.join(here, e["dir"]), e, name, names))
-        for s, folder, e, name, names in plan:
+                jobs.append((s, os.path.join(here, e["dir"]), e, name, names))
+        for s, folder, e, name, names in jobs:
             rel = relative_source(s, root)
             problem = e["error"] or check_name(name)
             if problem:

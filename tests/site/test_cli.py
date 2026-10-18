@@ -154,21 +154,16 @@ def get(url: str) -> tuple[int, bytes, str]:
         return e.code, b"", ""
 
 
-@pytest.mark.parametrize("sub", ["", "sub/x"])
-def test_serve_at_root_and_subpath(tmp_path: Path, ws_file: str, sub: str) -> None:
+def test_serve_every_workspace_at_its_name(tmp_path: Path, ws_file: str) -> None:
     static = make_static(tmp_path / "static")
-    built = tmp_path / "built"
-    build(ws_file, built, static)
-    root = tmp_path / "served"
-    dest = root / sub if sub else root
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    import shutil
-    shutil.copytree(built, dest)
-    srv = make_server(str(root), port=0)
+    out = tmp_path / "out"
+    build(ws_file, out / "small-fixture", static)
+    srv = make_server(str(out), port=0)
     t = threading.Thread(target=srv.serve_forever, daemon=True)
     t.start()
     try:
-        base = f"http://127.0.0.1:{srv.server_address[1]}/" + (sub + "/" if sub else "")
+        root = f"http://127.0.0.1:{srv.server_address[1]}/"
+        base = root + "small-fixture/"
         assert get(base + "index.html")[0] == 200
         assert get(base)[0] == 200
         st, body, ctype = get(base + "data/index.json")
@@ -182,10 +177,12 @@ def test_serve_at_root_and_subpath(tmp_path: Path, ws_file: str, sub: str) -> No
         assert get(base + "assets/viewer.css")[2].startswith("text/css")
         assert get(base + "assets/f.woff2")[2] == "font/woff2"
         assert get(base + "build.json")[0] == 200
+        assert get(root + "index.html")[0] == 404  # nothing of a workspace at the top
         # no listings, no escape
         assert get(base + "data/")[0] == 404
         assert get(base + "../../etc/passwd")[0] == 404
         assert get(base + "%2e%2e/%2e%2e/etc/passwd")[0] == 404
+        assert get(root + "nope/index.html")[0] == 404
     finally:
         srv.shutdown()
         srv.server_close()
@@ -193,18 +190,25 @@ def test_serve_at_root_and_subpath(tmp_path: Path, ws_file: str, sub: str) -> No
 
 def test_serve_does_not_follow_symlink_out(tmp_path: Path) -> None:
     root = tmp_path / "root"
-    root.mkdir()
+    fake_built(root / "w")
     (tmp_path / "secret.txt").write_text("s")
-    os.symlink(tmp_path / "secret.txt", root / "link.txt")
-    (root / "index.html").write_text("x")
+    os.symlink(tmp_path / "secret.txt", root / "w" / "link.txt")
+    (root / "w" / "index.html").write_text("x")
     srv = make_server(str(root), port=0)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
-        assert get(f"http://127.0.0.1:{srv.server_address[1]}/link.txt")[0] == 404
-        assert get(f"http://127.0.0.1:{srv.server_address[1]}/index.html")[0] == 200
+        assert get(f"http://127.0.0.1:{srv.server_address[1]}/w/link.txt")[0] == 404
+        assert get(f"http://127.0.0.1:{srv.server_address[1]}/w/index.html")[0] == 200
     finally:
         srv.shutdown()
         srv.server_close()
+
+
+def fake_built(d: Path, name: str = "") -> None:
+    """The smallest folder ``serve`` takes for a built workspace: ``build.json`` and ``data/index.json``."""
+    (d / "data").mkdir(parents=True)
+    (d / "data" / "index.json").write_text("{}")
+    (d / "build.json").write_text(json.dumps({"modelHash": "sha256:00", **({"name": name} if name else {})}))
 
 
 # --- commands: buildzr.yaml, flags, exit codes -------------------------------------------------------
@@ -403,51 +407,54 @@ def test_deploy_is_gone(capsys: pytest.CaptureFixture[str]) -> None:
     assert "invalid choice: 'deploy'" in capsys.readouterr().err
 
 
-# --- serve: default directory ---------------------------------------------------------------------------
+# --- serve: what it serves -------------------------------------------------------------------------------
 
 
 @pytest.fixture
 def served(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, int]]:
     calls: list[tuple[str, str, int]] = []
-    monkeypatch.setattr(cli, "serve", lambda d, host, port, *a: calls.append((d, host, port)))
+    monkeypatch.setattr(cli, "serve", lambda d, host, port, *a, **kw: calls.append((d, host, port)))
     return calls
 
 
-def fake_site(d: Path) -> None:
-    (d / "data").mkdir(parents=True)
-    (d / "data" / "index.json").write_text("{}")
-
-
-def test_serve_default_dir_is_build_out_of_the_nearest_config(
-        tmp_path: Path, served: list[tuple[str, str, int]], monkeypatch: pytest.MonkeyPatch,
+def test_serve_default_is_build_out_of_the_nearest_config(
+        tmp_path: Path, stubbed: None, served: list[tuple[str, str, int]], monkeypatch: pytest.MonkeyPatch,
         capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "build: {out: public/site}\n")
-    fake_site(root / "public" / "site")
+    root = project(tmp_path, "workspace: ws\nbuild: {out: public/built, viewer: false}\n")
     (root / "sub").mkdir()
-    code, _, err = run(root / "sub", monkeypatch, capsys, "serve", "-p", "9123")
+    code, out, err = run(root / "sub", monkeypatch, capsys, "serve", "-p", "9123")
     assert (code, err) == (0, "")
-    assert served == [(str(root / "public" / "site"), "127.0.0.1", 9123)]
+    assert served == [(str(root / "public" / "built"), "127.0.0.1", 9123)]
+    assert f"built {root / 'public' / 'built' / 'small-fixture'} (" in out
 
 
-def test_serve_default_dir_without_a_config(tmp_path: Path, served: list[tuple[str, str, int]],
-                                            monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path)
+def test_serve_without_a_workspaces_folder(tmp_path: Path, served: list[tuple[str, str, int]],
+                                           monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, ws=False)
     code, _, err = run(root, monkeypatch, capsys, "serve")
-    assert code == 1
-    assert err == "buildzr: error: .buildzr/build does not look like a built site (run `buildzr build` first)\n"
-    assert served == []
-    fake_site(root / ".buildzr" / "build")
-    code, _, _ = run(root, monkeypatch, capsys, "serve", "--host", "0.0.0.0")
-    assert code == 0 and served == [(".buildzr/build", "0.0.0.0", 8000)]
+    assert code == 2
+    assert err == ("buildzr: error: workspaces not found; create the workspaces folder, pass PATH, set workspace: "
+                   "in buildzr.yaml, or serve .buildzr/build as it is with --no-build\n")
+    code, _, err = run(root, monkeypatch, capsys, "serve", "--no-build")
+    assert code == 1 and err == "buildzr: error: nothing to serve: .buildzr/build holds no built workspace\n"
+    fake_built(root / ".buildzr" / "build" / "w")
+    code, _, _ = run(root, monkeypatch, capsys, "serve", "--no-build", "--host", "0.0.0.0")
+    assert code == 0 and served == [(str(root / ".buildzr" / "build"), "0.0.0.0", 8000)]
+    assert served and served[-1][0] == str(root / ".buildzr" / "build")
 
 
-def test_serve_with_a_dir_does_not_read_the_config(tmp_path: Path, served: list[tuple[str, str, int]],
-                                                   monkeypatch: pytest.MonkeyPatch,
-                                                   capsys: pytest.CaptureFixture[str]) -> None:
+def test_serve_a_built_folder_does_not_read_the_config(tmp_path: Path, served: list[tuple[str, str, int]],
+                                                       monkeypatch: pytest.MonkeyPatch,
+                                                       capsys: pytest.CaptureFixture[str]) -> None:
     root = project(tmp_path, "build: {k: four}\n")  # broken, but not needed
-    fake_site(root / "mysite")
-    code, _, err = run(root, monkeypatch, capsys, "serve", "mysite")
-    assert (code, err) == (0, "") and served == [("mysite", "127.0.0.1", 8000)]
+    fake_built(root / "copied" / "w")
+    code, _, err = run(root, monkeypatch, capsys, "serve", "copied")
+    assert (code, err) == (0, "") and served == [("copied", "127.0.0.1", 8000)]
+    fake_built(root / "one")  # one built workspace, not a folder of them
+    code, _, err = run(root, monkeypatch, capsys, "serve", "one")
+    assert (code, err) == (0, "") and served[-1] == ("one", "127.0.0.1", 8000)
+    code, _, err = run(root, monkeypatch, capsys, "serve", "copied", "--rebuild")
+    assert code == 2 and "--rebuild needs the workspaces folder" in err
     code, _, err = run(root, monkeypatch, capsys, "serve")  # now the file is needed
     assert code == 2 and "build.k" in err
 
@@ -455,7 +462,7 @@ def test_serve_with_a_dir_does_not_read_the_config(tmp_path: Path, served: list[
 def test_serve_port_in_use_exits_1(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                    capsys: pytest.CaptureFixture[str]) -> None:
     root = project(tmp_path)
-    fake_site(root / "s")
+    fake_built(root / "s" / "w")
     busy = make_server(str(root / "s"), port=0)
     try:
         port = busy.server_address[1]
@@ -466,17 +473,17 @@ def test_serve_port_in_use_exits_1(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 
 def test_serve_has_no_deploy_flags(capsys: pytest.CaptureFixture[str]) -> None:
-    for flag in ("--accept-deploys", "--deploy-port", "--max-upload-mb"):
+    for flag in ("--accept-deploys", "--deploy-port", "--max-upload-mb", "--store"):
         assert main(["serve", flag]) == 2
 
 
-def test_plain_serve_stays_read_only(tmp_path: Path) -> None:
+def test_serve_stays_read_only(tmp_path: Path) -> None:
     root = tmp_path / "root"
-    fake_site(root)
+    fake_built(root / "w")
     srv = make_server(str(root), port=0)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     try:
-        url = f"http://127.0.0.1:{srv.server_address[1]}/data/index.json"
+        url = f"http://127.0.0.1:{srv.server_address[1]}/w/data/index.json"
         assert get(url)[0] == 200
         for method in ("POST", "PUT", "DELETE", "PATCH"):
             req = urllib.request.Request(url, data=b"{}", method=method)

@@ -13,7 +13,7 @@ from typing import Any, Callable, Iterator
 import pytest
 
 import buildzr.site.serve as serve
-from buildzr.site.serve import make_server
+from buildzr.site.serve import make_workspace_server
 from tests.site.test_cli import WS_TEXT, build, make_static
 
 TIMEOUT = 1.0
@@ -30,7 +30,7 @@ def base_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture
 def port(base_site: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[int]:
     monkeypatch.setattr(serve, "READ_TIMEOUT", TIMEOUT)
-    srv: Any = make_server(str(base_site), port=0)
+    srv: Any = make_workspace_server(str(base_site), port=0)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield int(srv.server_address[1])
     srv.shutdown()

@@ -19,7 +19,7 @@ import buildzr.site.cli as cli
 from buildzr.site.build import build_workspace
 from buildzr.site.api import Api, ApiError, Query, Source, normalise_origin, normalise_public_url
 from buildzr.site.model import rollup
-from buildzr.site.serve import make_server
+from buildzr.site.serve import make_workspace_server
 from tests.site.test_cli import ROOT, WS_TEXT, build, make_static, needs_node
 
 HAS_NODE = bool(shutil.which("node") or os.environ.get("BUILDZR_NODE"))
@@ -61,7 +61,7 @@ def example_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 def start(site: Path, **kw: Any) -> tuple[Any, int]:
-    srv = make_server(str(site), port=0, **kw)
+    srv = make_workspace_server(str(site), port=0, **kw)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv, srv.server_address[1]
 
@@ -787,10 +787,11 @@ def test_option_values_are_validated() -> None:
 def test_serve_command_validates_and_passes_the_new_flags(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                                            capsys: pytest.CaptureFixture[str]) -> None:
     calls: list[tuple[Any, ...]] = []
-    monkeypatch.setattr(cli, "serve", lambda *a: calls.append(a))
-    site = tmp_path / "site"
+    monkeypatch.setattr(cli, "serve", lambda *a, **kw: calls.append(a))
+    site = tmp_path / "built"
     (site / "data").mkdir(parents=True)
     (site / "data" / "index.json").write_text("{}")
+    (site / "build.json").write_text('{"modelHash": "sha256:00"}')
     monkeypatch.chdir(tmp_path)
     assert cli.main(["serve", str(site), "--public-url", "https://m.example.com/", "--cors-origin", "https://a.example.com",
                      "--cors-origin", "https://a.example.com", "--cors-origin", "http://b.example.com:8080"]) == 0

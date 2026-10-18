@@ -15,9 +15,9 @@ from typing import Any, Iterable, NoReturn, Optional
 
 from buildzr.site import config as cfgmod
 from buildzr.site.api import normalise_origin, normalise_public_url
-from buildzr.site.build import BuildError, BuildResult, build_all, source_root
+from buildzr.site.build import BuildError, BuildResult, build_all, plan, source_root
 from buildzr.site.config import DEFAULT_OUT, DEFAULT_WORKSPACES, BuildSettings, Config, ConfigError
-from buildzr.site.serve import serve
+from buildzr.site.serve import Catalog, holds_built_workspaces, serve
 
 
 class _Parser(argparse.ArgumentParser):
@@ -53,15 +53,24 @@ def _parser() -> argparse.ArgumentParser:
     _add_build_args(b)
     b.add_argument("-o", "--out", metavar="DIR", default=None,
                    help=f"build output: one folder per workspace (default: build.out in buildzr.yaml, else {DEFAULT_OUT})")
-    s = sub.add_parser("serve", help="serve a built site directory (read-only)")
-    s.add_argument("dir", nargs="?", default=None, metavar="DIR",
-                   help=f"built site (default: build.out of the nearest buildzr.yaml, else {DEFAULT_OUT})")
+    s = sub.add_parser("serve", help="build what is stale, then serve every workspace (read-only)")
+    s.add_argument("path", nargs="?", default=None, metavar="PATH",
+                   help="a workspaces folder or a .py file (built if stale, then the build output is served), or a "
+                        "folder of built workspaces (served as it is) (default: the project's workspaces folder)")
+    s.add_argument("--no-build", action="store_true", help="serve the build output as it is, without building")
+    s.add_argument("--rebuild", action="store_true", help="build every workspace again, even the up-to-date ones")
+    s.add_argument("-c", "--config", metavar="FILE", default=None,
+                   help="config file (default: buildzr.yaml, searched from the current folder upward)")
+    s.add_argument("-v", "--verbose", action="store_true",
+                   help="also show the summary line of the step that runs each Python file")
     s.add_argument("-p", "--port", type=int, default=8000, help="port (default 8000)")
     s.add_argument("--host", default="127.0.0.1", help="default 127.0.0.1; use 0.0.0.0 explicitly to share")
     s.add_argument("--public-url", metavar="URL", default=None,
-                   help="address of the site as readers see it (http:// or https://); the base of the API's viewerUrl links")
+                   help="address of the server as readers see it (http:// or https://); the base of the "
+                        "API's viewerUrl links")
     s.add_argument("--cors-origin", metavar="ORIGIN", action="append", default=[],
                    help="let this web origin read the API from a browser (repeatable; there is no wildcard)")
+    s.set_defaults(workspace=None, k=None, text_color=None, no_viewer=False, out=None)
     return ap
 
 
@@ -180,6 +189,39 @@ def _cmd_build(args: argparse.Namespace) -> int:
     return 0
 
 
+def _node_problem() -> Optional[str]:
+    """Why the layout cannot run here (no Node), or ``None``."""
+    try:
+        from buildzr.site.layout.elk import find_node
+        find_node()
+    except Exception:
+        return ("building needs Node.js 18 or newer, which was not found; install it (or set BUILDZR_NODE), "
+                "or serve what is already built with --no-build")
+    return None
+
+
+def _build_stale(args: argparse.Namespace, b: _BuildArgs) -> None:
+    """``serve``: build the workspaces that are missing or stale (all with ``--rebuild``); print what happened."""
+    path = b.need_path()
+    todo = plan(path, str(b.out), b.k, b.text_color, b.viewer, b.root, only_stale=not args.rebuild)
+    fresh = sorted(w.name for w in todo.fresh)
+    if fresh:
+        print("up to date: " + ", ".join(fresh))
+    if not todo.todo:
+        return
+    problem = _node_problem()
+    if problem:
+        print(f"buildzr: error: {problem}", file=sys.stderr)
+        return
+    try:
+        result = build_all(path, str(b.out), b.k, b.text_color, viewer=b.viewer, verbose=args.verbose,
+                           only_stale=not args.rebuild, root=b.root)
+    except BuildError as e:
+        print(f"buildzr: error: {e}", file=sys.stderr)
+        return
+    _report(result)
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     try:
         public_url = normalise_public_url(args.public_url) if args.public_url is not None else None
@@ -189,15 +231,28 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         origins = list(dict.fromkeys(normalise_origin(o) for o in args.cors_origin))
     except ValueError as e:
         raise _Usage(f"--cors-origin: {e}") from None
-    directory = args.dir
-    if directory is None:
-        cfg = _load_config(None)
-        directory = str(cfgmod.resolve_build(cfg, os.environ).out) if cfg is not None else DEFAULT_OUT
-    if not os.path.isfile(os.path.join(directory, "data", "index.json")) and \
-            not os.path.isfile(os.path.join(directory, "index.html")):
-        return _fail(f"{directory} does not look like a built site (run `buildzr build` first)")
+    if args.no_build and args.rebuild:
+        raise _Usage("--no-build and --rebuild cannot be used together")
+    if args.path is not None and not os.path.exists(args.path):
+        raise _Usage(f"{args.path} not found")
+    if args.path is not None and os.path.isdir(args.path) and holds_built_workspaces(args.path):
+        if args.rebuild:
+            raise _Usage(f"{args.path} holds built workspaces, which are served as they are; --rebuild needs "
+                         "the workspaces folder or a .py file")
+        directory = args.path
+    else:
+        args.workspace = args.path
+        b = _BuildArgs(args, _load_config(args.config))
+        directory = str(b.out)
+        if not args.no_build:
+            if not b.path.exists():
+                raise _Usage(f"{_show(b.path)} not found; create the workspaces folder, pass PATH, set workspace: "
+                             f"in buildzr.yaml, or serve {_show(b.out)} as it is with --no-build")
+            _build_stale(args, b)
+    if not Catalog(directory).entries():
+        return _fail(f"nothing to serve: {_show(Path(os.path.abspath(directory)))} holds no built workspace")
     try:
-        serve(directory, args.host, args.port, public_url, origins)
+        serve(directory, args.host, args.port, public_url, origins, shown=_show(Path(os.path.abspath(directory))))
     except OSError as e:
         return _fail(f"cannot serve on {args.host}:{args.port}: {e.strerror or e}")
     return 0
