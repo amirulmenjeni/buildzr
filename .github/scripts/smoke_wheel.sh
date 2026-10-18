@@ -103,5 +103,17 @@ get "http://127.0.0.1:$READ/pr/1/" "$WORK/pr.html"
 grep -q 'id="root"' "$WORK/pr.html" || fail "the deployed page has no viewer root element (id=\"root\")"
 get "http://127.0.0.1:$READ/pr/1/api/v1/" "$WORK/pr-api.json"
 
+step "uvx --from the wheel buildzr build (the isolated route of the docs)"
+if command -v uvx >/dev/null 2>&1; then
+  # An empty folder and a tool environment of their own: nothing of the venv above is used.
+  mkdir "$WORK/uvx" && cd "$WORK/uvx"
+  cp "$REPO/examples/buildzr_models_example.py" model.py
+  PATH="${PATH#"$WORK/venv/bin:"}" uvx --from "$WHEEL" buildzr build -w model.py -o out
+  [[ -f out/index.html ]] || fail "uvx buildzr build wrote no out/index.html (the viewer is missing)"
+  [[ -f out/data/index.json ]] || fail "uvx buildzr build wrote no out/data/index.json"
+else
+  echo "uvx not available, skipping the isolated-run check"
+fi
+
 echo
 echo "SMOKE TEST PASSED: $(basename "$WHEEL")"
