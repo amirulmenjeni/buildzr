@@ -246,7 +246,7 @@ You have written a model file, built it into a site and opened its diagrams. Fro
 
 ### Other ways to view the model
 
-The site is the main way to view a buildzr model, but the model is also a standard [Structurizr JSON](https://github.com/structurizr/json) workspace. To write it to a file, add `w.save(path='workspace.json')` as the last line of the `with` block and run `python model.py`. Then you can open it with other tools:
+The site is the main way to view a buildzr model, but the model is also a standard Structurizr workspace in JSON. To write it to a file, add `w.save(path='workspace.json')` as the last line of the `with` block and run `python model.py`. Then you can open it with other tools:
 
 - **[Structurizr Lite](https://docs.structurizr.com/lite)** shows the workspace in your browser. Run it in the folder that holds `workspace.json`:
 
