@@ -38,7 +38,7 @@ def test_the_script_checks_without_writing(gen: ModuleType) -> None:
 def test_drift_is_found(gen: ModuleType) -> None:
     with open(gen.PAGE, encoding="utf-8") as f:
         old = f.read()
-    stale = old.replace("| `view` | `/api/v1/view?key={key}`", "| `view` | `/api/v1/view?name={key}`")
+    stale = old.replace("| `view` | `/<name>/api/v1/view?key={key}`", "| `view` | `/<name>/api/v1/view?name={key}`")
     assert stale != old and gen.generate(stale) == old
 
 

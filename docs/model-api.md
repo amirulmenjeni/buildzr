@@ -2,26 +2,25 @@
 
 The Model API answers questions about your architecture as JSON. Scripts, CI (continuous integration) jobs, dashboards, AI assistants, or a person with `curl`, can ask "what talks to the database?" without opening the viewer and without reading the Python code of the model.
 
-`buildzr serve` provides the Model API for every [site](cli.md) it serves, at `api/v1/` below the address of the site. The API is **read-only**: it answers only `GET` and `HEAD` requests.
+`buildzr serve` provides a Model API for every workspace it serves, at `api/v1/` below the address of the workspace: the workspace `microservices-example` has its viewer at `/microservices-example/` and its Model API at `/microservices-example/api/v1/`. The API is **read-only**: it answers only `GET` and `HEAD` requests.
 
 This page is a reference of the API: the orientation document, every endpoint with an example, the limits, the errors, caching, browser access and the links to the viewer.
 
-## Start a site with the Model API
+## Start `buildzr serve` with the Model API
 
-Build a site and serve it:
+Serve a workspace; `buildzr serve` builds it first. Here, the model file is `examples/buildzr_models_example.py` from the buildzr repository:
 
 ```text
-$ buildzr build -w examples/buildzr_models_example.py
-built .buildzr/site (13 elements, 6 relationships, 1 view; modelHash sha256:ea077dc27381…)
-
-$ buildzr serve
-Serving /home/you/buildzr/.buildzr/site at http://127.0.0.1:8000/ (Ctrl+C to stop)
-Model API at http://127.0.0.1:8000/api/v1/ (read only)
+$ buildzr serve examples/buildzr_models_example.py
+built .buildzr/build/microservices-example (13 elements, 6 relationships, 1 view; modelHash sha256:ea077dc27381…)
+Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+  http://127.0.0.1:8000/microservices-example/
+Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 ```
 
-Then send a request with any HTTP client, for example `curl -s http://127.0.0.1:8000/api/v1/`. The answer is the [orientation document](#the-orientation-document).
+Then send a request with any HTTP client, for example `curl -s http://127.0.0.1:8000/microservices-example/api/v1/`. The answer is the [orientation document](#the-orientation-document).
 
-The examples on this page are real answers from the site built from `examples/buildzr_models_example.py`, a model in the buildzr repository. They show the default output of `buildzr serve`, without `--public-url`.
+The examples on this page are real answers from that workspace. They show the default output of `buildzr serve`, without `--public-url`. In the text, paths such as `api/v1/tree` are relative to the address of the workspace.
 
 ## Words used on this page
 
@@ -33,15 +32,15 @@ The examples on this page are real answers from the site built from `examples/bu
 | **rollup** | An arrow between two big boxes stands for every relationship between what is inside them. This API follows the same rule as the viewer: a relationship of a descendant counts for its ancestors. |
 | **view** | A diagram the authors chose to draw (for example a system context view), as opposed to the free browsing the viewer offers. |
 | **modelHash** | A fingerprint of the model, shown as `sha256:` and a hash. The same model always has the same hash, and every answer carries it. |
-| **site** | The folder that `buildzr build` writes: the viewer, the model data and `build.json`. |
-| **viewer** | The web page inside a site that draws the diagrams. A **data-only site** has no viewer. |
+| **workspace** | A `Workspace(...)` written in Python. `buildzr serve` serves each one at `/<name>/`, with its own Model API. |
+| **viewer** | The web page of a workspace that draws the diagrams. A **data-only workspace** has no viewer. |
 
 ## The orientation document
 
 `GET api/v1/` returns the orientation document. It tells a reader what the model is, how big it is, and which requests it can send. Start here.
 
 ```http
-GET /api/v1/
+GET /microservices-example/api/v1/
 ```
 
 ```json
@@ -78,18 +77,18 @@ GET /api/v1/
     "e-commerce-system",
     "payment-provider"
   ],
-  "viewerUrl": "/",
+  "viewerUrl": "/microservices-example/",
   "publicUrlConfigured": false,
   "howToAsk": "Element ids are slug paths such as 'e-commerce-system/web-app'; give them in query parameters. Relationships are the explicit ones in the model. A relationship of a descendant counts for its ancestors, so an arrow between two systems is the union of the relationships between their contents. Lists are paged: follow 'next' while 'truncated' is true.",
   "endpoints": {
-    "element": "/api/v1/element?id={id}",
-    "search": "/api/v1/elements{?q,type,tag,within,limit,cursor}",
-    "tree": "/api/v1/tree{?id,depth,limit}",
-    "neighbours": "/api/v1/neighbours?id={id}{&direction,depth,type,limit}",
-    "path": "/api/v1/path?from={from}&to={to}{&maxHops,limit}",
-    "relationships": "/api/v1/relationships{?from,to,edge,tag,limit,cursor}",
-    "views": "/api/v1/views{?scope}",
-    "view": "/api/v1/view?key={key}"
+    "element": "/microservices-example/api/v1/element?id={id}",
+    "search": "/microservices-example/api/v1/elements{?q,type,tag,within,limit,cursor}",
+    "tree": "/microservices-example/api/v1/tree{?id,depth,limit}",
+    "neighbours": "/microservices-example/api/v1/neighbours?id={id}{&direction,depth,type,limit}",
+    "path": "/microservices-example/api/v1/path?from={from}&to={to}{&maxHops,limit}",
+    "relationships": "/microservices-example/api/v1/relationships{?from,to,edge,tag,limit,cursor}",
+    "views": "/microservices-example/api/v1/views{?scope}",
+    "view": "/microservices-example/api/v1/view?key={key}"
   },
   "limits": {
     "elements": {
@@ -123,12 +122,12 @@ GET /api/v1/
 - `counts`, `tags` and `topLevel` describe the model; `topLevel` lists the ids to start from.
 - `endpoints` are URL templates: replace the `{...}` parts. Parameters after `?` or `&` inside braces are optional.
 - `limits` are the largest values each parameter accepts (see [Limits](#limits-and-paging)).
-- `viewerUrl` is the address of the viewer. It is `null` when the site has no viewer (no `index.html`), and `notes` says so.
-- `builtWith` is `null` when the site has no `build.json`.
+- `viewerUrl` is the address of the viewer. It is `null` when the workspace has no viewer (no `index.html`), and `notes` says so.
+- `builtWith` is `null` when the workspace has no `build.json`.
 
 ## Endpoints
 
-All of them are `GET` requests below `<site>/api/v1/`. Element ids go in query parameters.
+All of them are `GET` requests below `/<name>/api/v1/`, where `<name>` is the name of the workspace. Element ids go in query parameters.
 
 | Path | Parameters | Answer |
 |---|---|---|
@@ -151,20 +150,20 @@ The orientation document lists the same endpoints as URL templates. This table i
 <!-- BEGIN generated: endpoints -->
 | Name | Template | Required | Optional | `limit` (default / largest) |
 |---|---|---|---|---|
-| `element` | `/api/v1/element?id={id}` | `id` | none | none |
-| `search` | `/api/v1/elements{?q,type,tag,within,limit,cursor}` | none | `q`, `type`, `tag`, `within`, `limit`, `cursor` | 50 / 200 |
-| `tree` | `/api/v1/tree{?id,depth,limit}` | none | `id`, `depth`, `limit` | 500 / 1000 |
-| `neighbours` | `/api/v1/neighbours?id={id}{&direction,depth,type,limit}` | `id` | `direction`, `depth`, `type`, `limit` | 200 / 1000 |
-| `path` | `/api/v1/path?from={from}&to={to}{&maxHops,limit}` | `from`, `to` | `maxHops`, `limit` | 3 / 5 |
-| `relationships` | `/api/v1/relationships{?from,to,edge,tag,limit,cursor}` | none | `from`, `to`, `edge`, `tag`, `limit`, `cursor` | 50 / 200 |
-| `views` | `/api/v1/views{?scope}` | none | `scope` | none |
-| `view` | `/api/v1/view?key={key}` | `key` | none | none |
+| `element` | `/<name>/api/v1/element?id={id}` | `id` | none | none |
+| `search` | `/<name>/api/v1/elements{?q,type,tag,within,limit,cursor}` | none | `q`, `type`, `tag`, `within`, `limit`, `cursor` | 50 / 200 |
+| `tree` | `/<name>/api/v1/tree{?id,depth,limit}` | none | `id`, `depth`, `limit` | 500 / 1000 |
+| `neighbours` | `/<name>/api/v1/neighbours?id={id}{&direction,depth,type,limit}` | `id` | `direction`, `depth`, `type`, `limit` | 200 / 1000 |
+| `path` | `/<name>/api/v1/path?from={from}&to={to}{&maxHops,limit}` | `from`, `to` | `maxHops`, `limit` | 3 / 5 |
+| `relationships` | `/<name>/api/v1/relationships{?from,to,edge,tag,limit,cursor}` | none | `from`, `to`, `edge`, `tag`, `limit`, `cursor` | 50 / 200 |
+| `views` | `/<name>/api/v1/views{?scope}` | none | `scope` | none |
+| `view` | `/<name>/api/v1/view?key={key}` | `key` | none | none |
 <!-- END generated: endpoints -->
 
 ### `element`
 
 ```http
-GET /api/v1/element?id=e-commerce-system/web-app
+GET /microservices-example/api/v1/element?id=e-commerce-system/web-app
 ```
 
 ```json
@@ -199,7 +198,7 @@ GET /api/v1/element?id=e-commerce-system/web-app
         "out": 1
       }
     },
-    "viewerUrl": "/#/m/e-commerce-system?sel=e-commerce-system/web-app"
+    "viewerUrl": "/microservices-example/#/m/e-commerce-system?sel=e-commerce-system/web-app"
   }
 }
 ```
@@ -209,7 +208,7 @@ GET /api/v1/element?id=e-commerce-system/web-app
 ### `elements`
 
 ```http
-GET /api/v1/elements?q=mongo
+GET /microservices-example/api/v1/elements?q=mongo
 ```
 
 ```json
@@ -230,7 +229,7 @@ GET /api/v1/elements?q=mongo
         "Container"
       ],
       "childCount": 0,
-      "viewerUrl": "/#/m/e-commerce-system?sel=e-commerce-system/database",
+      "viewerUrl": "/microservices-example/#/m/e-commerce-system?sel=e-commerce-system/database",
       "matched": "technology"
     }
   ],
@@ -244,7 +243,7 @@ GET /api/v1/elements?q=mongo
 ### `tree`
 
 ```http
-GET /api/v1/tree?id=e-commerce-system&depth=2&limit=7
+GET /microservices-example/api/v1/tree?id=e-commerce-system&depth=2&limit=7
 ```
 
 ```json
@@ -259,14 +258,14 @@ GET /api/v1/tree?id=e-commerce-system&depth=2&limit=7
       "name": "E-Commerce System",
       "type": "SoftwareSystem",
       "childCount": 5,
-      "viewerUrl": "/#/m/e-commerce-system?sel=e-commerce-system",
+      "viewerUrl": "/microservices-example/#/m/e-commerce-system?sel=e-commerce-system",
       "children": [
         {
           "id": "e-commerce-system/web-app",
           "name": "Web App",
           "type": "Container",
           "childCount": 0,
-          "viewerUrl": "/#/m/e-commerce-system?sel=e-commerce-system/web-app",
+          "viewerUrl": "/microservices-example/#/m/e-commerce-system?sel=e-commerce-system/web-app",
           "children": []
         },
         {
@@ -274,7 +273,7 @@ GET /api/v1/tree?id=e-commerce-system&depth=2&limit=7
           "name": "API Gateway",
           "type": "Container",
           "childCount": 0,
-          "viewerUrl": "/#/m/e-commerce-system?sel=e-commerce-system/api-gateway",
+          "viewerUrl": "/microservices-example/#/m/e-commerce-system?sel=e-commerce-system/api-gateway",
           "children": []
         },
         {
@@ -282,14 +281,14 @@ GET /api/v1/tree?id=e-commerce-system&depth=2&limit=7
           "name": "Order Service",
           "type": "Container",
           "childCount": 2,
-          "viewerUrl": "/#/m/e-commerce-system/order-service?sel=e-commerce-system/order-service",
+          "viewerUrl": "/microservices-example/#/m/e-commerce-system/order-service?sel=e-commerce-system/order-service",
           "children": [
             {
               "id": "e-commerce-system/order-service/order-controller",
               "name": "Order Controller",
               "type": "Component",
               "childCount": 0,
-              "viewerUrl": "/#/m/e-commerce-system/order-service?sel=e-commerce-system/order-service/order-controller",
+              "viewerUrl": "/microservices-example/#/m/e-commerce-system/order-service?sel=e-commerce-system/order-service/order-controller",
               "children": []
             },
             {
@@ -297,7 +296,7 @@ GET /api/v1/tree?id=e-commerce-system&depth=2&limit=7
               "name": "Order Repository",
               "type": "Component",
               "childCount": 0,
-              "viewerUrl": "/#/m/e-commerce-system/order-service?sel=e-commerce-system/order-service/order-repository",
+              "viewerUrl": "/microservices-example/#/m/e-commerce-system/order-service?sel=e-commerce-system/order-service/order-repository",
               "children": []
             }
           ]
@@ -307,7 +306,7 @@ GET /api/v1/tree?id=e-commerce-system&depth=2&limit=7
           "name": "Inventory Service",
           "type": "Container",
           "childCount": 2,
-          "viewerUrl": "/#/m/e-commerce-system/inventory-service?sel=e-commerce-system/inventory-service",
+          "viewerUrl": "/microservices-example/#/m/e-commerce-system/inventory-service?sel=e-commerce-system/inventory-service",
           "children": null
         }
       ]
@@ -323,7 +322,7 @@ Here `limit=7` cut the walk after seven elements, so `truncated` is `true`.
 ### `neighbours`
 
 ```http
-GET /api/v1/neighbours?id=e-commerce-system/web-app&direction=out&depth=2
+GET /microservices-example/api/v1/neighbours?id=e-commerce-system/web-app&direction=out&depth=2
 ```
 
 ```json
@@ -354,7 +353,7 @@ GET /api/v1/neighbours?id=e-commerce-system/web-app&direction=out&depth=2
         "name": "API Gateway",
         "type": "Container",
         "childCount": 0,
-        "viewerUrl": "/#/m/e-commerce-system?sel=e-commerce-system/api-gateway"
+        "viewerUrl": "/microservices-example/#/m/e-commerce-system?sel=e-commerce-system/api-gateway"
       }
     },
     {
@@ -377,7 +376,7 @@ GET /api/v1/neighbours?id=e-commerce-system/web-app&direction=out&depth=2
         "name": "Inventory Service",
         "type": "Container",
         "childCount": 2,
-        "viewerUrl": "/#/m/e-commerce-system/inventory-service?sel=e-commerce-system/inventory-service"
+        "viewerUrl": "/microservices-example/#/m/e-commerce-system/inventory-service?sel=e-commerce-system/inventory-service"
       }
     }
   ],
@@ -391,7 +390,7 @@ GET /api/v1/neighbours?id=e-commerce-system/web-app&direction=out&depth=2
 ### `path`
 
 ```http
-GET /api/v1/path?from=e-commerce-system/web-app&to=e-commerce-system/inventory-service
+GET /microservices-example/api/v1/path?from=e-commerce-system/web-app&to=e-commerce-system/inventory-service
 ```
 
 ```json
@@ -428,7 +427,7 @@ GET /api/v1/path?from=e-commerce-system/web-app&to=e-commerce-system/inventory-s
 ### `relationships`
 
 ```http
-GET /api/v1/relationships?from=administrator&to=e-commerce-system
+GET /microservices-example/api/v1/relationships?from=administrator&to=e-commerce-system
 ```
 
 ```json
@@ -460,7 +459,7 @@ GET /api/v1/relationships?from=administrator&to=e-commerce-system
 ### `views` and `view`
 
 ```http
-GET /api/v1/views
+GET /microservices-example/api/v1/views
 ```
 
 ```json
@@ -475,7 +474,7 @@ GET /api/v1/views
       "title": "System Context of E-Commerce App",
       "description": "System Context of E-Commerce App",
       "scope": "e-commerce-system",
-      "viewerUrl": "/#/v/system-context-view-ecommerce"
+      "viewerUrl": "/microservices-example/#/v/system-context-view-ecommerce"
     }
   ],
   "next": null,
@@ -484,7 +483,7 @@ GET /api/v1/views
 ```
 
 ```http
-GET /api/v1/view?key=system-context-view-ecommerce
+GET /microservices-example/api/v1/view?key=system-context-view-ecommerce
 ```
 
 ```json
@@ -498,35 +497,35 @@ GET /api/v1/view?key=system-context-view-ecommerce
     "title": "System Context of E-Commerce App",
     "description": "System Context of E-Commerce App",
     "scope": "e-commerce-system",
-    "viewerUrl": "/#/v/system-context-view-ecommerce",
+    "viewerUrl": "/microservices-example/#/v/system-context-view-ecommerce",
     "elements": [
       {
         "id": "customer",
         "name": "Customer",
         "type": "Person",
         "childCount": 0,
-        "viewerUrl": "/#/m?sel=customer"
+        "viewerUrl": "/microservices-example/#/m?sel=customer"
       },
       {
         "id": "administrator",
         "name": "Administrator",
         "type": "Person",
         "childCount": 0,
-        "viewerUrl": "/#/m?sel=administrator"
+        "viewerUrl": "/microservices-example/#/m?sel=administrator"
       },
       {
         "id": "e-commerce-system",
         "name": "E-Commerce System",
         "type": "SoftwareSystem",
         "childCount": 5,
-        "viewerUrl": "/#/m/e-commerce-system?sel=e-commerce-system"
+        "viewerUrl": "/microservices-example/#/m/e-commerce-system?sel=e-commerce-system"
       },
       {
         "id": "payment-provider",
         "name": "Payment Provider",
         "type": "SoftwareSystem",
         "childCount": 0,
-        "viewerUrl": "/#/m?sel=payment-provider"
+        "viewerUrl": "/microservices-example/#/m?sel=payment-provider"
       }
     ],
     "relationships": [
@@ -563,7 +562,7 @@ GET /api/v1/view?key=system-context-view-ecommerce
 Question 10 in practice: send the `ETag` you got last time.
 
 ```http
-GET /api/v1/
+GET /microservices-example/api/v1/
 If-None-Match: "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35"
 
 HTTP/1.0 304 Not Modified
@@ -602,10 +601,10 @@ Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html) problem detai
 | 404 | `unknown-endpoint` | Anything else below `api/v1/`. |
 | 405 | `method-not-allowed` | Any method but `GET` and `HEAD`. The answer has `Allow: GET, HEAD`. |
 | 409 | `cursor-stale` | A `cursor` from another model. |
-| 503 | `model-unavailable` | The site has no readable model (for example while it is being rebuilt). Try again. |
+| 503 | `model-unavailable` | The workspace has no readable model (for example while it is being rebuilt). Try again. |
 
 ```http
-GET /api/v1/element?id=e-commerce-system/web-ap
+GET /microservices-example/api/v1/element?id=e-commerce-system/web-ap
 
 HTTP/1.0 404
 Content-Type: application/problem+json
@@ -617,7 +616,7 @@ Content-Type: application/problem+json
   "title": "Element not found",
   "status": 404,
   "detail": "No element 'e-commerce-system/web-ap'. Nearest existing ancestor: 'e-commerce-system'. Did you mean: 'e-commerce-system/web-app', 'e-commerce-system', 'e-commerce-system/database', 'e-commerce-system/api-gateway', 'e-commerce-system/order-service'?",
-  "instance": "/api/v1/element?id=e-commerce-system/web-ap",
+  "instance": "/microservices-example/api/v1/element?id=e-commerce-system/web-ap",
   "code": "element-not-found",
   "parameter": "id",
   "candidates": [
@@ -636,13 +635,13 @@ Paths in answers are always model ids, never file system paths.
 
 ## Caching
 
-Every successful answer has a strong `ETag` header, which is the quoted `modelHash`, and `Cache-Control: no-cache`: a client must always ask `buildzr serve` again, as for the other files of the site. Send the tag back in `If-None-Match`; if the model has not changed, the answer is `304 Not Modified` with no body.
+Every successful answer has a strong `ETag` header, which is the quoted `modelHash`, and `Cache-Control: no-cache`: a client must always ask `buildzr serve` again, as for the other files of the workspace. Send the tag back in `If-None-Match`; if the model has not changed, the answer is `304 Not Modified` with no body.
 
-The tag identifies the model, not the request, so use it only for the URL you got it from. Errors have no `ETag`. When the site is rebuilt, `buildzr serve` notices the new `data/index.json` on the next request and serves the new model without a restart.
+The tag identifies the model, not the request, so use it only for the URL you got it from. Errors have no `ETag`. When the workspace is rebuilt, `buildzr serve` notices the new `data/index.json` on the next request and serves the new model without a restart.
 
 ## Browsers and CORS
 
-By default, the API sends **no** CORS (Cross-Origin Resource Sharing) headers. A web page from another site therefore cannot read the API through the browser of a visitor. This protects a model inside a company network from any page that a member of staff happens to open.
+By default, the API sends **no** CORS (Cross-Origin Resource Sharing) headers. A web page from another address therefore cannot read the API through the browser of a visitor. This protects a model inside a company network from any page that a member of staff happens to open.
 
 To allow one web tool, name its origin (scheme, host and port, no path) with `--cors-origin`, once per origin:
 
@@ -656,23 +655,23 @@ Only a request whose `Origin` header is in the list gets `Access-Control-Allow-O
 
 Every element in an answer has a `viewerUrl`, a link a person can open to see that element. The link follows the viewer's [hash routes](viewer-hash-routes.md): an element with things inside opens expanded, and a leaf opens inside its parent with itself selected. Element types the viewer does not draw have `viewerUrl: null`.
 
-Without `--public-url`, the links are paths on the same host (`/#/m/e-commerce-system?sel=e-commerce-system/web-app`). That is right when readers open the site at the address of `buildzr serve` itself. Behind a proxy, or on a shared host, tell `serve` the address that readers use:
+Without `--public-url`, the links are paths on the same host (`/microservices-example/#/m/e-commerce-system?sel=e-commerce-system/web-app`). That is right when readers open the workspace at the address of `buildzr serve` itself. Behind a proxy, tell `serve` the address that readers use:
 
 ```text
-buildzr serve --public-url https://models.example.com/pr/42/
+buildzr serve --public-url https://models.example.com/architecture/
 ```
 
-The links, `endpoints` and `next` are then absolute: `https://models.example.com/pr/42/#/m/e-commerce-system?sel=...`. `buildzr serve` never guesses the address from request headers. A trailing `/` is dropped. The value must start with `http://` or `https://` and must not contain `?` or `#`.
+The links, `endpoints` and `next` are then absolute: `https://models.example.com/architecture/microservices-example/#/m/e-commerce-system?sel=...`. `buildzr serve` never guesses the address from request headers. A trailing `/` is dropped. The value must start with `http://` or `https://` and must not contain `?` or `#`.
 
-A data-only site (built with `viewer: false`) has no viewer, but `buildzr serve` still starts and the API works. Its `viewerUrl` links are `null`, and `notes` in the orientation document says so. This is also true with `--public-url`, because the address is used only for the links of a site that has a viewer.
+A data-only workspace (built with `viewer: false` or `--no-viewer`) has no viewer, but `buildzr serve` still serves it and the API works. Its `viewerUrl` links are `null`, and `notes` in the orientation document says so. This is also true with `--public-url`, because the address is used only for the links of a workspace that has a viewer.
 
 ## `llms.txt`
 
-`GET /llms.txt` returns a short plain-text page (under 2 KB) made from the orientation document. It says what the site is and links to `api/v1/` and to every endpoint. AI tools that look for a file called `llms.txt` find the API through it.
+`GET /<name>/llms.txt` returns a short plain-text page (under 2 KB) made from the orientation document of the workspace. It says what the workspace is and links to its `api/v1/` and to every endpoint. AI tools that look for a file called `llms.txt` find the API through it.
 
 ## What the API will not do
 
 - It never writes. Other methods get `405`, and `buildzr serve` does not create or change files.
-- It reads only the model data file and the scene files that `data/index.json` of the site names, and only inside the `data/` folder of the site. If a name in `index.json` points elsewhere, the model becomes unavailable; the file is not read.
+- It reads only the model data file and the scene files that `data/index.json` of the workspace names, and only inside the `data/` folder of the workspace. If a name in `index.json` points elsewhere, the model becomes unavailable; the file is not read.
 - Deployment nodes and the drawing's geometry are not in the answers. Neither is a comparison between two builds.
 - Version: all paths are below `api/v1/`. New fields may appear in answers without a version change; a change that removes or renames something would arrive as `api/v2/`.

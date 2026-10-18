@@ -1,8 +1,8 @@
 # Viewer settings
 
-The viewer is the web page inside a buildzr site that draws your diagrams. Its settings panel holds options that change how the canvas behaves.
+The viewer is the web page inside a built workspace that draws your diagrams. Its settings panel holds options that change how the canvas behaves.
 
-Each reader's browser keeps that reader's settings. Settings are not part of the site, `buildzr.yaml` does not set them, and a [viewer link](viewer-hash-routes.md) does not carry them. Two people who open the same link can therefore see it with different settings.
+Each reader's browser keeps that reader's settings. Settings are not part of the workspace, `buildzr.yaml` does not set them, and a [viewer link](viewer-hash-routes.md) does not carry them. Two people who open the same link can therefore see it with different settings.
 
 ## Open the settings panel
 

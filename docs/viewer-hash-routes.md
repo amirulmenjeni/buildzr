@@ -1,6 +1,6 @@
 # Viewer links
 
-A viewer link opens the viewer of a site at a chosen place: an element, a view, a selection or a search. The link is the address of the site plus a **hash**, the part after `#`. This page is the reference of the hash.
+A viewer link opens the viewer of a workspace at a chosen place: an element, a view, a selection or a search. The link is the address of the workspace, such as `http://127.0.0.1:8000/shop/`, plus a **hash**, the part after `#`. This page is the reference of the hash.
 
 You can write a hash by hand, or take a complete link from the `viewerUrl` field of a [Model API](model-api.md) answer. For a short guide to sharing links, see [the recipes](publishing-recipes.md#sharing-a-link-to-one-element).
 
@@ -10,7 +10,7 @@ Links in the forms on this page keep working in later versions of buildzr.
 
 | Word | Meaning |
 |---|---|
-| **viewer** | The web page inside a site that draws the diagrams. |
+| **viewer** | The web page inside a built workspace that draws the diagrams. |
 | **hash** | The part of an address after `#`. The viewer keeps its navigation state there. |
 | **landscape** | The first diagram the viewer shows, like a [System Landscape diagram](https://c4model.com/#SystemLandscapeDiagram) of the C4 model: every person and software system of the model. Groups draw a boundary around some of them; they do not hide any. |
 | **element path** | The id of an element: lower-case names joined by `/`, for example `billing/api`. It is the same id as in the Model API. |
