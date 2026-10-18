@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://buildzr.dev/schema/config/1",
   "title": "buildzr config file (buildzr.yaml, version 1)",
-  "description": "buildzr.yaml: the workspaces folder and the build options. Text values may use ${NAME}, ${NAME:-fallback} and $$; they are expanded when a command uses them, so values that contain '$' are only checked for their type here. Secrets never go in this file. Relative paths are relative to the folder holding the file. The loader (buildzr.site.config) is the authority; this schema lets editors check the same rules.",
+  "description": "buildzr.yaml: the workspaces folder, the build options and the serve options. Text values may use ${NAME}, ${NAME:-fallback} and $$; they are expanded when a command uses them, so values that contain '$' are only checked for their type here. Secrets never go in this file. Relative paths are relative to the folder holding the file. A command-line option always wins over the file, and the file over the built-in default. The loader (buildzr.site.config) is the authority; this schema lets editors check the same rules.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -16,6 +16,17 @@
         "text_color": { "enum": ["wcag", "c4"], "default": "wcag", "description": "Text colour on boxes, wcag or c4." },
         "viewer": { "type": "boolean", "default": true, "description": "false builds data only, without the viewer." },
         "out": { "type": "string", "minLength": 1, "default": ".buildzr/build", "description": "The build output: build writes one folder per workspace here and serve reads it." }
+      }
+    },
+    "serve": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Options of buildzr serve; buildzr build never reads them. Each one is used only when its command-line option is not given.",
+      "properties": {
+        "public_url": { "type": "string", "anyOf": [{ "pattern": "\\$" }, { "pattern": "^https?://[^/?#\\s\\\\][^?#\\s\\\\]*$" }], "description": "The address at which readers reach the server, for example behind a proxy: an http:// or https:// URL without query or fragment; a trailing / is dropped. The links of the Model API (viewerUrl) are built from it. Same as --public-url. Default: none, so the links start with /." },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 8000, "description": "The port to listen on, 1 to 65535. Same as -p/--port. ${NAME} is not expanded here, because the value is a number." },
+        "host": { "type": "string", "minLength": 1, "default": "127.0.0.1", "description": "The address to listen on. The default 127.0.0.1 lets only this machine connect; 0.0.0.0 shares the server with every machine on the network, and serve has no login. Same as --host." },
+        "cors_origins": { "type": "array", "items": { "type": "string", "anyOf": [{ "pattern": "\\$" }, { "pattern": "^https?://[^/?#\\s*:\\\\][^/?#\\s*]*$" }] }, "default": [], "description": "Web origins (scheme://host[:port], no path, no '*') whose pages may read the Model API from a browser. An empty list means none. Same as repeating --cors-origin; the option replaces this list, it does not add to it." }
       }
     }
   }

@@ -5,6 +5,7 @@ Typical use (what the commands do)::
     path = find_config(Path.cwd())            # None when there is no file
     cfg = load_config(path)                   # strict parse + validation, no env needed
     build = resolve_build(cfg, os.environ)    # ${VAR} expanded in build.out
+    serve = resolve_serve(cfg, os.environ)    # ${VAR} expanded in serve.public_url, host and cors_origins
 
 ``load_config`` never reads the environment. ``${VAR}`` is expanded only by the
 ``resolve_*`` functions, and only for the parts they are asked about.
@@ -31,9 +32,12 @@ __all__ = [
     "Config",
     "ConfigError",
     "ResolvedBuild",
+    "ResolvedServe",
+    "ServeSettings",
     "find_config",
     "load_config",
     "resolve_build",
+    "resolve_serve",
     "resolve_workspaces",
 ]
 
@@ -41,6 +45,9 @@ CONFIG_NAME = "buildzr.yaml"
 _MISNAMED = ("buildzr.yml", ".buildzr.yaml")
 DEFAULT_OUT = ".buildzr/build"
 DEFAULT_WORKSPACES = "workspaces"
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 8000
+PORT_MESSAGE = "expected a whole number from 1 to 65535"
 
 _VAR_NAME = re.compile(r"[A-Z_][A-Z0-9_]*")
 _SECRET_KEYS = ("token", "password", "secret")
@@ -72,6 +79,16 @@ class BuildSettings:
 
 
 @dataclass(frozen=True)
+class ServeSettings:
+    """The ``serve:`` section as written: ``None`` for a key that is not set; text is still unexpanded."""
+
+    public_url: Optional[str] = None
+    port: Optional[int] = None
+    host: Optional[str] = None
+    cors_origins: Optional[tuple[str, ...]] = None
+
+
+@dataclass(frozen=True)
 class Config:
     """A loaded and validated ``buildzr.yaml``.
 
@@ -79,7 +96,8 @@ class Config:
         path: Absolute path of the file.
         workspaces: The ``workspaces:`` text (a folder or a ``.py`` file), unexpanded and unresolved, or ``None``.
         build: The build settings with defaults.
-        lines: Line number of every key, by dotted key (for messages).
+        lines: Line number of every key, by dotted key (for messages); ``serve.cors_origins[0]`` for list items.
+        serve: The serve settings; ``buildzr build`` never reads them.
     """
 
     path: Path
@@ -87,6 +105,7 @@ class Config:
     workspaces: Optional[str] = None
     build: BuildSettings = field(default_factory=BuildSettings)
     lines: Mapping[str, int] = field(default_factory=dict)
+    serve: ServeSettings = field(default_factory=ServeSettings)
 
     @property
     def root(self) -> Path:
@@ -107,6 +126,19 @@ class ResolvedBuild:
     text_color: str
     viewer: bool
     out: Path
+
+
+@dataclass(frozen=True)
+class ResolvedServe:
+    """Serve settings after ``${VAR}`` expansion and checking; ``None`` where the file does not set the key.
+
+    ``public_url`` has no trailing slash, as the ``--public-url`` option gives it.
+    """
+
+    public_url: Optional[str]
+    port: Optional[int]
+    host: Optional[str]
+    cors_origins: Optional[list[str]]
 
 
 # ------------------------------------------------------------------- discovery
@@ -337,8 +369,9 @@ def _expand(parts: list[_Part], text: str, env: Mapping[str, str]) -> tuple[str,
 
 # ----------------------------------------------------------------- the loader
 
-_TOP_KEYS = ("version", "workspaces", "build")
+_TOP_KEYS = ("version", "workspaces", "build", "serve")
 _BUILD_KEYS = ("k", "text_color", "viewer", "out")
+_SERVE_KEYS = ("public_url", "port", "host", "cors_origins")
 #: Keys of earlier versions, each with the one line that says what to do instead.
 _REMOVED = {
     "targets": "removed: buildzr deploy no longer exists; delete this key",
@@ -382,6 +415,17 @@ class _Validator:
                 self.p.add(n.line, key, str(e))
                 return None
         return n.value
+
+    def literal(self, n: _Node, key: str, text: str, kind: str) -> None:
+        """Check a URL or origin now when it has no ``${VAR}`` (else :func:`resolve_serve` checks it)."""
+        if "$" in text:
+            return
+        from buildzr.site.api import normalise_origin, normalise_public_url  # not at import time: keep this light
+
+        try:
+            (normalise_public_url if kind == "public_url" else normalise_origin)(text)
+        except ValueError as e:
+            self.p.add(n.line, key, str(e))
 
     def boolean(self, n: _Node, key: str) -> Optional[bool]:
         if isinstance(n.value, bool):
@@ -466,9 +510,48 @@ def load_config(path: Union[str, "os.PathLike[str]"]) -> Config:
                         out = o
             build = BuildSettings(k, tc, viewer, out)
 
+    serve = ServeSettings()
+    if "serve" in top:
+        sn = top["serve"]
+        sv = v.mapping(sn, "serve")
+        if sv is not None:
+            v.keys(sn, "serve", _SERVE_KEYS)
+            public_url = host = None
+            port: Optional[int] = None
+            origins: Optional[tuple[str, ...]] = None
+            if "public_url" in sv:
+                public_url = v.text(sv["public_url"], "serve.public_url", template=True)
+                if public_url is not None:
+                    v.literal(sv["public_url"], "serve.public_url", public_url, "public_url")
+            if "host" in sv:
+                host = v.text(sv["host"], "serve.host", template=True)
+                if host == "":
+                    probs.add(sv["host"].line, "serve.host", "expected a host name or address, got empty text")
+            if "port" in sv:
+                n = sv["port"]
+                if isinstance(n.value, int) and not isinstance(n.value, bool) and 1 <= n.value <= 65535:
+                    port = n.value
+                else:
+                    probs.add(n.line, "serve.port", f"{PORT_MESSAGE}, got {_describe(n)}")
+            if "cors_origins" in sv:
+                n = sv["cors_origins"]
+                if not isinstance(n.value, list):
+                    probs.add(n.line, "serve.cors_origins", f"expected a list of origins, got {_describe(n)}")
+                else:
+                    items = []
+                    for i, item in enumerate(n.value):
+                        key = f"serve.cors_origins[{i}]"
+                        v.lines[key] = item.line
+                        t = v.text(item, key, template=True)
+                        if t is not None:
+                            v.literal(item, key, t, "origin")
+                            items.append(t)
+                    origins = tuple(items)
+            serve = ServeSettings(public_url, port, host, origins)
+
     if probs:
         raise ConfigError(probs.lines())
-    return Config(cpath, version, workspaces, build, dict(v.lines))
+    return Config(cpath, version, workspaces, build, dict(v.lines), serve)
 
 
 # ------------------------------------------------------------------- resolving
@@ -532,3 +615,48 @@ def resolve_build(cfg: Config, env: Mapping[str, str]) -> ResolvedBuild:
     r.raise_if_any()
     b = cfg.build
     return ResolvedBuild(b.k, b.text_color, b.viewer, r.folder(out))
+
+
+def resolve_serve(cfg: Config, env: Mapping[str, str]) -> ResolvedServe:
+    """The ``serve:`` settings with ``${VAR}`` expanded in ``public_url``, ``host`` and each of ``cors_origins``.
+
+    ``public_url`` and the origins are checked as the ``--public-url`` and ``--cors-origin`` options are, with the
+    same messages.
+
+    Raises:
+        ConfigError: A ``${VAR}`` is unset or empty, or a value is not a valid URL, origin or host.
+    """
+    from buildzr.site.api import normalise_origin, normalise_public_url  # not at import time: keep this module light
+
+    s = cfg.serve
+    r = _Resolver(cfg, env)
+    public_url: Optional[str] = None
+    if s.public_url is not None:
+        text = r.expand("serve.public_url", s.public_url)
+        if not r.errors:
+            try:
+                public_url = normalise_public_url(text)
+            except ValueError as e:
+                r.problem("serve.public_url", str(e))
+    host: Optional[str] = None
+    if s.host is not None:
+        n = len(r.errors)
+        host = r.expand("serve.host", s.host)
+        if len(r.errors) == n and host == "":
+            r.problem("serve.host", "expected a host name or address, got empty text")
+    origins: Optional[list[str]] = None
+    if s.cors_origins is not None:
+        origins = []
+        for i, item in enumerate(s.cors_origins):
+            key = f"serve.cors_origins[{i}]"
+            n = len(r.errors)
+            text = r.expand(key, item)
+            if len(r.errors) > n:
+                continue
+            try:
+                origins.append(normalise_origin(text))
+            except ValueError as e:
+                r.problem(key, str(e))
+        origins = list(dict.fromkeys(origins))
+    r.raise_if_any()
+    return ResolvedServe(public_url, s.port, host, origins)

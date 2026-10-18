@@ -179,10 +179,10 @@ buildzr serve [-h] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOS
 | `--rebuild` | Build every workspace again, also the ones that are up to date. |
 | `-c FILE`, `--config FILE` | The config file. Default: `buildzr.yaml`, searched from the current folder upward. |
 | `-v`, `--verbose` | The same as for `build`. |
-| `-p PORT`, `--port PORT` | The port. Default 8000. |
-| `--host HOST` | The address to listen on. Default `127.0.0.1`: only this machine can connect. To let other machines connect, pass `0.0.0.0`; do this only on purpose. |
-| `--public-url URL` | The address at which readers reach this server (`http://` or `https://`), for example behind a proxy. The [Model API](model-api.md) builds its `viewerUrl` links from it. |
-| `--cors-origin ORIGIN` | Let a web page from `ORIGIN` read the Model API from a browser (CORS, Cross-Origin Resource Sharing). Repeat the option for more origins. There is no wildcard. |
+| `-p PORT`, `--port PORT` | The port, 1 to 65535. Default: `serve.port` in `buildzr.yaml`, else 8000. |
+| `--host HOST` | The address to listen on. Default: `serve.host` in `buildzr.yaml`, else `127.0.0.1`: only this machine can connect. To let other machines connect, pass `0.0.0.0`; do this only on purpose. |
+| `--public-url URL` | The address at which readers reach this server (`http://` or `https://`), for example behind a proxy. The [Model API](model-api.md) builds its `viewerUrl` links from it. Default: `serve.public_url` in `buildzr.yaml`, else none. |
+| `--cors-origin ORIGIN` | Let a web page from `ORIGIN` read the Model API from a browser (CORS, Cross-Origin Resource Sharing). Repeat the option for more origins. There is no wildcard. Default: `serve.cors_origins` in `buildzr.yaml`, else none. The option replaces the list of the file; it does not add to it. |
 
 #### When a built workspace is out of date
 

@@ -26,6 +26,7 @@ import os
 import re
 import shlex
 import shutil
+import socket
 import tempfile
 import threading
 from pathlib import Path
@@ -89,6 +90,13 @@ def run_cli(argv: list[str], cwd: Path, env: dict[str, str]) -> tuple[int, str]:
         return code, sink.read().decode("utf-8")
 
 
+def free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port: int = s.getsockname()[1]
+        return port
+
+
 class Page:
     """The folder and the state shared by the commands of one page."""
 
@@ -109,7 +117,7 @@ class Page:
     def argv(self, tokens: list[str]) -> list[str]:
         out = [str(self.path(t)) if t.startswith("/") else t for t in tokens]
         if out[0] == "serve" and "-p" not in out and "--port" not in out:
-            out += ["-p", "0"]
+            out += ["-p", str(free_port())]  # the pages show 8000; the output is compared with ports normalised
         return out
 
 

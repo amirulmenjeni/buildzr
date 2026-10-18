@@ -451,19 +451,20 @@ def test_serve_without_a_workspaces_folder(tmp_path: Path, served: list[tuple[st
     assert served and served[-1][0] == str(root / ".buildzr" / "build")
 
 
-def test_serve_a_built_folder_does_not_read_the_config(tmp_path: Path, served: list[tuple[str, str, int]],
-                                                       monkeypatch: pytest.MonkeyPatch,
-                                                       capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "build: {k: four}\n")  # broken, but not needed
+def test_serve_a_built_folder_reads_only_the_serve_settings_of_the_config(
+        tmp_path: Path, served: list[tuple[str, str, int]], monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, "serve: {port: 8123}\n")
     fake_built(root / "copied" / "w")
     code, _, err = run(root, monkeypatch, capsys, "serve", "copied")
-    assert (code, err) == (0, "") and served == [("copied", "127.0.0.1", 8000)]
+    assert (code, err) == (0, "") and served == [("copied", "127.0.0.1", 8123)]
     fake_built(root / "one")  # one built workspace, not a folder of them
     code, _, err = run(root, monkeypatch, capsys, "serve", "one")
-    assert (code, err) == (0, "") and served[-1] == ("one", "127.0.0.1", 8000)
+    assert (code, err) == (0, "") and served[-1] == ("one", "127.0.0.1", 8123)
     code, _, err = run(root, monkeypatch, capsys, "serve", "copied", "--rebuild")
     assert code == 2 and "--rebuild needs the workspaces folder" in err
-    code, _, err = run(root, monkeypatch, capsys, "serve")  # now the file is needed
+    (root / "buildzr.yaml").write_text("build: {k: four}\n")  # the file is read, so its problems stop serve
+    code, _, err = run(root, monkeypatch, capsys, "serve", "copied")
     assert code == 2 and "build.k" in err
 
 

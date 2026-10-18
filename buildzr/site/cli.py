@@ -16,7 +16,16 @@ from typing import Any, Iterable, NoReturn, Optional
 from buildzr.site import config as cfgmod
 from buildzr.site.api import normalise_origin, normalise_public_url
 from buildzr.site.build import BuildError, BuildResult, build_all, plan, source_root
-from buildzr.site.config import DEFAULT_OUT, DEFAULT_WORKSPACES, BuildSettings, Config, ConfigError
+from buildzr.site.config import (
+    DEFAULT_HOST,
+    DEFAULT_OUT,
+    DEFAULT_PORT,
+    DEFAULT_WORKSPACES,
+    PORT_MESSAGE,
+    BuildSettings,
+    Config,
+    ConfigError,
+)
 from buildzr.site.serve import Catalog, holds_built_workspaces, serve
 
 
@@ -63,13 +72,17 @@ def _parser() -> argparse.ArgumentParser:
                    help="config file (default: buildzr.yaml, searched from the current folder upward)")
     s.add_argument("-v", "--verbose", action="store_true",
                    help="also show the summary line of the step that runs each Python file")
-    s.add_argument("-p", "--port", type=int, default=8000, help="port (default 8000)")
-    s.add_argument("--host", default="127.0.0.1", help="default 127.0.0.1; use 0.0.0.0 explicitly to share")
+    s.add_argument("-p", "--port", type=int, default=None,
+                   help=f"port, 1 to 65535 (default: serve.port in buildzr.yaml, else {DEFAULT_PORT})")
+    s.add_argument("--host", default=None,
+                   help=f"address to listen on (default: serve.host in buildzr.yaml, else {DEFAULT_HOST}); "
+                        "use 0.0.0.0 explicitly to share")
     s.add_argument("--public-url", metavar="URL", default=None,
                    help="address of the server as readers see it (http:// or https://); the base of the "
-                        "API's viewerUrl links")
-    s.add_argument("--cors-origin", metavar="ORIGIN", action="append", default=[],
-                   help="let this web origin read the API from a browser (repeatable; there is no wildcard)")
+                        "API's viewerUrl links (default: serve.public_url in buildzr.yaml)")
+    s.add_argument("--cors-origin", metavar="ORIGIN", action="append", default=None,
+                   help="let this web origin read the API from a browser (repeatable; there is no wildcard; "
+                        "default: serve.cors_origins in buildzr.yaml, which the option replaces)")
     s.set_defaults(workspace=None, k=None, text_color=None, no_viewer=False, out=None)
     return ap
 
@@ -266,15 +279,37 @@ def _build_stale(args: argparse.Namespace, b: _BuildArgs) -> set[str]:
     return {w.name for w in result.broken}
 
 
-def _cmd_serve(args: argparse.Namespace) -> int:
+def _serve_settings(args: argparse.Namespace, cfg: Optional[Config]) -> tuple[str, int, Optional[str], list[str]]:
+    """Host, port, public URL and CORS origins: each option, else ``serve:`` in ``buildzr.yaml``, else the default.
+
+    ``--cors-origin`` replaces the file's list; it does not add to it.
+    """
     try:
         public_url = normalise_public_url(args.public_url) if args.public_url is not None else None
     except ValueError as e:
         raise _Usage(f"--public-url: {e}") from None
     try:
-        origins = list(dict.fromkeys(normalise_origin(o) for o in args.cors_origin))
+        origins = list(dict.fromkeys(normalise_origin(o) for o in args.cors_origin)) \
+            if args.cors_origin is not None else None
     except ValueError as e:
         raise _Usage(f"--cors-origin: {e}") from None
+    if args.port is not None and not 1 <= args.port <= 65535:
+        raise _Usage(f"--port: {PORT_MESSAGE}, got {args.port}")
+    if args.host is not None and args.host == "":
+        raise _Usage("--host: expected a host name or address, got empty text")
+    file = cfgmod.resolve_serve(cfg, os.environ) if cfg is not None else None
+    host = args.host if args.host is not None else (file.host if file and file.host is not None else DEFAULT_HOST)
+    port = args.port if args.port is not None else (file.port if file and file.port is not None else DEFAULT_PORT)
+    if public_url is None and file is not None:
+        public_url = file.public_url
+    if origins is None:
+        origins = file.cors_origins if file is not None and file.cors_origins is not None else []
+    return host, port, public_url, origins
+
+
+def _cmd_serve(args: argparse.Namespace) -> int:
+    cfg = _load_config(args.config)
+    host, port, public_url, origins = _serve_settings(args, cfg)
     if args.no_build and args.rebuild:
         raise _Usage("--no-build and --rebuild cannot be used together")
     if args.path is not None and not os.path.exists(args.path):
@@ -287,7 +322,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         reported: set[str] = set()
     else:
         args.workspace = args.path
-        b = _BuildArgs(args, _load_config(args.config))
+        b = _BuildArgs(args, cfg)
         directory = str(b.out)
         reported = set()
         if not args.no_build:
@@ -302,9 +337,9 @@ def _cmd_serve(args: argparse.Namespace) -> int:
         if e.info.get("status") == "broken" and e.name not in reported:
             print(broken_block(e.name, e.folder, e.info), file=sys.stderr)
     try:
-        serve(directory, args.host, args.port, public_url, origins, shown=_show(Path(os.path.abspath(directory))))
+        serve(directory, host, port, public_url, origins, shown=_show(Path(os.path.abspath(directory))))
     except OSError as e:
-        return _fail(f"cannot serve on {args.host}:{args.port}: {e.strerror or e}")
+        return _fail(f"cannot serve on {host}:{port}: {e.strerror or e}")
     return 0
 
 

@@ -200,6 +200,25 @@ Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
 
 `serve` itself still listens on `http://127.0.0.1:8000/`; point the proxy there. The [Command reference](cli.md#buildzr-serve) lists every option.
 
+To avoid typing the options every time, put them in `buildzr.yaml` in the project folder, under `serve:`. Save this as `buildzr.yaml`:
+
+```yaml
+serve:
+  public_url: https://architecture.example.com
+```
+
+`buildzr serve` now uses that address without the option:
+
+```text
+$ buildzr serve --no-build
+Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+  https://architecture.example.com/billing/
+  https://architecture.example.com/shop/
+Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
+```
+
+The same section takes `port`, `host` and `cors_origins`. An option on the command line still wins over the file, and `--cors-origin` replaces the list of the file. See [`buildzr.yaml`](config.md#keys).
+
 ## 8. When a workspace is broken
 
 A workspace is **broken** when building it failed because of the workspace itself: its model file raised an error, the layout failed on it, or its data failed the checks that `build` runs on every workspace. A broken workspace replaces its previous built workspace, so nobody looks at an old diagram that no longer matches the model, and everything that shows the workspace says that it is broken.
@@ -242,9 +261,9 @@ buildzr: BROKEN: workspace shop (workspaces/shop.py) failed at the model step
     shop.py, line 6: customer >> "Buys from" >> shopp
   this workspace is broken; the viewer says so
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
-  http://127.0.0.1:8000/billing/
-  http://127.0.0.1:8000/shop/
-Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
+  https://architecture.example.com/billing/
+  https://architecture.example.com/shop/
+Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
 ```
 
 `serve` did not build Shop again: the broken workspace has the fingerprint of the file as it is now, so it is up to date until you change the file.

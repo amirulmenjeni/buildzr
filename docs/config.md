@@ -23,7 +23,7 @@ Each setting comes from the first of these that has it:
 
 No environment variable sets a setting directly. You can use environment variables only inside the file, as [`${VAR}`](#values-from-environment-variables).
 
-`buildzr build` and `buildzr serve` read the whole file. When you give `serve` a folder that already holds built workspaces, it does not read the file at all.
+`buildzr build` and `buildzr serve` read the whole file, so a problem anywhere in it stops either command. `build` uses `workspaces` and `build`; it never uses `serve`. When you give `serve` a folder that already holds built workspaces, it uses only the `serve` settings of the file.
 
 When the file has a problem, the command prints every problem, one per line, and exits with code 2. [Examples of error messages](#examples-of-error-messages) shows the format.
 
@@ -47,6 +47,10 @@ Relative paths in the file are relative to the folder that holds the file, not t
 | `build.text_color` | `wcag` or `c4` | `wcag` | The text colour on boxes. See `--text-color` in [`buildzr build`](cli.md#buildzr-build). |
 | `build.viewer` | `true` / `false` | `true` | `false` builds data-only workspaces. |
 | `build.out` | text (path) | `.buildzr/build` | The build output: `build` writes one folder per workspace into it, and `serve` serves it. |
+| `serve.public_url` | text (`http://` or `https://` URL) | none | The address at which readers reach the server, for example behind a proxy; the same value as `--public-url`. The links of the [Model API](model-api.md) (`viewerUrl`, `apiUrl`) start with it. A `/` at the end is dropped. Without it, the links start with `/`. |
+| `serve.port` | whole number, 1 to 65535 | `8000` | The port `serve` listens on; the same value as `-p`/`--port`. |
+| `serve.host` | text | `127.0.0.1` | The address `serve` listens on; the same value as `--host`. `127.0.0.1` lets only this machine connect. `0.0.0.0` shares the server with every machine on the network, and `serve` has no login, so set it only on purpose. |
+| `serve.cors_origins` | list of text | `[]` | The web origins (`https://host[:port]`, no path, no `*`) whose pages may read the Model API from a browser; the same values as repeated `--cors-origin`. An empty list means none. `--cors-origin` on the command line **replaces** this list; it does not add to it. |
 
 Unknown keys are errors. Secrets never go in this file: the keys `token`, `password` and `secret` are refused.
 
@@ -56,7 +60,7 @@ To let your editor check the file, use the JSON Schema `buildzr/site/schema/conf
 
 ## Values from environment variables
 
-You can use environment variables in the text values `workspaces` and `build.out`.
+You can use environment variables in the text values `workspaces`, `build.out`, `serve.public_url`, `serve.host` and each entry of `serve.cors_origins`. Not in `serve.port`, which is a number.
 
 - Write `${NAME}`, where `NAME` matches `[A-Z_][A-Z0-9_]*`. Write `${NAME:-fallback}` to use `fallback` when the variable is unset or empty. Write `$$` for a literal `$`. Any other `$` is an error.
 - A variable that is unset or empty, and has no fallback, is an error.
@@ -88,6 +92,17 @@ build:
   k: 9
   viewer: false
   out: "public/${BRANCH:-main}"
+```
+
+Settings for `buildzr serve` on a shared machine behind a proxy. Each one is used only when its option is not given on the command line. Set `public_url` in the file when the same project is served at a different address in each environment, such as a preview per branch: the variable gives the address, so the command stays the same everywhere.
+
+```yaml
+serve:
+  public_url: "https://${PREVIEW_HOST:-architecture.example.com}"
+  port: 8080
+  host: 0.0.0.0
+  cors_origins:
+    - https://dashboard.example.com
 ```
 
 ## Examples of error messages

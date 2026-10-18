@@ -19,6 +19,7 @@ from buildzr.site.config import (
     find_config,
     load_config,
     resolve_build,
+    resolve_serve,
     resolve_workspaces,
 )
 
@@ -91,7 +92,7 @@ def test_text_values_are_not_converted(tmp_path: Path) -> None:
 
 def test_key_on_stays_text(tmp_path: Path) -> None:
     assert problems(tmp_path, "on: 1\n") == [
-        'buildzr.yaml:1: unknown key "on"; allowed keys: version, workspaces, build'
+        'buildzr.yaml:1: unknown key "on"; allowed keys: version, workspaces, build, serve'
     ]
 
 
@@ -360,6 +361,21 @@ FIXTURES: dict[str, tuple[str, bool]] = {
     "secret-token": ("build: {token: x}\n", False),
     "workspaces-number": ("workspaces: 5\n", False),
     "build-list": ("build: [a, b]\n", False),
+    "serve-all": ("serve: {public_url: 'https://a.example.com/', port: 8080, host: 0.0.0.0, "
+                  "cors_origins: ['https://b.example.com', 'http://localhost:3000']}\n", True),
+    "serve-empty-origins": ("serve: {cors_origins: []}\n", True),
+    "serve-env": ("serve: {public_url: '${URL}', host: '${HOST:-127.0.0.1}', cors_origins: ['${ORIGIN}']}\n", True),
+    "serve-ftp": ("serve: {public_url: 'ftp://a.example.com'}\n", False),
+    "serve-query": ("serve: {public_url: 'https://a.example.com/?x=1'}\n", False),
+    "serve-port-0": ("serve: {port: 0}\n", False),
+    "serve-port-big": ("serve: {port: 65536}\n", False),
+    "serve-port-text": ("serve: {port: '8080'}\n", False),
+    "serve-port-env": ("serve: {port: '${PORT}'}\n", False),
+    "serve-host-empty": ("serve: {host: ''}\n", False),
+    "serve-origin-path": ("serve: {cors_origins: ['https://b.example.com/app']}\n", False),
+    "serve-origin-star": ("serve: {cors_origins: ['*']}\n", False),
+    "serve-origins-text": ("serve: {cors_origins: 'https://b.example.com'}\n", False),
+    "serve-unknown": ("serve: {tls: true}\n", False),
 }
 
 
@@ -384,3 +400,68 @@ def test_loader_and_schema_agree(tmp_path: Path, name: str) -> None:
     text, valid = FIXTURES[name]
     assert loader_valid(tmp_path, text) is valid, "loader"
     assert schema_valid(text) is valid, "schema"
+
+
+# --------------------------------------------------------------- serve:
+
+
+def test_serve_keys_load_and_resolve(tmp_path: Path) -> None:
+    cfg = load_config(write(tmp_path, "serve:\n  public_url: https://arch.example.com/\n  port: 8080\n"
+                                      "  host: 0.0.0.0\n  cors_origins:\n    - https://b.example.com\n"
+                                      "    - https://b.example.com\n"))
+    s = resolve_serve(cfg, {})
+    assert (s.public_url, s.port, s.host, s.cors_origins) == (
+        "https://arch.example.com", 8080, "0.0.0.0", ["https://b.example.com"])  # the trailing / goes, as for the option
+    assert resolve_serve(load_config(write(tmp_path, "version: 1\n")), {}) == resolve_serve(
+        load_config(write(tmp_path, "serve: {}\n")), {})
+    unset = resolve_serve(load_config(write(tmp_path, "version: 1\n")), {})
+    assert (unset.public_url, unset.port, unset.host, unset.cors_origins) == (None, None, None, None)
+    assert resolve_serve(load_config(write(tmp_path, "serve: {cors_origins: []}\n")), {}).cors_origins == []
+
+
+def test_serve_values_are_checked_with_the_option_wording(tmp_path: Path) -> None:
+    from buildzr.site.api import normalise_origin, normalise_public_url
+    with pytest.raises(ValueError) as url_err:
+        normalise_public_url("ftp://a.example.com")
+    with pytest.raises(ValueError) as origin_err:
+        normalise_origin("https://b.example.com/app")
+    assert problems(tmp_path, "serve:\n  public_url: ftp://a.example.com\n  port: 0\n  host: ''\n"
+                              "  cors_origins:\n    - https://ok.example.com\n    - https://b.example.com/app\n"
+                              "  tls: true\n") == [
+        f"buildzr.yaml:2: serve.public_url: {url_err.value}",
+        "buildzr.yaml:3: serve.port: expected a whole number from 1 to 65535, got the whole number 0",
+        "buildzr.yaml:4: serve.host: expected a host name or address, got empty text",
+        f"buildzr.yaml:7: serve.cors_origins[1]: {origin_err.value}",
+        'buildzr.yaml:8: serve: unknown key "tls"; allowed keys: public_url, port, host, cors_origins',
+    ]
+    assert problems(tmp_path, "serve: {port: 65536}\n") == [
+        "buildzr.yaml:1: serve.port: expected a whole number from 1 to 65535, got the whole number 65536"]
+    assert problems(tmp_path, "serve: {port: '${PORT}'}\n") == [
+        'buildzr.yaml:1: serve.port: expected a whole number from 1 to 65535, got the text "${PORT}"']
+    assert problems(tmp_path, "serve: {cors_origins: https://b.example.com}\n") == [
+        'buildzr.yaml:1: serve.cors_origins: expected a list of origins, got the text "https://b.example.com"']
+
+
+def test_serve_text_is_expanded_from_the_environment(tmp_path: Path) -> None:
+    cfg = load_config(write(tmp_path, "serve:\n  public_url: ${PUBLIC_URL}\n  host: ${HOST:-127.0.0.1}\n"
+                                      "  cors_origins: ['${DASHBOARD}', 'https://fixed.example.com']\n"))
+    s = resolve_serve(cfg, {"PUBLIC_URL": "https://pr-42.example.com/", "DASHBOARD": "https://dash.example.com"})
+    assert (s.public_url, s.host, s.cors_origins) == (
+        "https://pr-42.example.com", "127.0.0.1", ["https://dash.example.com", "https://fixed.example.com"])
+    with pytest.raises(ConfigError) as e:
+        resolve_serve(cfg, {})
+    assert e.value.problems == [
+        'buildzr.yaml:2: serve.public_url: environment variable PUBLIC_URL is not set (used in "${PUBLIC_URL}")',
+        'buildzr.yaml:4: serve.cors_origins[0]: environment variable DASHBOARD is not set (used in "${DASHBOARD}")',
+    ]
+    with pytest.raises(ConfigError) as e:  # an expanded value is checked like the option
+        resolve_serve(cfg, {"PUBLIC_URL": "pr-42.example.com", "DASHBOARD": "https://dash.example.com/x"})
+    assert [p.split(": ", 2)[1] for p in e.value.problems] == ["serve.public_url", "serve.cors_origins[0]"]
+    assert "expected an http:// or https:// URL" in e.value.problems[0]
+
+
+def test_build_never_reads_the_serve_section(tmp_path: Path) -> None:
+    cfg = load_config(write(tmp_path, "serve: {public_url: '${UNSET_URL}'}\n"))
+    resolve_build(cfg, {})  # no error: the unset variable matters only to serve
+    with pytest.raises(ConfigError):
+        resolve_serve(cfg, {})
