@@ -7,7 +7,7 @@
 
 `buildzr` is a [Structurizr](https://structurizr.com/) authoring tool for Python programmers. It allows you to declaratively or procedurally author Structurizr models and diagrams.
 
-If you're not familiar with Structurizr, it is both an open standard (see [Structurizr](https://structurizr.com)) and a [set of tools](https://docs.structurizr.com/usage) for building software architecture diagrams as code. Structurizr derives its architecture modeling paradigm based on the [C4 model](https://c4model.com/), the modeling language for describing software architectures and their relationships.
+If you're not familiar with Structurizr, it is both an open standard (see [Structurizr](https://structurizr.com)) and a [set of tools](https://docs.structurizr.com/getting-started) for building software architecture diagrams as code. Structurizr derives its architecture modeling paradigm based on the [C4 model](https://c4model.com/), the modeling language for describing software architectures and their relationships.
 
 In Structurizr, you define architecture models and their relationships first. And then, you can re-use the models to present multiple perspectives, views, and stories about your architecture.
 
