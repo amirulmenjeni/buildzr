@@ -1,21 +1,41 @@
 # Quick Start
 
-Let's start creating your first architecture diagram with `buildzr`!
+In this tutorial, you describe a small software system in Python, build it into a site with `buildzr build`, and open its diagram in your browser with `buildzr serve`. At the end, you have a working model file and a diagram that you can click through.
 
-TL;DR:
+!!! tip "Try it in your browser first"
+    The [complete example](#6-compare-your-file-with-the-complete-example) on this page has a **Run Code** button. It runs the model in your browser, without installing anything, and shows the model as JSON (the Structurizr workspace format). You do not need it for the tutorial.
 
-1. Click **Run Code** in the [Complete Example](#complete-example)
-2. Copy the JSON output
-3. Head over to [https://structurizr.com/json](https://structurizr.com/json), paste the JSON output, and hit **Render**
+## Before you start
 
-## Your First Workspace
+You need:
 
-### Step 1: Import from `buildzr.dsl`
+- Python 3.10 or newer.
+- Node.js 18 or newer. The layout step of `buildzr build` runs on Node. Check your version with `node --version`.
+- [uv](https://docs.astral.sh/uv/getting-started/installation/), the Python package manager that this tutorial uses.
 
-All `buildzr` DSL classes and methods can be found here. If you need something to create a C4 model construct, you'll find them in `buildzr.dsl`.
+## 1. Create a project and install buildzr
 
-For now, let's import the DSL constructs that we need to follow this quick-start guide:
+Create a project folder, add buildzr to it, and activate its virtual environment:
 
+```bash
+uv init quickstart
+cd quickstart
+uv add buildzr
+source .venv/bin/activate
+```
+
+On Windows, activate the environment with `.venv\Scripts\activate` instead. The `buildzr` command is now available in this terminal.
+
+!!! note "With pip, or without installing"
+    With pip instead of uv: create and activate a virtual environment, then run `pip install buildzr`.
+
+    You can also run the commands of this tutorial without installing buildzr, by putting `uvx` in front of them (`uvx buildzr build -w model.py`). This tutorial installs buildzr anyway, because your editor needs it to understand the model file while you write it.
+
+## 2. Start the model file
+
+The **model file** is a Python file that describes your architecture. Create a file called `model.py` in the `quickstart` folder, with this content:
+
+<!-- doctest: file model.py -->
 ```python
 # norun
 from buildzr.dsl import (
@@ -25,101 +45,87 @@ from buildzr.dsl import (
     StyleElements,
     SystemContextView,
 )
-```
 
-### Step 2: Create a Workspace
-
-A workspace is the top-level container for your architecture model.
-
-All your models, styling, and view defintions should go under your `Workspace` context, as we'll see later.
-
-```python
-# norun
 with Workspace('my-workspace') as w:
-    # Your models, stylings, views goes here.
     pass
 ```
 
-### Step 3: Define Your Models
+The first lines import what this tutorial uses from `buildzr.dsl`. `Workspace` holds your whole model: everything else in this tutorial goes inside the `with` block, in place of `pass`.
 
-Inside the workspace context, you can define the elements and their relationships.
+## 3. Add a person, a system and a relationship
 
-```python
+Replace `pass` with a person, a software system, and a relationship between them. The new lines are highlighted:
+
+<!-- doctest: file model.py -->
+```python hl_lines="11-17"
 # norun
-with Workspace('my-workspace') as w:
-    # Define a person (user)
-    user = Person('User', description='A user of the system')
+from buildzr.dsl import (
+    Workspace,
+    SoftwareSystem,
+    Person,
+    StyleElements,
+    SystemContextView,
+)
 
-    # Define a software system
-    system = SoftwareSystem(
-        'Web Application',
-        description='Our main web application'
-    )
-
-    # Define the relationship
-    user >> "Uses" >> system
-```
-
-### Step 4: Style your Elements
-
-Here, we use `StyleElements` to directly apply a styling to the `user` element, so that it has a `Person` shape (instead of just a boring rectangle!)
-
-```python hl_lines="12-15"
-# norun
 with Workspace('my-workspace') as w:
     user = Person('User', description='A user of the system')
-
     system = SoftwareSystem(
         'Web Application',
         description='Our main web application'
     )
 
     user >> "Uses" >> system
-
-    StyleElements(
-        on=[user],
-        shape='Person'
-    )
 ```
 
-### Step 5: Create a View
+The line `user >> "Uses" >> system` says that the user uses the web application. "Uses" becomes the label of the arrow.
 
-So far, we've only created the models (the elements and their relationship), and the styling to be applied to a model. To finally be able to put a nice picture to the models and style descriptions, we need to create a view.
+## 4. Give the person a person shape
 
-For now, we'll just create one simple `SystemContextView`.
+Add a style that draws the user with the `Person` shape:
 
-```python hl_lines="15-20"
+<!-- doctest: file model.py -->
+```python hl_lines="19-22"
 # norun
+from buildzr.dsl import (
+    Workspace,
+    SoftwareSystem,
+    Person,
+    StyleElements,
+    SystemContextView,
+)
+
 with Workspace('my-workspace') as w:
     user = Person('User', description='A user of the system')
     system = SoftwareSystem(
         'Web Application',
         description='Our main web application'
     )
+
     user >> "Uses" >> system
 
     StyleElements(
         on=[user],
         shape='Person'
     )
-
-    SystemContextView(
-        software_system_selector=system,
-        key='system-context',
-        description='System Context View',
-        auto_layout='tb'  # top-to-bottom layout
-    )
 ```
 
-### Step 6: Export to JSON, or optionally PlantUML
+## 5. Add a view
 
-Finally, export your workspace to a JSON file (or PlantUML files).
+A **view** is a diagram that you choose to draw. Add a system context view of the web application: it shows the system and the people and systems around it.
 
-```python hl_lines="24-25"
+<!-- doctest: file model.py -->
+```python hl_lines="24-29"
 # norun
+from buildzr.dsl import (
+    Workspace,
+    SoftwareSystem,
+    Person,
+    StyleElements,
+    SystemContextView,
+)
+
 with Workspace('my-workspace') as w:
     user = Person('User', description='A user of the system')
-
     system = SoftwareSystem(
         'Web Application',
         description='Our main web application'
@@ -138,35 +144,15 @@ with Workspace('my-workspace') as w:
         description='System Context View',
         auto_layout='tb'
     )
-
-    # Export to JSON file
-    w.save(path='workspace.json')
-
-    # Requires `pip install buildzr[export-plantuml]` and Java 11+
-    w.save(format='plantuml', path='path/to/output/folder')
 ```
 
-### Step 7: Run your Code
+`key='system-context'` names the view; you use the name in a link in step 9. `auto_layout='tb'` asks Structurizr tools to lay the view out from top to bottom.
 
-You can simply save the code in a `.py` file, and run it with `python`.
+## 6. Compare your file with the complete example
 
-For example, if you save the code in a file called `workspace.py`:
+Your `model.py` is now complete. It must look like this:
 
-```bash
-python workspace.py
-```
-
-You'll see a new file being created: `workspace.json`.
-
-See [Viewing Your Diagram](#viewing-your-diagram) on how you can use the content of `workspace.json` to render the architecture diagram.
-
-!!! tip
-    You can click the "Run Code" button in the [Complete Example](#complete-example) section below and copy the JSON output.
-
-## Complete Example
-
-Here's the complete code:
-
+<!-- doctest: file model.py -->
 ```python
 from buildzr.dsl import (
     Workspace,
@@ -177,52 +163,84 @@ from buildzr.dsl import (
 )
 
 with Workspace('my-workspace') as w:
-    # Define models
     user = Person('User', description='A user of the system')
     system = SoftwareSystem(
         'Web Application',
         description='Our main web application'
     )
 
-    # Define relationships
     user >> "Uses" >> system
 
-    # Style the `user` element to make it `Person` shaped.
     StyleElements(
         on=[user],
         shape='Person'
     )
 
-    # Create view
     SystemContextView(
         software_system_selector=system,
         key='system-context',
         description='System Context View',
         auto_layout='tb'
     )
-
-    # Export to JSON file
-    w.save(path='workspace.json')
 ```
 
-## Viewing Your Diagram
+The file does not call `w.save()`. In the next step, `buildzr build` runs the file and reads the workspace itself.
 
-The generated JSON file follows the [Structurizr JSON schema](https://github.com/structurizr/json). You can visualize it using:
+## 7. Build the site
 
-1. **Online**: Upload to [https://structurizr.com/json](https://structurizr.com/json)
-2. **[Structurizr Lite](https://docs.structurizr.com/lite)**: Run a local instance
-   ```bash
-   docker run -it --rm -p 8080:8080 -v $PWD:/usr/local/structurizr structurizr/lite
-   ```
-3. **[Structurizr CLI](https://docs.structurizr.com/cli)**: Convert to other formats (PlantUML, Mermaid, etc.)
+Run `buildzr build` and name your model file with `-w`:
 
-Or if you've used `save(format='plantuml')`, you can view the generated `.puml` files using a [C4PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) viewer. For example, you can try copy and paste the contents of the generated `.puml` in this [PlantUML Web Editor](https://www.plantuml.com/plantuml/uml/ZOvFIyGm4CNl-HIrfowupSMJfvNrk6BnprccwT069fEGcI3zzhO5YoAAf_VcmVlDEub2rXB8N7bsL0Qi9jKajzPcU6z7hrFfYs1saHLPMnU3JGIyTewY0_dUdc-EtHgzFbni057CI_HsNXhW6NERLhxfC4la9croHnxakgelq2FLYtbCwYC3LVSeBlljgWzcXpJkq_selg2RE58Svpz0pxCeXaOs-UztyuJqVV3lAtR4bpa7Sq8UIg0F)
+```text
+$ buildzr build -w model.py
+built .buildzr/site (2 elements, 1 relationship, 1 view; modelHash sha256:de1cb536d351…)
+```
 
-## Next Steps
+The command wrote a **site** into the folder `.buildzr/site`: the web pages that draw your diagrams. The output counts what your model contains: 2 elements (the user and the web application), 1 relationship and 1 view.
 
-Now that you've created your first diagram, explore more:
+## 8. Open the site in your browser
 
-- [Core Concepts](../user-guide/core-concepts.md): Understand the fundamentals
-- [Models](../user-guide/models.md): Learn about different model types
-- [Relationships](../user-guide/relationships.md): Learn more about defining relationships between elements
-- [Views](../user-guide/views.md): Create different types of views
+Start `buildzr serve`:
+
+```text
+$ buildzr serve
+Serving /home/you/quickstart/.buildzr/site at http://127.0.0.1:8000/ (Ctrl+C to stop)
+Model API at http://127.0.0.1:8000/api/v1/ (read only)
+```
+
+Open `http://127.0.0.1:8000/` in your browser. You see the **landscape**, the top level of your model: the user, the web application and the "Uses" arrow between them.
+
+Click the **Web Application** box. The right panel shows its details: its description, its path, the relationships that go in and out, and the views it appears in.
+
+## 9. Open a link to one element
+
+Every screen of the viewer has its own address. Open this address in your browser:
+
+```
+http://127.0.0.1:8000/#/v/system-context?sel=user
+```
+
+The viewer opens the System Context View that you added in step 5, with the User selected. You can share such a link with anyone who can open the site.
+
+To stop `buildzr serve`, press Ctrl+C in the terminal.
+
+## Next steps
+
+You have written a model file, built it into a site and opened its diagrams. From here:
+
+- Learn how to describe more: [Core Concepts](../user-guide/core-concepts.md), [Models](../user-guide/models.md), [Relationships](../user-guide/relationships.md) and [Views](../user-guide/views.md).
+- Keep the model file name in a config file, so that you do not type `-w model.py` each time: [`buildzr.yaml`](../config.md).
+- Put the site where other people can open it: the tutorial on the [Command line](../cli.md) page, then [Deploying to an instance](../deploy.md).
+- Let scripts and AI assistants read your model as JSON: [The Model API](../model-api.md).
+
+### Other ways to view the model
+
+The site is the main way to view a buildzr model, but the model is also a standard [Structurizr JSON](https://github.com/structurizr/json) workspace. To write it to a file, add `w.save(path='workspace.json')` as the last line of the `with` block and run `python model.py`. Then you can open it with other tools:
+
+- **[Structurizr Lite](https://docs.structurizr.com/lite)** shows the workspace in your browser. Run it in the folder that holds `workspace.json`:
+
+    ```bash
+    docker run -it --rm -p 8080:8080 -v $PWD:/usr/local/structurizr structurizr/lite
+    ```
+
+- **[Structurizr CLI](https://docs.structurizr.com/cli)** converts the workspace to other formats, such as PlantUML and Mermaid.
+- **PlantUML**: `w.save(format='plantuml', path='output/')` writes `.puml` files. It needs `pip install "buildzr[export-plantuml]"` and Java 11 or newer. Open the files with a [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) viewer, for example the [PlantUML web editor](https://www.plantuml.com/plantuml/uml/ZOvFIyGm4CNl-HIrfowupSMJfvNrk6BnprccwT069fEGcI3zzhO5YoAAf_VcmVlDEub2rXB8N7bsL0Qi9jKajzPcU6z7hrFfYs1saHLPMnU3JGIyTewY0_dUdc-EtHgzFbni057CI_HsNXhW6NERLhxfC4la9croHnxakgelq2FLYtbCwYC3LVSeBlljgWzcXpJkq_selg2RE58Svpz0pxCeXaOs-UztyuJqVV3lAtR4bpa7Sq8UIg0F). See the [Export](../user-guide/export.md) page.
