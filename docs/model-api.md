@@ -1,8 +1,14 @@
 # Model API
 
-`buildzr serve` does more than show the diagrams. For every [site](cli.md) it also answers questions about the architecture as JSON, so scripts, CI jobs, dashboards, AI assistants or a person with `curl` can ask "what talks to the database?" without opening the viewer and without knowing anything about the Python code that produced the model.
+The Model API answers questions about your architecture as JSON. Scripts, CI (continuous integration) jobs, dashboards, AI assistants, or a person with `curl`, can ask "what talks to the database?" without opening the viewer and without reading the Python code of the model.
 
-The API is **read-only**. It only answers `GET` (and `HEAD`). It lives next to the viewer, at `api/v1/` below the site's address:
+`buildzr serve` provides the Model API for every [site](cli.md) it serves, at `api/v1/` below the address of the site. The API is **read-only**: it answers only `GET` and `HEAD` requests.
+
+This page is a reference of the API: the orientation document, every endpoint with an example, the limits, the errors, caching, browser access and the links to the viewer.
+
+## Start a site with the Model API
+
+Build a site and serve it:
 
 ```text
 $ buildzr build -w examples/buildzr_models_example.py
@@ -13,11 +19,11 @@ Serving /home/you/buildzr/.buildzr/site at http://127.0.0.1:8000/ (Ctrl+C to sto
 Model API at http://127.0.0.1:8000/api/v1/ (read only)
 ```
 
-Then ask with any HTTP client, for example `curl -s http://127.0.0.1:8000/api/v1/`. You will get the orientation document shown below.
+Then send a request with any HTTP client, for example `curl -s http://127.0.0.1:8000/api/v1/`. The answer is the [orientation document](#the-orientation-document).
 
-The examples below were produced by running these calls against the site built from `examples/buildzr_models_example.py`. They show the default output of `buildzr serve`, without `--public-url`.
+The examples on this page are real answers from the site built from `examples/buildzr_models_example.py`, a model in the buildzr repository. They show the default output of `buildzr serve`, without `--public-url`.
 
-## Words used here
+## Words used on this page
 
 | Word | Meaning |
 |---|---|
@@ -26,11 +32,13 @@ The examples below were produced by running these calls against the site built f
 | **relationship** | An explicit "A uses B" statement written in the model, with a description and sometimes a technology. Its id is `<source id>-><destination id>`, plus `:<description>` when two relationships connect the same pair. |
 | **rollup** | An arrow between two big boxes stands for every relationship between what is inside them. This API follows the same rule as the viewer: a relationship of a descendant counts for its ancestors. |
 | **view** | A diagram the authors chose to draw (for example a system context view), as opposed to the free browsing the viewer offers. |
-| **modelHash** | A fingerprint of the model. The same model always has the same hash, and every answer carries it. |
+| **modelHash** | A fingerprint of the model, shown as `sha256:` and a hash. The same model always has the same hash, and every answer carries it. |
+| **site** | The folder that `buildzr build` writes: the viewer, the model data and `build.json`. |
+| **viewer** | The web page inside a site that draws the diagrams. A **data-only site** has no viewer. |
 
 ## The orientation document
 
-`GET api/v1/` tells a reader what the model is, how big it is and how to ask. Start here.
+`GET api/v1/` returns the orientation document. It tells a reader what the model is, how big it is, and which requests it can send. Start here.
 
 ```http
 GET /api/v1/
@@ -532,7 +540,7 @@ GET /api/v1/view?key=system-context-view-ecommerce
 
 `relationships` in `view` is `null` when the view's drawing cannot be read.
 
-## The 15 questions
+## Common questions and the request that answers each
 
 | # | Question | Call |
 |---|---|---|
@@ -578,7 +586,9 @@ Question 15: a viewer link such as `#/m/e-commerce-system?sel=customer->e-commer
 | `q` | | | 200 characters |
 | any other text parameter | | | 500 characters |
 
-Every list says if it was cut short: `truncated` is `true` and, for `elements` and `relationships`, `next` is the URL of the next page. Follow `next` until `truncated` is `false`. A `cursor` belongs to one model: after a rebuild with a different model an old cursor gets `409` (`cursor-stale`), so a reader never mixes two models. One answer never holds more than about 1 MB of items; if it would, the page ends early and `next` continues from there.
+Every list says whether it was cut short. If it was, `truncated` is `true`, and for `elements` and `relationships`, `next` is the URL of the next page. Follow `next` until `truncated` is `false`.
+
+A `cursor` belongs to one model. After a rebuild with a different model, an old cursor gets `409` (`cursor-stale`), so a reader never mixes two models. One answer never holds more than about 1 MB of items; if it would, the page ends early and `next` continues from there.
 
 ## Errors
 
@@ -626,11 +636,15 @@ Paths in answers are always model ids, never file system paths.
 
 ## Caching
 
-Every successful answer has a strong `ETag` that is the quoted `modelHash`, and `Cache-Control: no-cache` (always ask the server, as for the site's other files). Send the tag back in `If-None-Match` and an unchanged model answers `304 Not Modified` with no body. The tag identifies the model, not the query, so use it only for the URL you got it from. Errors have no `ETag`. When the site is rebuilt, the server notices the new `data/index.json` on the next request and serves the new model without a restart.
+Every successful answer has a strong `ETag` header, which is the quoted `modelHash`, and `Cache-Control: no-cache`: a client must always ask `buildzr serve` again, as for the other files of the site. Send the tag back in `If-None-Match`; if the model has not changed, the answer is `304 Not Modified` with no body.
+
+The tag identifies the model, not the request, so use it only for the URL you got it from. Errors have no `ETag`. When the site is rebuilt, `buildzr serve` notices the new `data/index.json` on the next request and serves the new model without a restart.
 
 ## Browsers and CORS
 
-By default the API sends **no** CORS headers, so a web page opened from another site cannot read it through the visitor's browser. A model inside a company network should not be readable by any page a staff member happens to open. To allow one tool, name its origin (scheme, host and port, no path), once per origin:
+By default, the API sends **no** CORS (Cross-Origin Resource Sharing) headers. A web page from another site therefore cannot read the API through the browser of a visitor. This protects a model inside a company network from any page that a member of staff happens to open.
+
+To allow one web tool, name its origin (scheme, host and port, no path) with `--cors-origin`, once per origin:
 
 ```text
 buildzr serve --cors-origin https://tool.example.com --cors-origin http://localhost:3000
@@ -642,23 +656,23 @@ Only a request whose `Origin` header is in the list gets `Access-Control-Allow-O
 
 Every element in an answer has a `viewerUrl`, a link a person can open to see that element. The link follows the viewer's [hash routes](viewer-hash-routes.md): an element with things inside opens expanded, and a leaf opens inside its parent with itself selected. Element types the viewer does not draw have `viewerUrl: null`.
 
-Without `--public-url` the links are paths on the same server (`/#/m/e-commerce-system?sel=e-commerce-system/web-app`), which is right when you are reading from the server itself. Behind a proxy or on a shared host, tell `serve` the address readers use:
+Without `--public-url`, the links are paths on the same host (`/#/m/e-commerce-system?sel=e-commerce-system/web-app`). That is right when readers open the site at the address of `buildzr serve` itself. Behind a proxy, or on a shared host, tell `serve` the address that readers use:
 
 ```text
 buildzr serve --public-url https://models.example.com/pr/42/
 ```
 
-Links, `endpoints` and `next` are then absolute: `https://models.example.com/pr/42/#/m/e-commerce-system?sel=...`. The address is never guessed from request headers. A trailing `/` is dropped; the value must start with `http://` or `https://` and have no `?` or `#`.
+The links, `endpoints` and `next` are then absolute: `https://models.example.com/pr/42/#/m/e-commerce-system?sel=...`. `buildzr serve` never guesses the address from request headers. A trailing `/` is dropped. The value must start with `http://` or `https://` and must not contain `?` or `#`.
 
-A site built with `viewer: false` has data only. `buildzr serve` still starts and the API works. Its `viewerUrl` links are `null` (and `notes` in the orientation document says so), also when `--public-url` is given: the address is only used for the links of a site that has a viewer.
+A data-only site (built with `viewer: false`) has no viewer, but `buildzr serve` still starts and the API works. Its `viewerUrl` links are `null`, and `notes` in the orientation document says so. This is also true with `--public-url`, because the address is used only for the links of a site that has a viewer.
 
 ## `llms.txt`
 
-`GET /llms.txt` returns a short plain-text page, made from the orientation document (under 2 KB), that says what the site is and links to `api/v1/` and to every endpoint, so tools that look for that file find the API.
+`GET /llms.txt` returns a short plain-text page (under 2 KB) made from the orientation document. It says what the site is and links to `api/v1/` and to every endpoint. AI tools that look for a file called `llms.txt` find the API through it.
 
 ## What the API will not do
 
-- It never writes: other methods get `405`, and the server does not create or change files.
-- It only reads the model file and the scene files named in the site's `data/index.json`, and only inside the site's `data/` folder. A name in `index.json` that points elsewhere makes the model unavailable instead of being read.
+- It never writes. Other methods get `405`, and `buildzr serve` does not create or change files.
+- It reads only the model data file and the scene files that `data/index.json` of the site names, and only inside the `data/` folder of the site. If a name in `index.json` points elsewhere, the model becomes unavailable; the file is not read.
 - Deployment nodes and the drawing's geometry are not in the answers. Neither is a comparison between two builds.
 - Version: all paths are below `api/v1/`. New fields may appear in answers without a version change; a change that removes or renames something would arrive as `api/v2/`.
