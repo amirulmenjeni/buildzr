@@ -109,7 +109,8 @@ def test_types_are_checked_not_converted(tmp_path: Path) -> None:
     assert problems(tmp_path, "build: {k: 0}\n") == [
         "buildzr.yaml:1: build.k: expected a whole number of at least 1, got the whole number 0"
     ]
-    assert problems(tmp_path, "workspaces: 5\n") == ["buildzr.yaml:1: workspaces: expected text, got the whole number 5"]
+    assert problems(tmp_path, "workspaces: 5\n") == [
+        "buildzr.yaml:1: workspaces: expected a path (text) or a list of files and folders, got the whole number 5"]
 
 
 def test_duplicate_keys_rejected(tmp_path: Path) -> None:
@@ -360,6 +361,19 @@ FIXTURES: dict[str, tuple[str, bool]] = {
     "unknown-build": ("build: {colour: 1}\n", False),
     "secret-token": ("build: {token: x}\n", False),
     "workspaces-number": ("workspaces: 5\n", False),
+    "list-text": ("workspaces: [architecture/billing.py, shared-models/]\n", True),
+    "list-mixed": ("build: {k: 4}\nworkspaces:\n  - architecture/billing.py\n  - path: architecture/platform.py\n"
+                   "    build: {k: 9, text_color: c4}\n  - path: architecture/api_catalog.py\n"
+                   "    build: {viewer: false}\n  - path: '${TEAM}/x.py'\n", True),
+    "list-empty": ("workspaces: []\n", False),
+    "list-number": ("workspaces: [5]\n", False),
+    "list-empty-path": ("workspaces: ['']\n", False),
+    "list-no-path": ("workspaces: [{build: {k: 2}}]\n", False),
+    "list-unknown-key": ("workspaces: [{path: a.py, name: A}]\n", False),
+    "list-out": ("workspaces: [{path: a.py, build: {out: x}}]\n", False),
+    "list-bad-k": ("workspaces: [{path: a.py, build: {k: 0}}]\n", False),
+    "list-bad-viewer": ("workspaces: [{path: a.py, build: {viewer: 'no'}}]\n", False),
+    "list-bad-color": ("workspaces: [{path: a.py, build: {text_color: rgb}}]\n", False),
     "build-list": ("build: [a, b]\n", False),
     "serve-all": ("serve: {public_url: 'https://a.example.com/', port: 8080, host: 0.0.0.0, "
                   "cors_origins: ['https://b.example.com', 'http://localhost:3000']}\n", True),

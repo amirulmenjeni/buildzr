@@ -33,12 +33,16 @@ __all__ = [
     "ConfigError",
     "ResolvedBuild",
     "ResolvedServe",
+    "ResolvedEntry",
     "ServeSettings",
+    "WorkspaceEntry",
     "find_config",
     "load_config",
     "resolve_build",
     "resolve_serve",
+    "resolve_workspace_entries",
     "resolve_workspaces",
+    "workspace_files",
 ]
 
 CONFIG_NAME = "buildzr.yaml"
@@ -89,15 +93,34 @@ class ServeSettings:
 
 
 @dataclass(frozen=True)
+class WorkspaceEntry:
+    """One entry of a ``workspaces:`` list: a file or a folder, and the build settings it sets itself.
+
+    Attributes:
+        path: The path as written (``${VAR}`` not expanded yet).
+        key: How messages name it: ``workspaces[0]`` for the first entry.
+        k, text_color, viewer: The entry's ``build:`` settings; ``None`` for a setting it does not set.
+    """
+
+    path: str
+    key: str
+    k: Optional[int] = None
+    text_color: Optional[str] = None
+    viewer: Optional[bool] = None
+
+
+@dataclass(frozen=True)
 class Config:
     """A loaded and validated ``buildzr.yaml``.
 
     Attributes:
         path: Absolute path of the file.
-        workspaces: The ``workspaces:`` text (a folder or a ``.py`` file), unexpanded and unresolved, or ``None``.
+        workspaces: The ``workspaces:`` text (a folder or a ``.py`` file), unexpanded and unresolved, or ``None``
+            (also when ``workspaces:`` is a list).
         build: The build settings with defaults.
         lines: Line number of every key, by dotted key (for messages); ``serve.cors_origins[0]`` for list items.
         serve: The serve settings; ``buildzr build`` never reads them.
+        workspace_list: The entries when ``workspaces:`` is a list, else ``None``.
     """
 
     path: Path
@@ -106,6 +129,7 @@ class Config:
     build: BuildSettings = field(default_factory=BuildSettings)
     lines: Mapping[str, int] = field(default_factory=dict)
     serve: ServeSettings = field(default_factory=ServeSettings)
+    workspace_list: Optional[tuple[WorkspaceEntry, ...]] = None
 
     @property
     def root(self) -> Path:
@@ -126,6 +150,19 @@ class ResolvedBuild:
     text_color: str
     viewer: bool
     out: Path
+
+
+@dataclass(frozen=True)
+class ResolvedEntry:
+    """A ``workspaces:`` list entry after ``${VAR}`` expansion; ``path`` is absolute, ``shown`` as expanded."""
+
+    path: Path
+    shown: str
+    key: str
+    line: int
+    k: Optional[int] = None
+    text_color: Optional[str] = None
+    viewer: Optional[bool] = None
 
 
 @dataclass(frozen=True)
@@ -371,6 +408,8 @@ def _expand(parts: list[_Part], text: str, env: Mapping[str, str]) -> tuple[str,
 
 _TOP_KEYS = ("version", "workspaces", "build", "serve")
 _BUILD_KEYS = ("k", "text_color", "viewer", "out")
+_ENTRY_KEYS = ("path", "build")
+_ENTRY_BUILD_KEYS = ("k", "text_color", "viewer")
 _SERVE_KEYS = ("public_url", "port", "host", "cors_origins")
 #: Keys of earlier versions, each with the one line that says what to do instead.
 _REMOVED = {
@@ -393,6 +432,9 @@ class _Validator:
                 continue
             if not key and k in _REMOVED:
                 self.p.add(line, k, _REMOVED[k])
+            elif k == "out" and key.endswith(".build"):
+                self.p.add(line, key, 'unknown key "out": the build output is the same for every workspace; '
+                                      "set build.out at the top of the file, not in a workspaces entry")
             elif k in _SECRET_KEYS:
                 self.p.add(line, key, f'unknown key "{k}". Secrets never go in this file; keep them in an environment variable.')
             else:
@@ -432,6 +474,69 @@ class _Validator:
             return n.value
         self.p.add(n.line, key, f"expected true or false, got {_describe(n)}")
         return None
+
+    def options(self, b: dict[str, _Node], key: str) -> tuple[Optional[int], Optional[str], Optional[bool]]:
+        """``k``, ``text_color`` and ``viewer`` of a ``build:`` section; ``None`` for a key not set (or wrong)."""
+        k: Optional[int] = None
+        tc: Optional[str] = None
+        viewer: Optional[bool] = None
+        if "k" in b:
+            n = b["k"]
+            if isinstance(n.value, int) and not isinstance(n.value, bool) and n.value >= 1:
+                k = n.value
+            else:
+                self.p.add(n.line, f"{key}.k", f"expected a whole number of at least 1, got {_describe(n)}")
+        if "text_color" in b:
+            n = b["text_color"]
+            if n.value in ("wcag", "c4") and isinstance(n.value, str):
+                tc = n.value
+            else:
+                self.p.add(n.line, f"{key}.text_color", f"expected wcag or c4, got {_describe(n)}")
+        if "viewer" in b:
+            viewer = self.boolean(b["viewer"], f"{key}.viewer")
+        return k, tc, viewer
+
+    def path(self, n: _Node, key: str) -> Optional[str]:
+        """A file or folder path: text, ``${VAR}`` allowed, not empty."""
+        t = self.text(n, key, template=True)
+        if t == "":
+            self.p.add(n.line, key, "expected a file or a folder, got empty text")
+            return None
+        return t
+
+    def entries(self, n: _Node) -> Optional[tuple[WorkspaceEntry, ...]]:
+        """The ``workspaces:`` list."""
+        if not n.value:
+            self.p.add(n.line, "workspaces", "expected at least one file or folder, got an empty list")
+            return None
+        out = []
+        for i, item in enumerate(n.value):
+            key = f"workspaces[{i}]"
+            self.lines[key] = item.line
+            if isinstance(item.value, str):
+                path = self.path(item, key)
+                if path is not None:
+                    out.append(WorkspaceEntry(path, key))
+                continue
+            if not isinstance(item.value, dict):
+                self.p.add(item.line, key, "expected a path (text) or a mapping with path: and build:, "
+                                           f"got {_describe(item)}")
+                continue
+            self.keys(item, key, _ENTRY_KEYS)
+            m = item.value
+            if "path" not in m:
+                self.p.add(item.line, key, "path: is missing; give the file or folder to build")
+                continue
+            path = self.path(m["path"], f"{key}.path")
+            k = tc = viewer = None
+            if "build" in m:
+                b = self.mapping(m["build"], f"{key}.build")
+                if b is not None:
+                    self.keys(m["build"], f"{key}.build", _ENTRY_BUILD_KEYS)
+                    k, tc, viewer = self.options(b, f"{key}.build")
+            if path is not None:
+                out.append(WorkspaceEntry(path, key, k, tc, viewer))
+        return tuple(out)
 
 
 def load_config(path: Union[str, "os.PathLike[str]"]) -> Config:
@@ -475,9 +580,15 @@ def load_config(path: Union[str, "os.PathLike[str]"]) -> Config:
             version = n.value
 
     workspaces: Optional[str] = None
+    workspace_list: Optional[tuple[WorkspaceEntry, ...]] = None
     if "workspaces" in top:
         n = top["workspaces"]
-        workspaces = v.text(n, "workspaces", template=True)
+        if isinstance(n.value, list):
+            workspace_list = v.entries(n)
+        elif isinstance(n.value, str):
+            workspaces = v.text(n, "workspaces", template=True)
+        else:
+            probs.add(n.line, "workspaces", f"expected a path (text) or a list of files and folders, got {_describe(n)}")
 
     build = BuildSettings()
     if "build" in top:
@@ -485,22 +596,11 @@ def load_config(path: Union[str, "os.PathLike[str]"]) -> Config:
         b = v.mapping(bn, "build")
         if b is not None:
             v.keys(bn, "build", _BUILD_KEYS)
-            k, tc, viewer, out = build.k, build.text_color, build.viewer, build.out
-            if "k" in b:
-                n = b["k"]
-                if isinstance(n.value, int) and not isinstance(n.value, bool) and n.value >= 1:
-                    k = n.value
-                else:
-                    probs.add(n.line, "build.k", f"expected a whole number of at least 1, got {_describe(n)}")
-            if "text_color" in b:
-                n = b["text_color"]
-                if n.value in ("wcag", "c4") and isinstance(n.value, str):
-                    tc = n.value
-                else:
-                    probs.add(n.line, "build.text_color", f"expected wcag or c4, got {_describe(n)}")
-            if "viewer" in b:
-                bv = v.boolean(b["viewer"], "build.viewer")
-                viewer = viewer if bv is None else bv
+            bk, btc, bv = v.options(b, "build")
+            k = build.k if bk is None else bk
+            tc = build.text_color if btc is None else btc
+            viewer = build.viewer if bv is None else bv
+            out = build.out
             if "out" in b:
                 o = v.text(b["out"], "build.out", template=True)
                 if o is not None:
@@ -551,7 +651,7 @@ def load_config(path: Union[str, "os.PathLike[str]"]) -> Config:
 
     if probs:
         raise ConfigError(probs.lines())
-    return Config(cpath, version, workspaces, build, dict(v.lines), serve)
+    return Config(cpath, version, workspaces, build, dict(v.lines), serve, workspace_list)
 
 
 # ------------------------------------------------------------------- resolving
@@ -600,6 +700,81 @@ def resolve_workspaces(cfg: Config, env: Mapping[str, str]) -> Optional[Path]:
         r.problem("workspaces", "expected a folder or a file, got empty text")
         r.raise_if_any()
     return r.folder(text)
+
+
+def resolve_workspace_entries(cfg: Config, env: Mapping[str, str]) -> Optional[list[ResolvedEntry]]:
+    """The ``workspaces:`` list with ``${VAR}`` expanded in each path, made absolute (relative to the config's folder).
+
+    Nothing is looked up on disk here; :func:`workspace_files` does that.
+
+    Returns:
+        The entries in file order, or ``None`` when ``workspaces:`` is not a list.
+
+    Raises:
+        ConfigError: A ``${VAR}`` in a path is unset or empty, or a path expands to empty text.
+    """
+    if cfg.workspace_list is None:
+        return None
+    r = _Resolver(cfg, env)
+    out = []
+    for e in cfg.workspace_list:
+        key = f"{e.key}.path" if f"{e.key}.path" in cfg.lines else e.key
+        n = len(r.errors)
+        text = r.expand(key, e.path)
+        if len(r.errors) > n:
+            continue
+        if text == "":
+            r.problem(key, "expected a file or a folder, got empty text")
+            continue
+        out.append(ResolvedEntry(r.folder(text), text, e.key, cfg.lines.get(e.key, 1), e.k, e.text_color, e.viewer))
+    r.raise_if_any()
+    return out
+
+
+def workspace_files(cfg: Config, entries: Sequence[ResolvedEntry]) -> list[list[str]]:
+    """The Python files each entry stands for: the file itself, or those a folder holds (as a workspaces folder).
+
+    Returns:
+        One list of absolute paths per entry, in order; an empty list for a folder without any.
+
+    Raises:
+        ConfigError: An entry does not exist, is a file that is not ``.py``, or names a file (or a folder) that an
+            earlier entry already stands for.
+    """
+    from buildzr.site.build import find_sources  # not at import time: keep this module light
+
+    probs = _Problems(cfg.name)
+    files: list[list[str]] = []
+    first: dict[str, ResolvedEntry] = {}
+
+    def shown(path: str) -> str:
+        try:
+            return os.path.relpath(path, cfg.root).replace(os.sep, "/")
+        except ValueError:
+            return path
+
+    for e in entries:
+        found: list[str] = []
+        files.append(found)
+        if not e.path.exists():
+            probs.add(e.line, e.key, f"{e.shown} not found (relative to {cfg.name}'s folder)")
+            continue
+        if e.path.is_file() and e.path.suffix != ".py":
+            probs.add(e.line, e.key, f"expected a .py file or a folder, got {e.shown}")
+            continue
+        for f in [str(e.path)] + find_sources(str(e.path)):
+            other = first.get(f)
+            if other is not None and other is not e:
+                what = "is" if f == str(e.path) else f"holds {shown(f)}, which is"
+                probs.add(e.line, e.key, f"{e.shown} {what} already in {other.key} (line {other.line}); "
+                                         "list each file once")
+                break
+            first[f] = e
+        else:
+            found += find_sources(str(e.path))
+    if probs:
+        raise ConfigError(probs.lines())
+    return files
 
 
 def resolve_build(cfg: Config, env: Mapping[str, str]) -> ResolvedBuild:

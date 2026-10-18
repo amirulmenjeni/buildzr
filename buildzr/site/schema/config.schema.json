@@ -7,7 +7,39 @@
   "additionalProperties": false,
   "properties": {
     "version": { "const": 1, "description": "Only 1 is accepted." },
-    "workspaces": { "type": "string", "minLength": 1, "description": "The workspaces folder: the Python files in it create the workspaces. A single .py file path also works. Default: workspaces." },
+    "workspaces": {
+      "description": "What to build. A path: the workspaces folder, whose Python files create the workspaces (a single .py file also works). Or a list of files and folders, each with its own build settings; only what is listed is built. -w replaces it. Default: workspaces.",
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "oneOf": [
+              { "type": "string", "minLength": 1, "description": "A .py file, or a folder whose Python files are all built." },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path"],
+                "properties": {
+                  "path": { "type": "string", "minLength": 1, "description": "A .py file, or a folder whose Python files are all built." },
+                  "build": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "description": "Build settings for the workspaces of this entry only; each wins over the same key of the global build:, and a command-line option wins over it. out is the same for every workspace, so it is not allowed here.",
+                    "properties": {
+                      "k": { "type": "integer", "minimum": 1 },
+                      "text_color": { "enum": ["wcag", "c4"] },
+                      "viewer": { "type": "boolean" }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
     "build": {
       "type": "object",
       "additionalProperties": false,
