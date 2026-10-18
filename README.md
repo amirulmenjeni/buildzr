@@ -1,3 +1,4 @@
+<!-- --8<-- [start:intro] -->
 # Structurizr for the `buildzr`s 🧱⚒️
 
 [![Build](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml/badge.svg)](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml)
@@ -91,6 +92,7 @@ with Workspace('w') as w:
     w.save(format='svg', path='output/')      # SVG files
 ```
 
+<!-- --8<-- [end:intro] -->
 ![Example Software System View](./docs/images/quick_example/web_app_system_context_00.svg)
 ![Example Container View](./docs/images/quick_example/web_app_container_view_00.svg)
 
@@ -113,6 +115,7 @@ See the [Publishing guide](https://buildzr.dev/cli/) for the commands, the `buil
 
 ## Getting Started
 
+<!-- --8<-- [start:rest] -->
 Ready to dive in? Check out the [Quick Start Tutorial](https://buildzr.dev/getting-started/quick-start/) and [User Guides](https://buildzr.dev/user-guide/core-concepts/).
 
 ## Why use `buildzr`?
@@ -138,3 +141,4 @@ Ready to dive in? Check out the [Quick Start Tutorial](https://buildzr.dev/getti
 - [Issue Tracker](https://github.com/amirulmenjeni/buildzr/issues)
 - [Roadmap](https://buildzr.dev/roadmap/)
 - [Contributing Guide](https://buildzr.dev/contributing/)
+<!-- --8<-- [end:rest] -->
