@@ -207,18 +207,18 @@ Work in the devcontainer of the repository; it has the same Python, uv and Java 
 uv sync --all-extras --locked
 ```
 
-`uv sync --extra docs --python 3.10` also installs the documentation tools, but it removes the other extras from the environment, and the tests that need them, such as the PlantUML export tests, fail. `uv sync --all-extras --locked` brings them back.
+`uv sync --extra docs` also installs the documentation tools, but it removes the other extras from the environment, and the tests that need them, such as the PlantUML export tests, fail. `uv sync --all-extras --locked` brings them back.
 
 The documentation tests build the examples of the pages with the real layout when Node.js 18 or newer is on `PATH` and the viewer is built (`(cd viewer && npm ci && npm run build)`). Without them, the tests lay the examples out with a stand-in that draws nothing real; the commands, their output and the Model API answers are still checked.
 
 ### Preview and check your changes
 
-`uv run --python 3.10 mkdocs serve` serves the site at http://127.0.0.1:8000 and reloads it when you save a file.
+`uv run mkdocs serve` serves the site at http://127.0.0.1:8000 and reloads it when you save a file.
 
 Before you submit, run the strict build and the documentation tests. The strict build fails on any warning, such as a broken link. The documentation tests check the links between pages and run the examples in the pages.
 
 ```bash
-uv run --python 3.10 mkdocs build --strict
+uv run mkdocs build --strict
 uv run pytest tests/docs
 ```
 
