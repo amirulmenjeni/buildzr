@@ -1,6 +1,6 @@
 # Recipes
 
-Each recipe on this page reaches one goal that people often ask about, such as a preview of every pull request or a rollback. The recipes combine the commands described on the [Command line](cli.md), [`buildzr.yaml`](config.md) and [Deploying to an instance](deploy.md) pages.
+Each recipe on this page reaches one goal that people often ask about, such as a preview of every pull request or a rollback. The recipes combine the commands described on the [Command reference](cli.md), [`buildzr.yaml`](config.md) and [Deploying to an instance](deploy.md) pages.
 
 The documentation tests run every command and every file on this page against a real instance. The only exceptions are the blocks marked as an example you must adapt.
 

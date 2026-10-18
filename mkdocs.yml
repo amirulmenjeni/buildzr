@@ -87,7 +87,8 @@ nav:
     - Themes: user-guide/themes.md
     - Export: user-guide/export.md
   - Publishing:
-    - Command line: cli.md
+    - Publish your first site: publish-first-site.md
+    - Command reference: cli.md
     - buildzr.yaml: config.md
     - Deploying to an instance: deploy.md
     - Recipes: publishing-recipes.md

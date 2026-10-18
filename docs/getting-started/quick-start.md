@@ -241,7 +241,8 @@ You have written a model file, built it into a site and opened its diagrams. Fro
 
 - Learn how to describe more: [Core Concepts](../user-guide/core-concepts.md), [Models](../user-guide/models.md), [Relationships](../user-guide/relationships.md) and [Views](../user-guide/views.md).
 - Keep the model file name in a config file, so that you do not type `-w model.py` each time: [`buildzr.yaml`](../config.md).
-- Put the site where other people can open it: the tutorial on the [Command line](../cli.md) page, then [Deploying to an instance](../deploy.md).
+- Put the site where other people can open it: [Publish your first site](../publish-first-site.md).
+- Look up every option of `build`, `serve` and `deploy`: [Command reference](../cli.md).
 - Let scripts and AI assistants read your model as JSON: [The Model API](../model-api.md).
 
 ### Other ways to view the model

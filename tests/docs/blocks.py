@@ -11,7 +11,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 DOCS = os.path.join(ROOT, "docs")
 
 #: The pages whose examples are tested: the Publishing section in its order, then the Quick Start.
-PAGES = ["cli.md", "config.md", "deploy.md", "publishing-recipes.md", "store.md", "ui-settings.md",
+PAGES = ["publish-first-site.md", "cli.md", "config.md", "deploy.md", "publishing-recipes.md", "store.md", "ui-settings.md",
          "viewer-hash-routes.md", "model-api.md", "getting-started/quick-start.md"]
 
 FENCE = re.compile(r"^(\s*)```([\w+-]*)(?:\s+\w[^`]*)?\s*$")  # attributes such as hl_lines="2-4" may follow

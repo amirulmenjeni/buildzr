@@ -119,7 +119,7 @@ Installing buildzr also installs the `buildzr` command. It turns your model into
 
 Scripts, CI (continuous integration) jobs, dashboards and AI assistants can read the model through the read-only [Model API](https://buildzr.dev/model-api/).
 
-The [Command line](https://buildzr.dev/cli/) page describes the commands and starts with a tutorial. The Publishing section of the documentation also covers `buildzr.yaml`, deploying to an instance and ready-made recipes.
+[Publish your first site](https://buildzr.dev/publish-first-site/) shows a first deploy step by step, and the [Command reference](https://buildzr.dev/cli/) describes every option. The Publishing section of the documentation also covers `buildzr.yaml`, deploying to an instance and ready-made recipes.
 
 ## Getting Started
 

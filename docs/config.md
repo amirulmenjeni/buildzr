@@ -2,7 +2,7 @@
 
 `buildzr.yaml` is the config file of your project. It holds what the `buildzr` commands need besides their options: the name of your model file, the build settings and the targets that `buildzr deploy` copies the site to. The file is optional; without it, you pass everything as options.
 
-This page is a reference. It lists where the commands look for the file, every key, how values are read, example files and the error messages. The options of each command are on the [Command line](cli.md) page.
+This page is a reference. It lists where the commands look for the file, every key, how values are read, example files and the error messages. The options of each command are in the [Command reference](cli.md).
 
 ## Words used on this page
 

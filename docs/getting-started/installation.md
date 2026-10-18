@@ -98,4 +98,4 @@ print(version("buildzr"))
 
 ## Next Steps
 
-To create your first architecture diagram, continue with the [Quick Start Guide](quick-start.md). To open your model in a browser, follow the tutorial on the [Command line](../cli.md) page.
+To create your first architecture diagram, continue with the [Quick Start Guide](quick-start.md). To put your model where other people can open it, continue with [Publish your first site](../publish-first-site.md).

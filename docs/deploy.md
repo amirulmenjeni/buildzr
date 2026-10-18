@@ -4,7 +4,8 @@
 
 This page shows how to set up the deploy, what the instance checks, what each failure means, and how the security model works. You do not need to know the code of buildzr to follow it. Related pages:
 
-- The options of every command: [Command line](cli.md).
+- The options of every command: [Command reference](cli.md).
+- A first deploy, step by step: [Publish your first site](publish-first-site.md).
 - The folder layout of an instance: [The site store](store.md).
 - The config file: [`buildzr.yaml`](config.md).
 - Ready-made setups, such as a preview of every pull request: [Recipes](publishing-recipes.md).
@@ -143,7 +144,7 @@ api:  https://preview.example.com/pr/42/api/v1/
 | 2 | A usage or config problem. |
 | 3 | The instance cannot be reached, the upload was interrupted, the instance stayed busy until the timeout, or it is out of disk space. Try again later. |
 
-The [Command line](cli.md#exit-codes) page has the table for all commands.
+The [Command reference](cli.md#exit-codes) has the table for all commands.
 
 ## What the instance checks
 

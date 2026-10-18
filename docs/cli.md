@@ -1,6 +1,8 @@
-# Command line
+# Command reference
 
 The `buildzr` command turns an architecture model that you write in Python into a **site**: a folder of web pages that draws your diagrams in a browser. You can open the site on your own machine, or deploy it so that other people can open it.
+
+This page is the reference of the command: every option, its default, and every exit code. To learn the commands step by step, follow the [Quick Start](getting-started/quick-start.md) (`build` and `serve`), then [Publish your first site](publish-first-site.md) (`deploy`).
 
 The command has three subcommands:
 
@@ -8,15 +10,13 @@ The command has three subcommands:
 - `buildzr serve` serves a site so that you can open it in a browser.
 - `buildzr deploy` builds the site and copies it to a place that other people can reach.
 
-This page has three parts. A [tutorial](#tutorial-build-view-and-deploy-your-first-site) takes you from an empty folder to a deployed site. The [command reference](#command-reference) lists every option. The [exit codes](#exit-codes) section lists what each exit code means.
-
 ## Find the page for your task
 
 | You want to... | Read |
 |---|---|
 | Describe your architecture in Python | [Quick Start](getting-started/quick-start.md) and the [User Guide](user-guide/core-concepts.md) |
-| Open your model in a browser | The [tutorial](#tutorial-build-view-and-deploy-your-first-site) on this page |
-| Deploy your model for other people | [Deploying to an instance](deploy.md), then the [recipes](publishing-recipes.md) |
+| Open your model in a browser | [Quick Start](getting-started/quick-start.md) |
+| Deploy your model for other people | [Publish your first site](publish-first-site.md), then [Deploying to an instance](deploy.md) and the [recipes](publishing-recipes.md) |
 | Let scripts, CI (continuous integration) jobs, dashboards and AI assistants read your model | [The Model API](model-api.md) |
 | Run one shared instance: a `buildzr serve` that holds many sites | [The site store](store.md) and [Deploying to an instance](deploy.md) |
 | Keep your settings in one file | [`buildzr.yaml`](config.md) |
@@ -30,7 +30,6 @@ This page has three parts. A [tutorial](#tutorial-build-view-and-deploy-your-fir
 | **site** | The folder that `buildzr build` writes: the viewer, the model data and a file called `build.json`. |
 | **deploy** | To copy a built site to a target with `buildzr deploy`, so that other people can open it. |
 | **viewer** | The web page inside a site that draws the diagrams. A site built with `--no-viewer` has the model data only and is called a **data-only site**. |
-| **landscape** | The first diagram the viewer shows: the top level of your model. |
 | **modelHash** | A fingerprint of the model, shown as `sha256:` and the start of a hash. The same model always gives the same hash. |
 | **Model API** | The part of `buildzr serve` that answers questions about the model as JSON (a text format for data), under `/api/v1/`. |
 | **site check** | The check that `build` and `deploy` run on a built site before they use it. |
@@ -42,7 +41,7 @@ This page has three parts. A [tutorial](#tutorial-build-view-and-deploy-your-fir
 | **release** | One deployed copy of a site on an instance. The instance keeps the current and the previous release of every site path. |
 | **deploy listener** | The second port of an instance. It accepts uploads from `buildzr deploy`, and only from the same machine. |
 
-## Before you start
+## Requirements and installation
 
 You need:
 
@@ -72,135 +71,7 @@ The temporary environment contains buildzr, so your model file can import it. If
 uvx --with <package> buildzr build
 ```
 
-## Tutorial: build, view and deploy your first site
-
-In this tutorial you write a small model, build its site, open the site in your browser and deploy it to a folder. Start in an empty folder, and check that you have what [Before you start](#before-you-start) lists.
-
-### 1. Write a model file
-
-Create the file `architecture/model.py` with the content below. It describes a shop: a customer, the shop system with two containers, a payment provider, and one view.
-
-<!-- doctest: file architecture/model.py -->
-```python
-from buildzr.dsl import Workspace, Person, SoftwareSystem, Container, SystemContextView
-
-with Workspace("shop", implied_relationships=True) as w:
-    customer = Person("Customer")
-    with SoftwareSystem("Shop") as shop:
-        web = Container("Web App", technology="React")
-        db = Container("Database", technology="PostgreSQL")
-    payments = SoftwareSystem("Payment Provider")
-
-    customer >> "Browses and orders" >> web
-    web >> ("Reads and writes", "SQL") >> db
-    web >> "Takes payment via" >> payments
-
-    SystemContextView(software_system_selector=shop, key="shop-context", description="The shop in its environment")
-```
-
-Do not call `w.save()` in the file. `buildzr build` runs the file and reads the workspace itself, so it does not need a JSON file.
-
-### 2. Build the site
-
-Run `buildzr build` and name the model file with `-w`:
-
-```text
-$ buildzr build -w architecture/model.py
-built .buildzr/site (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
-```
-
-The output tells you three things. The site is in the folder `.buildzr/site`. The model has 5 elements, 3 relationships and 1 view. The modelHash identifies this model: if you build the same model again, you get the same hash.
-
-If you leave out `-w`, the command stops and tells you what is missing:
-
-```text
-$ buildzr build
-buildzr: error: no workspace given; pass --workspace FILE or set workspace: in buildzr.yaml
-[exit code 2]
-```
-
-The command does not print the last line, `[exit code 2]`. On this page, such a line shows the exit code that the command returns. The [exit codes](#exit-codes) section lists them all.
-
-To see more detail, add `-v`:
-
-```text
-$ buildzr build -w architecture/model.py -v
-/home/you/shop/architecture/model.py: 5 elements, 3 relationships, 1 views, 3 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
-built .buildzr/site (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
-```
-
-The first line comes from the step that runs your model file. It counts what the step found, including the levels: the diagrams that the layout step draws. It also names a temporary folder, which changes on every run.
-
-### 3. Save the model file name in `buildzr.yaml`
-
-You can store the name of the model file so that you do not type it every time. Create a file called `buildzr.yaml` at the top of your project, next to the `.git` folder if you use Git:
-
-```yaml
-workspace: architecture/model.py
-```
-
-Now `buildzr build` finds the model file without `-w`:
-
-```text
-$ buildzr build
-built .buildzr/site (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
-```
-
-### 4. Open the site in your browser
-
-Start `buildzr serve`:
-
-```text
-$ buildzr serve
-Serving /home/you/shop/.buildzr/site at http://127.0.0.1:8000/ (Ctrl+C to stop)
-Model API at http://127.0.0.1:8000/api/v1/ (read only)
-```
-
-Open `http://127.0.0.1:8000/` in your browser. The viewer shows the landscape of your model. Click a box to see what is inside it.
-
-The second output line names the [Model API](model-api.md). At that address, `buildzr serve` answers questions about your model as JSON, for scripts and other programs. You do not need it to view the diagrams.
-
-To stop `buildzr serve`, press Ctrl+C in the terminal. If port 8000 is already in use, choose another port, for example `buildzr serve -p 8001`.
-
-### 5. Deploy the site to a folder
-
-To deploy, you add a target to `buildzr.yaml`. Here the target is called `www`. It is a `dir` target: a folder on this machine, for example a folder that a web server serves.
-
-```yaml
-workspace: architecture/model.py
-default_target: www
-targets:
-  www: {dir: public/architecture}
-```
-
-`default_target` is the target that `deploy` uses when you do not name one with `-t`. The path `public/architecture` is relative to the folder that holds `buildzr.yaml`.
-
-First, run a dry run. It builds the site and runs the site check, then shows what it would write. It writes nothing.
-
-```text
-$ buildzr deploy --dry-run
-built (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
-checked 12 files, 517 KB: no problems
-dry run: would write 12 files, 517 KB to /home/you/shop/public/architecture (target www); nothing was written
-```
-
-Then deploy:
-
-```text
-$ buildzr deploy
-built (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
-writing 12 files, 517 KB to /home/you/shop/public/architecture (target www)
-deployed www: modelHash sha256:87716f3c5b04…
-```
-
-The site is now in `public/architecture`. When you deploy again, `deploy` replaces the old copy in one step, and only after the new site passed the site check.
-
-### Where to go next
-
-- To deploy to an instance that other people reach over the network, read [Deploying to an instance](deploy.md).
-- For ready-made setups, such as a preview of every pull request, read the [recipes](publishing-recipes.md).
-
-## Command reference
+## Commands and their options
 
 ### How the commands find their settings
 

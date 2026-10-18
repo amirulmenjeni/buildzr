@@ -47,6 +47,7 @@ EXAMPLE_PY = os.path.join(ROOT, "examples", "buildzr_models_example.py")
 HAS_NODE = bool(shutil.which("node") or os.environ.get("BUILDZR_NODE"))
 REAL = HAS_NODE and os.path.isfile(os.path.join(STATIC_DIR, "index.html")) and not os.environ.get("BUILDZR_DOCTEST_STUB")
 PUBLIC = "https://preview.example.com"
+PUBLIC_URLS: dict[str, Optional[str]] = {"publish-first-site.md": None}  # a local instance, as its tutorial starts it
 MAX_OPT_OUTS = 8
 
 Json = dict[str, Any]
@@ -145,7 +146,8 @@ def work(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, Any]]:
 
 def page_of(work: dict[str, Any], name: str) -> Page:
     if name not in work["pages"]:
-        inst = Instance(work["root"] / (name.replace("/", "-").replace(".", "-") + "-store"), public_url=PUBLIC)
+        folder = work["root"] / (name.replace("/", "-").replace(".", "-") + "-store")
+        inst = Instance(folder, public_url=PUBLIC_URLS.get(name, PUBLIC))
         work["instances"].append(inst)
         work["pages"][name] = Page(name, work["root"], inst)
     page: Page = work["pages"][name]

@@ -140,9 +140,9 @@ def test_the_publishing_section_is_in_the_nav_in_order() -> None:
     with open(os.path.join(ROOT, "mkdocs.yml"), encoding="utf-8") as f:
         nav = f.read().split("\nnav:\n")[1].split("\nextra:")[0]
     files = re.findall(r":\s+(\S+\.md)\s*$", nav, re.M)
-    pub = ["cli.md", "config.md", "deploy.md", "publishing-recipes.md", "store.md", "ui-settings.md",
+    pub = ["publish-first-site.md", "cli.md", "config.md", "deploy.md", "publishing-recipes.md", "store.md", "ui-settings.md",
            "viewer-hash-routes.md"]
-    i = files.index("cli.md")
+    i = files.index("publish-first-site.md")
     assert files[i:i + len(pub)] == pub
     assert files.index("user-guide/export.md") < i < files.index("api/dsl.md")
     assert files[files.index("api/models.md") + 1] == "model-api.md"
