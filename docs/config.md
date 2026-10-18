@@ -51,7 +51,7 @@ Relative paths in the file are relative to the folder that holds the file, not t
 |---|---|---|---|
 | `version` | integer | `1` | The version of the file format. Only `1` is accepted. |
 | `workspace` | text (path) | none | The model file. |
-| `build.k` | whole number, at least 1 | `4` | The layout parameter that `--k` also sets (the frame budget). See [`buildzr build`](cli.md#buildzr-build). |
+| `build.k` | whole number, at least 1 | `4` | Room for a box that contains other boxes, as a multiple of the area of an empty box; the same value as `--k`. See [Choosing a value for `--k`](cli.md#choosing-a-value-for-k). |
 | `build.text_color` | `wcag` or `c4` | `wcag` | How the text colour of a box is chosen. See `--text-color` in [`buildzr build`](cli.md#buildzr-build). |
 | `build.viewer` | `true` / `false` | `true` | `false` builds a data-only site. |
 | `build.out` | text (path) | `.buildzr/site` | The folder that `build` writes to and that `serve` reads by default. |

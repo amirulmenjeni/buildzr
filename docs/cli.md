@@ -94,12 +94,32 @@ buildzr build [-h] [-w FILE] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c 
 | Option | What it does |
 |---|---|
 | `-w FILE`, `--workspace FILE` | The model file. Default: `workspace:` in `buildzr.yaml`. |
-| `--k N` | A layout parameter, the frame budget: a frame that the layout reserves has at most `N` times the area of a box that contains no other boxes. A whole number of at least 1. Default: `build.k` in `buildzr.yaml`, else 4. |
+| `--k N` | Room for a box that contains other boxes, as a multiple of the area of an empty box. Raise it if the insides of such boxes are too small to read; lower it for compact diagrams. A whole number of at least 1. Default: `build.k` in `buildzr.yaml`, else 4. See [Choosing a value for `--k`](#choosing-a-value-for-k). |
 | `--text-color {wcag,c4}` | How the text colour of a box is chosen when your styles do not set one. `wcag` picks black or white, whichever contrasts more with the box, following the Web Content Accessibility Guidelines (WCAG). `c4` uses the default C4 text colours. Default: `build.text_color`, else `wcag`. |
 | `--no-viewer` | Write a data-only site: the model data without the viewer. |
 | `-c FILE`, `--config FILE` | The config file. Default: `buildzr.yaml`, searched from the current folder upward. |
 | `-v`, `--verbose` | Also show the line from the step that runs your model file. It counts the elements, relationships, views and levels, and names a temporary folder. Errors are always shown. |
 | `-o DIR`, `--out DIR` | The folder to write the site to. Default: `build.out`, else `.buildzr/site`. |
+
+### Choosing a value for `--k`
+
+`--k` sets how much room the layout gives the inside of a box that contains other boxes, such as a software system with containers. The room for the inside is at most `N` times the area of an empty box; the box itself is a little larger, because it also holds its own name. `build.k` in `buildzr.yaml` sets the same value.
+
+When you expand such a box in the viewer, its inside is drawn in that room. If the inside needs more room, it is shrunk to fit; it is never enlarged. For example, in the model `examples/buildzr_models_example.py` of the buildzr repository, the inside of the E-Commerce System is drawn at 23% of its full size with `--k 1`, 35% with 4 (the default), 50% with 9 and 68% with 16.
+
+- **Raise the value** when the inside of an expanded box is too small to read. The cost: boxes with an inside take more room on the diagram of their parent, so the whole diagram is larger, and the viewer shows it smaller when it fits it to the screen.
+- **Lower the value** for compact diagrams. You then zoom in to read the inside of an expanded box.
+- Once a box has all the room its inside needs, the inside is drawn at full size, and a larger value changes nothing more for that box. In the example, the Order Service container reaches full size at 9.
+- A model in which no box contains other boxes, such as the one in the [Quick Start](getting-started/quick-start.md), looks the same at every value.
+- The value is a whole number of at least 1. The default is 4.
+
+![The E-Commerce System expanded with --k 1: its five containers are small, and Order Service, which has two components, is about the same size as the empty boxes](images/cli/k-1-expanded-system.png)
+
+*With `--k 1`, the containers fill a small area, and the viewer zooms in to show it. Order Service and Inventory Service, which contain components, are about the same size as the other containers.*
+
+![The same system expanded with --k 9: Order Service and Inventory Service are much larger than the empty boxes, and the diagram is shown at a smaller zoom](images/cli/k-9-expanded-system.png)
+
+*With `--k 9`, Order Service and Inventory Service get room for their components, so they are more than twice as wide and as tall as the other containers, and the viewer zooms out to fit the larger diagram.*
 
 ### `buildzr serve`
 
