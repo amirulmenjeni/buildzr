@@ -67,11 +67,12 @@ def swap_dir(new: str, dest: str) -> None:
 
 def build_site(workspace: str, out: str = ".buildzr/site", k: Optional[int] = None, text_color: Optional[str] = None,
                viewer: bool = True, layout_fn: Optional[LayoutFn] = None,
-               static_dir: str = STATIC_DIR) -> dict[str, Any]:
+               static_dir: str = STATIC_DIR, verbose: bool = False) -> dict[str, Any]:
     """Build ``workspace`` into ``out``. Returns the ``build.json`` object.
 
     ``k`` and ``text_color`` default to 4 and ``"wcag"``; the CLI fills them from ``buildzr.yaml`` first.
-    The output directory is replaced atomically.
+    The output directory is replaced atomically. With ``verbose`` the step that runs the model file prints its summary
+    line (``FILE: N elements, ... -> FOLDER``); errors are shown either way.
     """
     workspace = os.path.abspath(workspace)
     if not os.path.isfile(workspace):
@@ -89,7 +90,7 @@ def build_site(workspace: str, out: str = ".buildzr/site", k: Optional[int] = No
     tmp = tempfile.mkdtemp(prefix=".build-", dir=os.path.dirname(out))
     try:
         stage = os.path.join(tmp, "export")
-        if run_export(workspace, stage, text_color=text_color) != 0:
+        if run_export(workspace, stage, text_color=text_color, quiet=not verbose) != 0:
             raise BuildError(f"executing {workspace} failed (see the error above)")
         with open(os.path.join(stage, "model.json"), encoding="utf-8") as f:  # staging name, not the site's
             model = json.load(f)

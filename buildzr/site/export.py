@@ -83,6 +83,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     ap.add_argument("--index", type=int, default=-1, help="which workspace if the file creates several (default: last)")
     ap.add_argument("--text-color", choices=["wcag", "c4"], default="wcag")
     ap.add_argument("--in-process", action="store_true", help=argparse.SUPPRESS)
+    ap.add_argument("--quiet", action="store_true", help=argparse.SUPPRESS)  # no summary line (buildzr build)
     args = ap.parse_args(list(argv) if argv is not None else None)
     out = os.path.abspath(args.out)
     if args.in_process:
@@ -91,21 +92,25 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             print(f"no Workspace created by {args.workspace}", file=sys.stderr)
             return 2
         model, levels = export(found[args.index], out, args.text_color)
-        print(f"{args.workspace}: {len(model['elements'])} elements, {len(model['relationships'])} relationships, "
-              f"{len(model['views'])} views, {len(levels['levels'])} levels -> {out}")
+        if not args.quiet:
+            print(f"{args.workspace}: {len(model['elements'])} elements, {len(model['relationships'])} relationships, "
+                  f"{len(model['views'])} views, {len(levels['levels'])} levels -> {out}")
         return 0
     return run_export(args.workspace, out, args.index, args.text_color)
 
 
-def run_export(workspace: str, out: str, index: int = -1, text_color: str = "wcag") -> int:
-    """Export ``workspace`` (a DSL file) into ``out`` in a fresh subprocess with a scratch cwd."""
+def run_export(workspace: str, out: str, index: int = -1, text_color: str = "wcag", quiet: bool = False) -> int:
+    """Export ``workspace`` (a DSL file) into ``out`` in a fresh subprocess with a scratch cwd.
+
+    ``quiet`` leaves out the summary line of the subprocess; whatever the model file prints, and every error, still shows.
+    """
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join(p for p in (root, env.get("PYTHONPATH", "")) if p)
     with tempfile.TemporaryDirectory() as tmp:
         cmd = [sys.executable, "-m", "buildzr.site.export", "--in-process", "--workspace",
                os.path.abspath(workspace), "--out", os.path.abspath(out), "--index", str(index),
-               "--text-color", text_color]
+               "--text-color", text_color] + (["--quiet"] if quiet else [])
         return subprocess.run(cmd, cwd=tmp, env=env).returncode
 
 

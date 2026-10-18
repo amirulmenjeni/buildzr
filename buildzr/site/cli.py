@@ -48,6 +48,8 @@ def _add_build_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--no-viewer", action="store_true", help="write data only, without the viewer bundle")
     p.add_argument("-c", "--config", metavar="FILE", default=None,
                    help="config file (default: buildzr.yaml, searched from the current folder upward)")
+    p.add_argument("-v", "--verbose", action="store_true",
+                   help="also show the summary line of the step that runs the model file")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -212,7 +214,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
     b = _BuildArgs(args, cfg, need_out=True)
     ws = b.need_workspace()
     assert b.out is not None
-    info = build_site(ws, b.out, b.k, b.text_color, viewer=b.viewer)
+    info = build_site(ws, b.out, b.k, b.text_color, viewer=b.viewer, verbose=args.verbose)
     print(f"built {_show(Path(os.path.abspath(b.out)))} ({_summary(b.out, info)})")
     return 0
 
@@ -363,7 +365,7 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
                 info = json.load(f)
             print(f"using {_show(Path(os.path.abspath(args.from_dir)))} ({_summary(site, info)})")
         else:
-            info = build_site(b.need_workspace(), site, b.k, b.text_color, viewer=viewer)
+            info = build_site(b.need_workspace(), site, b.k, b.text_color, viewer=viewer, verbose=args.verbose)
             print(f"built ({_summary(site, info)})")
             failed = _check(site)
             if failed:
@@ -432,7 +434,8 @@ def _deploy_url(args: argparse.Namespace, cfg: Config, url: str, name: str, path
                 info = json.load(f)
             print(f"using {_show(Path(os.path.abspath(args.from_dir)))} ({_summary(site, info)})")
         else:
-            info = build_site(b.need_workspace(), site, b.k, b.text_color, viewer=target_viewer and not args.no_viewer)
+            info = build_site(b.need_workspace(), site, b.k, b.text_color, viewer=target_viewer and not args.no_viewer,
+                              verbose=args.verbose)
             print(f"built ({_summary(site, info)})")
             failed = _check(site)
             if failed:

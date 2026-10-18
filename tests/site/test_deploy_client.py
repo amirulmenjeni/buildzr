@@ -390,7 +390,7 @@ def test_end_to_end_with_the_real_cli_and_viewer(tmp_path: Path) -> None:
         assert second == f"Accepting deploys at http://127.0.0.1:{dport}/ (this machine only; no authentication)\n"
         r1 = cli("deploy", "-t", "preview", cwd=root, env=env)
         assert r1.returncode == 0, r1.stderr
-        out = [x for x in r1.stdout.splitlines() if not x.startswith(str(root))]  # the build's progress line
+        out = r1.stdout.splitlines()  # no line from the model run: it is shown with -v only
         assert out[0].startswith("built (13 elements, 6 relationships, 1 view; modelHash sha256:")
         assert out[1].startswith("uploading ") and out[1].endswith(f"to http://127.0.0.1:{dport} (path pr/42)")
         assert out[2].startswith("deployed pr/42: release r-0001, modelHash sha256:")

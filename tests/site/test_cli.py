@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -262,6 +263,59 @@ def test_build_driven_by_the_file_with_no_flags(tmp_path: Path, stubbed: None, m
     bj = json.loads((root / "out" / "site" / "build.json").read_text(encoding="utf-8"))
     assert (bj["k"], bj["textColor"]) == (3, "c4")
     assert sorted(os.listdir(root / "out" / "site")) == ["build.json", "data"]
+
+
+def runfd(root: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str], *argv: str
+          ) -> tuple[int, str, str]:
+    """Like ``run`` but also captures what the model-run child process writes (it has the same file descriptors)."""
+    monkeypatch.chdir(root)
+    code = main(list(argv))
+    cap = capfd.readouterr()
+    return code, cap.out, cap.err
+
+
+SUMMARY = re.compile(r"^.*: \d+ elements, \d+ relationships, \d+ views, \d+ levels -> .*$", re.M)
+
+
+def test_build_is_quiet_about_the_model_run_unless_verbose(tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch,
+                                                           capfd: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false}\n")
+    code, out, err = runfd(root, monkeypatch, capfd, "build")
+    assert (code, err) == (0, "")
+    assert not SUMMARY.search(out) and ".build-" not in out
+    assert out.startswith("built .buildzr/site (") and out.count("\n") == 1
+    for flag in ("-v", "--verbose"):
+        code, out, err = runfd(root, monkeypatch, capfd, "build", flag)
+        assert (code, err) == (0, "")
+        lines = out.splitlines()
+        assert len(lines) == 2 and SUMMARY.match(lines[0]) and "11 elements" in lines[0] and ".build-" in lines[0]
+        assert lines[1].startswith("built .buildzr/site (")
+
+
+def test_deploy_is_quiet_about_the_model_run_unless_verbose(tmp_path: Path, stubbed: None, checks: Any,
+                                                            monkeypatch: pytest.MonkeyPatch,
+                                                            capfd: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, "workspace: ws/workspace.py\ntargets:\n  d: {dir: out/d, viewer: false}\n")
+    code, out, err = runfd(root, monkeypatch, capfd, "deploy", "-t", "d")
+    assert (code, err) == (0, "")
+    assert not SUMMARY.search(out) and out.splitlines()[0].startswith("built ")
+    code, out, err = runfd(root, monkeypatch, capfd, "deploy", "-t", "d", "-v")
+    assert (code, err) == (0, "")
+    assert SUMMARY.match(out.splitlines()[0]) and out.splitlines()[1].startswith("built ")
+
+
+@pytest.mark.parametrize("command", [["build"], ["deploy", "-t", "d"]])
+@pytest.mark.parametrize("verbose", [False, True])
+def test_a_failing_model_still_shows_its_error(tmp_path: Path, stubbed: None, command: list[str], verbose: bool,
+                                               monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false}\ntargets:\n  d: {dir: out/d, viewer: false}\n")
+    (root / "ws" / "workspace.py").write_text("import sys\nprint('model output')\nraise RuntimeError('boom in the model')\n")
+    code, out, err = runfd(root, monkeypatch, capfd, *command, *(["-v"] if verbose else []))
+    assert code == 1
+    assert "boom in the model" in err and "RuntimeError" in err
+    assert "model output" in out  # what the model file prints is not ours to hide
+    assert "executing " in err and "failed" in err
+    assert not SUMMARY.search(out)
 
 
 def test_build_from_a_subfolder_uses_the_file_folder_for_relative_paths(
