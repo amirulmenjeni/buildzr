@@ -235,10 +235,14 @@ def normalise_url_path(raw: str) -> Optional[str]:
 
 
 def is_built_workspace(folder: str) -> bool:
-    """Whether ``folder`` holds a complete built workspace: ``build.json`` and ``index.html`` or ``data/index.json``."""
-    return os.path.isfile(os.path.join(folder, "build.json")) and (
-        os.path.isfile(os.path.join(folder, "index.html")) or
-        os.path.isfile(os.path.join(folder, "data", "index.json")))
+    """Whether ``folder`` holds a complete built workspace: ``build.json`` and ``index.html`` or ``data/index.json``,
+    or a ``build.json`` that says the workspace is broken (a broken one built without the viewer has nothing else)."""
+    if not os.path.isfile(os.path.join(folder, "build.json")):
+        return False
+    if os.path.isfile(os.path.join(folder, "index.html")) or os.path.isfile(os.path.join(folder, "data", "index.json")):
+        return True
+    info = read_build_json(folder)
+    return info is not None and info.get("status") == "broken"
 
 
 def holds_built_workspaces(folder: str) -> bool:

@@ -221,8 +221,13 @@ WS_TEXT = "from tests.site.small_workspace import small_workspace\nw = small_wor
 
 @pytest.fixture
 def stubbed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Build with the stub layout (no Node), and let the export subprocess import ``tests.site``."""
+    """Build with the stub layout (no Node), and let the export subprocess import ``tests.site``.
+
+    The stub's scenes fit only the small workspace, so the data checker is replaced by one that passes; tests of the
+    checker in the build use :func:`checked`.
+    """
     monkeypatch.setattr(build_mod, "_default_layout", lambda: stub_layout)
+    monkeypatch.setattr(build_mod, "check_workspace", lambda data_dir: [])
     monkeypatch.setenv("PYTHONPATH", ROOT)
 
 
@@ -294,7 +299,10 @@ def test_a_failing_model_still_shows_its_error(tmp_path: Path, stubbed: None, co
     assert code == 1
     assert "boom in the model" in err and "RuntimeError" in err
     assert "model output" in out  # what the model file prints is not ours to hide
-    assert "ws/workspace.py: running it failed" in err
+    # It failed before it made a workspace, so its broken workspace is named after the file.
+    assert "buildzr: BROKEN: workspace workspace (ws/workspace.py) failed at the model step\n" in err
+    assert "    RuntimeError: boom in the model\n    workspace.py, line 3: raise RuntimeError('boom in the model')\n" in err
+    assert err.endswith("  this workspace is broken; the viewer says so\n")
     assert not SUMMARY.search(out)
 
 

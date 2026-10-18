@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import traceback
 from typing import Any, Iterable, Optional
 
 from buildzr.site import canonical
@@ -35,12 +36,13 @@ def export(workspace: Any, out_dir: str, text_color: str = "wcag") -> tuple[dict
     return model, levels
 
 
-def load_workspaces(path: str) -> list[Any]:
+def load_workspaces(path: str, created: Optional[list[Any]] = None) -> list[Any]:
     """Run the DSL file at ``path`` in this process and return the workspaces it created.
 
     Files inside a package (``tests/samples``) are imported as modules; their builder
     classes (a class with a ``build()`` method) are instantiated and built when the
     import itself created no workspace. Call this in a fresh process with a scratch cwd.
+    ``created`` (if given) receives each workspace as it is made, so a caller still knows them when the file raises.
     """
     import importlib
     import inspect
@@ -48,7 +50,8 @@ def load_workspaces(path: str) -> list[Any]:
 
     from buildzr.dsl import Workspace
 
-    created: list[Any] = []
+    if created is None:
+        created = []
     orig_init = Workspace.__init__
 
     def recording_init(self: Any, *a: Any, **kw: Any) -> None:
@@ -107,13 +110,45 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     return run_export(args.workspace, out, args.index, args.text_color)
 
 
+def describe_error(err: BaseException, path: str) -> list[str]:
+    """What went wrong in the model file ``path``, for ``build.json``: the error, then each line of the file it
+    passed through (``shop.py, line 4: ...``). Frames of buildzr and other libraries are left out."""
+    lines = [f"{type(err).__name__}: {err}" if str(err) else type(err).__name__]
+    for fs in traceback.extract_tb(err.__traceback__):
+        if os.path.abspath(fs.filename) == path:
+            lines.append(f"{os.path.basename(path)}, line {fs.lineno}: {(fs.line or '').strip()}")
+    return lines
+
+
+def _workspace_name(ws: Any) -> str:
+    name = getattr(ws.model, "name", None) if getattr(ws, "model", None) is not None else None
+    return name if isinstance(name, str) else ""
+
+
 def _export_all(path: str, out: str, text_color: str, quiet: bool) -> int:
-    """Export every workspace ``path`` creates; a workspace that fails is listed with its error, the others still are."""
-    found = load_workspaces(path)
+    """Export every workspace ``path`` creates; a workspace that fails is listed with its error, the others still are.
+
+    When the file itself raises, ``workspaces.json`` gets ``fileError`` (see :func:`describe_error`) and ``created``,
+    the names of the workspaces made before the error, and the exit status is 1: the model is at fault, not the
+    machine. A process that dies without writing ``workspaces.json`` is the machine's fault.
+    """
+    path = os.path.abspath(path)
+    created: list[Any] = []
+    try:
+        found = load_workspaces(path, created)
+    except (Exception, SystemExit) as e:
+        if isinstance(e, SystemExit) and e.code in (None, 0):
+            found = created
+        else:
+            traceback.print_exc()
+            os.makedirs(out, exist_ok=True)
+            canonical.write(os.path.join(out, "workspaces.json"), {
+                "workspaces": [], "created": [_workspace_name(ws) for ws in created],
+                "fileError": describe_error(e, path)})
+            return 1
     listed: list[dict[str, Any]] = []
     for i, ws in enumerate(found):
-        name = getattr(ws.model, "name", None) if getattr(ws, "model", None) is not None else None
-        entry: dict[str, Any] = {"dir": str(i), "name": name if isinstance(name, str) else "", "error": None}
+        entry: dict[str, Any] = {"dir": str(i), "name": _workspace_name(ws), "error": None}
         try:
             model, levels = export(ws, os.path.join(out, str(i)), text_color)
         except Exception as e:  # reported by the parent next to the file name; the other workspaces go on
@@ -131,9 +166,15 @@ def _export_all(path: str, out: str, text_color: str, quiet: bool) -> int:
 
 def read_export_list(out: str) -> list[dict[str, Any]]:
     """The ``workspaces.json`` that :func:`run_export_all` wrote: ``[{"dir", "name", "error"}, ...]`` in creation order."""
-    with open(os.path.join(out, "workspaces.json"), encoding="utf-8") as f:
-        listed: list[dict[str, Any]] = json.load(f)["workspaces"]
+    listed: list[dict[str, Any]] = read_export_result(out)["workspaces"]
     return listed
+
+
+def read_export_result(out: str) -> dict[str, Any]:
+    """The whole ``workspaces.json``: ``workspaces``, plus ``fileError`` and ``created`` when the file raised."""
+    with open(os.path.join(out, "workspaces.json"), encoding="utf-8") as f:
+        result: dict[str, Any] = json.load(f)
+    return result
 
 
 def run_export_all(workspace: str, out: str, text_color: str = "wcag", quiet: bool = False) -> int:

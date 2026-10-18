@@ -121,9 +121,10 @@ def test_a_failing_file_next_to_a_good_one(tmp_path: Path, monkeypatch: pytest.M
     (root / "workspaces" / "good.py").write_text(HEAD + ws("Good", "Changed system"))
     assert main(["build"]) == 1
     cap = capfd.readouterr()
-    assert "boom in bad" in cap.err and "buildzr: error: workspaces/bad.py: running it failed (see the error above)" in cap.err
+    assert "boom in bad" in cap.err and "buildzr: BROKEN: workspace bad (workspaces/bad.py) failed at the model step" in cap.err
     assert "built .buildzr/build/good (" in cap.out
-    assert (root / ".buildzr" / "build" / "bad" / "build.json").read_bytes() == before  # untouched
+    assert (root / ".buildzr" / "build" / "bad" / "build.json").read_bytes() != before  # replaced by a broken one
+    assert info(root, "bad")["status"] == "broken" and info(root, "good")["status"] == "ok"
     assert (root / ".buildzr" / "build" / "good" / "build.json").read_bytes() != good_before  # rebuilt
 
 
@@ -173,20 +174,39 @@ def test_a_workspace_removed_inside_a_file(tmp_path: Path, monkeypatch: pytest.M
     assert "removed three: workspaces/b.py no longer creates it\n" in out
 
 
-def test_a_failed_file_keeps_its_old_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                            capsys: pytest.CaptureFixture[str]) -> None:
+def test_a_broken_file_replaces_its_old_output_and_keeps_its_names(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                                   capsys: pytest.CaptureFixture[str]) -> None:
     root = project(tmp_path, "build: {viewer: false}\n", ws=False)
     tree(root / "workspaces", {"a.py": HEAD + ws("One") + ws("Two") + ws("API")})
     assert run(root, monkeypatch, capsys, "build")[0] == 1  # "API" is reserved; "one" and "two" are built
     assert built(root) == ["one", "two"]
-    before = info(root, "two")
-    (root / "workspaces" / "a.py").write_text(HEAD + ws("One") + ws("API"))  # "Two" gone, but the file fails
-    code, out, _ = run(root, monkeypatch, capsys, "build")
+    (root / "workspaces" / "a.py").write_text(HEAD + ws("One") + "raise RuntimeError('boom')\n")
+    code, out, err = run(root, monkeypatch, capsys, "build")
     assert code == 1 and "removed" not in out
+    # "One" was made before the error, "two" was built from the file last time: both are broken now.
+    assert built(root) == ["one", "two"]
+    for name in ("one", "two"):
+        bj = info(root, name)
+        assert (bj["status"], bj["stage"], bj["workspaces"]) == ("broken", "model", ["one", "two"])
+        assert bj["errors"] == ["RuntimeError: boom", "a.py, line 4: raise RuntimeError('boom')"]
+        assert sorted(os.listdir(root / ".buildzr" / "build" / name)) == ["build.json"]  # no data, no viewer
+    assert err.count("this workspace is broken; the viewer says so") == 2
+
+
+def test_a_machine_failure_keeps_the_old_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                capsys: pytest.CaptureFixture[str]) -> None:
+    import buildzr.site.build as build_mod
+    root = project(tmp_path, "build: {viewer: false}\n", ws=False)
+    tree(root / "workspaces", {"a.py": HEAD + ws("One") + ws("Two")})
+    assert run(root, monkeypatch, capsys, "build")[0] == 0
+    before = info(root, "two")
+    (root / "workspaces" / "a.py").write_text(HEAD + ws("One"))  # "Two" gone, but the process is killed
+    monkeypatch.setattr(build_mod, "run_export_all", lambda *a, **kw: -9)  # no workspaces.json: not the model's fault
+    code, out, err = run(root, monkeypatch, capsys, "build")
+    assert code == 1 and "removed" not in out and "BROKEN" not in err
+    assert err == ("buildzr: error: workspaces/a.py: running it failed (see the error above); nothing was written "
+                   "and the previous output is kept\n")
     assert built(root) == ["one", "two"] and info(root, "two") == before
-    (root / "workspaces" / "a.py").write_text("raise RuntimeError('boom')\n")  # the whole file fails
-    code, out, _ = run(root, monkeypatch, capsys, "build")
-    assert code == 1 and "removed" not in out and built(root) == ["one", "two"]
 
 
 def test_folders_that_are_not_ours_are_never_removed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,

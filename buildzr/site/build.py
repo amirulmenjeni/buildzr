@@ -4,10 +4,13 @@ The build output holds one folder per workspace, named after it (see :func:`safe
 
     OUT/<name>/index.html, OUT/<name>/assets/...   the viewer bundle (``buildzr/site/static/``)
     OUT/<name>/data/model.<h8>.json, index.json, scene/...
-    OUT/<name>/build.json                          versions, k, modelHash, source file, fingerprint; no timestamps
+    OUT/<name>/build.json                          versions, k, modelHash, source file, fingerprint, status;
+                                                   no timestamps (schema/build.schema.json)
 
 Relative URLs only, so a built workspace works at any path. Each Python file runs in a fresh subprocess; a built
-workspace is written to a temporary folder and then renamed into place, so a reader never sees half of one.
+workspace is checked (:mod:`buildzr.site.check`), written to a temporary folder and then renamed into place, so a
+reader never sees half of one. When the workspace is at fault (its model file raises, its layout fails, its data
+fails the check), a BROKEN built workspace replaces the old one; when the machine is at fault, nothing is written.
 """
 
 from __future__ import annotations
@@ -24,7 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Optional
 
 from buildzr.site import canonical
-from buildzr.site.export import read_export_list, run_export, run_export_all
+from buildzr.site.export import read_export_result, run_export, run_export_all
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
@@ -35,6 +38,10 @@ LayoutFn = Callable[..., Any]
 RESERVED_NAMES = ("api", "assets", "data", "_buildzr", "index.html", "build.json", "llms.txt")
 NAME_MAX = 64
 FINGERPRINT_VERSION = "buildzr.fingerprint/1"
+#: The steps at which a workspace can break: running the model file, the layout, the data checker.
+STAGES = ("model", "layout", "check")
+MAX_ERRORS = 50
+MAX_ERROR_CHARS = 500
 
 
 class BuildError(Exception):
@@ -195,9 +202,68 @@ def _guard_replace(dest: str) -> None:
                              "refusing to replace it. Empty it or pick another output folder")
 
 
+def _errors(lines: Iterable[str]) -> list[str]:
+    """At most :data:`MAX_ERRORS` errors of at most :data:`MAX_ERROR_CHARS` characters each, for ``build.json``."""
+    out = []
+    for line in lines:
+        text = str(line)
+        out.append(text if len(text) <= MAX_ERROR_CHARS else text[:MAX_ERROR_CHARS - 1] + "…")
+        if len(out) == MAX_ERRORS:
+            break
+    return out
+
+
+def is_environment_problem(err: BaseException) -> bool:
+    """Whether ``err`` comes from the machine (Node, the disk, permissions, memory), not from the workspace.
+
+    Such a failure leaves the previous built workspace as it is; any other failure writes a broken one.
+    """
+    if isinstance(err, (OSError, MemoryError)):
+        return True
+    try:
+        from buildzr.site.layout.elk import ElkEnvironmentError
+    except ImportError:
+        return False
+    return isinstance(err, ElkEnvironmentError)
+
+
+def _elk_version() -> Optional[str]:
+    try:
+        return getattr(importlib.import_module("buildzr.site.layout"), "ELK_VERSION", None)
+    except ImportError:
+        return None
+
+
+def check_workspace(data_dir: str) -> list[str]:
+    """The errors of :func:`buildzr.site.check.check_built` on a freshly laid-out ``data/`` folder (no time limit:
+    the data is our own)."""
+    from buildzr.site.check import check_built
+
+    return check_built(data_dir, timeout=None).errors
+
+
+def _publish(built: str, out: str, viewer: bool, static_dir: str, info: dict[str, Any]) -> None:
+    """Add the viewer bundle and ``build.json`` to the folder ``built`` and put it at ``out`` in one rename."""
+    if viewer:
+        for name in sorted(os.listdir(static_dir)):
+            src = os.path.join(static_dir, name)
+            dst = os.path.join(built, name)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst)
+            else:
+                shutil.copy2(src, dst)
+    canonical.write(os.path.join(built, "build.json"), info)
+    swap_dir(built, out)
+
+
 def _write_workspace(stage: str, out: str, k: int, viewer: bool, layout: LayoutFn, static_dir: str,
                      info: dict[str, Any]) -> dict[str, Any]:
-    """Lay out the export in ``stage`` and put the built workspace at ``out`` (replaced as a whole)."""
+    """Lay out the export in ``stage``, check it and put the built workspace at ``out`` (replaced as a whole).
+
+    A layout that fails because of the model, or data that fails :func:`buildzr.site.check.check_built`, gives a
+    broken built workspace (``status: broken``; with stage ``check`` the data is kept, with stage ``layout`` it is
+    not). A failure of the machine (:func:`is_environment_problem`) is raised and ``out`` is left as it was.
+    """
     with open(os.path.join(stage, "model.json"), encoding="utf-8") as f:  # staging name, not the output's
         model = json.load(f)
     with open(os.path.join(stage, "levels.json"), encoding="utf-8") as f:
@@ -209,24 +275,39 @@ def _write_workspace(stage: str, out: str, k: int, viewer: bool, layout: LayoutF
         built = os.path.join(tmp, "workspace")
         data = os.path.join(built, "data")
         os.makedirs(data)
-        layout(levels, model, data, k=k)  # writes data/model.<h8>.json, index.json and the scenes
-        if viewer:
-            for name in sorted(os.listdir(static_dir)):
-                src = os.path.join(static_dir, name)
-                dst = os.path.join(built, name)
-                if os.path.isdir(src):
-                    shutil.copytree(src, dst)
-                else:
-                    shutil.copy2(src, dst)
-        elk = None
+        status: dict[str, Any] = {"status": "ok"}
         try:
-            elk = getattr(importlib.import_module("buildzr.site.layout"), "ELK_VERSION", None)
-        except ImportError:
-            pass
-        info = {"buildzr": _version(), "elkjs": elk, "k": k, "textColor": info.pop("textColor"),
-                "modelHash": model["modelHash"], **info}
-        canonical.write(os.path.join(built, "build.json"), info)
-        swap_dir(built, out)
+            layout(levels, model, data, k=k)  # writes data/model.<h8>.json, index.json and the scenes
+        except Exception as err:
+            if is_environment_problem(err):
+                raise
+            shutil.rmtree(data)
+            status = {"status": "broken", "stage": "layout", "errors": _errors([f"{type(err).__name__}: {err}"])}
+        else:
+            problems = check_workspace(data)
+            if problems:
+                status = {"status": "broken", "stage": "check",
+                          "errors": _errors(e.replace(data + os.sep, "data/") for e in problems)}
+        info = {"buildzr": _version(), "elkjs": _elk_version(), "k": k, "textColor": info.pop("textColor"),
+                **({"modelHash": model["modelHash"]} if os.path.isdir(data) else {}), **info, **status}
+        _publish(built, out, viewer, static_dir, info)
+        return info
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _write_broken(out: str, k: int, viewer: bool, static_dir: str, info: dict[str, Any], stage: str,
+                  errors: Iterable[str]) -> dict[str, Any]:
+    """Put a broken built workspace without data at ``out``: ``build.json`` and the viewer, which says it is broken."""
+    _guard_replace(out)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    tmp = tempfile.mkdtemp(prefix=".build-", dir=os.path.dirname(out))
+    try:
+        built = os.path.join(tmp, "workspace")
+        os.makedirs(built)
+        info = {"buildzr": _version(), "elkjs": _elk_version(), "k": k, "textColor": info.pop("textColor"), **info,
+                "status": "broken", "stage": stage, "errors": _errors(errors)}
+        _publish(built, out, viewer, static_dir, info)
         return info
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -253,7 +334,8 @@ def build_workspace(workspace: str, out: str = ".buildzr/build/workspace", k: Op
             raise BuildError(f"executing {workspace} failed (see the error above)")
         info = {"textColor": text_color,
                 "input": {"file": relative_source(workspace, root), "sha256": _sha256_file(workspace)},
-                "fingerprint": fingerprint(workspace, find_helpers(root), root, k, text_color, viewer)}
+                "fingerprint": fingerprint(workspace, find_helpers(root), root, k, text_color, viewer),
+                "workspacesFolder": folder_record(root, os.path.dirname(out))}
         return _write_workspace(stage, out, k, viewer, layout, static_dir, info)
 
 
@@ -262,22 +344,31 @@ def build_workspace(workspace: str, out: str = ".buildzr/build/workspace", k: Op
 
 @dataclass
 class Built:
-    """A workspace written to the build output."""
+    """A workspace written to the build output, ok or broken (``info["status"]``)."""
 
     name: str
     folder: str
     source: str
     info: dict[str, Any]
 
+    @property
+    def broken(self) -> bool:
+        return self.info.get("status") == "broken"
+
 
 @dataclass
 class Failure:
-    """A Python file, or one workspace of it, that could not be built. ``workspace`` is ``None`` for the whole file."""
+    """A Python file, or one workspace of it, that could not be built and has no built workspace for it.
+
+    ``workspace`` is ``None`` for the whole file. ``environment`` is true when the machine is at fault (see
+    :func:`is_environment_problem`); the previous built workspace is then kept as it was.
+    """
 
     source: str
     workspace: Optional[str]
     message: str
     path: str = ""
+    environment: bool = False
 
     def where(self, shown: str) -> str:
         """``shown`` (the file as the caller shows it) and the workspace name, for a message."""
@@ -295,17 +386,38 @@ class Removed:
 
 @dataclass
 class BuildResult:
-    """What :func:`build_all` did. ``empty`` lists the files (absolute paths) that create no workspace."""
+    """What :func:`build_all` did. ``empty`` lists the files (absolute paths) that create no workspace.
+
+    ``built`` holds the ok workspaces written now, ``broken`` the broken ones, ``fresh`` those left as they were.
+    """
 
     built: list[Built] = field(default_factory=list)
     failed: list[Failure] = field(default_factory=list)
     empty: list[str] = field(default_factory=list)
     fresh: list[Built] = field(default_factory=list)
     removed: list[Removed] = field(default_factory=list)
+    broken: list[Built] = field(default_factory=list)
 
 
-def _owned(out: str) -> dict[str, dict[str, Any]]:
-    """The ``build.json`` of every built workspace in ``out``, by folder name."""
+def folder_record(root: str, out: str) -> str:
+    """How ``build.json`` records the workspaces folder ``root``: relative to the build output ``out``."""
+    try:
+        return os.path.relpath(root, out).replace(os.sep, "/")
+    except ValueError:  # another drive on Windows
+        return root
+
+
+def _from_folder(info: dict[str, Any], root: str, out: str) -> bool:
+    """Whether the built workspace of ``info`` was built from the workspaces folder ``root``."""
+    rec = info.get("workspacesFolder")
+    return isinstance(rec, str) and os.path.normpath(os.path.join(out, rec)) == os.path.normpath(root)
+
+
+def _owned(out: str, root: Optional[str] = None) -> dict[str, dict[str, Any]]:
+    """The ``build.json`` of every built workspace in ``out`` that records its source file, by folder name.
+
+    With ``root``, only those built from that workspaces folder.
+    """
     found: dict[str, dict[str, Any]] = {}
     try:
         names = sorted(os.listdir(out))
@@ -313,13 +425,16 @@ def _owned(out: str) -> dict[str, dict[str, Any]]:
         return found
     for name in names:
         info = read_build_json(os.path.join(out, name))
-        if info is not None and isinstance(info.get("input"), dict):
+        if info is None or not isinstance(info.get("input"), dict):
+            continue
+        src = info["input"].get("file")
+        if isinstance(src, str) and src and (root is None or _from_folder(info, root, out)):
             found[name] = info
     return found
 
 
 def is_fresh(source_rel: str, fp: str, owned: dict[str, dict[str, Any]]) -> bool:
-    """Whether every workspace the file built last time is in the output with this fingerprint."""
+    """Whether every workspace the file built last time is in the output with this fingerprint (ok or broken)."""
     mine = {n: i for n, i in owned.items() if i["input"].get("file") == source_rel}
     if not mine:
         return False
@@ -346,7 +461,8 @@ def plan(path: str, out: str, k: int, text_color: str, viewer: bool, root: Optio
     """Work out what :func:`build_all` would run: every file, or with ``only_stale`` the stale ones only.
 
     A file is stale when one of the workspaces it built last time is missing from ``out`` or was built with
-    another fingerprint (see :func:`fingerprint`); a file never built is stale too. File dates are not used.
+    another fingerprint (see :func:`fingerprint`); a file never built is stale too. File dates are not used. A
+    broken built workspace is up to date like an ok one, so the same broken input is not built again and again.
     """
     if not os.path.exists(path):
         raise BuildError(f"not found: {path}")
@@ -354,7 +470,7 @@ def plan(path: str, out: str, k: int, text_color: str, viewer: bool, root: Optio
     root = os.path.abspath(root) if root is not None else source_root(path)
     sources = find_sources(path)
     helpers = find_helpers(root)
-    owned = _owned(out)
+    owned = _owned(out, root)
     fps = {s: fingerprint(s, helpers, root, k, text_color, viewer) for s in sources}
     result = Plan([], [], fps)
     for s in sources:
@@ -367,18 +483,35 @@ def plan(path: str, out: str, k: int, text_color: str, viewer: bool, root: Optio
     return result
 
 
+@dataclass
+class _Job:
+    """One workspace to write: from an export (``folder``), or broken at the model step (``errors``)."""
+
+    source: str
+    name: str
+    workspace: str
+    names: list[str]
+    folder: Optional[str] = None
+    errors: Optional[list[str]] = None
+    fallback: bool = False  # named after the file: it failed before it created any workspace
+    homeless: bool = False  # a fallback whose name another workspace has
+
+
 def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional[str] = None, viewer: bool = True,
               layout_fn: Optional[LayoutFn] = None, static_dir: str = STATIC_DIR, verbose: bool = False,
               only_stale: bool = False, root: Optional[str] = None, prune: bool = False) -> BuildResult:
     """Build every workspace of the Python file or workspaces folder ``path`` into ``out/<name>/``.
 
-    Each file runs in a fresh subprocess. A file that fails, or one workspace of it, is recorded in
-    :attr:`BuildResult.failed` and the others are still built; the previous output of a failed workspace is left as
-    it was. Two workspaces with the same folder name stop the whole build before anything is written
-    (:class:`BuildError`). With ``only_stale``, a file whose workspaces are all in ``out`` with the current
-    fingerprint is not run (:attr:`BuildResult.fresh`). ``root`` is the workspaces folder the source paths in
-    ``build.json`` are relative to (default: ``path`` or the folder holding it). With ``prune``, built workspaces
-    this build did not produce are removed as :func:`_prune` says (:attr:`BuildResult.removed`).
+    Each file runs in a fresh subprocess. Every built workspace is checked with
+    :func:`buildzr.site.check.check_built` before it is put in place. A workspace whose model file raises, whose
+    layout fails or whose data fails the check REPLACES its previous output as a broken built workspace
+    (:attr:`BuildResult.broken`); the others are still built. A failure of the machine (Node, the disk, a killed
+    process) writes nothing and keeps the previous output (:attr:`BuildResult.failed`, ``environment``). Two
+    workspaces with the same folder name stop the whole build before anything is written (:class:`BuildError`).
+    With ``only_stale``, a file whose workspaces are all in ``out`` with the current fingerprint is not run
+    (:attr:`BuildResult.fresh`). ``root`` is the workspaces folder the source paths in ``build.json`` are relative
+    to (default: ``path`` or the folder holding it). With ``prune``, built workspaces this build did not produce
+    are removed as :func:`_prune` says (:attr:`BuildResult.removed`).
     """
     k, text_color = _check_options(k, text_color, viewer, static_dir)
     out = os.path.abspath(out)
@@ -391,53 +524,88 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
             _prune(out, root, result)
         return result
     layout = layout_fn or _default_layout()
+    owned = _owned(out, root)
     with tempfile.TemporaryDirectory(prefix="buildzr-export-") as stage:
-        exported: list[tuple[str, str, list[dict[str, Any]]]] = []  # (source, stage folder, export list)
+        jobs: list[_Job] = []
         for i, s in enumerate(todo):
             rel = relative_source(s, root)
+            stem = os.path.splitext(os.path.basename(s))[0]
             here = os.path.join(stage, str(i))
-            if run_export_all(s, here, text_color=text_color, quiet=not verbose) != 0:
-                result.failed.append(Failure(rel, None, "running it failed (see the error above)", s))
+            code = run_export_all(s, here, text_color=text_color, quiet=not verbose)
+            try:
+                exported = read_export_result(here)
+            except (OSError, ValueError, KeyError):
+                exported = None
+            if exported is not None and isinstance(exported.get("fileError"), list):
+                # The model file raised: every workspace it made before, or built last time, becomes broken.
+                names = list(dict.fromkeys(
+                    [safe_name(n, stem) for n in exported.get("created") or []]
+                    + [n for n, info in owned.items() if info["input"].get("file") == rel]))
+                fallback = not names
+                names = names or [safe_name("", stem)]
+                for name in names:
+                    jobs.append(_Job(s, name, str(owned.get(name, {}).get("workspace", name)), names,
+                                     errors=[str(e) for e in exported["fileError"]], fallback=fallback))
                 continue
-            listed = read_export_list(here)
+            if code != 0 or exported is None:
+                result.failed.append(Failure(rel, None, "running it failed (see the error above)", s, environment=True))
+                continue
+            listed = exported["workspaces"]
             if not listed:
                 result.empty.append(s)
                 continue
-            exported.append((s, here, listed))
-        # Names: every workspace of this build, plus the fresh ones already in the output.
-        taken: dict[str, tuple[str, str]] = {b.name: (b.source, str(b.info.get("workspace", b.name)))
-                                             for b in result.fresh}
-        jobs: list[tuple[str, str, dict[str, Any], str, list[str]]] = []
-        for s, here, listed in exported:
-            rel = relative_source(s, root)
-            stem = os.path.splitext(os.path.basename(s))[0]
             names = [safe_name(e["name"], stem) for e in listed]
             for e, name in zip(listed, names):
-                if name in taken:
-                    other_rel, other_ws = taken[name]
-                    raise BuildError(f'two workspaces would both be built as "{name}": "{other_ws}" in {other_rel} '
-                                     f'and "{e["name"]}" in {rel} (paths in {root}); rename one of them')
-                taken[name] = (rel, e["name"])
-            for e, name in zip(listed, names):
-                jobs.append((s, os.path.join(here, e["dir"]), e, name, names))
-        for s, folder, e, name, names in jobs:
-            rel = relative_source(s, root)
-            problem = e["error"] or check_name(name)
+                jobs.append(_Job(s, name, e["name"], names, folder=os.path.join(here, e["dir"]),
+                                 errors=[e["error"]] if e["error"] else None))
+        # Names: every workspace of this build, plus the fresh ones already in the output. A file that failed before
+        # it created any workspace falls back to its file name, which gives way to a real workspace of that name.
+        taken: dict[str, tuple[str, str]] = {b.name: (b.source, str(b.info.get("workspace", b.name)))
+                                             for b in result.fresh}
+        for job in sorted(jobs, key=lambda j: j.fallback):
+            rel = relative_source(job.source, root)
+            if job.name in taken:
+                if job.fallback:
+                    job.homeless = True
+                    continue
+                other_rel, other_ws = taken[job.name]
+                raise BuildError(f'two workspaces would both be built as "{job.name}": "{other_ws}" in {other_rel} '
+                                 f'and "{job.workspace}" in {rel} (paths in {root}); rename one of them')
+            taken[job.name] = (rel, job.workspace)
+        env_problem: Optional[str] = None
+        for job in jobs:
+            rel = relative_source(job.source, root)
+            shown: Optional[str] = job.workspace
+            if job.homeless:
+                result.failed.append(Failure(rel, None, "running it failed (see the error above), and its broken "
+                                             f'workspace cannot be written as "{job.name}", which another workspace '
+                                             "has", job.source))
+                continue
+            problem = check_name(job.name)
             if problem:
-                result.failed.append(Failure(rel, e["name"], problem, s))
+                result.failed.append(Failure(rel, shown, problem, job.source))
                 continue
-            info = {"textColor": text_color, "workspace": e["name"], "name": name, "workspaces": names,
-                    "input": {"file": rel, "sha256": _sha256_file(s)}, "fingerprint": fps[s]}
-            dest = os.path.join(out, name)
+            if env_problem is not None:
+                result.failed.append(Failure(rel, shown, env_problem, job.source, environment=True))
+                continue
+            info = {"textColor": text_color, "workspace": job.workspace, "name": job.name, "workspaces": job.names,
+                    "input": {"file": rel, "sha256": _sha256_file(job.source)}, "fingerprint": fps[job.source],
+                    "workspacesFolder": folder_record(root, out)}
+            dest = os.path.join(out, job.name)
             try:
-                written = _write_workspace(folder, dest, k, viewer, layout, static_dir, info)
-            except BuildError as err:
-                result.failed.append(Failure(rel, e["name"], str(err), s))
+                if job.errors is not None:
+                    written = _write_broken(dest, k, viewer, static_dir, info, "model", job.errors)
+                else:
+                    assert job.folder is not None
+                    written = _write_workspace(job.folder, dest, k, viewer, layout, static_dir, info)
+            except Exception as err:  # not the workspace's fault (see _write_workspace): the old output stays
+                msg = str(err) if isinstance(err, BuildError) else f"{type(err).__name__}: {err}"
+                if is_environment_problem(err) and not isinstance(err, OSError):
+                    env_problem = msg  # Node or ELK cannot be used: the next workspaces would fail the same way
+                result.failed.append(Failure(rel, shown, msg, job.source, environment=True))
                 continue
-            except Exception as err:  # a layout failure of one workspace does not stop the others
-                result.failed.append(Failure(rel, e["name"], f"{type(err).__name__}: {err}", s))
-                continue
-            result.built.append(Built(name, dest, rel, written))
+            done = Built(job.name, dest, rel, written)
+            (result.broken if done.broken else result.built).append(done)
     if prune:
         _prune(out, root, result)
     return result
@@ -447,18 +615,21 @@ def _prune(out: str, root: str, result: BuildResult) -> None:
     """Remove the built workspaces of ``out`` that this build did not produce and whose model file is gone or no
     longer creates them.
 
-    Only folders with a ``build.json`` that records a source file are considered. A folder is removed when that
-    file no longer exists in ``root``, or when the file ran without failure in this build and did not create the
-    workspace (renamed or removed in the file). A file that failed keeps all its previous output.
+    Only folders whose ``build.json`` records a source file and the workspaces folder ``root`` are considered. A
+    folder is removed when that file no longer exists in ``root``, or when the file ran in this build and did not
+    create the workspace (renamed or removed in the file). A file that failed because of the machine keeps all its
+    previous output.
     """
-    failed = {f.source for f in result.failed}
+    kept = {f.source for f in result.failed if f.environment}
     done: dict[str, set[str]] = {relative_source(e, root): set() for e in result.empty}
-    for b in result.built:
+    for b in result.built + result.broken:
         done.setdefault(b.source, set()).update(b.info.get("workspaces") or [b.name])
-    produced = {b.name for b in result.built} | {b.name for b in result.fresh}
-    for name, info in _owned(out).items():
-        src = info["input"].get("file")
-        if name in produced or not isinstance(src, str) or not src or src in failed:
+    for f in result.failed:
+        done.setdefault(f.source, set())
+    produced = {b.name for b in result.built + result.broken + result.fresh}
+    for name, info in _owned(out, root).items():
+        src = info["input"]["file"]
+        if name in produced or src in kept:
             continue
         if not os.path.exists(os.path.join(root, src)):
             reason = "gone"

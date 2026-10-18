@@ -134,13 +134,15 @@ def test_a_failing_workspace_next_to_a_good_one(two: Path, served: list[Any], mo
     assert cli.main(["serve"]) == 0
     cap = capfd.readouterr()
     assert "built .buildzr/build/a (" in cap.out
-    assert "boom in b" in cap.err and "buildzr: error: workspaces/b.py: running it failed (see the error above)" in cap.err
+    assert "boom in b" in cap.err
+    assert "buildzr: BROKEN: workspace b (workspaces/b.py) failed at the model step" in cap.err
     assert served == [(str(out_dir(two)), "127.0.0.1", 8000)]
-    (two / "workspaces" / "a.py").write_text("raise RuntimeError('boom in a')\n")
-    shutil.rmtree(out_dir(two))
-    assert cli.main(["serve"]) == 1
+    assert json.loads(bj(two, "b"))["status"] == "broken"
+    # Started again: nothing to build (the broken input is up to date), but the block is printed again.
+    assert cli.main(["serve"]) == 0
     cap = capfd.readouterr()
-    assert cap.err.splitlines()[-1] == "buildzr: error: nothing to serve: .buildzr/build holds no built workspace"
+    assert "up to date: a, b" in cap.out
+    assert cap.err.count("buildzr: BROKEN: workspace b (workspaces/b.py) failed at the model step") == 1
 
 
 @pytest.mark.usefixtures("stubbed")

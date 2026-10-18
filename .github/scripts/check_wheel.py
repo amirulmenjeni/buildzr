@@ -34,7 +34,7 @@ REQUIRED = [
     f'{SITE}/layout/vendor/elk.bundled.js',
 ] + [
     f'{SITE}/schema/{name}.schema.json'
-    for name in ('config', 'index', 'levels', 'model', 'scene')
+    for name in ('build', 'config', 'index', 'levels', 'model', 'scene')
 ]
 ASSET_JS = re.compile(rf'^{SITE}/static/assets/[^/]+\.js$')
 

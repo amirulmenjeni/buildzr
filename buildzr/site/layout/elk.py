@@ -34,6 +34,10 @@ class ElkError(RuntimeError):
     """Node or ELK could not be used (missing node, bad checksum, ELK failure)."""
 
 
+class ElkEnvironmentError(ElkError):
+    """The machine is at fault, not the workspace: Node missing or unusable, no verified ELK bundle, the runner died."""
+
+
 def _sha256_file(path: str) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -46,7 +50,7 @@ def find_node() -> str:
     """Return the node executable (``BUILDZR_NODE`` or ``node`` on PATH) or raise a clear error."""
     exe = os.environ.get("BUILDZR_NODE") or shutil.which("node")
     if not exe or not (os.path.isfile(exe) and os.access(exe, os.X_OK)):
-        raise ElkError(
+        raise ElkEnvironmentError(
             "Node.js was not found. The layout runs elkjs on Node (version 18 or newer): "
             "install Node and put it on PATH, or set BUILDZR_NODE to the executable."
         )
@@ -67,15 +71,15 @@ def download_elk() -> str:
         with urllib.request.urlopen(ELK_TARBALL_URL, timeout=60) as r:  # noqa: S310 - fixed https URL
             data = r.read()
     except OSError as e:
-        raise ElkError(f"could not download elkjs {ELK_VERSION} from {ELK_TARBALL_URL}: {e}") from e
+        raise ElkEnvironmentError(f"could not download elkjs {ELK_VERSION} from {ELK_TARBALL_URL}: {e}") from e
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tar:
         member = tar.extractfile(ELK_TARBALL_MEMBER)
         if member is None:
-            raise ElkError(f"{ELK_TARBALL_MEMBER} not found in the elkjs tarball")
+            raise ElkEnvironmentError(f"{ELK_TARBALL_MEMBER} not found in the elkjs tarball")
         blob = member.read()
     got = hashlib.sha256(blob).hexdigest()
     if got != ELK_SHA256:
-        raise ElkError(f"downloaded elk.bundled.js has sha256 {got}, expected {ELK_SHA256}")
+        raise ElkEnvironmentError(f"downloaded elk.bundled.js has sha256 {got}, expected {ELK_SHA256}")
     os.makedirs(os.path.dirname(target), exist_ok=True)
     tmp = target + ".part"
     with open(tmp, "wb") as f:
@@ -89,10 +93,10 @@ def elk_bundle_path() -> str:
     if os.environ.get("BUILDZR_ELK", "").lower() == "download":
         return download_elk()
     if not os.path.isfile(VENDORED_ELK):
-        raise ElkError(f"vendored ELK bundle missing: {VENDORED_ELK} (set BUILDZR_ELK=download to fetch it)")
+        raise ElkEnvironmentError(f"vendored ELK bundle missing: {VENDORED_ELK} (set BUILDZR_ELK=download to fetch it)")
     got = _sha256_file(VENDORED_ELK)
     if got != ELK_SHA256:
-        raise ElkError(f"{VENDORED_ELK} has sha256 {got}, expected {ELK_SHA256}; refusing to run it")
+        raise ElkEnvironmentError(f"{VENDORED_ELK} has sha256 {got}, expected {ELK_SHA256}; refusing to run it")
     return VENDORED_ELK
 
 
@@ -125,7 +129,7 @@ class ElkRunner:
         )
         ready = self._read()
         if not ready.get("ready"):
-            raise ElkError(f"unexpected first message from the ELK runner: {ready}")
+            raise ElkEnvironmentError(f"unexpected first message from the ELK runner: {ready}")
 
     def close(self) -> None:
         p = self._proc
@@ -148,7 +152,7 @@ class ElkRunner:
         line = self._proc.stdout.readline()
         if not line:
             err = self._proc.stderr.read() if self._proc.stderr else ""
-            raise ElkError(f"the ELK runner exited unexpectedly: {err.strip()[:2000]}")
+            raise ElkEnvironmentError(f"the ELK runner exited unexpectedly: {err.strip()[:2000]}")
         out: Json = json.loads(line)
         return out
 
@@ -157,14 +161,14 @@ class ElkRunner:
         if not graphs:
             return {}
         if self._proc is None or self._proc.stdin is None:
-            raise ElkError("ElkRunner is not started")
+            raise ElkEnvironmentError("ElkRunner is not started")
         self._next_id += 1
         req = {"id": self._next_id, "graphs": graphs}
         try:
             self._proc.stdin.write(json.dumps(req, separators=(",", ":")) + "\n")
             self._proc.stdin.flush()
         except OSError as e:
-            raise ElkError(f"cannot talk to the ELK runner: {e}") from e
+            raise ElkEnvironmentError(f"cannot talk to the ELK runner: {e}") from e
         resp = self._read()
         out: dict[str, Json] = {}
         for name, r in resp["results"].items():

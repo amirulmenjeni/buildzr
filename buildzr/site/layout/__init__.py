@@ -13,11 +13,11 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from buildzr.site.layout.elk import ELK_VERSION, ElkError, ElkRunner
+from buildzr.site.layout.elk import ELK_VERSION, ElkEnvironmentError, ElkError, ElkRunner
 from buildzr.site.layout.passes import Layouter
 from buildzr.site.scene import write_workspace
 
-__all__ = ["layout_workspace", "ElkError", "ELK_VERSION"]
+__all__ = ["layout_workspace", "ElkError", "ElkEnvironmentError", "ELK_VERSION"]
 
 Json = dict[str, Any]
 

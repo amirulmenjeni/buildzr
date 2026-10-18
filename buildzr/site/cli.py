@@ -166,8 +166,38 @@ class _BuildArgs:
 # --- commands -----------------------------------------------------------------------------------
 
 
+def _source_shown(folder: str, info: dict[str, Any]) -> str:
+    """The model file of a built workspace as the user knows it (``workspaces/shop.py``), from its ``build.json``."""
+    src = info.get("input", {}).get("file") if isinstance(info.get("input"), dict) else None
+    rec = info.get("workspacesFolder")
+    if not isinstance(src, str):
+        return "an unknown model file"
+    if not isinstance(rec, str):
+        return src
+    return _show(Path(os.path.normpath(os.path.join(os.path.dirname(folder), rec, src))))
+
+
+def _loud(text: str) -> str:
+    """``text`` in bold red when stderr is a terminal (and ``NO_COLOR`` is not set)."""
+    if sys.stderr.isatty() and not os.environ.get("NO_COLOR"):
+        return f"\033[1;31m{text}\033[0m"
+    return text
+
+
+def broken_block(name: str, folder: str, info: dict[str, Any]) -> str:
+    """The console block of a broken built workspace: name, file, stage, the first 10 errors."""
+    errors = [str(e) for e in info.get("errors") or []]
+    lines = [_loud(f"buildzr: BROKEN: workspace {name} ({_source_shown(folder, info)}) "
+                   f"failed at the {info.get('stage', 'unknown')} step")]
+    lines += ["    " + e for e in errors[:10]]
+    if len(errors) > 10:
+        lines.append(f"    ... and {len(errors) - 10} more in {_show(Path(folder) / 'build.json')}")
+    lines.append("  " + _loud("this workspace is broken; the viewer says so"))
+    return "\n".join(lines)
+
+
 def _report(result: BuildResult, root: Optional[str] = None) -> None:
-    """One line per skipped file, built and removed workspace on stdout, one per failure on stderr."""
+    """One line per skipped file, built and removed workspace on stdout; failures and broken workspaces on stderr."""
     for e in result.empty:
         print(f"skipped {_show(Path(e))}: it creates no workspace")
     for b in result.built:
@@ -176,8 +206,12 @@ def _report(result: BuildResult, root: Optional[str] = None) -> None:
         source = _show(Path(root) / r.source) if root is not None else r.source
         why = f"its model file {source} is gone" if r.reason == "gone" else f"{source} no longer creates it"
         print(f"removed {r.name}: {why}")
+    sys.stdout.flush()
+    for b in result.broken:
+        print(broken_block(b.name, b.folder, b.info), file=sys.stderr)
     for f in result.failed:
-        print(f"buildzr: error: {f.where(_show(Path(f.path)))}: {f.message}", file=sys.stderr)
+        kept = "; nothing was written and the previous output is kept" if f.environment else ""
+        print(f"buildzr: error: {f.where(_show(Path(f.path)))}: {f.message}{kept}", file=sys.stderr)
 
 
 def _cmd_build(args: argparse.Namespace) -> int:
@@ -188,7 +222,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
     result = build_all(path, str(b.out), b.k, b.text_color, viewer=b.viewer, verbose=args.verbose, root=b.root,
                        prune=os.path.isdir(path))
     _report(result, b.root)
-    if result.failed:
+    if result.failed or result.broken:
         return 1
     if not result.built:
         return _fail(f"no workspace found in {_show(b.path)}: no .py file there creates a Workspace")
@@ -206,26 +240,30 @@ def _node_problem() -> Optional[str]:
     return None
 
 
-def _build_stale(args: argparse.Namespace, b: _BuildArgs) -> None:
-    """``serve``: build the workspaces that are missing or stale (all with ``--rebuild``); print what happened."""
+def _build_stale(args: argparse.Namespace, b: _BuildArgs) -> set[str]:
+    """``serve``: build the workspaces that are missing or stale (all with ``--rebuild``); print what happened.
+
+    Returns the names of the broken workspaces it reported.
+    """
     path = b.need_path()
     todo = plan(path, str(b.out), b.k, b.text_color, b.viewer, b.root, only_stale=not args.rebuild)
     fresh = sorted(w.name for w in todo.fresh)
     if fresh:
         print("up to date: " + ", ".join(fresh))
     if not todo.todo:
-        return
+        return set()
     problem = _node_problem()
     if problem:
         print(f"buildzr: error: {problem}", file=sys.stderr)
-        return
+        return set()
     try:
         result = build_all(path, str(b.out), b.k, b.text_color, viewer=b.viewer, verbose=args.verbose,
                            only_stale=not args.rebuild, root=b.root)
     except BuildError as e:
         print(f"buildzr: error: {e}", file=sys.stderr)
-        return
+        return set()
     _report(result)
+    return {w.name for w in result.broken}
 
 
 def _cmd_serve(args: argparse.Namespace) -> int:
@@ -246,17 +284,23 @@ def _cmd_serve(args: argparse.Namespace) -> int:
             raise _Usage(f"{args.path} holds built workspaces, which are served as they are; --rebuild needs "
                          "the workspaces folder or a .py file")
         directory = args.path
+        reported: set[str] = set()
     else:
         args.workspace = args.path
         b = _BuildArgs(args, _load_config(args.config))
         directory = str(b.out)
+        reported = set()
         if not args.no_build:
             if not b.path.exists():
                 raise _Usage(f"{_show(b.path)} not found; create the workspaces folder, pass PATH, set workspaces: "
                              f"in buildzr.yaml, or serve {_show(b.out)} as it is with --no-build")
-            _build_stale(args, b)
-    if not Catalog(directory).entries():
+            reported = _build_stale(args, b)
+    entries = Catalog(directory).entries()
+    if not entries:
         return _fail(f"nothing to serve: {_show(Path(os.path.abspath(directory)))} holds no built workspace")
+    for e in entries.values():
+        if e.info.get("status") == "broken" and e.name not in reported:
+            print(broken_block(e.name, e.folder, e.info), file=sys.stderr)
     try:
         serve(directory, args.host, args.port, public_url, origins, shown=_show(Path(os.path.abspath(directory))))
     except OSError as e:
