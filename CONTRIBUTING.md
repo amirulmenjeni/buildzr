@@ -195,6 +195,29 @@ structurizr.sh push \
 
 Data is persisted in `~/.structurizr-onpremises/` so your workspaces survive container restarts.
 
+## Working on the documentation
+
+The documentation is a MkDocs site built from the files under `docs/` and
+configured in `mkdocs.yml`. Install its dependencies with the `docs` extra:
+`uv sync --extra docs --python 3.10` (this removes the other extras from the
+environment; `uv sync --all-extras --locked` brings them back). Then
+`uv run --python 3.10 mkdocs serve` serves the site at http://127.0.0.1:8000
+and reloads it when you save a file.
+
+Before you submit, run the strict build, which fails on any warning such as a
+broken link, and the documentation tests, which check the links and run the
+examples in the pages:
+
+```bash
+uv run --python 3.10 mkdocs build --strict
+uv run pytest tests/docs
+```
+
+To add a page, create a Markdown file under `docs/` and add it to the `nav`
+section of `mkdocs.yml`, otherwise it is not in the menu.
+The `docs` workflow builds the site with `--strict` and deploys it to GitHub
+Pages on every push to `master`. The public address is https://buildzr.dev.
+
 ## Submitting Changes
 
 As usual, just fork the repo, make changes, and submit PRs!

@@ -42,7 +42,6 @@ jobs:
             docs:
               - 'README.md'
               - 'docs/**'
-              - 'DOCS_SETUP.md'
 
   check_skip_flags:
     runs-on: ubuntu-latest
