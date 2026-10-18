@@ -1,6 +1,6 @@
 # Quick Start
 
-In this tutorial, you describe a small software system in Python, build it into a site with `buildzr build`, and open its diagram in your browser with `buildzr serve`. At the end, you have a working model file and a diagram that you can click through.
+In this tutorial, you describe a small software system in Python and open its diagram in your browser with `buildzr serve`, which builds the model and serves it in one step. At the end, you have a working model file and a diagram that you can click through.
 
 !!! tip "Try it in your browser first"
     The [complete example](#6-compare-your-file-with-the-complete-example) on this page has a **Run Code** button. It runs the model in your browser, without installing anything, and shows the model as JSON (the Structurizr workspace format). You do not need it for the tutorial.
@@ -15,27 +15,30 @@ You need:
 
 ## 1. Create a project and install buildzr
 
-Create a project folder, add buildzr to it, and activate its virtual environment:
+Create a project folder, add buildzr to it, activate its virtual environment, and create a folder called `workspaces`:
 
 ```bash
 uv init quickstart
 cd quickstart
 uv add buildzr
 source .venv/bin/activate
+mkdir workspaces
 ```
 
 On Windows, activate the environment with `.venv\Scripts\activate` instead. The `buildzr` command is now available in this terminal.
 
+The `workspaces` folder is where the `buildzr` command looks for your models. Each Python file in it describes one or more workspaces.
+
 !!! note "With pip, or without installing"
     With pip instead of uv: create and activate a virtual environment, then run `pip install buildzr`.
 
-    You can also run the commands of this tutorial without installing buildzr, by putting `uvx` in front of them (`uvx buildzr build -w model.py`). This tutorial installs buildzr anyway, because your editor needs it to understand the model file while you write it.
+    You can also run the commands of this tutorial without installing buildzr, by putting `uvx` in front of them (`uvx buildzr serve`). This tutorial installs buildzr anyway, because your editor needs it to understand the model file while you write it.
 
 ## 2. Start the model file
 
-The **model file** is a Python file that describes your architecture. Create a file called `model.py` in the `quickstart` folder, with this content:
+The **model file** is a Python file that describes your architecture. Create a file called `hello.py` in the `workspaces` folder, with this content:
 
-<!-- doctest: file model.py -->
+<!-- doctest: file workspaces/hello.py -->
 ```python
 # norun
 from buildzr.dsl import (
@@ -46,17 +49,17 @@ from buildzr.dsl import (
     SystemContextView,
 )
 
-with Workspace('my-workspace') as w:
+with Workspace('hello') as w:
     pass
 ```
 
-The first lines import what this tutorial uses from `buildzr.dsl`. `Workspace` holds your whole model: everything else in this tutorial goes inside the `with` block, in place of `pass`.
+The first lines import what this tutorial uses from `buildzr.dsl`. `Workspace` holds your whole model: everything else in this tutorial goes inside the `with` block, in place of `pass`. Its name, `hello`, becomes part of the address at which you open the diagrams.
 
 ## 3. Add a person, a system and a relationship
 
 Replace `pass` with a person, a software system, and a relationship between them. The new lines are highlighted:
 
-<!-- doctest: file model.py -->
+<!-- doctest: file workspaces/hello.py -->
 ```python hl_lines="11-17"
 # norun
 from buildzr.dsl import (
@@ -67,7 +70,7 @@ from buildzr.dsl import (
     SystemContextView,
 )
 
-with Workspace('my-workspace') as w:
+with Workspace('hello') as w:
     user = Person('User', description='A user of the system')
     system = SoftwareSystem(
         'Web Application',
@@ -83,7 +86,7 @@ The line `user >> "Uses" >> system` says that the user uses the web application.
 
 Add a style that draws the user with the `Person` shape:
 
-<!-- doctest: file model.py -->
+<!-- doctest: file workspaces/hello.py -->
 ```python hl_lines="19-22"
 # norun
 from buildzr.dsl import (
@@ -94,7 +97,7 @@ from buildzr.dsl import (
     SystemContextView,
 )
 
-with Workspace('my-workspace') as w:
+with Workspace('hello') as w:
     user = Person('User', description='A user of the system')
     system = SoftwareSystem(
         'Web Application',
@@ -113,7 +116,7 @@ with Workspace('my-workspace') as w:
 
 A **view** is a diagram that you choose to draw. Add a system context view of the web application: it shows the system and the people and systems around it.
 
-<!-- doctest: file model.py -->
+<!-- doctest: file workspaces/hello.py -->
 ```python hl_lines="24-29"
 # norun
 from buildzr.dsl import (
@@ -124,7 +127,7 @@ from buildzr.dsl import (
     SystemContextView,
 )
 
-with Workspace('my-workspace') as w:
+with Workspace('hello') as w:
     user = Person('User', description='A user of the system')
     system = SoftwareSystem(
         'Web Application',
@@ -150,9 +153,9 @@ with Workspace('my-workspace') as w:
 
 ## 6. Compare your file with the complete example
 
-Your `model.py` is now complete. It must look like this:
+Your `workspaces/hello.py` is now complete. It must look like this:
 
-<!-- doctest: file model.py -->
+<!-- doctest: file workspaces/hello.py -->
 ```python
 from buildzr.dsl import (
     Workspace,
@@ -162,7 +165,7 @@ from buildzr.dsl import (
     SystemContextView,
 )
 
-with Workspace('my-workspace') as w:
+with Workspace('hello') as w:
     user = Person('User', description='A user of the system')
     system = SoftwareSystem(
         'Web Application',
@@ -184,32 +187,32 @@ with Workspace('my-workspace') as w:
     )
 ```
 
-The file does not call `w.save()`. In the next step, `buildzr build` runs the file and reads the workspace itself.
+The file does not call `w.save()`. In the next step, `buildzr serve` runs the file and reads the workspace itself.
 
-## 7. Build the site
+## 7. Build and serve the workspace
 
-Run `buildzr build` and name your model file with `-w`:
-
-```text
-$ buildzr build -w model.py
-built .buildzr/site (2 elements, 1 relationship, 1 view; modelHash sha256:de1cb536d351…)
-```
-
-The command wrote a **site** into the folder `.buildzr/site`: the web pages that draw your diagrams. The output counts what your model contains: 2 elements (the user and the web application), 1 relationship and 1 view.
-
-## 8. Open the site in your browser
-
-Start `buildzr serve`:
+In the `quickstart` folder, start `buildzr serve`:
 
 ```text
 $ buildzr serve
-Serving /home/you/quickstart/.buildzr/site at http://127.0.0.1:8000/ (Ctrl+C to stop)
-Model API at http://127.0.0.1:8000/api/v1/ (read only)
+built .buildzr/build/hello (2 elements, 1 relationship, 1 view; modelHash sha256:de1cb536d351…)
+Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+  http://127.0.0.1:8000/hello/
+Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 ```
 
-Open `http://127.0.0.1:8000/` in your browser. You see the **landscape**: every person and software system of your model, like a [System Landscape diagram](https://c4model.com/#SystemLandscapeDiagram) of the C4 model. Here, that is the user, the web application and the "Uses" arrow between them.
+`buildzr serve` did two things:
 
-![The viewer after it opens: the User above the Web Application, joined by an arrow labelled Uses, with the model tree on the left](../images/quick-start/quick-start-landscape.png)
+1. It **built** your workspace. It ran every Python file in `workspaces`, laid out the diagrams of the workspace that `hello.py` creates, and wrote the result to the folder `.buildzr/build/hello`: the web pages that draw your diagrams. The `built` line counts what your model contains: 2 elements (the user and the web application), 1 relationship and 1 view.
+2. It **serves** that folder at `http://127.0.0.1:8000/`. Each workspace has its own address, made from its name: `/hello/`.
+
+The next time you start `buildzr serve`, it builds only the workspaces whose model file changed. It prints `up to date: hello` for the others.
+
+## 8. Open the workspace in your browser
+
+Open `http://127.0.0.1:8000/` in your browser. Because you have one workspace, the browser goes on to `http://127.0.0.1:8000/hello/`. You see the **landscape**: every person and software system of your model, like a [System Landscape diagram](https://c4model.com/#SystemLandscapeDiagram) of the C4 model. Here, that is the user, the web application and the "Uses" arrow between them.
+
+![The viewer at /hello/ after it opens: the User above the Web Application, joined by an arrow labelled Uses, with the model tree on the left](../images/quick-start/quick-start-landscape.png)
 
 *The first screen. The left panel lists the elements of the model and, under **Views**, your System Context View.*
 
@@ -224,10 +227,10 @@ Click the **Web Application** box. The right panel shows its details: its descri
 Every screen of the viewer has its own address. Open this address in your browser:
 
 ```
-http://127.0.0.1:8000/#/v/system-context?sel=user
+http://127.0.0.1:8000/hello/#/v/system-context?sel=user
 ```
 
-The viewer opens the System Context View that you added in step 5, with the User selected. You can share such a link with anyone who can open the site.
+The viewer opens the System Context View that you added in step 5, with the User selected. You can share such a link with anyone who can open the workspace.
 
 ![The System Context View opened from a link, with the User box selected and its details in the right panel](../images/quick-start/quick-start-view-link.png)
 
@@ -235,19 +238,29 @@ The viewer opens the System Context View that you added in step 5, with the User
 
 To stop `buildzr serve`, press Ctrl+C in the terminal.
 
+## 10. Build without serving
+
+`buildzr build` does the first half of `buildzr serve`: it builds every workspace of the `workspaces` folder and stops. Use it when you want the built files only, for example to copy them to another machine:
+
+```text
+$ buildzr build
+built .buildzr/build/hello (2 elements, 1 relationship, 1 view; modelHash sha256:de1cb536d351…)
+```
+
+Unlike `buildzr serve`, `buildzr build` always builds every workspace again.
+
 ## Next steps
 
-You have written a model file, built it into a site and opened its diagrams. From here:
+You have written a model file, built it into a workspace and opened its diagrams. From here:
 
 - Learn how to describe more: [Core Concepts](../user-guide/core-concepts.md), [Models](../user-guide/models.md), [Relationships](../user-guide/relationships.md) and [Views](../user-guide/views.md).
-- Keep the model file name in a config file, so that you do not type `-w model.py` each time: [`buildzr.yaml`](../config.md).
-- Put the site where other people can open it: [Publish your first site](../publish-first-site.md).
-- Look up every option of `build`, `serve` and `deploy`: [Command reference](../cli.md).
+- Serve several workspaces, and let other people open them: [Serve your workspaces](../serve-workspaces.md).
+- Look up every option of `build` and `serve`: [Command reference](../cli.md).
 - Let scripts and AI assistants read your model as JSON: [The Model API](../model-api.md).
 
 ### Other ways to view the model
 
-The site is the main way to view a buildzr model, but the model is also a standard Structurizr workspace in JSON. To write it to a file, add `w.save(path='workspace.json')` as the last line of the `with` block and run `python model.py`. Then you can open it with other tools:
+The viewer is the main way to view a buildzr model, but the model is also a standard Structurizr workspace in JSON. To write it to a file, add `w.save(path='workspace.json')` as the last line of the `with` block and run `python workspaces/hello.py`. Then you can open it with other tools:
 
 - **[Structurizr Lite](https://docs.structurizr.com/lite)** shows the workspace in your browser. Run it in the folder that holds `workspace.json`:
 

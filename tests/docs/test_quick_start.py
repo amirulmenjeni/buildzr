@@ -1,4 +1,4 @@
-"""The Quick Start builds: every step of its model file runs, and the complete example builds into a site."""
+"""The Quick Start builds: every step of its model file runs, and the complete example builds into a workspace."""
 
 from __future__ import annotations
 
@@ -23,8 +23,8 @@ REAL = bool(shutil.which("node") or os.environ.get("BUILDZR_NODE")) and os.path.
 
 
 def model_blocks() -> list[Block]:
-    """The blocks the page tells the reader to save as ``model.py``, in page order."""
-    return [b for b in extract_blocks(PAGE) if b.directive == ("file", "model.py")]
+    """The blocks the page tells the reader to save as ``workspaces/hello.py``, in page order."""
+    return [b for b in extract_blocks(PAGE) if b.directive == ("file", "workspaces/hello.py")]
 
 
 def test_the_page_has_the_steps_and_the_complete_example() -> None:
@@ -33,10 +33,10 @@ def test_the_page_has_the_steps_and_the_complete_example() -> None:
 
 @pytest.mark.parametrize("block", model_blocks(), ids=lambda b: b.id)
 def test_every_step_runs(block: Block, tmp_path: Path) -> None:
-    (tmp_path / "model.py").write_text(block.text, encoding="utf-8")
-    done = subprocess.run([sys.executable, "model.py"], cwd=tmp_path, capture_output=True, text=True, timeout=120)
+    (tmp_path / "hello.py").write_text(block.text, encoding="utf-8")
+    done = subprocess.run([sys.executable, "hello.py"], cwd=tmp_path, capture_output=True, text=True, timeout=120)
     assert done.returncode == 0, done.stderr
-    assert sorted(p.name for p in tmp_path.iterdir()) == ["model.py"], "a step must not write files"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["hello.py"], "a step must not write files"
 
 
 def test_the_last_step_is_the_complete_example() -> None:
@@ -46,19 +46,19 @@ def test_the_last_step_is_the_complete_example() -> None:
     assert not complete.text.startswith("# norun"), "the complete example keeps its Run Code button"
 
 
-def test_the_complete_example_builds_a_site(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                            tmp_path_factory: pytest.TempPathFactory) -> None:
+def test_the_complete_example_builds_a_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                 tmp_path_factory: pytest.TempPathFactory) -> None:
     if not REAL:  # without Node, lay out with the stub, as the other doc tests do
         static = make_static(tmp_path_factory.mktemp("static"))
-        real = cli.build_workspace
+        real = cli.build_all
 
-        def stub_build(workspace: str, out: str = ".buildzr/site", k: Any = None, text_color: Any = None,
-                       viewer: bool = True, **kw: Any) -> dict[str, Any]:
-            return real(workspace, out, k, text_color, viewer, layout_fn=stub_layout, static_dir=str(static))
+        def stub_build_all(path: str, out: str, *a: Any, **kw: Any) -> Any:
+            return real(path, out, *a, **{**kw, "layout_fn": stub_layout, "static_dir": str(static)})
 
-        monkeypatch.setattr(cli, "build_workspace", stub_build)
+        monkeypatch.setattr(cli, "build_all", stub_build_all)
     (tmp_path / ".git").mkdir()  # so that the config search stops here
-    (tmp_path / "model.py").write_text(model_blocks()[-1].text, encoding="utf-8")
+    (tmp_path / "workspaces").mkdir()
+    (tmp_path / "workspaces" / "hello.py").write_text(model_blocks()[-1].text, encoding="utf-8")
     monkeypatch.chdir(tmp_path)
-    assert cli.main(["build", "-w", "model.py"]) == 0
-    assert (tmp_path / ".buildzr" / "site" / "index.html").is_file()
+    assert cli.main(["build"]) == 0
+    assert (tmp_path / ".buildzr" / "build" / "hello" / "index.html").is_file()
