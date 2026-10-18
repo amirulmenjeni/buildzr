@@ -98,28 +98,26 @@ with Workspace('w') as w:
 
 ## Run the command line without installing it
 
-With [uv](https://docs.astral.sh/uv/), the `uvx` tool runs the `buildzr` command in a temporary environment, without installing buildzr into your project. You need a model file in the current folder: a `.py` file that creates a `Workspace`, like the example above.
+With [uv](https://docs.astral.sh/uv/), the `uvx` tool runs the `buildzr` command in a temporary environment, without installing buildzr into your project. You need a folder called `workspaces` in the current folder, with a model file in it: a `.py` file that creates a `Workspace`, like the example above.
 
 ```bash
-uvx buildzr build -w model.py
 uvx buildzr serve
 ```
 
-- If your model file imports other packages, add each one with `--with`: `uvx --with <package> buildzr build -w model.py`.
-- To run the model file yourself (`python model.py`) or to edit it with code completion in your editor, you still need buildzr in your project: `uv add buildzr`.
+- If your model file imports other packages, add each one with `--with`: `uvx --with <package> buildzr serve`.
+- To run the model file yourself (`python workspaces/model.py`) or to edit it with code completion in your editor, you still need buildzr in your project: `uv add buildzr`.
 - To keep the `buildzr` command installed on your machine, run `uv tool install buildzr`.
 
 ## Command line
 
-Installing buildzr also installs the `buildzr` command. It turns your model into a **site**: a folder of web pages that draws your diagrams in a browser.
+Installing buildzr also installs the `buildzr` command. It turns each workspace of your **workspaces folder** (`workspaces/`, a folder of model files) into web pages that draw your diagrams in a browser.
 
-- `buildzr build` runs your model file and writes the site.
-- `buildzr serve` serves the site, so that you can open it in a browser.
-- `buildzr deploy` copies the site to a folder, or to an instance (a running `buildzr serve` that holds many sites), so that other people can open it.
+- `buildzr serve` builds every workspace that is new or changed, then serves them all: each one at `/<name>/` of `http://127.0.0.1:8000/`.
+- `buildzr build` builds every workspace into `.buildzr/build/<name>/`, for example to copy them to a web server you already have.
 
-Scripts, CI (continuous integration) jobs, dashboards and AI assistants can read the model through the read-only [Model API](https://buildzr.dev/model-api/).
+Scripts, CI (continuous integration) jobs, dashboards and AI assistants can read each model through the read-only [Model API](https://buildzr.dev/model-api/) of `buildzr serve`.
 
-[Publish your first site](https://buildzr.dev/publish-first-site/) shows a first deploy step by step, and the [Command reference](https://buildzr.dev/cli/) describes every option. The Publishing section of the documentation also covers `buildzr.yaml`, deploying to an instance and ready-made recipes.
+[Serve your workspaces](https://buildzr.dev/serve-workspaces/) shows the commands step by step, and the [Command reference](https://buildzr.dev/cli/) describes every option. The Publishing section of the documentation also covers `buildzr.yaml`, hosting the built workspaces elsewhere and ready-made recipes.
 
 ## Getting Started
 

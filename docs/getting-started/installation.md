@@ -5,7 +5,7 @@ This page shows how to install buildzr for each way of using it, and how to chec
 ## Requirements
 
 - Python 3.10 or newer.
-- Node.js 18 or newer, only on the machine that runs `buildzr build`, or `buildzr deploy`, which builds first. The layout step of the build runs [elkjs](https://github.com/kieler/elkjs) on Node. Check your version with `node --version`. `buildzr serve` and the Python API do not need Node.
+- Node.js 18 or newer, only on the machine that builds: `buildzr build`, and `buildzr serve` when a workspace is new or changed. The layout step of the build runs [elkjs](https://github.com/kieler/elkjs) on Node. Check your version with `node --version`. Serving workspaces that are already built (`buildzr serve --no-build`) and the Python API do not need Node.
 
 buildzr supports every Python version that its CI (continuous integration) tests. New maintained Python versions are added when the dependencies support them. The oldest version is dropped only at its end of life, or when the tools make it impractical to keep.
 
@@ -24,10 +24,10 @@ The right command depends on what you want to do:
 | You want to... | Run |
 |---|---|
 | Write models | `uv add buildzr` (or `pip install buildzr`). Your model file imports `buildzr`, so buildzr must be in the environment of your project. |
-| Try the command line, or run it once, for example in CI | `uvx buildzr build`. `uvx` runs buildzr in a temporary environment without installing it. `uvx buildzr serve` and `uvx buildzr deploy` work the same way. |
+| Try the command line, or run it once, for example in CI | `uvx buildzr build`. `uvx` runs buildzr in a temporary environment without installing it. `uvx buildzr serve` works the same way. |
 | Keep the `buildzr` command on your machine | `uv tool install buildzr` |
 
-`uvx buildzr build` works without buildzr in your project. But when you run the model file yourself (`python model.py`) or edit it in your editor, your project's Python is used, and the import fails until you add buildzr to the project.
+`uvx buildzr build` works without buildzr in your project. But when you run the model file yourself (`python workspaces/model.py`) or edit it in your editor, your project's Python is used, and the import fails until you add buildzr to the project.
 
 ### Install a release candidate
 
@@ -98,4 +98,4 @@ print(version("buildzr"))
 
 ## Next Steps
 
-To create your first architecture diagram, continue with the [Quick Start Guide](quick-start.md). To put your model where other people can open it, continue with [Publish your first site](../publish-first-site.md).
+To create your first architecture diagram, continue with the [Quick Start Guide](quick-start.md). To serve several models, and let other people open them, continue with [Serve your workspaces](../serve-workspaces.md).

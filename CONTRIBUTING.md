@@ -207,9 +207,9 @@ Work in the devcontainer of the repository; it has the same Python, uv and Java 
 uv sync --all-extras --locked
 ```
 
-`uv sync --extra docs --python 3.10` also installs the documentation tools, but it removes the other extras from the environment, and tests that need them, such as the deploy tests, fail. `uv sync --all-extras --locked` brings them back.
+`uv sync --extra docs --python 3.10` also installs the documentation tools, but it removes the other extras from the environment, and the tests that need them, such as the PlantUML export tests, fail. `uv sync --all-extras --locked` brings them back.
 
-The documentation tests run the `buildzr deploy` examples of the pages only when Node.js 18 or newer is on `PATH` and the viewer is built (`(cd viewer && npm ci && npm run build)`). Without them, these examples are skipped, and the test summary shows the skips.
+The documentation tests build the examples of the pages with the real layout when Node.js 18 or newer is on `PATH` and the viewer is built (`(cd viewer && npm ci && npm run build)`). Without them, the tests lay the examples out with a stand-in that draws nothing real; the commands, their output and the Model API answers are still checked.
 
 ### Preview and check your changes
 
@@ -257,7 +257,7 @@ Every push to `master` runs the workflow. It releases only when the version is f
 
 The viewer (`viewer/`) is built into the gitignored folder `buildzr/site/static/` and ships inside the package. The workflow therefore runs `npm ci` and `npm run build` in `viewer/` before `uv build`.
 
-Then `.github/scripts/check_wheel.py dist --sdist` fails the run, before anything is published, unless both the sdist and the wheel contain the viewer, the JSON schemas and the site modules, and the version of the wheel equals `buildzr/__about__.py`. To check a build yourself:
+Then `.github/scripts/check_wheel.py dist --sdist` fails the run, before anything is published, unless both the sdist and the wheel contain the viewer, the JSON schemas, the modules of `buildzr build` and `buildzr serve` and the layout's Node runner with elkjs, and the version of the wheel equals `buildzr/__about__.py`. To check a build yourself:
 
 ```bash
 (cd viewer && npm ci && npm run build)
@@ -267,7 +267,7 @@ python .github/scripts/check_wheel.py dist --sdist
 
 ### The smoke test of the wheel
 
-Pull requests that change the package also run a smoke test in the `build` workflow. It installs the built wheel into a new virtual environment, runs `buildzr build`, `buildzr serve`, and `buildzr serve --accept-deploys` with `buildzr deploy`, and then fetches the pages. To run it locally, run the three commands above first. The smoke test needs `uv`, Node.js 18 or newer and `curl`.
+Pull requests that change the package also run a smoke test in the `build` workflow. It installs the built wheel into a new virtual environment and, in a temporary project with two model files in `workspaces/`, runs `buildzr build` and `buildzr serve`, then fetches the list page, both workspaces, a Model API answer and the list of workspaces. A second project with one workspace checks that `/` redirects to it, and a last step builds with `uvx --from` the wheel. To run it locally, run the three commands above first. The smoke test needs `uv`, Node.js 18 or newer and `curl`.
 
 ```bash
 .github/scripts/smoke_wheel.sh dist
