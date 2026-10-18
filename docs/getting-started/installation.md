@@ -11,17 +11,26 @@ and the oldest version is dropped only at end-of-life or when tooling makes it i
 
 ## Install from PyPI
 
-The easiest way to install `buildzr` is using `pip`:
+The easiest way to add `buildzr` to a project is with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-pip install buildzr
+uv add buildzr
 ```
 
+With `pip` instead: `pip install buildzr`.
+
+Which command to use depends on what you want:
+
+- **Writing models.** Your model file imports `buildzr`, so it must be in the project's environment: `uv add buildzr` (or `pip install buildzr`). `uvx` is not for this; the import fails there.
+- **Trying the command line, or running it once (for example in CI).** `uvx buildzr build` runs buildzr in an isolated environment without installing it. `serve` and `deploy` work the same way.
+- **Keeping the `buildzr` command on your machine.** `uv tool install buildzr`.
+
 To try a release candidate (a pre-release such as `0.1.0rc1`), ask for it by
-version or let `pip` pick pre-releases. A plain `pip install buildzr` never
-installs one.
+version. A plain `uv add buildzr` or `pip install buildzr` never installs one.
 
 ```bash
+uvx --from buildzr==0.1.0rc1 buildzr build
+uv add buildzr==0.1.0rc1
 pip install buildzr==0.1.0rc1
 pip install --pre buildzr
 ```

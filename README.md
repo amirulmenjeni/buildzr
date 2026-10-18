@@ -15,8 +15,10 @@ In Structurizr, you define architecture models and their relationships first. An
 ## Install
 
 ```bash
-pip install buildzr
+uv add buildzr
 ```
+
+With pip instead: `pip install buildzr`. Add buildzr to the project's environment when you write models, because your model file imports it.
 
 `buildzr build` needs Node.js 18 or newer on the machine that builds (its layout step runs on Node). Check with `node --version`.
 
@@ -92,9 +94,20 @@ with Workspace('w') as w:
 ![Example Software System View](./docs/images/quick_example/web_app_system_context_00.svg)
 ![Example Container View](./docs/images/quick_example/web_app_container_view_00.svg)
 
+## Try it in a minute
+
+With [uv](https://docs.astral.sh/uv/) you can run the command line without installing anything. You need a model file (a `.py` file that creates a `Workspace`, like the examples above) in the current folder:
+
+```bash
+uvx buildzr build -w model.py
+uvx buildzr serve
+```
+
+`uvx` runs buildzr in its own isolated environment, so it is for running the command, not for writing models. If the model file needs other libraries, add them with `uvx --with <package> buildzr build -w model.py`. To keep the command installed, run `uv tool install buildzr`.
+
 ## Command line
 
-`pip install buildzr` also installs the `buildzr` command. `buildzr build` turns your model into a site you can browse, `buildzr serve` serves it, and `buildzr deploy` publishes it to a folder or a running instance. The model is also readable by scripts, CI jobs, dashboards and AI assistants through a read-only [Model API](https://buildzr.dev/model-api/).
+Installing buildzr also installs the `buildzr` command. `buildzr build` turns your model into a site you can browse, `buildzr serve` serves it, and `buildzr deploy` publishes it to a folder or a running instance. The model is also readable by scripts, CI jobs, dashboards and AI assistants through a read-only [Model API](https://buildzr.dev/model-api/).
 
 See the [Publishing guide](https://buildzr.dev/cli/) for the commands, the `buildzr.yaml` file, deploying and ready-made recipes.
 

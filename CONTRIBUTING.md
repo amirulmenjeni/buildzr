@@ -234,6 +234,7 @@ To cut a release candidate, do the same with a version such as `0.1.0rc1`
 (PEP 440, only `rc` is released). Candidates are numbered `rc1`, `rc2`, and so
 on, and the final `0.1.0` sorts after them. The tag is `v0.1.0rc1`. PyPI does
 not offer a release candidate to a plain `pip install buildzr`; install it with
+`uvx --from buildzr==0.1.0rc1 buildzr build`, `uv add buildzr==0.1.0rc1`,
 `pip install buildzr==0.1.0rc1` or `pip install --pre buildzr`.
 
 Every push to `master` runs the workflow, but it only releases when the

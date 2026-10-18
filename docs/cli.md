@@ -1,6 +1,6 @@
 # Command line
 
-`pip install buildzr` also installs the `buildzr` command. It turns the model you wrote in Python into a website you can browse, serve and publish. It has three commands: `build`, `serve` and `deploy`.
+Installing buildzr (`uv add buildzr` or `pip install buildzr`) also installs the `buildzr` command. To use the command without installing anything, put `uvx` in front: `uvx buildzr build`, `uvx buildzr serve`, `uvx buildzr deploy`. `uvx` runs it in an isolated environment that contains buildzr, so the model file can import buildzr; a model that needs other libraries adds them with `uvx --with <package> buildzr build`. It turns the model you wrote in Python into a website you can browse, serve and publish. It has three commands: `build`, `serve` and `deploy`.
 
 ## Which page do I read?
 

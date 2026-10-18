@@ -68,7 +68,7 @@ The last two lines are the links to put in a pull request comment. Deploying the
 !!! warning "An example you must adapt"
     This workflow could not be run against GitHub when this page was written, so the documentation tests skip it. The `buildzr` commands in it are the tested ones above; the rest is standard GitHub Actions and SSH. Check the names of the secrets, the host name and the user before you rely on it.
 
-The job installs buildzr, opens the tunnel with an SSH key kept in a repository secret, and deploys. `ExitOnForwardFailure` makes `ssh` stop with an error if the tunnel cannot be made, and `-f` puts it in the background once it is up.
+The job sets up uv and Node.js, opens the tunnel with an SSH key kept in a repository secret, and deploys. `ExitOnForwardFailure` makes `ssh` stop with an error if the tunnel cannot be made, and `-f` puts it in the background once it is up.
 
 <!-- doctest: skip GitHub Actions workflow, cannot be run outside GitHub -->
 ```yaml
@@ -84,10 +84,10 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-node@v7 # the layout step of the build needs Node.js 18 or newer
         with:
-          python-version: "3.12"
-      - run: pip install buildzr jsonschema
+          node-version: 22
       - name: Open the SSH tunnel to the instance
         env:
           SSH_KEY: ${{ secrets.PREVIEW_SSH_KEY }}
@@ -99,14 +99,14 @@ jobs:
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           ssh -i ~/.ssh/id_deploy -o ExitOnForwardFailure=yes -f -N \
             -L 9001:127.0.0.1:8001 deploy@preview.example.com
-      - run: buildzr deploy -t preview
+      - run: uvx --from "buildzr[serve]" buildzr deploy -t preview
 ```
 
 Notes:
 
 - The tunnel command is the one from [Deploying to an instance](deploy.md#2-reach-the-deploy-listener-from-your-machine-or-ci). Whoever can open the tunnel can deploy, so use a key that is only good for this.
 - Pull requests from forks do not get repository secrets. The job fails for them; run previews for branches of the repository only.
-- `pip install jsonschema` lets `deploy` check the whole site on the job's machine before it sends it. Without it `deploy` prints one warning and the instance still checks everything.
+- The `serve` extra (it brings `jsonschema`) lets `deploy` check the whole site on the job's machine before it sends it. Without it `deploy` prints one warning and the instance still checks everything.
 - There is no command to remove a site from an instance yet. The preview of a closed pull request stays until you delete it by hand. See [the site store](store.md#what-is-not-there-yet).
 
 ## A site for programs only
