@@ -42,7 +42,8 @@ def _add_build_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("-w", "--workspace", metavar="FILE", default=None,
                    help="DSL .py file that creates a Workspace (default: workspace: in buildzr.yaml)")
     p.add_argument("--k", type=int, default=None, metavar="N",
-                   help="layout parameter (default: build.k in buildzr.yaml, else 4)")
+                   help="room for a box that contains other boxes, in areas of an empty box; raise it if their insides "
+                        "are too small to read, lower it for compact diagrams (default: build.k in buildzr.yaml, else 4)")
     p.add_argument("--text-color", choices=["wcag", "c4"], default=None,
                    help="node text colour rule (default: build.text_color in buildzr.yaml, else wcag)")
     p.add_argument("--no-viewer", action="store_true", help="write data only, without the viewer bundle")
