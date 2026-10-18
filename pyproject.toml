@@ -30,6 +30,7 @@ dependencies = [
     "pyhumps==3.8.0",
     "typing-extensions>=4.12.2",
     "pyyaml>=6.0.3",
+    "jsonschema>=4.23.0",
 ]
 
 [project.scripts]
@@ -44,7 +45,6 @@ dev = [
     "yq==4.2.0",
     "datamodel-code-generator==0.83.0",
     "ipykernel==7.3.0",
-    "jsonschema==4.23.0",
     "types-PyYAML>=6.0.12",
     "types-Markdown>=3.7",
 ]

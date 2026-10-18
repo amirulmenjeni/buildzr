@@ -364,7 +364,7 @@ FIXTURES: dict[str, tuple[str, bool]] = {
 
 
 def schema_valid(text: str) -> bool:
-    jsonschema = pytest.importorskip("jsonschema")
+    import jsonschema  # type: ignore[import-untyped]
     data: Any = yaml.safe_load(text)
     schema = json.loads(SCHEMA.read_text())
     jsonschema.Draft202012Validator.check_schema(schema)

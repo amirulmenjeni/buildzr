@@ -22,14 +22,6 @@ SMALL = Path(__file__).parent / "fixtures" / "small"
 SCHEMA = Path(__file__).parents[2] / "buildzr" / "site" / "schema" / "index.schema.json"
 
 
-@pytest.fixture(params=["with-jsonschema", "without-jsonschema"])
-def schema_mode(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> str:
-    """Run a test with and without ``jsonschema`` importable (the checker skips the schema step then)."""
-    if request.param == "without-jsonschema":
-        monkeypatch.setitem(sys.modules, "jsonschema", None)  # `import jsonschema` raises ImportError
-    return str(request.param)
-
-
 def _built(tmp_path: Path) -> Path:
     d = tmp_path / "built" / "data"
     shutil.copytree(SMALL, d)
@@ -97,7 +89,7 @@ def test_schema_rejects_bad_file_entries() -> None:
 
 @pytest.mark.parametrize("bad", ["../../etc/passwd", "/etc/passwd", "sub/../../x", "..", "a/./b", "C:/x",
                                  "a\\..\\b", "a\x00b", "", 5, None, ["model.json"]])
-def test_escaping_file_entries_are_errors(tmp_path: Path, schema_mode: str, opened: _Opened, bad: Any) -> None:
+def test_escaping_file_entries_are_errors(tmp_path: Path, opened: _Opened, bad: Any) -> None:
     d = _built(tmp_path)
     secret = tmp_path / "secret.json"
     secret.write_text("{}", encoding="utf-8")
@@ -120,7 +112,7 @@ def test_escaping_file_entries_are_errors(tmp_path: Path, schema_mode: str, open
     assert os.path.realpath(secret) not in opened.paths
 
 
-def test_symlink_escape_is_an_error(tmp_path: Path, schema_mode: str, opened: _Opened) -> None:
+def test_symlink_escape_is_an_error(tmp_path: Path, opened: _Opened) -> None:
     d = _built(tmp_path)
     secret = tmp_path / "secret.json"
     secret.write_text("{}", encoding="utf-8")
@@ -156,7 +148,7 @@ def test_index_json_symlink_out_of_data(tmp_path: Path, opened: _Opened) -> None
     assert os.path.realpath(outside) not in opened.paths
 
 
-def test_directory_and_fifo_entries_do_not_crash_or_hang(tmp_path: Path, schema_mode: str) -> None:
+def test_directory_and_fifo_entries_do_not_crash_or_hang(tmp_path: Path) -> None:
     d = _built(tmp_path)
     os.mkdir(d / "adir")
     os.mkfifo(d / "fifo")
@@ -212,7 +204,7 @@ def _mutations(d: Path) -> list[tuple[str, Callable[[Path], None]]]:
     return out
 
 
-def test_mutated_builds_never_raise_and_are_reported(tmp_path: Path, schema_mode: str) -> None:
+def test_mutated_builds_never_raise_and_are_reported(tmp_path: Path) -> None:
     base = _built(tmp_path / "base")
     muts = _mutations(base)
     assert len(muts) >= 30
@@ -228,17 +220,12 @@ def test_mutated_builds_never_raise_and_are_reported(tmp_path: Path, schema_mode
     # Still valid builds: a title is any string, and an authored view may have no edges.
     missed = [m for m in missed if not m.endswith(": title -> str")
               and not (m.startswith("scene/v/") and m.endswith(": edges -> list"))]
-    if schema_mode == "with-jsonschema":
-        assert missed == [], missed
-    else:
-        # Without jsonschema only the checker's own rules apply: a key it never reads (title, layout, ...)
-        # can change unnoticed. Damage to the files themselves must still be reported.
-        assert [m for m in missed if ": delete " not in m and " -> " not in m] == [], missed
+    assert missed == [], missed
 
 
 @pytest.mark.parametrize("raw", [b"not json", b"", b"[", b"\xff", b"{}", b"[]", b"null", b'{"schema":"buildzr.index/2"}',
                                  b'{"schema":"buildzr.index/2","modelHash":1,"model":[],"scenes":[]}'])
-def test_bad_index_json(tmp_path: Path, schema_mode: str, raw: bytes) -> None:
+def test_bad_index_json(tmp_path: Path, raw: bytes) -> None:
     d = _built(tmp_path)
     (d / "index.json").write_bytes(raw)
     assert check_built(str(d)).errors
@@ -249,7 +236,7 @@ def test_missing_data_dir_and_index(tmp_path: Path) -> None:
     assert check_built(str(tmp_path)).errors
 
 
-def test_parent_cycles_do_not_hang(tmp_path: Path, schema_mode: str) -> None:
+def test_parent_cycles_do_not_hang(tmp_path: Path) -> None:
     d = _built(tmp_path)
     m = json.loads((d / "model.json").read_text(encoding="utf-8"))
     a, b = m["elements"][0], m["elements"][1]
@@ -330,3 +317,15 @@ def test_cli_timeout_flag(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--timeout", "0", str(SMALL)]) == 0  # 0 means no limit
     assert main(["--timeout", "1e-9", str(SMALL)]) == 1
     assert "check exceeded" in capsys.readouterr().out
+
+
+def test_jsonschema_is_a_plain_import(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``jsonschema`` is a core dependency: without it the checker does not load, it never skips the schemas."""
+    import importlib
+
+    import buildzr.site.check as check
+    assert check.jsonschema is sys.modules["jsonschema"]
+    monkeypatch.setitem(sys.modules, "jsonschema", None)  # `import jsonschema` raises ImportError
+    monkeypatch.delitem(sys.modules, "buildzr.site.check")
+    with pytest.raises(ImportError):
+        importlib.import_module("buildzr.site.check")

@@ -26,6 +26,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
 
+import jsonschema  # type: ignore[import-untyped]
+
 from buildzr.site.canonical import INDEX_SCHEMA, MODEL_SCHEMA, SCENE_SCHEMA, dumps, model_hash
 
 SCHEMA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema")
@@ -54,10 +56,6 @@ class Report:
 
 
 def _schema_errors(obj: Any, schema_file: str) -> list[str]:
-    try:
-        import jsonschema  # type: ignore[import-untyped]
-    except ImportError:  # pragma: no cover - jsonschema is a dev dependency
-        return []
     with open(os.path.join(SCHEMA_DIR, schema_file), encoding="utf-8") as f:
         schema = json.load(f)
     return [f"schema {list(e.absolute_path)}: {e.message}"
@@ -572,7 +570,7 @@ def _check_built(data_dir: str, rep: Report, dl: _Deadline, require_build_json: 
         rep.err("index.json", e)
     if index.get("schema") != INDEX_SCHEMA:
         return
-    # What the checker itself relies on; the schema says the same but is skipped without jsonschema.
+    # What the checker itself relies on, checked again so that nothing below can be misled by a bad entry.
     def entry_ok(entry: Any, where: str) -> bool:
         if not (isinstance(entry, dict) and isinstance(entry.get("file"), str) and isinstance(entry.get("hash"), str)):
             rep.err(where, "index entry must be an object with string 'file' and 'hash'")
