@@ -205,8 +205,8 @@ def sites(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, int]]:
     shutil.rmtree(tmp / "data-only" / "assets")
     servers = []
     ports = {}
-    for name, d, kw in (("example", "site", {}), ("data-only", "data-only", {})):
-        srv = make_server(str(tmp / d), port=0, **kw)
+    for name, d in (("example", "site"), ("data-only", "data-only")):
+        srv = make_server(str(tmp / d), port=0)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         servers.append(srv)
         ports[name] = srv.server_address[1]
