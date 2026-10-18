@@ -15,6 +15,7 @@ jobs:
     outputs:
       src: ${{ steps.check-src-changed.outputs.src }}
       docs: ${{ steps.check-src-changed.outputs.docs }}
+      package: ${{ steps.check-src-changed.outputs.package }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -32,6 +33,12 @@ jobs:
               - '.python-version'
               - '.devcontainer/**'
               - '.github/workflows/**'
+            package:
+              - 'buildzr/**'
+              - 'viewer/**'
+              - 'pyproject.toml'
+              - 'hatch_build.py'
+              - '.github/**'
             docs:
               - 'README.md'
               - 'docs/**'
@@ -248,9 +255,24 @@ jobs:
           echo "::notice::File version $current_version is already ahead of (or equal to) computed version $version; skipping version update."
         fi
 
+    # The viewer is gitignored build output that ships inside the package.
+    - name: Set up Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+
+    - name: Build viewer
+      working-directory: viewer
+      run: |
+        npm ci
+        npm run build
+
     - name: Build package
       run: |
         uv build
+
+    - name: Check package
+      run: python3 .github/scripts/check_wheel.py dist --sdist
 
     - name: Upload build
       uses: actions/upload-artifact@v7
@@ -261,6 +283,49 @@ jobs:
     - name: Display uploaded artifacts
       run: |
         ls -R
+
+  # Proves that the package a user would install works: builds the viewer and
+  # the package like the release workflow, checks them, then installs the wheel
+  # into a fresh venv and runs build, serve and deploy for real. All the logic
+  # is in smoke_wheel.sh, which can also be run locally.
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    needs:
+      - check_changes
+    if: ${{ needs.check_changes.outputs.package == 'true' }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: 0.12.11
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install 3.10
+
+    - name: Set up Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+
+    - name: Build viewer
+      working-directory: viewer
+      run: |
+        npm ci
+        npm run build
+
+    - name: Build package
+      run: uv build
+
+    - name: Smoke test the built wheel
+      run: .github/scripts/smoke_wheel.sh dist
 
   package_validation:
     runs-on: ubuntu-latest
