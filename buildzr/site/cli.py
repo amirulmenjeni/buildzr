@@ -333,6 +333,7 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     entries = Catalog(directory).entries()
     if not entries:
         return _fail(f"nothing to serve: {_show(Path(os.path.abspath(directory)))} holds no built workspace")
+    sys.stdout.flush()  # "up to date: ..." before the blocks, also when both streams go to one pipe
     for e in entries.values():
         if e.info.get("status") == "broken" and e.name not in reported:
             print(broken_block(e.name, e.folder, e.info), file=sys.stderr)
