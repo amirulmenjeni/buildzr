@@ -38,8 +38,8 @@ jobs:
     - name: Install Hatch
       run: uv tool install hatch==1.18.0
 
-    # Releases are cut by setting a final version (e.g. `0.0.32`) in
-    # `buildzr/__about__.py` through a pull request. This workflow never pushes
+    # Releases are cut by setting a final version (e.g. `0.0.32`) or a release
+    # candidate (e.g. `0.1.0rc1`) in `buildzr/__about__.py` through a pull request. This workflow never pushes
     # commits to master, so master can be protected against direct pushes.
     - name: Check for unreleased version
       id: check-version
@@ -48,9 +48,10 @@ jobs:
         TAG="v$VERSION"
         echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-        # Final versions only: no leading zeros, no dev, pre or post suffix.
-        if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*$ ]]; then
-          echo "::notice::'$VERSION' is not a final release version. Skipping release."
+        # Final versions (X.Y.Z) and release candidates (X.Y.ZrcN) only: no
+        # leading zeros, no dev, alpha, beta or post suffix.
+        if [[ ! "$VERSION" =~ ^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*(rc(0|[1-9][0-9]*))?$ ]]; then
+          echo "::notice::'$VERSION' is not a final or release candidate version. Skipping release."
           echo "release=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
