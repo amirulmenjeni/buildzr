@@ -8,7 +8,7 @@ This module contains the auto-generated Pydantic models that represent the Struc
 
 ## Overview
 
-The `buildzr.models` module contains Pydantic models generated from the [Structurizr JSON schema](https://github.com/structurizr/json) using [datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator).
+The `buildzr.models` module contains Pydantic models generated from the Structurizr JSON schema (see [Structurizr](https://structurizr.com)) using [datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator).
 
 ## When to Use
 
@@ -248,5 +248,5 @@ print("Workspace created with deployment models!")
 ## See Also
 
 - [DSL API Reference](dsl.md) - High-level DSL API (recommended)
-- [Structurizr JSON Schema](https://github.com/structurizr/json) - Official schema
+- [Structurizr](https://structurizr.com) - the project that defines the Structurizr JSON schema
 - [User Guide](../user-guide/core-concepts.md) - Usage guide

@@ -94,7 +94,7 @@ with SoftwareSystem("X") as x:
 `Element` represents a custom element that sits outside the C4 model. Custom elements are useful when you need to model things that don't fit neatly into the Person, SoftwareSystem, Container, or Component hierarchy --- for example, hardware devices, business processes, non-software entities, or abstract concepts.
 
 !!! note "Schema Note"
-    The official Structurizr JSON schema at [https://github.com/structurizr/json](https://github.com/structurizr/json) does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure used at runtime.
+    `buildzr`'s JSON output is derived from the Structurizr JSON schema of [Structurizr](https://structurizr.com). The official Structurizr JSON schema does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure used at runtime.
 
 ```python
 from buildzr.dsl import Workspace, Element, CustomView

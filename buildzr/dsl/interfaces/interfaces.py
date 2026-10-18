@@ -107,7 +107,7 @@ class DslElement(BindRight[TSrc, TDst]):
     def model(self) -> Model:
         """
         Returns the `dataclass` of the `DslElement` that follows Structurizr's
-        JSON Schema (see https://github.com/structurizr/json)
+        JSON Schema (see https://structurizr.com)
         """
         pass
 

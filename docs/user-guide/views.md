@@ -405,7 +405,7 @@ The `CustomView` provides a flexible way to create diagrams that mix custom elem
     Custom elements (`Element`) can be displayed in **any** view type, not just `CustomView`. You can include them in `SystemLandscapeView`, `SystemContextView`, and other views using the `include_elements` parameter. `CustomView` simply provides another canvas where you have full control over what's displayed.
 
 !!! note "Schema Note"
-    The official Structurizr JSON schema at [https://github.com/structurizr/json](https://github.com/structurizr/json) does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure.
+    The official Structurizr JSON schema (see [Structurizr](https://structurizr.com)) does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure.
 
 ```python
 # norun
