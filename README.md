@@ -103,7 +103,7 @@ uvx buildzr build -w model.py
 uvx buildzr serve
 ```
 
-`uvx` runs buildzr in its own isolated environment, so it is for running the command, not for writing models. If the model file needs other libraries, add them with `uvx --with <package> buildzr build -w model.py`. To keep the command installed, run `uv tool install buildzr`.
+`uvx` runs buildzr in its own isolated environment, so `buildzr build` works without installing anything. To run or edit the model file yourself (`python model.py`, your editor), add buildzr to your project with `uv add buildzr`. If the model file needs other libraries, add them with `uvx --with <package> buildzr build -w model.py`. To keep the command installed, run `uv tool install buildzr`.
 
 ## Command line
 

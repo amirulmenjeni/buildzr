@@ -21,7 +21,7 @@ With `pip` instead: `pip install buildzr`.
 
 Which command to use depends on what you want:
 
-- **Writing models.** Your model file imports `buildzr`, so it must be in the project's environment: `uv add buildzr` (or `pip install buildzr`). `uvx` is not for this; the import fails there.
+- **Writing models.** Your model file imports `buildzr`, so it must be in the project's environment: `uv add buildzr` (or `pip install buildzr`). `uvx buildzr build` works without it, but running the file yourself (`python model.py`) or editing it in your editor uses the project's Python, where the import fails until buildzr is added.
 - **Trying the command line, or running it once (for example in CI).** `uvx buildzr build` runs buildzr in an isolated environment without installing it. `serve` and `deploy` work the same way.
 - **Keeping the `buildzr` command on your machine.** `uv tool install buildzr`.
 
