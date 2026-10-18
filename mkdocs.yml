@@ -1,7 +1,7 @@
 site_name: buildzr
 site_description: Structurizr for the buildzrs - A Python authoring tool for Structurizr models and diagrams
 site_author: Amirul Menjeni
-site_url: https://amirulmenjeni.github.io/buildzr
+site_url: https://buildzr.dev
 
 repo_name: amirulmenjeni/buildzr
 repo_url: https://github.com/amirulmenjeni/buildzr
