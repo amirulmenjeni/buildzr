@@ -1,6 +1,6 @@
 // viewerUrl round trip: the links the Model API gives for elements open the viewer at that element.
-// Starts the real `buildzr serve` on a copy of the site (viewer bundle + the data dir), asks the API for
-// 5 elements and opens each `viewerUrl` in the browser.
+// Starts the real `buildzr serve` on a built workspace (viewer bundle + the data dir + build.json, served at
+// /site/), asks the API for 5 elements and opens each `viewerUrl` in the browser.
 // Run: node tests/run.mjs --only viewerurl --data <dir>   (needs `uv` and the project's Python environment)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -45,12 +45,14 @@ export default async function viewerurl(browser, srv, F, name) {
   const site = fs.mkdtempSync(path.join(os.tmpdir(), 'viewerurl-'));
   fs.cpSync(STATIC, site, { recursive: true });
   fs.cpSync(srv.dir, path.join(site, 'data'), { recursive: true });
+  // A built workspace: buildzr serve recognises it by build.json and serves it at /<name>/.
+  fs.writeFileSync(path.join(site, 'build.json'), JSON.stringify({ name: 'site', status: 'ok', modelHash: F.model.modelHash }));
   const port = await freePort();
   const py = (process.env.BUILDZR_PY ?? `uv run --no-sync --project ${REPO} python`).split(' ');
   const child = spawn(py[0], [...py.slice(1), '-m', 'buildzr.site.cli', 'serve', site, '-p', String(port)], { stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '';
   child.stderr.on('data', (d) => { stderr += d; });
-  const base = `http://127.0.0.1:${port}`;
+  const base = `http://127.0.0.1:${port}/site`;
   try {
     const status = await waitFor(`${base}/api/v1/`);
     t.eq(status, 200, `the API answers on the served copy of the site ${stderr}`);
@@ -62,11 +64,11 @@ export default async function viewerurl(browser, srv, F, name) {
     for (const e of chosen) {
       const ans = await (await fetch(`${base}/api/v1/element?id=${encodeURIComponent(e.id)}`)).json();
       const link = ans.element.viewerUrl;
-      t.ok(typeof link === 'string' && link.startsWith('/#/'), `${e.id}: viewerUrl ${link}`);
+      t.ok(typeof link === 'string' && link.startsWith('/site/#/'), `${e.id}: viewerUrl ${link}`);
       const expanded = e.children.length > 0 ? e.id : (e.parent ?? '');
-      t.eq(link, `/#/m${expanded ? '/' + expanded : ''}?sel=${e.id}`, `${e.id}: the link follows the grammar`);
+      t.eq(link, `/site/#/m${expanded ? '/' + expanded : ''}?sel=${e.id}`, `${e.id}: the link follows the grammar`);
       const p = await newPage(browser, errors);
-      await p.goto(base + link);
+      await p.goto(new URL(link, base).href);
       await settle(p);
       const hash = await p.evaluate(() => location.hash);
       t.eq(hash, `#/m${expanded ? '/' + expanded : ''}?sel=${e.id}`, `${e.id}: the viewer keeps the link's state`);

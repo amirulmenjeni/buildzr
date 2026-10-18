@@ -8,12 +8,22 @@ export const ROOT = path.resolve(import.meta.dirname, '..');
 export const STATIC = path.resolve(ROOT, '../buildzr/site/static');
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.woff2': 'font/woff2', '.txt': 'text/plain' };
 
-/** Serve STATIC at `base` and `dataDir` at <base>data/. base is '/' or a subpath such as '/sub/'. */
-export async function serve(dataDir, base = '/') {
+/** Serve STATIC at `base` and `dataDir` at <base>data/. base is '/' or a subpath such as '/sub/'.
+ * `files` adds files at <base><name> (e.g. { 'build.json': '{...}' }); `requests` lists every path asked for. */
+export async function serve(dataDir, base = '/', files = {}) {
+  const requests = [];
+  // A built workspace always has build.json next to index.html: the data set's own, else an empty one.
+  const own = path.resolve(dataDir, '..', 'build.json');
+  files = { 'build.json': fs.existsSync(own) ? fs.readFileSync(own, 'utf8') : '{}', ...files };
   const server = http.createServer((req, res) => {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    requests.push(p);
     if (!p.startsWith(base)) { res.writeHead(404); return res.end(); }
     p = p.slice(base.length - 1);
+    if (Object.hasOwn(files, p.slice(1))) {
+      res.writeHead(200, { 'content-type': MIME[path.extname(p)] ?? 'application/octet-stream' });
+      return res.end(files[p.slice(1)]);
+    }
     const root = p.startsWith('/data/') ? path.resolve(dataDir) : STATIC;
     const rel = p.startsWith('/data/') ? p.slice(5) : p;
     const f = path.join(root, rel === '/' ? '/index.html' : rel);
@@ -22,7 +32,7 @@ export async function serve(dataDir, base = '/') {
     fs.createReadStream(f).pipe(res);
   });
   await new Promise((r) => server.listen(0, r));
-  return { url: `http://localhost:${server.address().port}${base}`, close: () => server.close() };
+  return { url: `http://localhost:${server.address().port}${base}`, requests, close: () => server.close() };
 }
 
 export const launch = () => chromium.launch();

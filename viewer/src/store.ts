@@ -1,15 +1,16 @@
 import { create } from 'zustand';
-import { loadIndex, loadModel, loadScene } from './data';
+import { hasNoData, loadBuild, loadIndex, loadModel, loadScene } from './data';
 import { ancestors, chainOf, computeMatches, indexModel, typeLabel, type MatchInfo, type ModelIndex } from './model';
 import { buildHash, emptyFilter, parseHash, type Filter, type Route } from './route';
 import { loadSettings, saveSettings, type SettingId, type SettingValues } from './settings';
-import type { IndexJson, ModelJson, Scene } from './types';
+import type { BuildInfo, IndexJson, ModelJson, Scene } from './types';
 
 export interface CameraRequest { seq: number; kind: 'path' | 'node' | 'zoom'; id: string | null }
 
 export interface State {
-  status: 'loading' | 'ready' | 'error';
+  status: 'loading' | 'ready' | 'error' | 'broken'; // broken: build.json says so and there is no data to draw
   error: string | null;
+  build: BuildInfo | null; // build.json, read first
   index: IndexJson | null;
   model: ModelJson | null;
   m: ModelIndex | null;
@@ -122,12 +123,15 @@ export const useStore = create<State>()((set, get) => {
   };
 
   return {
-    status: 'loading', error: null, index: null, model: null, m: null, scenes: {},
+    status: 'loading', error: null, build: null, index: null, model: null, m: null, scenes: {},
     path: '', view: null, selection: null, filter: emptyFilter,
     notice: null, announce: '', treeOpen: {}, rolled: false, drawer: false, drawerTab: 'model', sheet: 'peek', searchOpen: false, camera: { seq: 0, kind: 'path', id: null }, settings: loadSettings(),
 
     async init() {
       try {
+        const build = await loadBuild();
+        set({ build });
+        if (hasNoData(build)) { set({ status: 'broken' }); return; }
         const index = await loadIndex();
         const model = await loadModel(index);
         const m = indexModel(model, index);

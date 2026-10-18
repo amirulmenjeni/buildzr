@@ -1,5 +1,11 @@
 // Types for buildzr.model/2, buildzr.scene/2 and buildzr.index/2 (see buildzr/site/schema/*.json).
 
+/** build.json next to index.html (buildzr/site/schema/build.schema.json); only what the viewer reads. */
+export interface BuildInfo {
+  status?: 'ok' | 'broken'; stage?: 'model' | 'layout' | 'check'; errors?: string[];
+  workspace?: string; input?: { file?: string };
+}
+
 export interface FileRef { file: string; hash: string }
 export interface IndexJson { schema: 'buildzr.index/2'; modelHash: string; model: FileRef; scenes: Record<string, FileRef> }
 

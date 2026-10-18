@@ -8,8 +8,8 @@ button { font: inherit; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .fatal { padding: 24px; }
 
-.app { display: grid; height: 100%; grid-template-columns: 280px minmax(0, 1fr) 320px; grid-template-rows: auto auto minmax(0, 1fr);
-  grid-template-areas: 'top top top' 'notice notice notice' 'left center right'; }
+.app { display: grid; height: 100%; grid-template-columns: 280px minmax(0, 1fr) 320px; grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-areas: 'banner banner banner' 'top top top' 'notice notice notice' 'left center right'; }
 .top { grid-area: top; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 6px 12px; border-bottom: 1px solid var(--line); }
 .top h1 { font-size: 15px; margin: 0; }
 .notice { grid-area: notice; background: #fff4ce; padding: 6px 12px; border-bottom: 1px solid var(--line); }
@@ -17,6 +17,20 @@ button { font: inherit; }
 .center { grid-area: center; position: relative; min-width: 0; min-height: 0; }
 .inspector { grid-area: right; overflow: auto; border-left: 1px solid var(--line); background: var(--panel); padding: 8px 14px; }
 .canvas { position: absolute; inset: 0; }
+
+/* ---- a broken workspace (build.json status "broken"): white on dark red, 7.4:1 */
+.broken-area { grid-area: banner; }
+.broken-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; background: #b00020; color: #fff; padding: 8px 12px; font-size: 15px; }
+.broken-toggle { border: 1px solid #fff; background: transparent; color: #fff; border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+.broken-toggle:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.broken-errors:focus-visible { outline: 3px solid #1b1f24; outline-offset: -3px; }
+.broken-errors { max-height: 40vh; overflow: auto; background: #fdecee; color: #1b1f24; border-bottom: 2px solid #b00020; }
+.broken-errors pre, .broken-list { margin: 0; padding: 10px 12px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.broken-screen { min-height: 100%; background: var(--bg); }
+.broken-body { max-width: 900px; padding: 8px 16px 24px; }
+.broken-body h1 { font-size: 20px; }
+.broken-body h2 { font-size: 15px; margin-bottom: 6px; }
+.broken-list { background: #fdecee; border-left: 4px solid #b00020; max-height: 50vh; overflow: auto; }
 
 .h { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 10px 12px 4px; }
 .tree, .tree ul, .views, .inspector ul, .crumbs ol { list-style: none; margin: 0; padding: 0; }
@@ -99,7 +113,8 @@ button { font: inherit; }
 .menu, .searchbtn, .sheet-bar button, .tabs button { font: inherit; }
 @media (max-width: 767px) {
   html, body { overflow: hidden; }
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: 'top' 'notice' 'center'; }
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto minmax(0, 1fr); grid-template-areas: 'banner' 'top' 'notice' 'center'; }
+  .broken-toggle { min-height: 44px; }
   .top { flex-wrap: wrap; gap: 4px 8px; padding: 4px 8px; }
   .top h1 { display: none; }
   .top .crumbs { flex: 1; min-width: 0; overflow-x: auto; }

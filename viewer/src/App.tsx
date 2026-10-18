@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { BrokenBanner, BrokenScreen } from './Broken';
 import { Canvas } from './Canvas';
 import { Inspector } from './Inspector';
 import { SettingsButton } from './SettingsPanel';
@@ -11,6 +12,7 @@ import oflUrl from './fonts/OFL.txt?url';
 export function App() {
   const status = useStore((s) => s.status);
   const error = useStore((s) => s.error);
+  const build = useStore((s) => s.build);
   const m = useStore((s) => s.m);
   const model = useStore((s) => s.model);
   const notice = useStore((s) => s.notice);
@@ -33,6 +35,7 @@ export function App() {
     return () => removeEventListener('keydown', f);
   }, [phone, drawer, setUi]);
 
+  if (status === 'broken' && build) return <BrokenScreen build={build} />;
   if (status === 'error') return <div role="alert" className="fatal">Could not load the model: {error}</div>;
   if (!m || !model) return <div className="fatal" role="status">Loading…</div>;
 
@@ -40,6 +43,7 @@ export function App() {
   const sheetOpen = phone && selection !== null;
   return (
     <div className={'app' + (phone ? ' phone' : '')} data-phone={phone ? 'true' : undefined}>
+      {build?.status === 'broken' && <BrokenBanner build={build} />}
       <header className="top">
         {phone && <button className="menu" aria-label="Open model navigation" aria-expanded={drawer} onClick={() => setUi({ drawer: true })}>☰</button>}
         <h1>{model.workspace.name}</h1>
