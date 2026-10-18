@@ -32,7 +32,7 @@ def _load(p: Path) -> Json:
 
 @pytest.fixture(scope="module")
 def built(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Json]:
-    out = tmp_path_factory.mktemp("small-site")
+    out = tmp_path_factory.mktemp("small-built")
     metrics = layout_workspace(_load(SMALL / "levels.json"), _load(SMALL / "model.json"), str(out))
     return out, metrics
 

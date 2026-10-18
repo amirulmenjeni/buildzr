@@ -57,7 +57,7 @@ def build(ws: str, out: Path, static: Path, **kw: Any) -> dict[str, Any]:
 
 def test_build_layout_and_build_json(tmp_path: Path, ws_file: str) -> None:
     static = make_static(tmp_path / "static")
-    out = tmp_path / "site"
+    out = tmp_path / "built"
     info = build(ws_file, out, static)
     assert sorted(os.listdir(out)) == ["assets", "build.json", "data", "index.html"]
     index = json.loads((out / "data" / "index.json").read_text(encoding="utf-8"))
@@ -104,7 +104,7 @@ def test_missing_layout_stage_message(tmp_path: Path, ws_file: str) -> None:
 
 def test_build_failure_keeps_previous_output(tmp_path: Path, ws_file: str) -> None:
     static = make_static(tmp_path / "static")
-    out = tmp_path / "site"
+    out = tmp_path / "built"
     build(ws_file, out, static)
     before = (out / "build.json").read_bytes()
     Path(ws_file).write_text("raise SystemExit(3)\n")
@@ -248,13 +248,13 @@ def run(root: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixtu
 
 def test_build_driven_by_the_file_with_no_flags(tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch,
                                                  capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspaces: ws/workspace.py\nbuild: {k: 3, text_color: c4, viewer: false, out: out/site}\n")
+    root = project(tmp_path, "workspaces: ws/workspace.py\nbuild: {k: 3, text_color: c4, viewer: false, out: out/built}\n")
     code, out, err = run(root, monkeypatch, capsys, "build")
     assert (code, err) == (0, "")
-    assert out.startswith("built out/site/small-fixture (") and "modelHash sha256:" in out and "11 elements" in out
-    bj = json.loads((root / "out" / "site" / "small-fixture" / "build.json").read_text(encoding="utf-8"))
+    assert out.startswith("built out/built/small-fixture (") and "modelHash sha256:" in out and "11 elements" in out
+    bj = json.loads((root / "out" / "built" / "small-fixture" / "build.json").read_text(encoding="utf-8"))
     assert (bj["k"], bj["textColor"]) == (3, "c4")
-    assert sorted(os.listdir(root / "out" / "site" / "small-fixture")) == ["build.json", "data"]
+    assert sorted(os.listdir(root / "out" / "built" / "small-fixture")) == ["build.json", "data"]
 
 
 def runfd(root: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str], *argv: str
@@ -502,15 +502,15 @@ def test_serve_stays_read_only(tmp_path: Path) -> None:
 def test_real_build_passes_the_checker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                        capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setenv("PYTHONPATH", ROOT)
-    root = project(tmp_path, "workspaces: ws/workspace.py\nbuild: {viewer: false, out: out/site}\n")
+    root = project(tmp_path, "workspaces: ws/workspace.py\nbuild: {viewer: false, out: out/built}\n")
     code, out, err = run(root, monkeypatch, capsys, "build")
     assert (code, err) == (0, ""), err
-    site = root / "out" / "site" / "small-fixture"
-    assert (site / "data" / "index.json").is_file()
-    assert check_built(str(site / "data"), require_build_json=True).errors == []
-    index = json.loads((site / "data" / "index.json").read_text(encoding="utf-8"))
-    assert index["model"]["file"].startswith("model.") and (site / "data" / index["model"]["file"]).is_file()
-    assert not (site / "data" / "model.json").exists()
+    built = root / "out" / "built" / "small-fixture"
+    assert (built / "data" / "index.json").is_file()
+    assert check_built(str(built / "data"), require_build_json=True).errors == []
+    index = json.loads((built / "data" / "index.json").read_text(encoding="utf-8"))
+    assert index["model"]["file"].startswith("model.") and (built / "data" / index["model"]["file"]).is_file()
+    assert not (built / "data" / "model.json").exists()
 
 
 REAL_RUNNER = """

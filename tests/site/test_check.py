@@ -20,7 +20,7 @@ def _mutated(tmp_path: Path, rel: str, fn: Callable[[Any], None]) -> Path:
     """Copy the fixture, apply fn to one JSON file, and re-hash it in index.json."""
     import hashlib
 
-    d = tmp_path / "site"
+    d = tmp_path / "built"
     shutil.copytree(SMALL, d)
     p = d / rel
     obj = json.loads(p.read_text(encoding="utf-8"))
@@ -101,7 +101,7 @@ def test_corruption_is_caught(tmp_path: Path, rel: str, fn: Callable[[Any], None
 
 
 def test_noncanonical_bytes(tmp_path: Path) -> None:
-    d = tmp_path / "site"
+    d = tmp_path / "built"
     shutil.copytree(SMALL, d)
     p = d / "scene" / "landscape.json"
     p.write_text(json.dumps(json.loads(p.read_text(encoding="utf-8")), indent=1), encoding="utf-8")

@@ -1,4 +1,4 @@
-"""The read-only Model API of ``buildzr serve`` (``<site>/api/v1/``): answers, limits, HTTP behaviour, safety."""
+"""The read-only Model API of ``buildzr serve`` (``/<name>/api/v1/``): answers, limits, HTTP behaviour, safety."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ EXAMPLE_PY = os.path.join(ROOT, "examples", "buildzr_models_example.py")
 Json = dict[str, Any]
 
 
-# --- sites and servers ----------------------------------------------------------------------------------
+# --- built workspaces and servers ----------------------------------------------------------------------------------
 
 
 def _load(path: str) -> Json:
@@ -39,29 +39,29 @@ def _load(path: str) -> Json:
 
 
 @pytest.fixture(scope="module")
-def small_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def small_built(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The small workspace, built with the stub layout (it copies the hand-made scenes of the small fixture)."""
     tmp = tmp_path_factory.mktemp("small")
     ws = tmp / "workspace.py"
     ws.write_text(WS_TEXT)
-    build(str(ws), tmp / "site", make_static(tmp / "static"))
-    return tmp / "site"
+    build(str(ws), tmp / "built", make_static(tmp / "static"))
+    return tmp / "built"
 
 
 @pytest.fixture(scope="module")
-def example_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def example_built(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """The buildzr models example. Real layout when Node is there (scenes match the model), else the stub."""
     tmp = tmp_path_factory.mktemp("example")
     static = make_static(tmp / "static")
     if shutil.which("node") or os.environ.get("BUILDZR_NODE"):
-        build_workspace(EXAMPLE_PY, str(tmp / "site"), static_dir=str(static))
+        build_workspace(EXAMPLE_PY, str(tmp / "built"), static_dir=str(static))
     else:
-        build(EXAMPLE_PY, tmp / "site", static)  # the stub layout: scenes are not the example's
-    return tmp / "site"
+        build(EXAMPLE_PY, tmp / "built", static)  # the stub layout: scenes are not the example's
+    return tmp / "built"
 
 
-def start(site: Path, **kw: Any) -> tuple[Any, int]:
-    srv = make_workspace_server(str(site), port=0, **kw)
+def start(built: Path, **kw: Any) -> tuple[Any, int]:
+    srv = make_workspace_server(str(built), port=0, **kw)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     return srv, srv.server_address[1]
 
@@ -91,16 +91,16 @@ class Client:
 
 
 @pytest.fixture(scope="module")
-def small(small_site: Path) -> Iterator[Client]:
-    srv, port = start(small_site)
+def small(small_built: Path) -> Iterator[Client]:
+    srv, port = start(small_built)
     yield Client(port)
     srv.shutdown()
     srv.server_close()
 
 
 @pytest.fixture(scope="module")
-def example(example_site: Path) -> Iterator[Client]:
-    srv, port = start(example_site)
+def example(example_built: Path) -> Iterator[Client]:
+    srv, port = start(example_built)
     yield Client(port)
     srv.shutdown()
     srv.server_close()
@@ -110,15 +110,15 @@ def ids(items: list[Json], key: str = "id") -> list[str]:
     return [i[key] for i in items]
 
 
-def model_of(site: Path) -> Json:
-    return _load(str(site / "data" / _load(str(site / "data" / "index.json"))["model"]["file"]))
+def model_of(built: Path) -> Json:
+    return _load(str(built / "data" / _load(str(built / "data" / "index.json"))["model"]["file"]))
 
 
 # --- the orientation document ---------------------------------------------------------------------------
 
 
-def test_orientation_document(small: Client, small_site: Path) -> None:
-    m = model_of(small_site)
+def test_orientation_document(small: Client, small_built: Path) -> None:
+    m = model_of(small_built)
     doc = small.ok("/api/v1/")
     assert doc["apiVersion"] == "1" and doc["modelHash"] == m["modelHash"]
     assert doc["name"] == "Small fixture"
@@ -265,30 +265,30 @@ def test_q13_what_it_does_and_who_owns_it(small: Client) -> None:
     assert b["relationships"]["own"] == {"in": 0, "out": 0}
 
 
-def test_q14_views(small: Client, small_site: Path) -> None:
+def test_q14_views(small: Client, small_built: Path) -> None:
     vs = small.ok("/api/v1/views")["items"]
     assert ids(vs, "key") == ["landscape", "billing-containers"]
     assert vs[1]["scope"] == "billing" and vs[1]["viewerUrl"] == "/#/v/billing-containers"
     assert ids(small.ok("/api/v1/views?scope=billing")["items"], "key") == ["billing-containers"]
     v = small.ok("/api/v1/view?key=billing-containers")["view"]
-    scene = _load(str(small_site / "data" / _load(str(small_site / "data" / "index.json"))["scenes"]["v/billing-containers"]["file"]))
+    scene = _load(str(small_built / "data" / _load(str(small_built / "data" / "index.json"))["scenes"]["v/billing-containers"]["file"]))
     assert v["relationships"] == sorted({r for e in scene["edges"] for r in e["rels"]}) and v["relationships"]
     assert ids(v["elements"]) == ["customer", "billing", "billing/web", "billing/api", "billing/db", "crm"]
 
 
-def test_q15_what_is_this_arrow(small: Client, small_site: Path) -> None:
-    index = _load(str(small_site / "data" / "index.json"))
+def test_q15_what_is_this_arrow(small: Client, small_built: Path) -> None:
+    index = _load(str(small_built / "data" / "index.json"))
     checked = 0
     for key, entry in index["scenes"].items():
         if key.startswith("v/"):
             continue  # a view draws a chosen subset of the rollup
-        scene = _load(str(small_site / "data" / entry["file"]))
+        scene = _load(str(small_built / "data" / entry["file"]))
         for edge in scene["edges"]:
             r = small.ok(f"/api/v1/relationships?edge={quote(edge['id'], safe='')}")
             assert ids(r["items"]) == edge["rels"], edge["id"]
             checked += 1
     assert checked >= 8 and any("port:" in e["id"] for k, en in index["scenes"].items() if not k.startswith("v/")
-                                for e in _load(str(small_site / "data" / en["file"]))["edges"])
+                                for e in _load(str(small_built / "data" / en["file"]))["edges"])
     one = small.ok(f"/api/v1/relationships?edge={quote('customer->billing/web:pays', safe='')}")
     assert ids(one["items"]) == ["customer->billing/web:pays"]  # an explicit relationship id works too
     assert small.get("/api/v1/relationships?edge=nonsense")[0] == 400
@@ -298,8 +298,8 @@ def test_q15_what_is_this_arrow(small: Client, small_site: Path) -> None:
 # --- the same questions on the buildzr models example ---------------------------------------------------
 
 
-def test_example_site_answers(example: Client, example_site: Path) -> None:
-    m = model_of(example_site)
+def test_example_answers(example: Client, example_built: Path) -> None:
+    m = model_of(example_built)
     doc = example.ok("/api/v1/")
     assert doc["counts"]["elements"] == 13 and doc["counts"]["relationships"] == 6 and doc["counts"]["views"] == 1
     assert doc["topLevel"] == ["customer", "administrator", "e-commerce-system", "payment-provider"]
@@ -344,13 +344,13 @@ def test_example_site_answers(example: Client, example_site: Path) -> None:
 
 
 @needs_node
-def test_every_scene_edge_of_the_example_is_explained(example: Client, example_site: Path) -> None:
-    index = _load(str(example_site / "data" / "index.json"))
+def test_every_scene_edge_of_the_example_is_explained(example: Client, example_built: Path) -> None:
+    index = _load(str(example_built / "data" / "index.json"))
     n = 0
     for key, entry in index["scenes"].items():
         if key.startswith("v/"):
             continue
-        for edge in _load(str(example_site / "data" / entry["file"]))["edges"]:
+        for edge in _load(str(example_built / "data" / entry["file"]))["edges"]:
             assert ids(example.ok(f"/api/v1/relationships?edge={quote(edge['id'], safe='')}")["items"]) == edge["rels"]
             n += 1
     assert n >= 5
@@ -360,8 +360,8 @@ def test_every_scene_edge_of_the_example_is_explained(example: Client, example_s
 
 
 @pytest.mark.parametrize("which", ["small", "example"])
-def test_relationships_between_any_two_elements_match_model_rollup(which: str, small_site: Path, example_site: Path) -> None:
-    model = model_of(small_site if which == "small" else example_site)
+def test_relationships_between_any_two_elements_match_model_rollup(which: str, small_built: Path, example_built: Path) -> None:
+    model = model_of(small_built if which == "small" else example_built)
     api = Api(model)
     paths = [e["id"] for e in model["elements"]]
     nonempty = 0
@@ -374,8 +374,8 @@ def test_relationships_between_any_two_elements_match_model_rollup(which: str, s
 
 
 @pytest.mark.parametrize("which", ["small", "example"])
-def test_neighbours_and_one_sided_relationships_follow_the_rollup(which: str, small_site: Path, example_site: Path) -> None:
-    model = model_of(small_site if which == "small" else example_site)
+def test_neighbours_and_one_sided_relationships_follow_the_rollup(which: str, small_built: Path, example_built: Path) -> None:
+    model = model_of(small_built if which == "small" else example_built)
     api = Api(model)
 
     def inside(x: str, root: str) -> bool:
@@ -582,14 +582,14 @@ def test_every_element_in_every_answer_has_a_viewer_url(small: Client) -> None:
     assert all(i["viewerUrl"] for i in small.ok("/api/v1/view?key=billing-containers")["view"]["elements"])
 
 
-def test_llms_txt(small: Client, small_site: Path) -> None:
+def test_llms_txt(small: Client, small_built: Path) -> None:
     st, h, raw = small.call("GET", "/llms.txt")
     text = raw.decode()
     assert st == 200 and h["content-type"].startswith("text/plain") and len(raw) < 2048
     assert text.startswith("# Small fixture") and "/api/v1/" in text and "/api/v1/neighbours?id={id}" in text
     assert h["etag"] == small.get("/api/v1/")[1]["etag"]
     assert small.call("GET", "/llms.txt", {"If-None-Match": h["etag"]})[0] == 304
-    assert not (small_site / "llms.txt").exists()  # generated, not a file
+    assert not (small_built / "llms.txt").exists()  # generated, not a file
 
 
 # --- read-only ------------------------------------------------------------------------------------------
@@ -605,8 +605,8 @@ def snapshot(root: Path) -> dict[str, str]:
     return out
 
 
-def test_write_methods_are_405_under_the_api_and_501_elsewhere(small: Client, small_site: Path) -> None:
-    before = snapshot(small_site)
+def test_write_methods_are_405_under_the_api_and_501_elsewhere(small: Client, small_built: Path) -> None:
+    before = snapshot(small_built)
     for method in ("POST", "PUT", "DELETE", "PATCH"):
         for path in ("/api/v1/", "/api/v1/element?id=customer", "/api/v1/elements", "/api/v1/nothing"):
             st, h, raw = small.call(method, path, {"Content-Type": "application/json"}, b"{}")
@@ -616,10 +616,10 @@ def test_write_methods_are_405_under_the_api_and_501_elsewhere(small: Client, sm
         assert small.call(method, "/data/index.json", body=b"{}")[0] == 501  # static files: unchanged
         assert small.call(method, "/llms.txt", body=b"{}")[0] == 501
     assert small.call("OPTIONS", "/api/v1/element")[0] == 501  # not handled
-    assert snapshot(small_site) == before
+    assert snapshot(small_built) == before
 
 
-def test_nothing_outside_the_site_can_be_read_through_the_api(small_site: Path, tmp_path: Path) -> None:
+def test_nothing_outside_the_workspace_can_be_read_through_the_api(small_built: Path, tmp_path: Path) -> None:
     secret = tmp_path / "secret.json"
     secret.write_text("{}")
     opened: list[str] = []
@@ -629,7 +629,7 @@ def test_nothing_outside_the_site_can_be_read_through_the_api(small_site: Path, 
         if isinstance(file, (str, os.PathLike)):
             opened.append(os.fspath(file))
         return real_open(file, *a, **kw)
-    srv, port = start(small_site)
+    srv, port = start(small_built)
     c = Client(port)
     builtins.open = spy
     try:
@@ -652,40 +652,40 @@ def test_nothing_outside_the_site_can_be_read_through_the_api(small_site: Path, 
         srv.shutdown()
         srv.server_close()
     assert [p for p in opened if os.path.basename(p) in ("passwd", "secret.json")] == []
-    root = os.path.realpath(small_site)
+    root = os.path.realpath(small_built)
     assert any(os.path.realpath(p).startswith(root + os.sep) for p in opened)  # the spy did see the server read the model
     assert [p for p in opened if os.path.realpath(p).startswith(str(tmp_path)) and
             not os.path.realpath(p).startswith(root + os.sep)] == []  # nothing else under the temp folder was opened
 
 
-def test_index_json_cannot_point_the_model_outside_the_site(small_site: Path, tmp_path: Path) -> None:
-    site = tmp_path / "site"
-    shutil.copytree(small_site, site)
-    (tmp_path / "evil.json").write_text(json.dumps(model_of(small_site)))
+def test_index_json_cannot_point_the_model_outside_the_workspace(small_built: Path, tmp_path: Path) -> None:
+    built = tmp_path / "built"
+    shutil.copytree(small_built, built)
+    (tmp_path / "evil.json").write_text(json.dumps(model_of(small_built)))
     cases = ["../../evil.json", "/" + str(tmp_path / "evil.json"), "scene/../../../evil.json", "a\0b", "..\\..\\evil.json", ""]
-    index = _load(str(site / "data" / "index.json"))
+    index = _load(str(built / "data" / "index.json"))
     for bad in cases:
         index["model"]["file"] = bad
-        (site / "data" / "index.json").write_text(json.dumps(index))
+        (built / "data" / "index.json").write_text(json.dumps(index))
         with pytest.raises(ApiError) as ei:
-            Source(str(site)).current()
+            Source(str(built)).current()
         assert ei.value.status == 503 and ei.value.code == "model-unavailable"
     index["model"]["file"] = "link.json"  # a symlink to a file outside
-    os.symlink(tmp_path / "evil.json", site / "data" / "link.json")
-    (site / "data" / "index.json").write_text(json.dumps(index))
+    os.symlink(tmp_path / "evil.json", built / "data" / "link.json")
+    (built / "data" / "index.json").write_text(json.dumps(index))
     with pytest.raises(ApiError) as ei:
-        Source(str(site)).current()
+        Source(str(built)).current()
     assert ei.value.status == 503
 
 
-def test_a_scene_path_in_index_json_cannot_escape_either(small_site: Path, tmp_path: Path) -> None:
-    site = tmp_path / "site"
-    shutil.copytree(small_site, site)
+def test_a_scene_path_in_index_json_cannot_escape_either(small_built: Path, tmp_path: Path) -> None:
+    built = tmp_path / "built"
+    shutil.copytree(small_built, built)
     (tmp_path / "scene.json").write_text(json.dumps({"edges": [{"rels": ["leaked"]}]}))
-    index = _load(str(site / "data" / "index.json"))
+    index = _load(str(built / "data" / "index.json"))
     index["scenes"]["v/billing-containers"]["file"] = "../../scene.json"
-    (site / "data" / "index.json").write_text(json.dumps(index))
-    srv, port = start(site)
+    (built / "data" / "index.json").write_text(json.dumps(index))
+    srv, port = start(built)
     try:
         v = Client(port).ok("/api/v1/view?key=billing-containers")["view"]
         assert v["relationships"] is None  # unreadable scene: the answer says so and leaks nothing
@@ -721,17 +721,17 @@ def test_no_model_is_a_problem_and_not_a_hang(tmp_path: Path) -> None:
         srv.server_close()
 
 
-def test_a_rebuilt_site_is_picked_up_without_a_restart(small_site: Path, example_site: Path, tmp_path: Path) -> None:
-    site = tmp_path / "site"
-    shutil.copytree(small_site, site)
-    srv, port = start(site)
+def test_a_rebuilt_workspace_is_picked_up_without_a_restart(small_built: Path, example_built: Path, tmp_path: Path) -> None:
+    built = tmp_path / "built"
+    shutil.copytree(small_built, built)
+    srv, port = start(built)
     try:
         c = Client(port)
         first = c.get("/api/v1/")
         assert first[2]["name"] == "Small fixture"
         etag = first[1]["etag"]
-        shutil.rmtree(site)
-        shutil.copytree(example_site, site)  # what build does: the whole folder is replaced
+        shutil.rmtree(built)
+        shutil.copytree(example_built, built)  # what build does: the whole folder is replaced
         second = c.get("/api/v1/", {"If-None-Match": etag})
         assert second[0] == 200 and second[2]["name"] != "Small fixture" and second[1]["etag"] != etag
         assert c.get("/api/v1/element?id=customer")[2]["element"]["name"] == "Customer"
@@ -749,8 +749,8 @@ def test_no_cors_headers_by_default(small: Client) -> None:
         assert not any(k.startswith("access-control") for k in h) and "vary" not in h, path
 
 
-def test_cors_only_for_listed_origins(small_site: Path) -> None:
-    srv, port = start(small_site, cors_origins=["https://tool.example.com", "http://localhost:3000"])
+def test_cors_only_for_listed_origins(small_built: Path) -> None:
+    srv, port = start(small_built, cors_origins=["https://tool.example.com", "http://localhost:3000"])
     c = Client(port)
     try:
         for path in ("/api/v1/", "/api/v1/element?id=customer", "/api/v1/element?id=nope", "/api/v1/nothing"):
@@ -788,25 +788,25 @@ def test_serve_command_validates_and_passes_the_new_flags(tmp_path: Path, monkey
                                                            capsys: pytest.CaptureFixture[str]) -> None:
     calls: list[tuple[Any, ...]] = []
     monkeypatch.setattr(cli, "serve", lambda *a, **kw: calls.append(a))
-    site = tmp_path / "built"
-    (site / "data").mkdir(parents=True)
-    (site / "data" / "index.json").write_text("{}")
-    (site / "build.json").write_text('{"modelHash": "sha256:00"}')
+    built = tmp_path / "built"
+    (built / "data").mkdir(parents=True)
+    (built / "data" / "index.json").write_text("{}")
+    (built / "build.json").write_text('{"modelHash": "sha256:00"}')
     monkeypatch.chdir(tmp_path)
-    assert cli.main(["serve", str(site), "--public-url", "https://m.example.com/", "--cors-origin", "https://a.example.com",
+    assert cli.main(["serve", str(built), "--public-url", "https://m.example.com/", "--cors-origin", "https://a.example.com",
                      "--cors-origin", "https://a.example.com", "--cors-origin", "http://b.example.com:8080"]) == 0
-    assert calls == [(str(site), "127.0.0.1", 8000, "https://m.example.com", ["https://a.example.com", "http://b.example.com:8080"])]
+    assert calls == [(str(built), "127.0.0.1", 8000, "https://m.example.com", ["https://a.example.com", "http://b.example.com:8080"])]
     capsys.readouterr()
-    assert cli.main(["serve", str(site)]) == 0 and calls[-1][3:] == (None, [])
+    assert cli.main(["serve", str(built)]) == 0 and calls[-1][3:] == (None, [])
     for argv, text in ((["--public-url", "ftp://x"], "--public-url:"), (["--public-url", "x.example.com"], "--public-url:"),
                        (["--cors-origin", "*"], "--cors-origin:"), (["--cors-origin", "https://x/y"], "--cors-origin:")):
         n = len(calls)
-        assert cli.main(["serve", str(site), *argv]) == 2
+        assert cli.main(["serve", str(built), *argv]) == 2
         assert text in capsys.readouterr().err and len(calls) == n
 
 
-def test_public_url_makes_absolute_links(small_site: Path) -> None:
-    srv, port = start(small_site, public_url="https://models.example.com/pr/42")
+def test_public_url_makes_absolute_links(small_built: Path) -> None:
+    srv, port = start(small_built, public_url="https://models.example.com/pr/42")
     c = Client(port)
     try:
         doc = c.ok("/api/v1/")
@@ -823,13 +823,13 @@ def test_public_url_makes_absolute_links(small_site: Path) -> None:
         srv.server_close()
 
 
-def test_data_only_site_still_serves_the_api(small_site: Path, tmp_path: Path) -> None:
-    site = tmp_path / "data-only"
-    shutil.copytree(small_site, site)
-    os.remove(site / "index.html")
-    shutil.rmtree(site / "assets")
-    srv, port = start(site)
-    srv2, port2 = start(site, public_url="https://viewer.example.com")
+def test_data_only_workspace_still_serves_the_api(small_built: Path, tmp_path: Path) -> None:
+    built = tmp_path / "data-only"
+    shutil.copytree(small_built, built)
+    os.remove(built / "index.html")
+    shutil.rmtree(built / "assets")
+    srv, port = start(built)
+    srv2, port2 = start(built, public_url="https://viewer.example.com")
     try:
         c = Client(port)
         doc = c.ok("/api/v1/")
@@ -841,7 +841,7 @@ def test_data_only_site_still_serves_the_api(small_site: Path, tmp_path: Path) -
         assert c.call("GET", "/")[0] == 404 and c.call("GET", "/llms.txt")[0] == 200
         assert "Viewer for people" not in c.call("GET", "/llms.txt")[2].decode()
         d2 = Client(port2)
-        # with --public-url there is still no viewer on this site, so there is still no viewer link
+        # with --public-url there is still no viewer on this built, so there is still no viewer link
         doc2 = d2.ok("/api/v1/")
         assert doc2["viewerUrl"] is None and doc2["publicUrlConfigured"] is True and doc2["notes"] == doc["notes"]
         assert d2.ok("/api/v1/element?id=customer")["element"]["viewerUrl"] is None
@@ -874,8 +874,8 @@ def parse_hash(url: str) -> tuple[str, str, Optional[str]]:
 
 
 @pytest.mark.parametrize("which", ["small", "example"])
-def test_viewer_urls_follow_the_grammar_for_every_element(which: str, small_site: Path, example_site: Path) -> None:
-    model = model_of(small_site if which == "small" else example_site)
+def test_viewer_urls_follow_the_grammar_for_every_element(which: str, small_built: Path, example_built: Path) -> None:
+    model = model_of(small_built if which == "small" else example_built)
     api = Api(model)
     by_id = {e["id"]: e for e in model["elements"]}
     for e in model["elements"]:

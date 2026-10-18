@@ -20,17 +20,17 @@ TIMEOUT = 1.0
 
 
 @pytest.fixture(scope="module")
-def base_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def base_built(tmp_path_factory: pytest.TempPathFactory) -> Path:
     tmp = tmp_path_factory.mktemp("servetimeoutbase")
     (tmp / "workspace.py").write_text(WS_TEXT)
-    build(str(tmp / "workspace.py"), tmp / "site", make_static(tmp / "static"))
-    return tmp / "site"
+    build(str(tmp / "workspace.py"), tmp / "built", make_static(tmp / "static"))
+    return tmp / "built"
 
 
 @pytest.fixture
-def port(base_site: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[int]:
+def port(base_built: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[int]:
     monkeypatch.setattr(serve, "READ_TIMEOUT", TIMEOUT)
-    srv: Any = make_workspace_server(str(base_site), port=0)
+    srv: Any = make_workspace_server(str(base_built), port=0)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield int(srv.server_address[1])
     srv.shutdown()

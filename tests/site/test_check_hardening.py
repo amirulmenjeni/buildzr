@@ -30,8 +30,8 @@ def schema_mode(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch)
     return str(request.param)
 
 
-def _site(tmp_path: Path) -> Path:
-    d = tmp_path / "site" / "data"
+def _built(tmp_path: Path) -> Path:
+    d = tmp_path / "built" / "data"
     shutil.copytree(SMALL, d)
     return d
 
@@ -98,7 +98,7 @@ def test_schema_rejects_bad_file_entries() -> None:
 @pytest.mark.parametrize("bad", ["../../etc/passwd", "/etc/passwd", "sub/../../x", "..", "a/./b", "C:/x",
                                  "a\\..\\b", "a\x00b", "", 5, None, ["model.json"]])
 def test_escaping_file_entries_are_errors(tmp_path: Path, schema_mode: str, opened: _Opened, bad: Any) -> None:
-    d = _site(tmp_path)
+    d = _built(tmp_path)
     secret = tmp_path / "secret.json"
     secret.write_text("{}", encoding="utf-8")
     idx = json.loads((d / "index.json").read_text(encoding="utf-8"))
@@ -121,7 +121,7 @@ def test_escaping_file_entries_are_errors(tmp_path: Path, schema_mode: str, open
 
 
 def test_symlink_escape_is_an_error(tmp_path: Path, schema_mode: str, opened: _Opened) -> None:
-    d = _site(tmp_path)
+    d = _built(tmp_path)
     secret = tmp_path / "secret.json"
     secret.write_text("{}", encoding="utf-8")
     os.symlink(secret, d / "link.json")
@@ -137,7 +137,7 @@ def test_symlink_escape_is_an_error(tmp_path: Path, schema_mode: str, opened: _O
 
 
 def test_symlink_inside_data_is_fine(tmp_path: Path) -> None:
-    d = _site(tmp_path)
+    d = _built(tmp_path)
     os.symlink(d / "model.json", d / "alias.json")
     idx = json.loads((d / "index.json").read_text(encoding="utf-8"))
     idx["model"]["file"] = "alias.json"
@@ -146,7 +146,7 @@ def test_symlink_inside_data_is_fine(tmp_path: Path) -> None:
 
 
 def test_index_json_symlink_out_of_data(tmp_path: Path, opened: _Opened) -> None:
-    d = _site(tmp_path)
+    d = _built(tmp_path)
     outside = tmp_path / "outside.json"
     shutil.move(d / "index.json", outside)
     os.symlink(outside, d / "index.json")
@@ -157,7 +157,7 @@ def test_index_json_symlink_out_of_data(tmp_path: Path, opened: _Opened) -> None
 
 
 def test_directory_and_fifo_entries_do_not_crash_or_hang(tmp_path: Path, schema_mode: str) -> None:
-    d = _site(tmp_path)
+    d = _built(tmp_path)
     os.mkdir(d / "adir")
     os.mkfifo(d / "fifo")
     idx = json.loads((d / "index.json").read_text(encoding="utf-8"))
@@ -212,8 +212,8 @@ def _mutations(d: Path) -> list[tuple[str, Callable[[Path], None]]]:
     return out
 
 
-def test_mutated_sites_never_raise_and_are_reported(tmp_path: Path, schema_mode: str) -> None:
-    base = _site(tmp_path / "base")
+def test_mutated_builds_never_raise_and_are_reported(tmp_path: Path, schema_mode: str) -> None:
+    base = _built(tmp_path / "base")
     muts = _mutations(base)
     assert len(muts) >= 30
     missed = []
@@ -225,7 +225,7 @@ def test_mutated_sites_never_raise_and_are_reported(tmp_path: Path, schema_mode:
         if not rep.errors:
             missed.append(name)
         shutil.rmtree(d.parent)
-    # Still valid sites: a title is any string, and an authored view may have no edges.
+    # Still valid builds: a title is any string, and an authored view may have no edges.
     missed = [m for m in missed if not m.endswith(": title -> str")
               and not (m.startswith("scene/v/") and m.endswith(": edges -> list"))]
     if schema_mode == "with-jsonschema":
@@ -239,7 +239,7 @@ def test_mutated_sites_never_raise_and_are_reported(tmp_path: Path, schema_mode:
 @pytest.mark.parametrize("raw", [b"not json", b"", b"[", b"\xff", b"{}", b"[]", b"null", b'{"schema":"buildzr.index/2"}',
                                  b'{"schema":"buildzr.index/2","modelHash":1,"model":[],"scenes":[]}'])
 def test_bad_index_json(tmp_path: Path, schema_mode: str, raw: bytes) -> None:
-    d = _site(tmp_path)
+    d = _built(tmp_path)
     (d / "index.json").write_bytes(raw)
     assert check_built(str(d)).errors
 
@@ -250,7 +250,7 @@ def test_missing_data_dir_and_index(tmp_path: Path) -> None:
 
 
 def test_parent_cycles_do_not_hang(tmp_path: Path, schema_mode: str) -> None:
-    d = _site(tmp_path)
+    d = _built(tmp_path)
     m = json.loads((d / "model.json").read_text(encoding="utf-8"))
     a, b = m["elements"][0], m["elements"][1]
     a["parent"], b["parent"] = b["id"], a["id"]
@@ -269,22 +269,22 @@ def test_parent_cycles_do_not_hang(tmp_path: Path, schema_mode: str) -> None:
 
 
 def test_build_json_checks(tmp_path: Path) -> None:
-    site = tmp_path / "site"
-    d = site / "data"
+    built = tmp_path / "built"
+    d = built / "data"
     shutil.copytree(SMALL, d)
     idx = json.loads((d / "index.json").read_text(encoding="utf-8"))
     assert check_built(str(d)).errors == []  # not present: fine unless required
     assert check_built(str(d), require_build_json=True).errors == ["build.json: missing"]
-    canonical.write(str(site / "build.json"), {"modelHash": idx["modelHash"], "k": 4})
+    canonical.write(str(built / "build.json"), {"modelHash": idx["modelHash"], "k": 4})
     assert check_built(str(d), require_build_json=True).errors == []
-    canonical.write(str(site / "build.json"), {"modelHash": "sha256:" + "0" * 64})
+    canonical.write(str(built / "build.json"), {"modelHash": "sha256:" + "0" * 64})
     assert any("modelHash" in e for e in check_built(str(d)).errors)
-    (site / "build.json").write_text("{", encoding="utf-8")
+    (built / "build.json").write_text("{", encoding="utf-8")
     assert any(e.startswith("build.json") for e in check_built(str(d)).errors)
-    canonical.write(str(site / "build.json"), [1])
+    canonical.write(str(built / "build.json"), [1])
     assert any(e.startswith("build.json") for e in check_built(str(d)).errors)
-    (site / "build.json").unlink()
-    os.symlink(tmp_path / "elsewhere.json", site / "build.json")
+    (built / "build.json").unlink()
+    os.symlink(tmp_path / "elsewhere.json", built / "build.json")
     assert any("symlink" in e for e in check_built(str(d)).errors)
 
 

@@ -156,10 +156,10 @@ def test_full_valid_file(tmp_path: Path) -> None:
         write(
             tmp_path,
             "version: 1\nworkspaces: architecture/model.py\n"
-            "build: {k: 6, text_color: c4, viewer: false, out: out/site}\n",
+            "build: {k: 6, text_color: c4, viewer: false, out: out/built}\n",
         )
     )
-    assert cfg.build == BuildSettings(6, "c4", False, "out/site")
+    assert cfg.build == BuildSettings(6, "c4", False, "out/built")
     assert cfg.workspaces == "architecture/model.py"
 
 

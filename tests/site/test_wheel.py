@@ -1,4 +1,4 @@
-"""The wheel ships the site package data (schemas, ELK vendor files, fonts, viewer bundle)."""
+"""The wheel ships the built package data (schemas, ELK vendor files, fonts, viewer bundle)."""
 
 from __future__ import annotations
 

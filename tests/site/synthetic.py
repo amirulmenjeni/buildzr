@@ -1,4 +1,4 @@
-"""Synthetic buildzr workspaces of three sizes for the v4 site build.
+"""Synthetic buildzr workspaces of three sizes for the v4 build.
 
 Port of ``synthetic`` from the v4 zoom experiments (``spike/v4zoom/zoom_exp.py``),
 with the same parameters and RNG call order, but producing a real DSL
