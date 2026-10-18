@@ -47,7 +47,7 @@ def find_node() -> str:
     exe = os.environ.get("BUILDZR_NODE") or shutil.which("node")
     if not exe or not (os.path.isfile(exe) and os.access(exe, os.X_OK)):
         raise ElkError(
-            "Node.js was not found. The site layout runs elkjs on Node (version 18 or newer): "
+            "Node.js was not found. The layout runs elkjs on Node (version 18 or newer): "
             "install Node and put it on PATH, or set BUILDZR_NODE to the executable."
         )
     return exe

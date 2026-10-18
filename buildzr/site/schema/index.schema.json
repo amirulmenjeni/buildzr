@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://buildzr.dev/schema/index/2",
-  "title": "buildzr site index (buildzr.index/2)",
+  "title": "buildzr workspace index (buildzr.index/2)",
   "description": "data/index.json: where the viewer finds the model (model.<h8>.json, h8 = first 8 hex digits of its sha256) and every scene. Paths are relative to the directory holding index.json. The viewer loads index.json, then the model file, then scenes lazily by key.",
   "type": "object",
   "additionalProperties": false,
@@ -23,7 +23,7 @@
       "additionalProperties": false,
       "required": ["file", "hash"],
       "properties": {
-        "file": { "type": "string", "pattern": "^(?!(?:.*/)?\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$", "description": "Relative path inside data/, e.g. 'scene/e/billing.3f2a9c1b.json' (content hash in the name in built sites; fixtures may omit it). Letters, digits, '.', '_', '-' and '/' only; no '.' or '..' segment, no leading '/'." },
+        "file": { "type": "string", "pattern": "^(?!(?:.*/)?\\.\\.?(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$", "description": "Relative path inside data/, e.g. 'scene/e/billing.3f2a9c1b.json' (content hash in the name in built workspaces; fixtures may omit it). Letters, digits, '.', '_', '-' and '/' only; no '.' or '..' segment, no leading '/'." },
         "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "sha256 of the file's bytes." }
       }
     }

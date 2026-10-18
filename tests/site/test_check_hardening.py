@@ -1,4 +1,4 @@
-"""check_site on untrusted input: containment, no exceptions, build.json and the time limit."""
+"""check_built on untrusted input: containment, no exceptions, build.json and the time limit."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import pytest
 
 from buildzr.site import canonical
 from buildzr.site.canonical import dumps
-from buildzr.site.check import _FILE_RE, check_site, main
+from buildzr.site.check import _FILE_RE, check_built, main
 
 SMALL = Path(__file__).parent / "fixtures" / "small"
 SCHEMA = Path(__file__).parents[2] / "buildzr" / "site" / "schema" / "index.schema.json"
@@ -107,7 +107,7 @@ def test_escaping_file_entries_are_errors(tmp_path: Path, schema_mode: str, open
     idx["scenes"]["e/billing"]["file"] = str(secret)  # absolute
     (d / "index.json").write_text(dumps(idx), encoding="utf-8")
     opened.paths.clear()  # only what the checker opens counts
-    rep = check_site(str(d))
+    rep = check_built(str(d))
     assert any(e.startswith("model.json") or "['model', 'file']" in e for e in rep.errors), rep.errors
     if isinstance(bad, str):
         assert any(e.startswith("model.json") and "inside data/" in e for e in rep.errors), rep.errors
@@ -131,7 +131,7 @@ def test_symlink_escape_is_an_error(tmp_path: Path, schema_mode: str, opened: _O
     idx["scenes"]["landscape"]["file"] = "linkdir/secret.json"
     (d / "index.json").write_text(dumps(idx), encoding="utf-8")
     opened.paths.clear()
-    rep = check_site(str(d))
+    rep = check_built(str(d))
     assert sum("inside data/" in e for e in rep.errors) == 2, rep.errors
     assert os.path.realpath(secret) not in opened.paths
 
@@ -142,7 +142,7 @@ def test_symlink_inside_data_is_fine(tmp_path: Path) -> None:
     idx = json.loads((d / "index.json").read_text(encoding="utf-8"))
     idx["model"]["file"] = "alias.json"
     (d / "index.json").write_text(dumps(idx), encoding="utf-8")
-    assert check_site(str(d)).errors == []
+    assert check_built(str(d)).errors == []
 
 
 def test_index_json_symlink_out_of_data(tmp_path: Path, opened: _Opened) -> None:
@@ -151,7 +151,7 @@ def test_index_json_symlink_out_of_data(tmp_path: Path, opened: _Opened) -> None
     shutil.move(d / "index.json", outside)
     os.symlink(outside, d / "index.json")
     opened.paths.clear()
-    rep = check_site(str(d))
+    rep = check_built(str(d))
     assert rep.errors and "inside the data directory" in rep.errors[0]
     assert os.path.realpath(outside) not in opened.paths
 
@@ -164,7 +164,7 @@ def test_directory_and_fifo_entries_do_not_crash_or_hang(tmp_path: Path, schema_
     idx["model"]["file"] = "adir"
     idx["scenes"]["landscape"]["file"] = "fifo"
     (d / "index.json").write_text(dumps(idx), encoding="utf-8")
-    rep = check_site(str(d))
+    rep = check_built(str(d))
     assert sum("not a regular file" in e for e in rep.errors) == 2, rep.errors
 
 
@@ -221,7 +221,7 @@ def test_mutated_sites_never_raise_and_are_reported(tmp_path: Path, schema_mode:
         d = tmp_path / "m" / str(i) / "data"
         shutil.copytree(base, d)
         fn(d)
-        rep = check_site(str(d))  # must not raise
+        rep = check_built(str(d))  # must not raise
         if not rep.errors:
             missed.append(name)
         shutil.rmtree(d.parent)
@@ -241,12 +241,12 @@ def test_mutated_sites_never_raise_and_are_reported(tmp_path: Path, schema_mode:
 def test_bad_index_json(tmp_path: Path, schema_mode: str, raw: bytes) -> None:
     d = _site(tmp_path)
     (d / "index.json").write_bytes(raw)
-    assert check_site(str(d)).errors
+    assert check_built(str(d)).errors
 
 
 def test_missing_data_dir_and_index(tmp_path: Path) -> None:
-    assert check_site(str(tmp_path / "nope")).errors
-    assert check_site(str(tmp_path)).errors
+    assert check_built(str(tmp_path / "nope")).errors
+    assert check_built(str(tmp_path)).errors
 
 
 def test_parent_cycles_do_not_hang(tmp_path: Path, schema_mode: str) -> None:
@@ -262,7 +262,7 @@ def test_parent_cycles_do_not_hang(tmp_path: Path, schema_mode: str) -> None:
     n0["parent"], n1["parent"] = n1["id"], n0["id"]
     (d / "scene/landscape.json").write_text(dumps(s), encoding="utf-8")
     _rehash(d, "scene/landscape.json")
-    assert check_site(str(d), timeout=20).errors
+    assert check_built(str(d), timeout=20).errors
 
 
 # --- build.json ------------------------------------------------------------------
@@ -273,28 +273,28 @@ def test_build_json_checks(tmp_path: Path) -> None:
     d = site / "data"
     shutil.copytree(SMALL, d)
     idx = json.loads((d / "index.json").read_text(encoding="utf-8"))
-    assert check_site(str(d)).errors == []  # not present: fine unless required
-    assert check_site(str(d), require_build_json=True).errors == ["build.json: missing"]
+    assert check_built(str(d)).errors == []  # not present: fine unless required
+    assert check_built(str(d), require_build_json=True).errors == ["build.json: missing"]
     canonical.write(str(site / "build.json"), {"modelHash": idx["modelHash"], "k": 4})
-    assert check_site(str(d), require_build_json=True).errors == []
+    assert check_built(str(d), require_build_json=True).errors == []
     canonical.write(str(site / "build.json"), {"modelHash": "sha256:" + "0" * 64})
-    assert any("modelHash" in e for e in check_site(str(d)).errors)
+    assert any("modelHash" in e for e in check_built(str(d)).errors)
     (site / "build.json").write_text("{", encoding="utf-8")
-    assert any(e.startswith("build.json") for e in check_site(str(d)).errors)
+    assert any(e.startswith("build.json") for e in check_built(str(d)).errors)
     canonical.write(str(site / "build.json"), [1])
-    assert any(e.startswith("build.json") for e in check_site(str(d)).errors)
+    assert any(e.startswith("build.json") for e in check_built(str(d)).errors)
     (site / "build.json").unlink()
     os.symlink(tmp_path / "elsewhere.json", site / "build.json")
-    assert any("symlink" in e for e in check_site(str(d)).errors)
+    assert any("symlink" in e for e in check_built(str(d)).errors)
 
 
 # --- time limit ------------------------------------------------------------------
 
 
 def test_tiny_timeout_stops_cleanly() -> None:
-    rep = check_site(str(SMALL), timeout=1e-9)
+    rep = check_built(str(SMALL), timeout=1e-9)
     assert rep.errors == ["check: check exceeded 1e-09 s"]
-    rep = check_site(str(SMALL), timeout=0)
+    rep = check_built(str(SMALL), timeout=0)
     assert rep.errors == ["check: check exceeded 0 s"]
 
 
@@ -312,15 +312,15 @@ def test_timeout_inside_the_loops(monkeypatch: pytest.MonkeyPatch) -> None:
         real(self)
 
     monkeypatch.setattr(c._Deadline, "check", check)
-    rep = check_site(str(SMALL))
+    rep = check_built(str(SMALL))
     assert rep.errors == ["check: check exceeded 60 s"]
     assert calls["n"] > 6
 
 
 def test_default_and_no_limit_give_the_same_result() -> None:
-    a = check_site(str(SMALL))
-    b = check_site(str(SMALL), timeout=None)
-    c = check_site(str(SMALL), timeout=1000)
+    a = check_built(str(SMALL))
+    b = check_built(str(SMALL), timeout=None)
+    c = check_built(str(SMALL), timeout=1000)
     assert a.errors == b.errors == c.errors == []
     assert a.metrics == b.metrics == c.metrics
 

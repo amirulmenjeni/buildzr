@@ -15,7 +15,7 @@
         "k": { "type": "integer", "minimum": 1, "default": 4, "description": "Layout frame budget." },
         "text_color": { "enum": ["wcag", "c4"], "default": "wcag", "description": "Node text colour rule." },
         "viewer": { "type": "boolean", "default": true, "description": "false writes data only." },
-        "out": { "type": "string", "minLength": 1, "default": ".buildzr/site", "description": "Where build writes and serve reads by default." }
+        "out": { "type": "string", "minLength": 1, "default": ".buildzr/build", "description": "The build output: build writes one folder per workspace here and serve reads it." }
       }
     }
   }

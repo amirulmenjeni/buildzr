@@ -35,7 +35,7 @@ from typing import Any, Iterator, Optional
 import pytest
 
 import buildzr.site.cli as cli
-from buildzr.site.build import STATIC_DIR, build_site
+from buildzr.site.build import STATIC_DIR, build_workspace
 from buildzr.site.config import ConfigError, load_config
 from buildzr.site.serve import make_server
 from tests.docs.blocks import PAGES, ROOT, Block, compare_json, extract_blocks, same_lines
@@ -182,13 +182,13 @@ def layout(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFac
     if REAL:
         return
     static = make_static(tmp_path_factory.mktemp("static"))
-    real = cli.build_site
+    real = cli.build_workspace
 
     def stub_build(workspace: str, out: str = ".buildzr/site", k: Any = None, text_color: Any = None,
                    viewer: bool = True, **kw: Any) -> dict[str, Any]:
         return real(workspace, out, k, text_color, viewer, layout_fn=stub_layout, static_dir=str(static))
 
-    monkeypatch.setattr(cli, "build_site", stub_build)
+    monkeypatch.setattr(cli, "build_workspace", stub_build)
 
 
 # --- servers for the API examples -----------------------------------------------------------------------
@@ -198,10 +198,10 @@ def layout(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFac
 def sites(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, int]]:
     tmp = tmp_path_factory.mktemp("apisites")
     if REAL:
-        build_site(EXAMPLE_PY, str(tmp / "site"))
+        build_workspace(EXAMPLE_PY, str(tmp / "site"))
     else:
         static = make_static(tmp / "static")
-        build_site(EXAMPLE_PY, str(tmp / "site"), layout_fn=stub_layout, static_dir=str(static))
+        build_workspace(EXAMPLE_PY, str(tmp / "site"), layout_fn=stub_layout, static_dir=str(static))
     shutil.copytree(tmp / "site", tmp / "data-only")
     (tmp / "data-only" / "index.html").unlink()
     shutil.rmtree(tmp / "data-only" / "assets")

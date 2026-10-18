@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from buildzr.site.check import check_site
-from buildzr.site.layout import layout_site
+from buildzr.site.check import check_built
+from buildzr.site.layout import layout_workspace
 from buildzr.site.levels import build_levels
 from buildzr.site.model import export_model
 from tests.site.synthetic import synthetic
@@ -23,8 +23,8 @@ def test_synthetic_layout_passes_the_checker(tmp_path: Path, size: str) -> None:
     ws = synthetic(size)
     model = export_model(ws)
     levels = build_levels(ws, model)
-    metrics = layout_site(levels, model, str(tmp_path))
-    rep = check_site(str(tmp_path))
+    metrics = layout_workspace(levels, model, str(tmp_path))
+    rep = check_built(str(tmp_path))
     assert rep.errors == []
     m = rep.metrics["scenes"]
     assert m["bad_edges"] == 0

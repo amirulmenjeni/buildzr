@@ -19,8 +19,8 @@ import pytest
 
 import buildzr.site.build as build_mod
 import buildzr.site.cli as cli
-from buildzr.site.build import BuildError, build_site
-from buildzr.site.check import check_site
+from buildzr.site.build import BuildError, build_workspace
+from buildzr.site.check import check_built
 from buildzr.site.cli import main
 from buildzr.site.serve import make_server
 from tests.site.stub_layout import stub_layout
@@ -50,7 +50,7 @@ def build(ws: str, out: Path, static: Path, **kw: Any) -> dict[str, Any]:
     env = os.environ.get("PYTHONPATH", "")
     os.environ["PYTHONPATH"] = ROOT + os.pathsep + env  # the export subprocess imports tests.site
     try:
-        return build_site(ws, str(out), layout_fn=stub_layout, static_dir=str(static), **kw)
+        return build_workspace(ws, str(out), layout_fn=stub_layout, static_dir=str(static), **kw)
     finally:
         os.environ["PYTHONPATH"] = env
 
@@ -115,9 +115,9 @@ def test_build_failure_keeps_previous_output(tmp_path: Path, ws_file: str) -> No
 
 RUNNER = """
 import sys
-from buildzr.site.build import build_site
+from buildzr.site.build import build_workspace
 from tests.site.stub_layout import stub_layout
-build_site(sys.argv[1], sys.argv[2], layout_fn=stub_layout, static_dir=sys.argv[3])
+build_workspace(sys.argv[1], sys.argv[2], layout_fn=stub_layout, static_dir=sys.argv[3])
 """
 
 SCRIPTS = {
@@ -247,10 +247,10 @@ def test_build_driven_by_the_file_with_no_flags(tmp_path: Path, stubbed: None, m
     root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {k: 3, text_color: c4, viewer: false, out: out/site}\n")
     code, out, err = run(root, monkeypatch, capsys, "build")
     assert (code, err) == (0, "")
-    assert out.startswith("built out/site (") and "modelHash sha256:" in out and "11 elements" in out
-    bj = json.loads((root / "out" / "site" / "build.json").read_text(encoding="utf-8"))
+    assert out.startswith("built out/site/small-fixture (") and "modelHash sha256:" in out and "11 elements" in out
+    bj = json.loads((root / "out" / "site" / "small-fixture" / "build.json").read_text(encoding="utf-8"))
     assert (bj["k"], bj["textColor"]) == (3, "c4")
-    assert sorted(os.listdir(root / "out" / "site")) == ["build.json", "data"]
+    assert sorted(os.listdir(root / "out" / "site" / "small-fixture")) == ["build.json", "data"]
 
 
 def runfd(root: Path, monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str], *argv: str
@@ -270,14 +270,14 @@ def test_build_is_quiet_about_the_model_run_unless_verbose(tmp_path: Path, stubb
     root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false}\n")
     code, out, err = runfd(root, monkeypatch, capfd, "build")
     assert (code, err) == (0, "")
-    assert not SUMMARY.search(out) and ".build-" not in out
-    assert out.startswith("built .buildzr/site (") and out.count("\n") == 1
+    assert not SUMMARY.search(out)
+    assert out.startswith("built .buildzr/build/small-fixture (") and out.count("\n") == 1
     for flag in ("-v", "--verbose"):
         code, out, err = runfd(root, monkeypatch, capfd, "build", flag)
         assert (code, err) == (0, "")
         lines = out.splitlines()
-        assert len(lines) == 2 and SUMMARY.match(lines[0]) and "11 elements" in lines[0] and ".build-" in lines[0]
-        assert lines[1].startswith("built .buildzr/site (")
+        assert len(lines) == 2 and SUMMARY.match(lines[0]) and "11 elements" in lines[0] and "(Small fixture)" in lines[0]
+        assert lines[1].startswith("built .buildzr/build/small-fixture (")
 
 
 @pytest.mark.parametrize("command", [["build"]])
@@ -290,7 +290,7 @@ def test_a_failing_model_still_shows_its_error(tmp_path: Path, stubbed: None, co
     assert code == 1
     assert "boom in the model" in err and "RuntimeError" in err
     assert "model output" in out  # what the model file prints is not ours to hide
-    assert "executing " in err and "failed" in err
+    assert "ws/workspace.py: running it failed" in err
     assert not SUMMARY.search(out)
 
 
@@ -300,7 +300,7 @@ def test_build_from_a_subfolder_uses_the_file_folder_for_relative_paths(
     (root / "deep" / "er").mkdir(parents=True)
     code, _, err = run(root / "deep" / "er", monkeypatch, capsys, "build")
     assert (code, err) == (0, "")
-    assert (root / ".buildzr" / "site" / "data" / "index.json").is_file()  # the default out, next to the file
+    assert (root / ".buildzr" / "build" / "small-fixture" / "data" / "index.json").is_file()  # next to the file
 
 
 def test_flag_beats_file_beats_default(tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch,
@@ -310,19 +310,19 @@ def test_flag_beats_file_beats_default(tmp_path: Path, stubbed: None, monkeypatc
     code, _, err = run(root, monkeypatch, capsys, "build", "-w", ws, "--k", "2", "--text-color", "wcag",
                        "-o", "from-flag")
     assert (code, err) == (0, "")
-    bj = json.loads((root / "from-flag" / "build.json").read_text(encoding="utf-8"))
+    bj = json.loads((root / "from-flag" / "small-fixture" / "build.json").read_text(encoding="utf-8"))
     assert (bj["k"], bj["textColor"]) == (2, "wcag")
     assert not (root / "from-file").exists()
     # the file beats the default ...
     code, _, _ = run(root, monkeypatch, capsys, "build", "-w", ws)
     assert code == 0
-    bj = json.loads((root / "from-file" / "build.json").read_text(encoding="utf-8"))
+    bj = json.loads((root / "from-file" / "small-fixture" / "build.json").read_text(encoding="utf-8"))
     assert (bj["k"], bj["textColor"]) == (3, "c4")
     # ... and with no file the defaults apply
     bare = project(tmp_path / "bare")
     code, _, _ = run(bare, monkeypatch, capsys, "build", "-w", str(bare / "ws" / "workspace.py"), "--no-viewer")
     assert code == 0
-    bj = json.loads((bare / ".buildzr" / "site" / "build.json").read_text(encoding="utf-8"))
+    bj = json.loads((bare / ".buildzr" / "build" / "small-fixture" / "build.json").read_text(encoding="utf-8"))
     assert (bj["k"], bj["textColor"]) == (4, "wcag")
 
 
@@ -330,17 +330,18 @@ def test_no_viewer_flag_and_viewer_false_both_mean_data_only(
         tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     root = project(tmp_path, "workspace: ws/workspace.py\n")  # build.viewer defaults to true
     code, _, _ = run(root, monkeypatch, capsys, "build", "--no-viewer", "-o", "a")
-    assert code == 0 and sorted(os.listdir(root / "a")) == ["build.json", "data"]
+    assert code == 0 and sorted(os.listdir(root / "a" / "small-fixture")) == ["build.json", "data"]
     (root / "buildzr.yaml").write_text("workspace: ws/workspace.py\nbuild: {viewer: false}\n")
     code, _, _ = run(root, monkeypatch, capsys, "build", "-o", "b")
-    assert code == 0 and sorted(os.listdir(root / "b")) == ["build.json", "data"]
+    assert code == 0 and sorted(os.listdir(root / "b" / "small-fixture")) == ["build.json", "data"]
 
 
-def test_build_without_a_workspace_is_a_usage_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                                    capsys: pytest.CaptureFixture[str]) -> None:
+def test_build_without_a_workspaces_folder_is_a_usage_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                             capsys: pytest.CaptureFixture[str]) -> None:
     code, out, err = run(project(tmp_path), monkeypatch, capsys, "build")
     assert code == 2 and out == ""
-    assert err == "buildzr: error: no workspace given; pass --workspace FILE or set workspace: in buildzr.yaml\n"
+    assert err == ("buildzr: error: workspaces not found; create the workspaces folder, pass -w PATH "
+                   "or set workspace: in buildzr.yaml\n")
 
 
 def test_config_problems_are_printed_as_the_loader_formats_them(
@@ -369,13 +370,13 @@ def test_explicit_config_flag(tmp_path: Path, stubbed: None, monkeypatch: pytest
     other.write_text("workspace: ws/workspace.py\nbuild: {viewer: false, out: o}\n")
     code, _, err = run(root, monkeypatch, capsys, "build", "-c", str(other))
     assert (code, err) == (0, "")
-    assert (root / "o" / "data" / "index.json").is_file()
+    assert (root / "o" / "small-fixture" / "data" / "index.json").is_file()
 
 
-def test_build_failure_exits_1(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+def test_missing_path_exits_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                capsys: pytest.CaptureFixture[str]) -> None:
     code, _, err = run(project(tmp_path), monkeypatch, capsys, "build", "-w", "missing.py", "--no-viewer")
-    assert code == 1 and err.startswith("buildzr: error: workspace file not found:")
+    assert code == 2 and err.startswith("buildzr: error: missing.py not found;")
 
 
 @pytest.mark.parametrize("argv", [[], ["frobnicate"], ["build", "--nope"], ["build", "--text-color", "red"],
@@ -433,11 +434,11 @@ def test_serve_default_dir_without_a_config(tmp_path: Path, served: list[tuple[s
     root = project(tmp_path)
     code, _, err = run(root, monkeypatch, capsys, "serve")
     assert code == 1
-    assert err == "buildzr: error: .buildzr/site does not look like a built site (run `buildzr build` first)\n"
+    assert err == "buildzr: error: .buildzr/build does not look like a built site (run `buildzr build` first)\n"
     assert served == []
-    fake_site(root / ".buildzr" / "site")
+    fake_site(root / ".buildzr" / "build")
     code, _, _ = run(root, monkeypatch, capsys, "serve", "--host", "0.0.0.0")
-    assert code == 0 and served == [(".buildzr/site", "0.0.0.0", 8000)]
+    assert code == 0 and served == [(".buildzr/build", "0.0.0.0", 8000)]
 
 
 def test_serve_with_a_dir_does_not_read_the_config(tmp_path: Path, served: list[tuple[str, str, int]],
@@ -497,9 +498,9 @@ def test_real_build_passes_the_checker(tmp_path: Path, monkeypatch: pytest.Monke
     root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false, out: out/site}\n")
     code, out, err = run(root, monkeypatch, capsys, "build")
     assert (code, err) == (0, ""), err
-    site = root / "out" / "site"
+    site = root / "out" / "site" / "small-fixture"
     assert (site / "data" / "index.json").is_file()
-    assert check_site(str(site / "data"), require_build_json=True).errors == []
+    assert check_built(str(site / "data"), require_build_json=True).errors == []
     index = json.loads((site / "data" / "index.json").read_text(encoding="utf-8"))
     assert index["model"]["file"].startswith("model.") and (site / "data" / index["model"]["file"]).is_file()
     assert not (site / "data" / "model.json").exists()
@@ -507,8 +508,8 @@ def test_real_build_passes_the_checker(tmp_path: Path, monkeypatch: pytest.Monke
 
 REAL_RUNNER = """
 import sys
-from buildzr.site.build import build_site
-build_site(sys.argv[1], sys.argv[2], viewer=False)
+from buildzr.site.build import build_workspace
+build_workspace(sys.argv[1], sys.argv[2], viewer=False)
 """
 
 

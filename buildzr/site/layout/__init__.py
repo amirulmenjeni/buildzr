@@ -1,6 +1,6 @@
-"""Stage 1 of the site build: levels + model -> scenes (design note v4, sections C and I).
+"""Stage 1 of the build: levels + model -> scenes (design note v4, sections C and I).
 
-``layout_site(levels, model, out_dir)`` lays out the landscape and every element level with the
+``layout_workspace(levels, model, out_dir)`` lays out the landscape and every element level with the
 three-pass reserved-frame layout and every authored view with a single plain pass, then writes
 ``model.json``, ``index.json`` and the scene files into ``out_dir``.
 
@@ -15,14 +15,14 @@ from typing import Any
 
 from buildzr.site.layout.elk import ELK_VERSION, ElkError, ElkRunner
 from buildzr.site.layout.passes import Layouter
-from buildzr.site.scene import write_site
+from buildzr.site.scene import write_workspace
 
-__all__ = ["layout_site", "ElkError", "ELK_VERSION"]
+__all__ = ["layout_workspace", "ElkError", "ELK_VERSION"]
 
 Json = dict[str, Any]
 
 
-def layout_site(levels: Json, model: Json, out_dir: str, k: float = 4.0) -> Json:
+def layout_workspace(levels: Json, model: Json, out_dir: str, k: float = 4.0) -> Json:
     """Lay out ``levels`` and write the data dir ``out_dir``.
 
     Args:
@@ -45,7 +45,7 @@ def layout_site(levels: Json, model: Json, out_dir: str, k: float = 4.0) -> Json
         lay.layout_views()
         elk_ms = runner.total_ms
         graphs = runner.calls
-    write_site(out_dir, model, levels, lay.placed)
+    write_workspace(out_dir, model, levels, lay.placed)
     return {
         "scenes": len(lay.placed),
         "elk_graphs": graphs,

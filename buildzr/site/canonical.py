@@ -1,4 +1,4 @@
-"""Canonical JSON I/O shared by every stage of the site build.
+"""Canonical JSON I/O shared by every stage of the build.
 
 Canonical bytes = ``json.dumps(obj, sort_keys=True, separators=(",", ":"),
 ensure_ascii=False) + "\\n"``, UTF-8, with every coordinate passed through

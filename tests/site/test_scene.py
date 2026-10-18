@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
-from buildzr.site.check import check_site
-from buildzr.site.layout import layout_site
+from buildzr.site.check import check_built
+from buildzr.site.layout import layout_workspace
 
 SMALL = Path(__file__).parent / "fixtures" / "small"
 
@@ -28,8 +28,8 @@ def _load(p: Path) -> Json:
 
 
 def _build(tmp: Path, levels: Json) -> dict[str, Json]:
-    layout_site(levels, _load(SMALL / "model.json"), str(tmp))
-    assert check_site(str(tmp)).errors == []
+    layout_workspace(levels, _load(SMALL / "model.json"), str(tmp))
+    assert check_built(str(tmp)).errors == []
     index = _load(tmp / "index.json")
     return {k: _load(tmp / v["file"]) for k, v in index["scenes"].items()}
 

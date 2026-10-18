@@ -110,7 +110,7 @@ def _write_bytes(path: str, data: bytes) -> None:
         f.write(data)
 
 
-def write_site(out_dir: str, model: Json, levels: Json, placed: dict[str, Placed]) -> Json:
+def write_workspace(out_dir: str, model: Json, levels: Json, placed: dict[str, Placed]) -> Json:
     """Write model.<h8>.json, index.json and every scene into ``out_dir``. Returns the index object."""
     model_bytes = dumps(model).encode("utf-8")
     model_digest = hashlib.sha256(model_bytes).hexdigest()

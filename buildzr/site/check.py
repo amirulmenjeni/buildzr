@@ -9,7 +9,7 @@ Usage::
     python -m buildzr.site.check DATA_DIR        # dir holding index.json
     python -m buildzr.site.check --json DATA_DIR # also print the metrics as JSON
 
-Exit status 0 when there are no errors. :func:`check_site` returns a
+Exit status 0 when there are no errors. :func:`check_built` returns a
 :class:`Report` whose ``metrics`` the acceptance tests assert on.
 """
 
@@ -509,7 +509,7 @@ def check_frames(scenes: dict[str, Json], rep: Report, mi: Optional[ModelIndex],
     return m
 
 
-def check_site(data_dir: str, timeout: Optional[float] = 60, require_build_json: bool = False) -> Report:
+def check_built(data_dir: str, timeout: Optional[float] = 60, require_build_json: bool = False) -> Report:
     """Check index.json, model.json and every scene under ``data_dir``.
 
     Safe on untrusted input: every ``file`` in index.json must be a relative path inside ``data_dir``
@@ -521,7 +521,7 @@ def check_site(data_dir: str, timeout: Optional[float] = 60, require_build_json:
     rep = Report()
     dl = _Deadline(timeout)
     try:
-        _check_site(data_dir, rep, dl, require_build_json)
+        _check_built(data_dir, rep, dl, require_build_json)
     except _Timeout:
         rep.err("check", f"check exceeded {timeout:g} s")
     except Exception as e:  # untrusted input must never crash the caller
@@ -557,7 +557,7 @@ def _check_build_json(data_dir: str, index: Json, rep: Report, required: bool) -
         rep.err("build.json", f"modelHash {info['modelHash']} != index.json modelHash {index['modelHash']}")
 
 
-def _check_site(data_dir: str, rep: Report, dl: _Deadline, require_build_json: bool) -> None:
+def _check_built(data_dir: str, rep: Report, dl: _Deadline, require_build_json: bool) -> None:
     real_index = _safe_file(data_dir, "index.json")
     if real_index is None:
         rep.err("index.json", "is not inside the data directory")
@@ -651,7 +651,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     args = ap.parse_args(list(argv) if argv is not None else None)
     bad = 0
     for d in args.data_dir:
-        rep = check_site(d, timeout=args.timeout or None, require_build_json=args.require_build_json)
+        rep = check_built(d, timeout=args.timeout or None, require_build_json=args.require_build_json)
         print(f"{'OK' if rep.ok else f'FAIL ({len(rep.errors)})'}  {d}")
         for e in rep.errors[: args.max_errors]:
             print(f"    {e}")

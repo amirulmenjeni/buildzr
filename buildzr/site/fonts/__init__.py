@@ -1,4 +1,4 @@
-"""Inter text metrics and label wrapping for the site build (design note v4, section C)."""
+"""Inter text metrics and label wrapping for the build (design note v4, section C)."""
 
 from __future__ import annotations
 

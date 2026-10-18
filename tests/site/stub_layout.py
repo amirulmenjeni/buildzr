@@ -1,4 +1,4 @@
-"""TEST HELPER ONLY: a stand-in for ``buildzr.site.layout.layout_site`` (W2).
+"""TEST HELPER ONLY: a stand-in for ``buildzr.site.layout.layout_workspace`` (W2).
 
 It does no layout: it copies the hand-made fixture scenes and index.json from
 ``tests/site/fixtures/small`` and adds ``levels-digest.json`` (a hash of the

@@ -15,8 +15,8 @@ from typing import Any, Iterable, NoReturn, Optional
 
 from buildzr.site import config as cfgmod
 from buildzr.site.api import normalise_origin, normalise_public_url
-from buildzr.site.build import BuildError, build_site
-from buildzr.site.config import DEFAULT_OUT, BuildSettings, Config, ConfigError
+from buildzr.site.build import BuildError, BuildResult, build_all, source_root
+from buildzr.site.config import DEFAULT_OUT, DEFAULT_WORKSPACES, BuildSettings, Config, ConfigError
 from buildzr.site.serve import serve
 
 
@@ -31,8 +31,9 @@ class _Usage(Exception):
 
 
 def _add_build_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument("-w", "--workspace", metavar="FILE", default=None,
-                   help="DSL .py file that creates a Workspace (default: workspace: in buildzr.yaml)")
+    p.add_argument("-w", "--workspaces", dest="workspace", metavar="PATH", default=None,
+                   help="the Python file or folder that creates workspaces "
+                        f"(default: workspace: in buildzr.yaml, else {DEFAULT_WORKSPACES}/)")
     p.add_argument("--k", type=int, default=None, metavar="N",
                    help="room for a box that contains other boxes, in areas of an empty box; raise it if their insides "
                         "are too small to read, lower it for compact diagrams (default: build.k in buildzr.yaml, else 4)")
@@ -46,12 +47,12 @@ def _add_build_args(p: argparse.ArgumentParser) -> None:
 
 
 def _parser() -> argparse.ArgumentParser:
-    ap = _Parser(prog="buildzr", description="Build and serve a buildzr model site.")
+    ap = _Parser(prog="buildzr", description="Build and serve buildzr workspaces.")
     sub = ap.add_subparsers(dest="cmd", required=True, parser_class=_Parser)
-    b = sub.add_parser("build", help="build the site directory from a workspace file")
+    b = sub.add_parser("build", help="build every workspace of the workspaces folder")
     _add_build_args(b)
     b.add_argument("-o", "--out", metavar="DIR", default=None,
-                   help=f"output directory (default: build.out in buildzr.yaml, else {DEFAULT_OUT})")
+                   help=f"build output: one folder per workspace (default: build.out in buildzr.yaml, else {DEFAULT_OUT})")
     s = sub.add_parser("serve", help="serve a built site directory (read-only)")
     s.add_argument("dir", nargs="?", default=None, metavar="DIR",
                    help=f"built site (default: build.out of the nearest buildzr.yaml, else {DEFAULT_OUT})")
@@ -92,12 +93,12 @@ def _load_config(explicit: Optional[str]) -> Optional[Config]:
     return cfgmod.load_config(found)
 
 
-def _counts(site: str) -> str:
-    """``13 elements, 6 relationships, 1 view`` of a built site, or ``""`` if it cannot be read."""
+def _counts(folder: str) -> str:
+    """``13 elements, 6 relationships, 1 view`` of a built workspace, or ``""`` if it cannot be read."""
     try:
-        with open(os.path.join(site, "data", "index.json"), encoding="utf-8") as f:
+        with open(os.path.join(folder, "data", "index.json"), encoding="utf-8") as f:
             index = json.load(f)
-        with open(os.path.join(site, "data", index["model"]["file"]), encoding="utf-8") as f:
+        with open(os.path.join(folder, "data", index["model"]["file"]), encoding="utf-8") as f:
             model = json.load(f)
         parts = [(len(model["elements"]), "element"), (len(model["relationships"]), "relationship"),
                  (len(model["views"]), "view")]
@@ -110,15 +111,15 @@ def _short_hash(h: str) -> str:
     return h[:19] + "…"
 
 
-def _summary(site: str, info: dict[str, Any]) -> str:
-    counts = _counts(site)
+def _summary(folder: str, info: dict[str, Any]) -> str:
+    counts = _counts(folder)
     return (counts + "; " if counts else "") + "modelHash " + _short_hash(info["modelHash"])
 
 
 class _BuildArgs:
     """Build settings after flag, file and default are merged."""
 
-    def __init__(self, args: argparse.Namespace, cfg: Optional[Config], need_out: bool) -> None:
+    def __init__(self, args: argparse.Namespace, cfg: Optional[Config]) -> None:
         env = os.environ
         base = cfg.build if cfg is not None else BuildSettings()
         if args.k is not None and args.k < 1:
@@ -126,36 +127,56 @@ class _BuildArgs:
         self.k: int = args.k if args.k is not None else base.k
         self.text_color: str = args.text_color if args.text_color is not None else base.text_color
         self.viewer: bool = base.viewer and not args.no_viewer
-        if args.workspace is not None:
-            self.workspace: Optional[str] = args.workspace
+        here = cfg.root if cfg is not None else Path(os.getcwd())
+        configured = cfgmod.resolve_workspace(cfg, env) if cfg is not None else None
+        #: The workspaces folder of the project: what ``build.json`` records source paths against.
+        self.folder: Path = configured if configured is not None else here / DEFAULT_WORKSPACES
+        self.path: Path = Path(os.path.abspath(args.workspace)) if args.workspace is not None else self.folder
+        if getattr(args, "out", None) is not None:
+            self.out = Path(os.path.abspath(args.out))
+        elif cfg is not None:
+            self.out = cfgmod.resolve_build(cfg, env).out
         else:
-            ws = cfgmod.resolve_workspace(cfg, env) if cfg is not None else None
-            self.workspace = str(ws) if ws is not None else None
-        self.out: Optional[str] = None
-        if need_out:
-            if getattr(args, "out", None) is not None:
-                self.out = args.out
-            elif cfg is not None:
-                self.out = str(cfgmod.resolve_build(cfg, env).out)
-            else:
-                self.out = DEFAULT_OUT
+            self.out = Path(os.path.abspath(DEFAULT_OUT))
 
-    def need_workspace(self) -> str:
-        if self.workspace is None:
-            raise _Usage("no workspace given; pass --workspace FILE or set workspace: in buildzr.yaml")
-        return self.workspace
+    @property
+    def root(self) -> str:
+        """The folder source paths are relative to: the project's workspaces folder when PATH is in it."""
+        folder = self.folder if self.folder.is_dir() else self.folder.parent
+        if self.path == folder or folder in self.path.parents:
+            return str(folder)
+        return source_root(str(self.path))
+
+    def need_path(self) -> str:
+        if not self.path.exists():
+            raise _Usage(f"{_show(self.path)} not found; create the workspaces folder, pass -w PATH "
+                         "or set workspace: in buildzr.yaml")
+        return str(self.path)
 
 
 # --- commands -----------------------------------------------------------------------------------
 
 
+def _report(result: BuildResult) -> None:
+    """One line per skipped file and built workspace on stdout, one per failure on stderr."""
+    for e in result.empty:
+        print(f"skipped {_show(Path(e))}: it creates no workspace")
+    for b in result.built:
+        print(f"built {_show(Path(b.folder))} ({_summary(b.folder, b.info)})")
+    for f in result.failed:
+        print(f"buildzr: error: {f.where(_show(Path(f.path)))}: {f.message}", file=sys.stderr)
+
+
 def _cmd_build(args: argparse.Namespace) -> int:
     cfg = _load_config(args.config)
-    b = _BuildArgs(args, cfg, need_out=True)
-    ws = b.need_workspace()
-    assert b.out is not None
-    info = build_site(ws, b.out, b.k, b.text_color, viewer=b.viewer, verbose=args.verbose)
-    print(f"built {_show(Path(os.path.abspath(b.out)))} ({_summary(b.out, info)})")
+    b = _BuildArgs(args, cfg)
+    path = b.need_path()
+    result = build_all(path, str(b.out), b.k, b.text_color, viewer=b.viewer, verbose=args.verbose, root=b.root)
+    _report(result)
+    if result.failed:
+        return 1
+    if not result.built:
+        return _fail(f"no workspace found in {_show(b.path)}: no .py file there creates a Workspace")
     return 0
 
 

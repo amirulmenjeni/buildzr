@@ -13,8 +13,8 @@ from typing import Any
 
 import pytest
 
-from buildzr.site.check import check_site
-from buildzr.site.layout import layout_site
+from buildzr.site.check import check_built
+from buildzr.site.layout import layout_workspace
 from buildzr.site.layout.passes import LEAF_H, LEAF_W, reserve
 
 SMALL = Path(__file__).parent / "fixtures" / "small"
@@ -33,7 +33,7 @@ def _load(p: Path) -> Json:
 @pytest.fixture(scope="module")
 def built(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Json]:
     out = tmp_path_factory.mktemp("small-site")
-    metrics = layout_site(_load(SMALL / "levels.json"), _load(SMALL / "model.json"), str(out))
+    metrics = layout_workspace(_load(SMALL / "levels.json"), _load(SMALL / "model.json"), str(out))
     return out, metrics
 
 
@@ -44,7 +44,7 @@ def _scenes(d: Path) -> dict[str, Json]:
 
 def test_checker_passes_with_zero_errors(built: tuple[Path, Json]) -> None:
     d, metrics = built
-    rep = check_site(str(d))
+    rep = check_built(str(d))
     assert rep.errors == []
     m = rep.metrics["scenes"]
     assert m["bad_edges"] == 0
@@ -148,22 +148,22 @@ def test_reserve_budget() -> None:
 
 def test_k_changes_frame_scale(tmp_path: Path) -> None:
     lv, md = _load(SMALL / "levels.json"), _load(SMALL / "model.json")
-    layout_site(lv, md, str(tmp_path / "k1"), k=1.0)
-    layout_site(lv, md, str(tmp_path / "k9"), k=9.0)
+    layout_workspace(lv, md, str(tmp_path / "k1"), k=1.0)
+    layout_workspace(lv, md, str(tmp_path / "k9"), k=9.0)
     s1 = _scenes(tmp_path / "k1")["landscape"]
     s9 = _scenes(tmp_path / "k9")["landscape"]
     sc1 = next(n for n in s1["nodes"] if n["id"] == "billing")["frame"]["scale"]
     sc9 = next(n for n in s9["nodes"] if n["id"] == "billing")["frame"]["scale"]
     assert sc1 < sc9 <= 1
-    assert check_site(str(tmp_path / "k1")).errors == []
-    assert check_site(str(tmp_path / "k9")).errors == []
+    assert check_built(str(tmp_path / "k1")).errors == []
+    assert check_built(str(tmp_path / "k9")).errors == []
 
 
 def test_levels_and_model_must_match(tmp_path: Path) -> None:
     lv, md = _load(SMALL / "levels.json"), _load(SMALL / "model.json")
     lv["modelHash"] = "sha256:" + "0" * 64
     with pytest.raises(ValueError, match="made from"):
-        layout_site(lv, md, str(tmp_path))
+        layout_workspace(lv, md, str(tmp_path))
 
 
 def test_cli_and_seed_independence(tmp_path: Path) -> None:
@@ -179,7 +179,7 @@ def test_cli_and_seed_independence(tmp_path: Path) -> None:
                            env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         assert json.loads(r.stdout)["scenes"] == 5
-        assert check_site(str(d)).errors == []
+        assert check_built(str(d)).errors == []
         trees.append(d)
     def snapshot(d: Path) -> dict[str, bytes]:
         return {str(p.relative_to(d)): p.read_bytes() for p in sorted(d.rglob("*")) if p.is_file()}

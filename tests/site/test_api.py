@@ -16,7 +16,7 @@ from urllib.parse import quote, urlsplit
 import pytest
 
 import buildzr.site.cli as cli
-from buildzr.site.build import build_site
+from buildzr.site.build import build_workspace
 from buildzr.site.api import Api, ApiError, Query, Source, normalise_origin, normalise_public_url
 from buildzr.site.model import rollup
 from buildzr.site.serve import make_server
@@ -54,7 +54,7 @@ def example_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
     tmp = tmp_path_factory.mktemp("example")
     static = make_static(tmp / "static")
     if shutil.which("node") or os.environ.get("BUILDZR_NODE"):
-        build_site(EXAMPLE_PY, str(tmp / "site"), static_dir=str(static))
+        build_workspace(EXAMPLE_PY, str(tmp / "site"), static_dir=str(static))
     else:
         build(EXAMPLE_PY, tmp / "site", static)  # the stub layout: scenes are not the example's
     return tmp / "site"

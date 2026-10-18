@@ -39,7 +39,8 @@ __all__ = [
 
 CONFIG_NAME = "buildzr.yaml"
 _MISNAMED = ("buildzr.yml", ".buildzr.yaml")
-DEFAULT_OUT = ".buildzr/site"
+DEFAULT_OUT = ".buildzr/build"
+DEFAULT_WORKSPACES = "workspaces"
 
 _VAR_NAME = re.compile(r"[A-Z_][A-Z0-9_]*")
 _SECRET_KEYS = ("token", "password", "secret")

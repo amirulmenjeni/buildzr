@@ -11,7 +11,7 @@ from typing import Any, Callable
 import pytest
 
 from buildzr.site.canonical import dumps, model_hash
-from buildzr.site.check import check_site
+from buildzr.site.check import check_built
 
 SMALL = Path(__file__).parent / "fixtures" / "small"
 
@@ -37,7 +37,7 @@ def _mutated(tmp_path: Path, rel: str, fn: Callable[[Any], None]) -> Path:
 
 
 def test_fixture_passes() -> None:
-    rep = check_site(str(SMALL))
+    rep = check_built(str(SMALL))
     assert rep.errors == []
     s = rep.metrics["scenes"]
     assert s["scenes"] == 5 and s["frames"] == 2 and s["ports"] == 9
@@ -96,7 +96,7 @@ def _model_parent(m: Any) -> None:
     ("model.json", _model_parent, "parent"),
 ])
 def test_corruption_is_caught(tmp_path: Path, rel: str, fn: Callable[[Any], None], needle: str) -> None:
-    rep = check_site(str(_mutated(tmp_path, rel, fn)))
+    rep = check_built(str(_mutated(tmp_path, rel, fn)))
     assert any(needle in e for e in rep.errors), rep.errors
 
 
@@ -105,7 +105,7 @@ def test_noncanonical_bytes(tmp_path: Path) -> None:
     shutil.copytree(SMALL, d)
     p = d / "scene" / "landscape.json"
     p.write_text(json.dumps(json.loads(p.read_text(encoding="utf-8")), indent=1), encoding="utf-8")
-    rep = check_site(str(d))
+    rep = check_built(str(d))
     assert any("canonical" in e for e in rep.errors)
     assert any("hash" in e for e in rep.errors)
 

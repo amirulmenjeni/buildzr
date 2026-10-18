@@ -50,13 +50,13 @@ def test_the_complete_example_builds_a_site(tmp_path: Path, monkeypatch: pytest.
                                             tmp_path_factory: pytest.TempPathFactory) -> None:
     if not REAL:  # without Node, lay out with the stub, as the other doc tests do
         static = make_static(tmp_path_factory.mktemp("static"))
-        real = cli.build_site
+        real = cli.build_workspace
 
         def stub_build(workspace: str, out: str = ".buildzr/site", k: Any = None, text_color: Any = None,
                        viewer: bool = True, **kw: Any) -> dict[str, Any]:
             return real(workspace, out, k, text_color, viewer, layout_fn=stub_layout, static_dir=str(static))
 
-        monkeypatch.setattr(cli, "build_site", stub_build)
+        monkeypatch.setattr(cli, "build_workspace", stub_build)
     (tmp_path / ".git").mkdir()  # so that the config search stops here
     (tmp_path / "model.py").write_text(model_blocks()[-1].text, encoding="utf-8")
     monkeypatch.chdir(tmp_path)

@@ -166,7 +166,7 @@ def test_full_valid_file(tmp_path: Path) -> None:
 def test_defaults(tmp_path: Path) -> None:
     cfg = load_config(write(tmp_path, "workspace: m.py\n"))
     b = resolve_build(cfg, {})
-    assert (b.k, b.text_color, b.viewer, b.out) == (4, "wcag", True, tmp_path / ".buildzr" / "site")
+    assert (b.k, b.text_color, b.viewer, b.out) == (4, "wcag", True, tmp_path / ".buildzr" / "build")
 
 
 def test_secret_keys_get_their_own_message(tmp_path: Path) -> None:

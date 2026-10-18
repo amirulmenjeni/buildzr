@@ -8,7 +8,7 @@ import os
 import sys
 from typing import Optional, Sequence
 
-from buildzr.site.layout import ElkError, layout_site
+from buildzr.site.layout import ElkError, layout_workspace
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -21,7 +21,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     with open(os.path.join(args.data, "model.json"), encoding="utf-8") as f:
         model = json.load(f)
     try:
-        metrics = layout_site(levels, model, args.data, k=args.k)
+        metrics = layout_workspace(levels, model, args.data, k=args.k)
     except ElkError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
