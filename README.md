@@ -18,6 +18,8 @@ In Structurizr, you define architecture models and their relationships first. An
 pip install buildzr
 ```
 
+`buildzr build` needs Node.js 18 or newer on the machine that builds (its layout step runs on Node). Check with `node --version`.
+
 ## Quick Example
 
 ```python

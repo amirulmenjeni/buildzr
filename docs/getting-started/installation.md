@@ -3,6 +3,7 @@
 ## Requirements
 
 - Python 3.10 or higher
+- Node.js 18 or newer, only on the machine that runs `buildzr build` (or `buildzr deploy`, which builds first). The layout step of the build runs [elkjs](https://github.com/kieler/elkjs) on Node. Check with `node --version`. `buildzr serve` and the Python API need no Node.
 
 The project follows a rolling support policy: CI tests every advertised Python
 minor version, new maintained versions are added when supported by dependencies,
@@ -14,6 +15,15 @@ The easiest way to install `buildzr` is using `pip`:
 
 ```bash
 pip install buildzr
+```
+
+To try a release candidate (a pre-release such as `0.1.0rc1`), ask for it by
+version or let `pip` pick pre-releases. A plain `pip install buildzr` never
+installs one.
+
+```bash
+pip install buildzr==0.1.0rc1
+pip install --pre buildzr
 ```
 
 ### Optional Dependencies

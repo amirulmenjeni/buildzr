@@ -203,19 +203,51 @@ As usual, just fork the repo, make changes, and submit PRs!
 
 Releases are published from `master` by the `release` workflow. To cut a
 release, open a pull request that sets a final version (for example `0.0.33`)
-in `buildzr/__about__.py`. Once it is merged, the workflow builds the package,
-publishes it to PyPI, and pushes the `v0.0.33` tag. It never pushes commits
-to `master`.
+in `buildzr/__about__.py`. Once it is merged, the workflow builds the viewer
+and the package, checks them, publishes the package to PyPI, and pushes the
+`v0.0.33` tag. It never pushes commits to `master`.
+
+To cut a release candidate, do the same with a version such as `0.1.0rc1`
+(PEP 440, only `rc` is released). Candidates are numbered `rc1`, `rc2`, and so
+on, and the final `0.1.0` sorts after them. The tag is `v0.1.0rc1`. PyPI does
+not offer a release candidate to a plain `pip install buildzr`; install it with
+`pip install buildzr==0.1.0rc1` or `pip install --pre buildzr`.
 
 Every push to `master` runs the workflow, but it only releases when the
-version is final and its tag does not exist yet. Development, pre-release and
-post-release versions such as `0.0.33.dev0`, `0.0.33rc1` or `0.0.33.post1` are
-skipped, so bumping to `.dev0` does not trigger a release.
+version is final or a release candidate and its tag does not exist yet.
+Development, alpha, beta and post-release versions such as `0.0.33.dev0`,
+`0.0.33a1`, `0.0.33b1` or `0.0.33.post1` are skipped, so bumping to `.dev0`
+does not trigger a release.
+
+The viewer (`viewer/`, built into the gitignored `buildzr/site/static/`) ships
+inside the package, so the workflow runs `npm ci` and `npm run build` in
+`viewer/` before `uv build`. Then `.github/scripts/check_wheel.py dist --sdist`
+fails the run, before anything is published, unless the sdist and the wheel
+both contain the viewer, the JSON schemas and the site modules, and the wheel
+version equals `buildzr/__about__.py`. To check a build yourself:
+
+```bash
+(cd viewer && npm ci && npm run build)
+uv build
+python .github/scripts/check_wheel.py dist --sdist
+```
+
+Pull requests that touch the package also run a smoke test in the `build`
+workflow. It installs the built wheel into a fresh virtual environment and runs
+`buildzr build`, `buildzr serve` and `buildzr serve --accept-deploys` with
+`buildzr deploy`, then fetches the pages. Run it locally after the three
+commands above (it needs `uv`, Node.js 18 or newer and `curl`):
+
+```bash
+.github/scripts/smoke_wheel.sh dist
+```
 
 When a pull request changes the version, the `check_version` job of the
 `build` workflow validates it before merging: it fails on a version that is not
-canonical PEP 440 (for example `0.0.033`), on a final version that is already
-tagged, and on a version that is not higher than the latest `v*` tag.
+canonical PEP 440 (for example `0.0.033`), on a final version or release
+candidate that is already tagged, and on a version that is not higher than the
+latest `v*` tag (`0.1.0rc2` is higher than `0.1.0rc1`, `0.1.0` is higher than
+`0.1.0rc2`, but `0.1.0rc3` is not higher than the released `0.1.0`).
 Otherwise it reports whether merging will release the version to PyPI.
 
 If a release fails, no tag is pushed. Re-run the failed run from the Actions
