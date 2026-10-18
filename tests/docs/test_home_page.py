@@ -24,7 +24,7 @@ def included_parts() -> list[str]:
     parts = []
     for line in lines:
         if INCLUDE.match(line):
-            parts.append("\n".join(md.preprocessors["snippet"].run([line])))  # type: ignore[attr-defined]
+            parts.append("\n".join(md.preprocessors["snippet"].run([line])))
     return parts
 
 

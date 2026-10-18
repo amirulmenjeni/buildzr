@@ -46,6 +46,7 @@ dev = [
     "ipykernel==7.3.0",
     "jsonschema==4.23.0",
     "types-PyYAML>=6.0.12",
+    "types-Markdown>=3.7",
 ]
 docs = [
     "mkdocs>=1.5.0",
