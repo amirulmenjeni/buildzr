@@ -82,6 +82,9 @@ exclude = [
     "examples",
     "buildzr/modes/generate.sh",
 ]
+# The viewer bundle is gitignored build output; hatch skips ignored files unless listed here.
+# Needed in the sdist too, because `uv build` builds the wheel from the sdist.
+artifacts = ["buildzr/site/static/**"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["buildzr"]
