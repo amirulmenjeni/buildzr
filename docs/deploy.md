@@ -1,26 +1,35 @@
 # Deploying a site to a running instance
 
-`buildzr deploy` can put a built site on a running `buildzr serve` (an **instance**), for example a preview of every pull request at `https://preview.example.com/pr/42/`. This page explains how that works, what the instance checks, what each failure means, and what the security model is.
+`buildzr deploy` can copy a built site to an **instance**: a running `buildzr serve` that serves many sites from one store. For example, you can deploy a preview of every pull request to `https://preview.example.com/pr/42/`.
 
-You do not need to know the code to follow it. For the commands and their flags see the [command line](cli.md) page; for the folder layout of an instance see [the site store](store.md); for the config file see [buildzr.yaml](config.md); for ready-made setups such as a preview per pull request see the [recipes](publishing-recipes.md).
+This page shows how to set up the deploy, what the instance checks, what each failure means, and how the security model works. You do not need to know the code of buildzr to follow it. Related pages:
+
+- The options of every command: [Command line](cli.md).
+- The folder layout of an instance: [The site store](store.md).
+- The config file: [`buildzr.yaml`](config.md).
+- Ready-made setups, such as a preview of every pull request: [Recipes](publishing-recipes.md).
 
 !!! note "Linux and macOS only"
-    The instance (`buildzr serve --store DIR --accept-deploys`) is for POSIX systems. It uses a file lock (`flock`) so that only one instance accepts deploys for a store, and a memory limit (`resource`) for the check of every upload. Neither exists on Windows, so do not run an instance there; use WSL or a container. `buildzr deploy` itself only sends HTTP requests and needs neither.
+    An instance that accepts deploys (`buildzr serve --store DIR --accept-deploys`) runs only on POSIX systems such as Linux and macOS. It uses a file lock (`flock`), so that only one instance accepts deploys for a store, and a memory limit (`resource`) for the check of every upload. Windows has neither, so do not run an instance on Windows; use WSL (Windows Subsystem for Linux) or a container. `buildzr deploy` itself only sends HTTP requests and runs on any system.
 
-## The parts
+## Words used on this page
 
 | Word | Meaning |
 |---|---|
-| **site** | The folder `buildzr build` writes: the viewer, the data and `build.json`. |
-| **release** | One copy of a site on an instance (`r-0007`). The instance keeps the current and the previous release of every site path. See [the site store](store.md). |
+| **site** | The folder that `buildzr build` writes: the viewer, the model data and `build.json`. |
+| **deploy** | To copy a built site to a target with `buildzr deploy`. |
+| **instance** | A running `buildzr serve --store DIR`: one process that serves every site of a store. With `--accept-deploys`, it also accepts new sites from `buildzr deploy`. |
+| **server** | The machine on which the instance runs. |
+| **store** | The folder `DIR` in which an instance keeps its sites. See [The site store](store.md). |
+| **release** | One copy of a site on an instance, in a folder such as `r-0007`. The instance keeps the current and the previous release of every site path. |
 | **modelHash** | A fingerprint of the model, shown as `sha256:` and the start of a hash. The same model always has the same hash, so two equal hashes mean two equal models. |
-| **instance** | A running `buildzr serve --store DIR --accept-deploys`. It keeps its sites in the store folder `DIR`. |
-| **reading listener** | The address readers use (`--host`, `--port`, default `127.0.0.1:8000`). It only reads: GET and HEAD. It closes a connection that sends nothing for 60 seconds. |
-| **deploy listener** | A second address of the same instance, **always** `127.0.0.1:<--deploy-port>` (default `8001`). It is the only place that accepts an upload. Nothing can make it listen on another address. |
-| **target** | An entry in `buildzr.yaml` that says where `deploy` sends the site. A `url:` target names a deploy listener. |
-| **site path** | Where the site goes on the instance: `pr/42` is served at `/pr/42/`. Empty means the root. |
+| **reading listener** | The address and port at which readers open the sites (`--host`, `--port`, default `127.0.0.1:8000`). It only reads: it answers `GET` and `HEAD`. It closes a connection that sends nothing for 60 seconds. |
+| **deploy listener** | A second port of the same instance, **always** on `127.0.0.1` (`--deploy-port`, default `8001`). It is the only place that accepts an upload. Nothing can make it listen on another address. |
+| **target** | An entry in `buildzr.yaml` that says where `deploy` copies the site. A `url:` target names a deploy listener. |
+| **site path** | Where the site goes on the instance. The site path `pr/42` is served at `/pr/42/`. Empty means the top. |
+| **site check** | The check that `deploy` and the instance run on a built site before they use it. |
 
-## The flow
+## Set up a deploy to an instance
 
 ### 1. Start the instance (on the server)
 
@@ -30,27 +39,27 @@ Serving store /srv/buildzr (0 sites) at http://0.0.0.0:8000/ (read only)
 Accepting deploys at http://127.0.0.1:8001/ (this machine only; no authentication)
 ```
 
-- With `--accept-deploys` the store folder is created when it is missing or empty. Without the flag, `serve --store` works exactly as before (read only, one listener, the folder must already be a store).
-- `--accept-deploys` needs the `jsonschema` package, because every upload is checked against the JSON schemas. Install it with `pip install 'buildzr[serve]'`, or run the instance without installing: `uvx --from "buildzr[serve]" buildzr serve --store DIR --accept-deploys`. Without it, `serve` refuses to start (exit code 1).
-- Only one instance can accept deploys for a store: a second one stops with `another buildzr process accepts deploys for the store ...`. A read-only `serve --store` on the same folder can run next to it, but it does not see new deploys until it is restarted.
-- `--deploy-port N` (default `8001`) and `--max-upload-mb N` (default `50`) only exist together with `--accept-deploys`.
-- `--public-url` is the address readers use. The instance uses it for the links it sends back after a deploy (`open:` and `api:`; a data-only site has no viewer, so its answer has no `viewerUrl` and `deploy` prints no `open:` line). Without it, the links use the reading listener's own address.
+- With `--accept-deploys`, the instance creates the store folder when the folder is missing or empty. Without the option, `serve --store` reads only, has one listener, and the folder must already be a store.
+- `--accept-deploys` needs the `jsonschema` package, because the instance checks every upload against JSON schemas. Install it with `pip install 'buildzr[serve]'`. Without it, `serve` refuses to start (exit code 1). To run the instance without installing buildzr, use `uvx --from "buildzr[serve]" buildzr serve --store DIR --accept-deploys`.
+- Only one instance can accept deploys for a store. A second one stops with `another buildzr process accepts deploys for the store ...`. An instance without `--accept-deploys` can serve the same folder next to it, but it does not see new deploys until you restart it.
+- `--deploy-port N` (default `8001`) and `--max-upload-mb N` (default `50`) work only together with `--accept-deploys`.
+- `--public-url` is the address that readers use. The instance uses it for the links it sends back after a deploy (`open:` and `api:`). Without it, the links use the address of the reading listener. A data-only site has no viewer, so its answer has no `viewerUrl`, and `deploy` prints no `open:` line.
 - Ctrl+C stops both listeners.
 
 ### 2. Reach the deploy listener (from your machine or CI)
 
-The deploy listener only listens on the server's own `127.0.0.1`. From another machine, open an SSH tunnel:
+The deploy listener listens only on `127.0.0.1` of the server. To deploy from another machine, open an SSH tunnel to the server:
 
 <!-- doctest: skip ssh needs a real host -->
 ```text
 $ ssh -N -L 9001:127.0.0.1:8001 preview-host
 ```
 
-Now `http://127.0.0.1:9001` on your machine is the deploy listener of `preview-host`. On the server itself (for example a CI runner that also runs the instance) you can use `http://127.0.0.1:8001` directly.
+While the tunnel is open, `http://127.0.0.1:9001` on your machine is the deploy listener of `preview-host`. On the server itself, for example a CI (continuous integration) runner that also runs the instance, use `http://127.0.0.1:8001` directly.
 
 ### 3. Name the target in `buildzr.yaml`
 
-Any model file will do. This page uses a very small one:
+Any model file works. This page uses a very small one:
 
 <!-- doctest: file architecture/model.py -->
 ```python
@@ -62,13 +71,17 @@ with Workspace("shop") as w:
     customer >> "Buys from" >> shop
 ```
 
+Add a `url:` target that points to the deploy listener, here through the tunnel:
+
 ```yaml
 workspace: architecture/model.py
 targets:
   preview: {url: "http://127.0.0.1:9001", path: "pr/${PR_NUMBER}", timeout: 120}
 ```
 
-`deploy` refuses a `url:` whose host is not `127.0.0.1`, `localhost` or `[::1]` (exit code 2, with the tunnel hint above), because v1 deploys have no authentication. An `https://` address to this machine is allowed but prints a warning: the v1 deploy listener speaks plain `http`, so it cannot work unless something in between speaks `https`.
+`deploy` refuses a `url:` whose host is not `127.0.0.1`, `localhost` or `[::1]`, because deploys have no authentication in this version (v1). It exits with code 2 and shows the tunnel command of step 2.
+
+An `https://` address on this machine is allowed, but `deploy` prints a warning. The deploy listener speaks plain `http`, so an `https://` address works only if something in between translates.
 
 ### 4. Deploy
 
@@ -81,19 +94,21 @@ open: https://preview.example.com/pr/42/
 api:  https://preview.example.com/pr/42/api/v1/
 ```
 
-With `-v` there is one more line before these, from the step that runs your model file. When a site replaces an older release, the `deployed` line ends with `(previous sha256:…)`, the hash of the release it replaced.
+With `-v`, `deploy` prints one more line first, from the step that runs your model file. When the new site replaces an older release, the `deployed` line ends with `(previous sha256:…)`: the hash of the release it replaced.
 
-What `deploy` does:
+`deploy` takes these steps:
 
-1. Builds the site in a temporary folder (or takes `--from DIR`, an already built site).
-2. Runs the same checker as the instance will, so most problems are found before anything is sent.
-3. Packs the site as a `.tar.gz`. The archive is the same bytes every time for the same site: names sorted, times 0, owners 0, modes `0644` for files and `0755` for folders.
-4. Asks the instance for its limits (`GET /_buildzr/v1/status`). This also tells it whether the address really is a deploy listener.
-5. Sends the archive (`PUT /_buildzr/v1/deploy?path=pr/42`) and prints the answer.
+1. It builds the site in a temporary folder. With `--from DIR`, it takes the site that is already built in `DIR` instead.
+2. It runs the same site check as the instance, so most problems are found before anything is sent.
+3. It packs the site as a `.tar.gz` archive. The archive has the same bytes every time for the same site: names sorted, times 0, owners 0, modes `0644` for files and `0755` for folders.
+4. It asks the instance for its limits (`GET /_buildzr/v1/status`). The answer also shows whether the address really is a deploy listener.
+5. It sends the archive (`PUT /_buildzr/v1/deploy?path=pr/42`) and prints the answer.
 
-Other forms:
+## Other ways to run `deploy`
 
-- `buildzr deploy -t preview --dry-run` builds, checks and packs, prints the size and the destination, and sends **nothing** (it does not even connect):
+### Try a deploy without sending anything
+
+`--dry-run` builds, checks and packs the site, and prints the size and the destination. It sends **nothing**; it does not even connect.
 
 ```text
 $ PR_NUMBER=42 buildzr deploy -t preview --dry-run
@@ -102,7 +117,9 @@ packed 12 files, 517 KB (192 KB compressed)
 dry run: would upload 12 files, 517 KB to http://127.0.0.1:9001 (path pr/42); nothing was sent
 ```
 
-- `buildzr deploy -t preview` a second time with the same site answers `unchanged`. The instance keeps the current release, and the audit log still gets a line:
+### Deploy the same site again
+
+When you deploy a site that the instance already has, the instance answers `unchanged` and keeps the current release. The audit log still gets a line.
 
 ```text
 $ PR_NUMBER=42 buildzr deploy -t preview
@@ -113,78 +130,99 @@ open: https://preview.example.com/pr/42/
 api:  https://preview.example.com/pr/42/api/v1/
 ```
 
-- `buildzr deploy -t preview --rollback` makes the previous release current again (`POST /_buildzr/v1/rollback?path=pr/42`). Nothing is built. It stops with `nothing to roll back to` (exit code 1) when there is no previous release; the [recipes](publishing-recipes.md#rolling-back-a-bad-deploy) show a rollback that works.
+### Roll back to the previous release
 
-Exit codes of `deploy`: `0` deployed or unchanged; `1` the instance rejected the site, the local check failed, or the address is not a deploy listener; `2` a usage or config problem; `3` the instance cannot be reached, the upload was interrupted, the instance stayed busy until the timeout, or it is out of disk space (all worth trying again). The full table is on the [command line](cli.md#exit-codes) page.
+`buildzr deploy -t preview --rollback` makes the previous release current again (`POST /_buildzr/v1/rollback?path=pr/42`). Nothing is built. When there is no previous release, the command stops with `nothing to roll back to` (exit code 1). The [recipes](publishing-recipes.md#rolling-back-a-bad-deploy) show a rollback that works.
+
+### Exit codes of `deploy`
+
+| Code | Meaning |
+|---|---|
+| 0 | Deployed, or unchanged. |
+| 1 | The instance rejected the site, the site check failed, or the address is not a deploy listener. |
+| 2 | A usage or config problem. |
+| 3 | The instance cannot be reached, the upload was interrupted, the instance stayed busy until the timeout, or it is out of disk space. Try again later. |
+
+The [Command line](cli.md#exit-codes) page has the table for all commands.
 
 ## What the instance checks
 
-Every request body is treated as hostile. In this order:
+The instance treats every request body as hostile. It checks the request, then the archive, then the site, in this order.
 
-**The request.**
+### The request
 
-1. The `Host` header must be `127.0.0.1`, `localhost` or `[::1]` (any port, because a tunnel's port differs from the listener's). Anything else: `403`. This stops "DNS rebinding", where a web page makes its own domain name point at `127.0.0.1`.
-2. A request with `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host` or `X-Real-IP` is refused (`403`): a request that went through a proxy never deploys.
+1. The `Host` header must be `127.0.0.1`, `localhost` or `[::1]`, with any port, because the port of a tunnel differs from the port of the listener. Any other host gets `403`. This stops "DNS rebinding", in which a web page makes its own domain name point at `127.0.0.1`.
+2. A request with a `Forwarded`, `X-Forwarded-For`, `X-Forwarded-Host` or `X-Real-IP` header gets `403`. A request that went through a proxy never deploys.
 3. An upload must carry `X-Buildzr-Deploy: 1` (else `400`) and `Content-Type: application/gzip` (else `415`).
-4. `Content-Length` is required and above 0 (else `411`; chunked uploads are not accepted). Above `--max-upload-mb` the upload is refused with `413` **before** the body is read.
-5. The site path follows the [site path rules](store.md#site-paths) (else `400` with the rule).
-6. One deploy or rollback at a time. A second one gets `409` with `Retry-After: 5`; there is no queue (`deploy` waits and tries again until its `timeout`).
-7. The whole body must arrive within 60 seconds (else `408`), and exactly `Content-Length` bytes are read. If fewer arrive, the answer is `400` "upload incomplete".
-8. There is no `OPTIONS` answer and no CORS header, ever. Every other method or address gets `405` or `404`.
-9. The request line and all headers must arrive within 30 seconds, headers that cannot be read cleanly are refused (`400`), and the deploy listener serves at most 16 connections at once.
+4. `Content-Length` is required and must be above 0 (else `411`). Chunked uploads are not accepted. An upload larger than `--max-upload-mb` gets `413` **before** the body is read.
+5. The site path must follow the [site path rules](store.md#site-paths) (else `400` with the rule).
+6. Only one deploy or rollback runs at a time. A second one gets `409` with `Retry-After: 5`. There is no queue: `deploy` waits and tries again until its `timeout`.
+7. The whole body must arrive within 60 seconds (else `408`). The instance reads exactly `Content-Length` bytes. If fewer arrive, the answer is `400` "upload incomplete".
+8. The instance never answers `OPTIONS` and never sends a CORS (Cross-Origin Resource Sharing) header. Every other method or address gets `405` or `404`.
+9. The request line and all headers must arrive within 30 seconds. Headers that cannot be read cleanly get `400`. The deploy listener serves at most 16 connections at once.
 
-**The archive.** The instance never unpacks with a library's "extract everything". It reads the archive member by member into `incoming/<random>/` of the store:
+### The archive
 
-- names use only letters, digits, `.`, `_`, `-` and `/`; no `.` or `..` part, no leading `/`, at most 255 characters (the client writes the plain `ustar` archive format, so it cannot pack a single name part of more than 100 characters, and says so with exit code 1), and no name twice (also not twice with different upper and lower case);
-- only plain files and folders: symbolic links, hard links, devices, FIFOs and the extended (pax and GNU) headers are refused before the archive reader acts on them;
-- only `index.html`, `assets/`, `data/` and `build.json` at the top; anything else (`.htaccess`, `llms.txt`, an extra page) is refused;
-- files in `assets/` end in `.js`, `.css`, `.woff2`, `.woff` or `.txt` (what the viewer is made of);
-- at most 200 MB unpacked, 20,000 files, 20,000 folders and 16 levels of folders, counted while reading, so a "zip bomb" stops early; past 16 MB, an archive that unpacks to more than 250 times its compressed size is refused too; `data/index.json` is at most 4 MB and every other file in `data/` at most 32 MB;
-- files are written `0644` and folders `0755` whatever the archive says; owners and times are ignored.
+The instance never unpacks the archive with a library's "extract everything" function. It reads the archive one member at a time into `incoming/<random>/` of the store, and checks each member:
 
-**The site.** Then the checker runs on the unpacked copy, in a separate process with a 60 second limit and a memory limit of 1 GB, so no upload can take the instance down with it:
+- **Names** use only letters, digits, `.`, `_`, `-` and `/`. A name has no `.` or `..` part, no leading `/`, and at most 255 characters. No name appears twice, also not twice with different upper and lower case. (`deploy` writes the plain `ustar` archive format, which cannot hold a single name part of more than 100 characters; `deploy` reports such a name and exits with code 1.)
+- **Types**: only plain files and folders. Symbolic links, hard links, devices, FIFOs and the extended (pax and GNU) headers are refused before the archive reader acts on them.
+- **Top level**: only `index.html`, `assets/`, `data/` and `build.json`. Anything else, such as `.htaccess`, `llms.txt` or an extra page, is refused.
+- **`assets/`**: files end in `.js`, `.css`, `.woff2`, `.woff` or `.txt`, which is what the viewer is made of.
+- **Size**: at most 200 MB unpacked, 20,000 files, 20,000 folders and 16 levels of folders. The instance counts while it reads, so a "zip bomb" stops early. Past 16 MB, an archive that unpacks to more than 250 times its compressed size is also refused. `data/index.json` is at most 4 MB, and every other file in `data/` at most 32 MB.
+- **Modes**: files are written `0644` and folders `0755`, whatever the archive says. Owners and times are ignored.
 
-- the JSON schemas, the hashes in `data/index.json`, the `modelHash` of every file, the geometry checks (as `buildzr build` does);
-- every file named in `data/index.json` stays inside `data/`, and `data/` holds no file that `data/index.json` does not name;
-- `build.json` is there and its `modelHash` equals the index's;
-- the schema names must be the ones this instance reads. An upload made by a newer buildzr is refused with, for example: `this instance reads buildzr.model/2; the upload is buildzr.model/3; upgrade the instance`;
-- `index.html`, when there is one, may only refer to files under `assets/` that exist, and has no inline script, no inline style, no `on...=` attribute, no `<base>`, `<iframe>`, `<object>`, `<embed>`, `<form>` or refresh. This is a check that the page is a built viewer page, not a sandbox (see the security model). A site without a viewer (built with `viewer: false`) is accepted.
+### The site
 
-Anything wrong gives `422` with up to 20 problems. Nothing is installed and `incoming/<random>/` is removed. Only a site that passes everything becomes the current release, with the same steps as in [the site store](store.md); readers see it at once. A release replaced by a deploy stays on disk for 30 seconds before it is deleted, so a reader in the middle of a request can finish.
+Then the instance runs the site check on the unpacked copy. The check runs in a separate process with a limit of 60 seconds and 1 GB of memory, so no upload can take the instance down with it. The site check covers:
+
+- the JSON schemas, the hashes in `data/index.json`, the `modelHash` of every file, and the geometry checks, as `buildzr build` does;
+- every file named in `data/index.json` is inside `data/`, and `data/` holds no file that `data/index.json` does not name;
+- `build.json` is there, and its `modelHash` equals the one in the index;
+- the schema names are the ones this instance reads. An upload made by a newer buildzr is refused, for example with `this instance reads buildzr.model/2; the upload is buildzr.model/3; upgrade the instance`;
+- `index.html`, when there is one, refers only to files under `assets/` that exist. It has no inline script, no inline style, no `on...=` attribute, no `<base>`, `<iframe>`, `<object>`, `<embed>`, `<form>` and no refresh. This check confirms that the page is a built viewer page; it is not a sandbox (see [the security model](#the-security-model-in-plain-words)). A data-only site (built with `viewer: false`) is accepted.
+
+If anything is wrong, the answer is `422` with up to 20 problems. Nothing is installed, and `incoming/<random>/` is removed.
+
+Only a site that passes every check becomes the current release, with the same steps as in [The site store](store.md). Readers see it at once. A release that a deploy replaced stays on disk for 30 seconds before it is deleted, so that a reader in the middle of a request can finish.
 
 ## When it goes wrong
+
+In every row of this table, the current release on the instance stays as it was.
 
 | What happened | What the instance answers | What `deploy` prints (exit code) | What to do |
 |---|---|---|---|
 | The upload was cut off | `400` "upload incomplete" (or the connection closes) | `upload interrupted, nothing changed` (3) | Run the deploy again. The current release was not touched. |
 | The site is invalid | `422` with up to 20 problems | the problems (1) | Fix the model or the build; `buildzr build` shows the same problems. |
 | The site is too large | `413` with the limit | `site is 63 MB, the instance accepts 50 MB (--max-upload-mb)` (1) | Start the instance with a larger `--max-upload-mb`, or make the site smaller. |
-| The instance's disk is full | `507` | `instance is out of disk space; nothing changed` (3) | Free space on the server. `incoming/` was cleaned. |
+| The disk of the server is full | `507` | `instance is out of disk space; nothing changed` (3) | Free space on the server. `incoming/` was cleaned. |
 | The instance does not accept deploys | nothing listens | `nothing is listening at http://127.0.0.1:9001; start the instance with buildzr serve --store DIR --accept-deploys (or open the SSH tunnel)` (3) | Start the instance with `--accept-deploys`, or open the tunnel. |
-| The address is wrong (the reading port, another server) | `404`/`405`/`501`, or not JSON | `... is not a buildzr deploy address ...` (1) | Use the deploy port (`--deploy-port`, default 8001), not the reading port. |
-| Another deploy is running | `409` with `Retry-After` | waits and tries again until `timeout`, then `the instance is busy with another deploy ...` (3) | Try again later, or raise the target's `timeout`. |
-| The upload is too slow | `408` after 60 s | `upload interrupted, nothing changed` (3) | Check the network or tunnel. |
-| The address is not this machine | (not sent) | `... is not this machine. ... ssh -N -L 9001:127.0.0.1:8001 HOST ...` (2) | Use an SSH tunnel and `url: http://127.0.0.1:<local port>`. |
-
-In every row the current release on the instance stays as it was.
+| The address is wrong (the reading listener, or another server) | `404`/`405`/`501`, or not JSON | `... is not a buildzr deploy address ...` (1) | Use the deploy listener (`--deploy-port`, default 8001), not the reading listener. |
+| Another deploy is running | `409` with `Retry-After` | waits and tries again until `timeout`, then `the instance is busy with another deploy ...` (3) | Try again later, or raise the `timeout` of the target. |
+| The upload is too slow | `408` after 60 s | `upload interrupted, nothing changed` (3) | Check the network or the tunnel. |
+| The address is not on this machine | (not sent) | `... is not this machine. ... ssh -N -L 9001:127.0.0.1:8001 HOST ...` (2) | Use an SSH tunnel and `url: http://127.0.0.1:<local port>`. |
 
 ## The audit log
 
-Every deploy, rejection and rollback adds one JSON line to `deploys.log` in the store and prints it on the instance's stderr:
+Every deploy, rejection and rollback adds one JSON line to `deploys.log` in the store. The instance also prints the line on its standard error output:
 
 <!-- doctest: audit -->
 ```json
 {"time":"2026-10-17T10:41:07Z","action":"deploy","path":"pr/42","result":"ok","release":"r-0007","modelHash":"sha256:d2cb…","previous":"sha256:5a1f…","files":23,"bytes":548211,"senderVersion":"0.0.36","client":"127.0.0.1","ms":412}
 ```
 
-Requests that fail the first checks (a wrong `Host`, a forwarded header, a missing `X-Buildzr-Deploy`) never reach the deploy code and are not logged, so a web page cannot fill the log. `result` is `ok`, `unchanged` or `rejected`; a rejected line has `status` (the HTTP status) and `error` (the first problem) instead of the release fields. `client` is the address the connection came from (always `127.0.0.1`), `senderVersion` the buildzr version the client sent (or `null` if it did not look like a version). Nothing else from the request is logged: no body and no other header.
+- `result` is `ok`, `unchanged` or `rejected`. A rejected line has `status` (the HTTP status) and `error` (the first problem) instead of the release fields.
+- `client` is the address the connection came from; it is always `127.0.0.1`.
+- `senderVersion` is the buildzr version that the client sent, or `null` if the value did not look like a version.
+
+Requests that fail the first checks of the request (a wrong `Host`, a forwarded header, a missing `X-Buildzr-Deploy`) never reach the deploy code and are not logged, so a web page cannot fill the log. Nothing else from the request is logged: no body and no other header.
 
 ## The security model, in plain words
 
-- **Only this machine can deploy.** The deploy listener listens on `127.0.0.1` and nowhere else. A computer on the network cannot even connect to it. The reading listener, which may be public, has no way to write anything.
-- **There is no password or token in v1.** Anyone who can open a connection to `127.0.0.1:8001` **on the server** can deploy or roll back. On a machine with one user that is only you (and your programs). On a machine shared with other people, **every other user account on that machine can replace your sites.** If that is not acceptable, do not use `--accept-deploys` there until tokens exist.
-- **Web pages cannot deploy.** A web page open in a browser on the server could try to send a request to `127.0.0.1:8001`. It cannot: the instance wants the custom header `X-Buildzr-Deploy: 1` and `Content-Type: application/gzip`, which a browser only sends after asking permission first (a "preflight"), and the instance never gives that permission (no `OPTIONS` answer, no CORS headers). A page that renames itself to `127.0.0.1` through DNS is refused by the `Host` check.
-- **Never point a reverse proxy at the deploy port.** A proxy (nginx, Caddy, a load balancer) on the server makes every request look as if it came from `127.0.0.1`. Pointed at the deploy port, it would let the whole internet deploy. Point it only at the reading port. As a second guard, the deploy listener refuses any request that carries a `Forwarded` or `X-Forwarded-*` or `X-Real-IP` header, which proxies add, but do not rely on that: some proxies do not add them.
-- **The SSH tunnel is the authentication.** Reaching a remote instance means having an SSH login on it. Whoever can open the tunnel can deploy.
-- **A deployed site is trusted.** The person deploying chooses the viewer's JavaScript that readers run, and all sites of one instance share one web origin. There are no logins or cookies on an instance, so the harm a hostile site can do to readers is small, but it is not zero. Only let people you trust deploy.
-- **An archive cannot escape the store.** Names are checked, links and devices are refused, and a release folder is named by a hash of its site path, not by the path itself.
+- **Only the server itself can deploy.** The deploy listener listens on `127.0.0.1` and nowhere else, so another computer on the network cannot even connect to it. The reading listener may be public, but it has no way to write anything.
+- **There is no password or token in this version (v1).** Anyone who can open a connection to `127.0.0.1:8001` **on the server** can deploy or roll back. On a server with one user, that is only you and your programs. On a server shared with other people, **every other user account on that server can replace your sites.** If that is not acceptable, do not use `--accept-deploys` there until tokens exist.
+- **Web pages cannot deploy.** A web page open in a browser on the server could try to send a request to `127.0.0.1:8001`, but the request fails. The instance requires the custom header `X-Buildzr-Deploy: 1` and `Content-Type: application/gzip`. A browser sends these only after it asks for permission first (a "preflight"), and the instance never gives that permission: it has no `OPTIONS` answer and no CORS headers. A page that points its own domain name at `127.0.0.1` through DNS is refused by the `Host` check.
+- **Never point a reverse proxy at the deploy listener.** A proxy on the server (nginx, Caddy, a load balancer) makes every request look as if it came from `127.0.0.1`. Pointed at the deploy listener, it would let the whole internet deploy. Point it only at the reading listener. As a second guard, the deploy listener refuses any request with a `Forwarded`, `X-Forwarded-*` or `X-Real-IP` header, which proxies add. Do not rely on that guard: some proxies do not add these headers.
+- **The SSH tunnel is the authentication.** To reach an instance on another machine, you need an SSH login on that machine. Whoever can open the tunnel can deploy.
+- **A deployed site is trusted.** The person who deploys chooses the JavaScript of the viewer that readers run, and all sites of one instance share one web origin. An instance has no logins or cookies, so the harm a hostile site can do to readers is small, but it is not zero. Only let people you trust deploy.
+- **An archive cannot escape the store.** The instance checks the names, refuses links and devices, and names each release folder by a hash of its site path, not by the site path itself.
