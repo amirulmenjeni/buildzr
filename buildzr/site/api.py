@@ -372,8 +372,14 @@ class Api:
         notes = []
         if not self.viewer:
             notes.append("This workspace has no viewer, so viewerUrl is null everywhere.")
+        broken = bw.get("status") == "broken"
+        if broken:
+            notes.append(f"This workspace is broken: building it failed at the {bw.get('stage')} step. The answers "
+                         "come from data that failed its checks and may be wrong; see errors.")
+        state: Json = {"status": "broken", "stage": bw.get("stage"), "errors": broken_errors(bw)} if broken else \
+            {"status": "ok"}
         out = self.envelope(
-            name=ws["name"], description=ws["description"],
+            name=ws["name"], description=ws["description"], **state,
             builtWith={"buildzr": bw.get("buildzr"), "k": bw.get("k")} if bw else None,
             counts={"elements": len(self.model["elements"]), "relationships": len(self.model["relationships"]),
                     "views": len(self.model["views"]), "byType": dict(sorted(by_type.items()))},
@@ -676,6 +682,9 @@ class Api:
         b = self.api_base
         c = o["counts"]
         lines = [f"# {str(o['name'] or 'buildzr model')[:100]}", ""]
+        if o["status"] == "broken":
+            lines += [f"> WARNING: this workspace is broken (building it failed at the {o['stage']} step); the "
+                      "answers may be wrong. The orientation document lists the errors.", ""]
         lines.append(f"> A C4 architecture model ({c['elements']} elements, {c['relationships']} relationships, "
                      f"{c['views']} views) with a read-only JSON API. Model hash: {o['modelHash']}.")
         if o["description"]:
@@ -691,6 +700,21 @@ class Api:
         lines += ["", "Element ids are slug paths (e.g. `shop/web-app`) and go in query parameters. "
                   "Answers carry `modelHash` and an `ETag`; errors are RFC 9457 problem details.", ""]
         return "\n".join(lines)
+
+
+def broken_errors(info: Json) -> list[str]:
+    """The first 10 errors of a broken ``build.json``."""
+    errors = info.get("errors")
+    return [str(e) for e in errors[:10]] if isinstance(errors, list) else []
+
+
+def broken_error(info: Json) -> "ApiError":
+    """The 503 answer of every data endpoint of a broken workspace that has no data (stage ``model`` or ``layout``)."""
+    stage = info.get("stage")
+    errors = broken_errors(info)
+    return ApiError(503, "workspace-broken", "Workspace broken",
+                    f"building this workspace failed at the {stage} step, so it has no model data"
+                    + (f": {errors[0]}" if errors else ""), stage=stage, errors=errors)
 
 
 class Source:
@@ -723,6 +747,13 @@ class Source:
 
     def _load(self) -> Api:
         try:
+            if not os.path.exists(os.path.join(self.directory, "data", "index.json")):
+                try:
+                    info = self._read_json(os.path.join(self.directory, "build.json"))
+                except (OSError, ValueError):
+                    info = None
+                if isinstance(info, dict) and info.get("status") == "broken":
+                    raise broken_error(info)
             index = self._read_json(os.path.join(self.directory, "data", "index.json"))
             model = self._read_json(self._data_path(index["model"]["file"]))
             if not isinstance(model, dict) or model.get("schema") != MODEL_SCHEMA:

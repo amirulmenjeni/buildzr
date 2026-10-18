@@ -7,7 +7,8 @@ ever written.
 
 The build output is scanned again when ``/`` or the list is asked for, and when a request names a workspace that
 is not known yet, so workspaces built by another ``buildzr build`` show up without a restart. A folder that has no
-``build.json``, or neither ``index.html`` nor ``data/index.json`` (a build is replacing it), is not served.
+``build.json``, or neither ``index.html`` nor ``data/index.json`` (a build is replacing it), is not served, unless its
+``build.json`` says it is broken. Broken workspaces are served too, and marked as broken on ``/`` and in the list.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, Sequence
 from urllib.parse import quote, unquote
 
-from buildzr.site.api import API_VERSION, PARAMS, Api, ApiError, Source
+from buildzr.site.api import API_VERSION, PARAMS, Api, ApiError, Source, broken_errors
 from buildzr.site.build import read_build_json, safe_name
 
 MIME = {".json": "application/json", ".js": "text/javascript", ".mjs": "text/javascript",
@@ -439,12 +440,18 @@ class WorkspacesHandler(Handler):
             title = e.info.get("workspace") if isinstance(e.info.get("workspace"), str) else None
             model_hash = e.info.get("modelHash") if isinstance(e.info.get("modelHash"), str) else ""
             link = html.escape("/" + quote(e.name) + "/", quote=True)
+            broken = ""
+            if e.info.get("status") == "broken":
+                errors = broken_errors(e.info)
+                broken = (f' <strong class="broken">broken</strong> at the {html.escape(str(e.info.get("stage")))} '
+                          "step" + (f": <code>{html.escape(errors[0])}</code>" if errors else ""))
             rows.append(f'<li><a href="{link}">{html.escape(e.name)}</a>'
                         + (f" &middot; {html.escape(title)}" if title and title != e.name else "")
                         + (f" <small><code>{html.escape(model_hash[:19])}</code></small>" if model_hash else "")
-                        + "</li>")
+                        + broken + "</li>")
         body = ("<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width'>"
-                "<title>buildzr workspaces</title><h1>buildzr workspaces</h1>"
+                "<title>buildzr workspaces</title>"
+                "<style>.broken{color:#b00020}li{margin:.3em 0}</style><h1>buildzr workspaces</h1>"
                 + (f"<ul>{''.join(rows)}</ul>" if rows else "<p>No built workspace here yet. "
                    "Run <code>buildzr build</code>.</p>")
                 + f'<p><a href="{WORKSPACES_ENDPOINT}">{WORKSPACES_ENDPOINT}</a> lists them as JSON.</p>').encode()
@@ -460,13 +467,17 @@ class WorkspacesHandler(Handler):
                     "%Y-%m-%dT%H:%M:%SZ", time.gmtime(os.stat(os.path.join(e.folder, "build.json")).st_mtime))
             except OSError:
                 built_at = None
-            items.append({
+            item = {
                 "name": e.name, "path": "/" + e.name + "/",
                 "workspaceName": e.info.get("workspace") if isinstance(e.info.get("workspace"), str) else None,
+                "status": "broken" if e.info.get("status") == "broken" else "ok",
                 "viewerUrl": base if os.path.isfile(os.path.join(e.folder, "index.html")) else None,
                 "apiUrl": base + "api/v1/", "llmsUrl": base + "llms.txt",
                 "modelHash": e.info.get("modelHash"), "builtAt": built_at,
-                "source": src.get("file") if isinstance(src, dict) else None})
+                "source": src.get("file") if isinstance(src, dict) else None}
+            if item["status"] == "broken":
+                item.update(stage=e.info.get("stage"), errors=broken_errors(e.info))
+            items.append(item)
         body = json.dumps({"apiVersion": API_VERSION, "workspaces": items}, ensure_ascii=False,
                           separators=(",", ":")).encode()
         etag = '"' + hashlib.sha256(body).hexdigest()[:32] + '"'
