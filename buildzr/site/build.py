@@ -24,7 +24,7 @@ import shutil
 import sys
 import tempfile
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, Sequence, Union
 
 from buildzr.site import canonical
 from buildzr.site.export import read_export_result, run_export, run_export_all
@@ -377,7 +377,7 @@ class Failure:
 
 @dataclass
 class Removed:
-    """A built workspace that :func:`build_all` removed, and why (``"gone"`` or ``"dropped"``)."""
+    """A built workspace that :func:`build_all` removed, and why (``"gone"``, ``"unlisted"`` or ``"dropped"``)."""
 
     name: str
     source: str
@@ -407,16 +407,23 @@ def folder_record(root: str, out: str) -> str:
         return root
 
 
-def _from_folder(info: dict[str, Any], root: str, out: str) -> bool:
-    """Whether the built workspace of ``info`` was built from the workspaces folder ``root``."""
+def _from_folder(info: dict[str, Any], root: str, out: str, listed: Optional[str] = None) -> bool:
+    """Whether the built workspace of ``info`` was built from the workspaces folder ``root``, and from the
+    ``workspaces:`` list of the config file ``listed`` (``None``: from a single path, not from a list)."""
     rec = info.get("workspacesFolder")
-    return isinstance(rec, str) and os.path.normpath(os.path.join(out, rec)) == os.path.normpath(root)
+    if not (isinstance(rec, str) and os.path.normpath(os.path.join(out, rec)) == os.path.normpath(root)):
+        return False
+    lst = info.get("workspacesList")
+    if listed is None or lst is None:
+        return listed is None and lst is None
+    return isinstance(lst, str) and os.path.normpath(os.path.join(out, lst)) == os.path.normpath(listed)
 
 
-def _owned(out: str, root: Optional[str] = None) -> dict[str, dict[str, Any]]:
+def _owned(out: str, root: Optional[str] = None, listed: Optional[str] = None) -> dict[str, dict[str, Any]]:
     """The ``build.json`` of every built workspace in ``out`` that records its source file, by folder name.
 
-    With ``root``, only those built from that workspaces folder.
+    With ``root``, only those built from that workspaces folder, and from the list of the config file ``listed``
+    (or from no list when it is ``None``).
     """
     found: dict[str, dict[str, Any]] = {}
     try:
@@ -428,7 +435,7 @@ def _owned(out: str, root: Optional[str] = None) -> dict[str, dict[str, Any]]:
         if info is None or not isinstance(info.get("input"), dict):
             continue
         src = info["input"].get("file")
-        if isinstance(src, str) and src and (root is None or _from_folder(info, root, out)):
+        if isinstance(src, str) and src and (root is None or _from_folder(info, root, out, listed)):
             found[name] = info
     return found
 
@@ -447,35 +454,78 @@ def is_fresh(source_rel: str, fp: str, owned: dict[str, dict[str, Any]]) -> bool
     return True
 
 
+@dataclass(frozen=True)
+class Entry:
+    """A Python file or a folder of them, and the options of the workspaces built from it.
+
+    One entry of a ``workspaces:`` list in ``buildzr.yaml``, or the single path of a build. ``helpers`` is the folder
+    whose ``_*.py`` files count in the fingerprint (see :func:`find_helpers`); ``None`` means the build's ``root``.
+    """
+
+    path: str
+    k: int = 4
+    text_color: str = "wcag"
+    viewer: bool = True
+    helpers: Optional[str] = None
+
+
 @dataclass
 class Plan:
-    """Which files of a build must run (``todo``) and which built workspaces are up to date (``fresh``)."""
+    """Which files of a build must run (``todo``) and which built workspaces are up to date (``fresh``).
+
+    ``entries`` gives the entry of every file found, ``fingerprints`` its fingerprint.
+    """
 
     todo: list[str]
     fresh: list[Built]
     fingerprints: dict[str, str]
+    entries: dict[str, Entry] = field(default_factory=dict)
 
 
-def plan(path: str, out: str, k: int, text_color: str, viewer: bool, root: Optional[str] = None,
-         only_stale: bool = True) -> Plan:
+Paths = Union[str, Sequence[Entry]]
+
+
+def _entries(path: Paths, k: Optional[int], text_color: Optional[str], viewer: bool) -> list[Entry]:
+    if isinstance(path, str):
+        return [Entry(path, 4 if k is None else k, "wcag" if text_color is None else text_color, viewer)]
+    return list(path)
+
+
+def plan(path: Paths, out: str, k: Optional[int] = None, text_color: Optional[str] = None, viewer: bool = True,
+         root: Optional[str] = None, only_stale: bool = True, listed: Optional[str] = None) -> Plan:
     """Work out what :func:`build_all` would run: every file, or with ``only_stale`` the stale ones only.
 
-    A file is stale when one of the workspaces it built last time is missing from ``out`` or was built with
-    another fingerprint (see :func:`fingerprint`); a file never built is stale too. File dates are not used. A
-    broken built workspace is up to date like an ok one, so the same broken input is not built again and again.
+    ``path`` is a file or folder built with ``k``, ``text_color`` and ``viewer``, or a list of :class:`Entry`, each
+    with its own options. A file is stale when one of the workspaces it built last time is missing from ``out`` or
+    was built with another fingerprint (see :func:`fingerprint`); a file never built is stale too. File dates are not
+    used. A broken built workspace is up to date like an ok one, so the same broken input is not built again and
+    again.
     """
-    if not os.path.exists(path):
-        raise BuildError(f"not found: {path}")
+    entries = _entries(path, k, text_color, viewer)
+    for e in entries:
+        if not os.path.exists(e.path):
+            raise BuildError(f"not found: {e.path}")
     out = os.path.abspath(out)
-    root = os.path.abspath(root) if root is not None else source_root(path)
-    sources = find_sources(path)
-    helpers = find_helpers(root)
-    owned = _owned(out, root)
-    fps = {s: fingerprint(s, helpers, root, k, text_color, viewer) for s in sources}
-    result = Plan([], [], fps)
-    for s in sources:
+    if root is None:
+        if len(entries) != 1:
+            raise BuildError("a build of several entries needs the folder its paths are relative to (root)")
+        root = source_root(entries[0].path)
+    root = os.path.abspath(root)
+    owned = _owned(out, root, listed)
+    result = Plan([], [], {})
+    helpers: dict[str, list[str]] = {}
+    for e in entries:
+        folder = os.path.abspath(e.helpers) if e.helpers is not None else root
+        if folder not in helpers:
+            helpers[folder] = find_helpers(folder)
+        for s in find_sources(e.path):
+            if s in result.entries:
+                raise BuildError(f"{relative_source(s, root)} is in two entries; list each file once")
+            result.entries[s] = e
+            result.fingerprints[s] = fingerprint(s, helpers[folder], root, e.k, e.text_color, e.viewer)
+    for s, fp in result.fingerprints.items():
         rel = relative_source(s, root)
-        if only_stale and is_fresh(rel, fps[s], owned):
+        if only_stale and is_fresh(rel, fp, owned):
             result.fresh += [Built(n, os.path.join(out, n), rel, i) for n, i in sorted(owned.items())
                              if i["input"].get("file") == rel]
         else:
@@ -497,10 +547,17 @@ class _Job:
     homeless: bool = False  # a fallback whose name another workspace has
 
 
-def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional[str] = None, viewer: bool = True,
+def build_all(path: Paths, out: str, k: Optional[int] = None, text_color: Optional[str] = None, viewer: bool = True,
               layout_fn: Optional[LayoutFn] = None, static_dir: str = STATIC_DIR, verbose: bool = False,
-              only_stale: bool = False, root: Optional[str] = None, prune: bool = False) -> BuildResult:
+              only_stale: bool = False, root: Optional[str] = None, prune: bool = False,
+              listed: Optional[str] = None) -> BuildResult:
     """Build every workspace of the Python file or workspaces folder ``path`` into ``out/<name>/``.
+
+    ``path`` may also be a list of :class:`Entry` (the ``workspaces:`` list of ``buildzr.yaml``): each file is then
+    built with the options of its entry, and ``k``, ``text_color`` and ``viewer`` are not used. ``listed`` is the
+    config file that holds that list; it is recorded in ``build.json`` (``workspacesList``) so that a build of
+    another list, or of a single path, never removes these workspaces, and with ``prune`` a workspace whose file is
+    no longer listed is removed.
 
     Each file runs in a fresh subprocess. Every built workspace is checked with
     :func:`buildzr.site.check.check_built` before it is put in place. A workspace whose model file raises, whose
@@ -513,25 +570,30 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
     to (default: ``path`` or the folder holding it). With ``prune``, built workspaces this build did not produce
     are removed as :func:`_prune` says (:attr:`BuildResult.removed`).
     """
-    k, text_color = _check_options(k, text_color, viewer, static_dir)
+    entries = _entries(path, k, text_color, viewer)
+    for e in entries:
+        _check_options(e.k, e.text_color, e.viewer, static_dir)
     out = os.path.abspath(out)
-    root = os.path.abspath(root) if root is not None else source_root(path)
-    p = plan(path, out, k, text_color, viewer, root, only_stale)
+    if root is None and len(entries) == 1:
+        root = source_root(entries[0].path)
+    p = plan(entries, out, root=root, only_stale=only_stale, listed=listed)
+    root = os.path.abspath(str(root))
     result = BuildResult(fresh=p.fresh)
     todo, fps = p.todo, p.fingerprints
+    listed_rec = {"workspacesList": folder_record(listed, out)} if listed is not None else {}
     if not todo:
         if prune:
-            _prune(out, root, result)
+            _prune(out, root, result, listed, p)
         return result
     layout = layout_fn or _default_layout()
-    owned = _owned(out, root)
+    owned = _owned(out, root, listed)
     with tempfile.TemporaryDirectory(prefix="buildzr-export-") as stage:
         jobs: list[_Job] = []
         for i, s in enumerate(todo):
             rel = relative_source(s, root)
             stem = os.path.splitext(os.path.basename(s))[0]
             here = os.path.join(stage, str(i))
-            code = run_export_all(s, here, text_color=text_color, quiet=not verbose)
+            code = run_export_all(s, here, text_color=p.entries[s].text_color, quiet=not verbose)
             try:
                 exported = read_export_result(here)
             except (OSError, ValueError, KeyError):
@@ -550,14 +612,14 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
             if code != 0 or exported is None:
                 result.failed.append(Failure(rel, None, "running it failed (see the error above)", s, environment=True))
                 continue
-            listed = exported["workspaces"]
-            if not listed:
+            made = exported["workspaces"]
+            if not made:
                 result.empty.append(s)
                 continue
-            names = [safe_name(e["name"], stem) for e in listed]
-            for e, name in zip(listed, names):
-                jobs.append(_Job(s, name, e["name"], names, folder=os.path.join(here, e["dir"]),
-                                 errors=[e["error"]] if e["error"] else None))
+            names = [safe_name(w["name"], stem) for w in made]
+            for w, name in zip(made, names):
+                jobs.append(_Job(s, name, w["name"], names, folder=os.path.join(here, w["dir"]),
+                                 errors=[w["error"]] if w["error"] else None))
         # Names: every workspace of this build, plus the fresh ones already in the output. A file that failed before
         # it created any workspace falls back to its file name, which gives way to a real workspace of that name.
         taken: dict[str, tuple[str, str]] = {b.name: (b.source, str(b.info.get("workspace", b.name)))
@@ -588,16 +650,17 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
             if env_problem is not None:
                 result.failed.append(Failure(rel, shown, env_problem, job.source, environment=True))
                 continue
-            info = {"textColor": text_color, "workspace": job.workspace, "name": job.name, "workspaces": job.names,
+            e = p.entries[job.source]
+            info = {"textColor": e.text_color, "workspace": job.workspace, "name": job.name, "workspaces": job.names,
                     "input": {"file": rel, "sha256": _sha256_file(job.source)}, "fingerprint": fps[job.source],
-                    "workspacesFolder": folder_record(root, out)}
+                    "workspacesFolder": folder_record(root, out), **listed_rec}
             dest = os.path.join(out, job.name)
             try:
                 if job.errors is not None:
-                    written = _write_broken(dest, k, viewer, static_dir, info, "model", job.errors)
+                    written = _write_broken(dest, e.k, e.viewer, static_dir, info, "model", job.errors)
                 else:
                     assert job.folder is not None
-                    written = _write_workspace(job.folder, dest, k, viewer, layout, static_dir, info)
+                    written = _write_workspace(job.folder, dest, e.k, e.viewer, layout, static_dir, info)
             except Exception as err:  # not the workspace's fault (see _write_workspace): the old output stays
                 msg = str(err) if isinstance(err, BuildError) else f"{type(err).__name__}: {err}"
                 if is_environment_problem(err) and not isinstance(err, OSError):
@@ -607,19 +670,21 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
             done = Built(job.name, dest, rel, written)
             (result.broken if done.broken else result.built).append(done)
     if prune:
-        _prune(out, root, result)
+        _prune(out, root, result, listed, p)
     return result
 
 
-def _prune(out: str, root: str, result: BuildResult) -> None:
-    """Remove the built workspaces of ``out`` that this build did not produce and whose model file is gone or no
-    longer creates them.
+def _prune(out: str, root: str, result: BuildResult, listed: Optional[str] = None, p: Optional[Plan] = None) -> None:
+    """Remove the built workspaces of ``out`` that this build did not produce and whose model file is gone, no
+    longer listed, or no longer creates them.
 
-    Only folders whose ``build.json`` records a source file and the workspaces folder ``root`` are considered. A
-    folder is removed when that file no longer exists in ``root``, or when the file ran in this build and did not
-    create the workspace (renamed or removed in the file). A file that failed because of the machine keeps all its
-    previous output.
+    Only folders whose ``build.json`` records a source file, the workspaces folder ``root`` and the same list
+    (``listed``, see :func:`_from_folder`) are considered. A folder is removed when that file no longer exists in
+    ``root`` (``"gone"``), when this build comes from the list ``listed`` and its file is not in it any more
+    (``"unlisted"``), or when the file ran in this build and did not create the workspace (``"dropped"``). A file
+    that failed because of the machine keeps all its previous output.
     """
+    current = {relative_source(s, root) for s in p.entries} if p is not None else set()
     kept = {f.source for f in result.failed if f.environment}
     done: dict[str, set[str]] = {relative_source(e, root): set() for e in result.empty}
     for b in result.built + result.broken:
@@ -627,12 +692,14 @@ def _prune(out: str, root: str, result: BuildResult) -> None:
     for f in result.failed:
         done.setdefault(f.source, set())
     produced = {b.name for b in result.built + result.broken + result.fresh}
-    for name, info in _owned(out, root).items():
+    for name, info in _owned(out, root, listed).items():
         src = info["input"]["file"]
         if name in produced or src in kept:
             continue
         if not os.path.exists(os.path.join(root, src)):
             reason = "gone"
+        elif listed is not None and src not in current:
+            reason = "unlisted"
         elif src in done and name not in done[src]:
             reason = "dropped"
         else:

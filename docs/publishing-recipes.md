@@ -33,17 +33,17 @@ Build data-only workspaces with `--no-viewer`, into a build output of their own,
 
 ```text
 $ buildzr build --no-viewer -o .buildzr/data
-built .buildzr/data/shop (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
+built .buildzr/data/shop (data only; 2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
 
 $ buildzr serve .buildzr/data
 Serving .buildzr/data at http://127.0.0.1:8000/ (Ctrl+C to stop)
-  http://127.0.0.1:8000/shop/
+  http://127.0.0.1:8000/shop/api/v1/ (data only, no viewer)
 Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 ```
 
 `serve` builds nothing here, because `.buildzr/data` already holds built workspaces. To make every build of the project data-only, set `viewer: false` in the `build` section of [`buildzr.yaml`](config.md) instead.
 
-A data-only workspace has no `index.html`, so `/shop/` answers 404, and the [Model API](model-api.md) at `/shop/api/v1/` works as usual. One field changes: `viewerUrl`, the link in every answer that opens an element in the viewer. There is no viewer to link to, so `viewerUrl` is `null` in every answer, with or without `--public-url`. The orientation document of the API says so in its `notes` field, and the [list of workspaces](serve-workspaces.md#6-list-the-workspaces-from-a-program) shows `"viewerUrl": null`.
+A data-only workspace has no `index.html`, so `/shop/` answers 404, and the [Model API](model-api.md) at `/shop/api/v1/` works as usual. `serve` prints that address, and its index page at `/` links to it. One field changes: `viewerUrl`, the link in every answer that opens an element in the viewer. There is no viewer to link to, so `viewerUrl` is `null` in every answer, with or without `--public-url`. The orientation document of the API says so in its `notes` field, and the [list of workspaces](serve-workspaces.md#6-list-the-workspaces-from-a-program) shows `"viewerUrl": null`.
 
 The request below shows such an answer. It was sent to a data-only build of the larger example model `examples/buildzr_models_example.py` from the buildzr repository, because the small shop model has no element that matches `mongo`:
 

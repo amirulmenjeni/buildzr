@@ -149,6 +149,51 @@ location="$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 20 "http://127
 echo "302 http://127.0.0.1:$ONE/ -> /solo/"
 get "http://127.0.0.1:$ONE/solo/" "$WORK/solo.html"
 
+step "buildzr build of a workspaces: list (one entry with its own k, one data-only entry)"
+mkdir -p "$WORK/list/architecture" && cd "$WORK/list"
+example billing >architecture/billing.py
+example platform >architecture/platform.py
+example catalog >architecture/api_catalog.py
+example draft >architecture/draft.py   # not listed: never built
+cat >buildzr.yaml <<'YAML'
+build:
+  k: 4
+workspaces:
+  - architecture/billing.py
+  - path: architecture/platform.py
+    build:
+      k: 9
+  - path: architecture/api_catalog.py
+    build:
+      viewer: false
+YAML
+buildzr build
+python -I -c '
+import json, os, sys
+out = ".buildzr/build"
+names = sorted(os.listdir(out))
+k = {n: json.load(open(os.path.join(out, n, "build.json")))["k"] for n in names}
+viewer = {n: os.path.isfile(os.path.join(out, n, "index.html")) for n in names}
+sys.exit(0 if names == ["billing", "catalog", "platform"] and k == {"billing": 4, "catalog": 4, "platform": 9}
+         and viewer == {"billing": True, "catalog": False, "platform": True} else 1)' \
+  || fail "the workspaces: list did not build billing (k 4), platform (k 9) and catalog (data only)"
+LIST="$(free_port)"
+buildzr serve -p "$LIST" >"$WORK/serve-list.log" 2>&1 &
+PIDS+=($!)
+wait_for "http://127.0.0.1:$LIST/_buildzr/v1/workspaces" "buildzr serve (workspaces: list)"
+grep -q '^up to date: billing, catalog, platform$' "$WORK/serve-list.log" \
+  || fail "buildzr serve did not find the three listed workspaces up to date"
+get "http://127.0.0.1:$LIST/" "$WORK/index-list.html"
+grep -q 'href="/catalog/"' "$WORK/index-list.html" && fail "the index page links the data-only workspace to a viewer"
+grep -q 'href="/catalog/api/v1/"' "$WORK/index-list.html" || fail "the index page does not link catalog's Model API"
+get "http://127.0.0.1:$LIST/_buildzr/v1/workspaces" "$WORK/list-list.json"
+python -I -c '
+import json, sys
+ws = {w["name"]: w for w in json.load(open(sys.argv[1]))["workspaces"]}
+sys.exit(0 if ws["catalog"]["viewerUrl"] is None and ws["platform"]["viewerUrl"] == "/platform/" else 1)' \
+  "$WORK/list-list.json" || fail "catalog should have viewerUrl null and platform /platform/: $(cat "$WORK/list-list.json")"
+echo "catalog: data only (viewerUrl null), platform: k 9"
+
 step "uvx --from the wheel buildzr build (the isolated route of the docs)"
 if command -v uvx >/dev/null 2>&1; then
   # An empty folder and a tool environment of their own: nothing of the venv above is used.

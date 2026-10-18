@@ -432,20 +432,24 @@ class WorkspacesHandler(Handler):
     def _root(self, head: bool) -> None:
         entries = self.catalog.entries(rescan=True)
         if len(entries) == 1:
-            name = next(iter(entries))
-            self._send(302, "text/plain", b"", head, location="/" + quote(name) + "/")
+            name, only = next(iter(entries.items()))
+            api = "" if os.path.isfile(os.path.join(only.folder, "index.html")) else "api/v1/"  # data only
+            self._send(302, "text/plain", b"", head, location="/" + quote(name) + "/" + api)
             return
         rows = []
         for e in entries.values():
             title = e.info.get("workspace") if isinstance(e.info.get("workspace"), str) else None
             model_hash = e.info.get("modelHash") if isinstance(e.info.get("modelHash"), str) else ""
-            link = html.escape("/" + quote(e.name) + "/", quote=True)
+            viewer = os.path.isfile(os.path.join(e.folder, "index.html"))
+            link = html.escape("/" + quote(e.name) + "/" + ("" if viewer else "api/v1/"), quote=True)
             broken = ""
             if e.info.get("status") == "broken":
                 errors = broken_errors(e.info)
                 broken = (f' <strong class="broken">broken</strong> at the {html.escape(str(e.info.get("stage")))} '
                           "step" + (f": <code>{html.escape(errors[0])}</code>" if errors else ""))
-            rows.append(f'<li><a href="{link}">{html.escape(e.name)}</a>'
+            rows.append((f'<li><a href="{link}">{html.escape(e.name)}</a>' if viewer else
+                         f'<li>{html.escape(e.name)} <small>(data only, no viewer: <a href="{link}">Model API</a>)'
+                         "</small>")
                         + (f" &middot; {html.escape(title)}" if title and title != e.name else "")
                         + (f" <small><code>{html.escape(model_hash[:19])}</code></small>" if model_hash else "")
                         + broken + "</li>")
@@ -513,8 +517,11 @@ def serve(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url:
     base = (public_url + "/") if public_url else url
     entries = Catalog(directory).entries()
     print(f"Serving {shown or os.path.abspath(directory)} at {url} (Ctrl+C to stop)")
-    for name in entries:
-        print(f"  {base}{quote(name)}/")
+    for name, e in entries.items():
+        if os.path.isfile(os.path.join(e.folder, "index.html")):
+            print(f"  {base}{quote(name)}/")
+        else:
+            print(f"  {base}{quote(name)}/api/v1/ (data only, no viewer)")
     print(f"Workspace list at {base}{WORKSPACES_ENDPOINT[1:]}")
     sys.stdout.flush()
     try:

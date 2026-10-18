@@ -249,7 +249,8 @@ def server(built_two: Path) -> Iterator[Server]:
 def test_two_workspaces_index_and_list(server: Server, built_two: Path) -> None:
     st, h, body = server.get("/")
     assert st == 200 and h["Content-Type"].startswith("text/html")
-    assert b'href="/a/"' in body and b'href="/big-bank/"' in body and b"Big Bank" in body
+    assert b'href="/big-bank/"' in body and b"Big Bank" in body
+    assert b'<li>a <small>(data only, no viewer: <a href="/a/api/v1/">Model API</a>)' in body  # a has no viewer
     lst = server.json("/_buildzr/v1/workspaces")
     assert lst["apiVersion"] == "1"
     a, b = lst["workspaces"]
@@ -278,7 +279,7 @@ def test_one_workspace_redirects_and_none_is_an_empty_index(built_two: Path) -> 
     s = Server(built_two)
     try:
         st, h, _ = s.get("/")
-        assert st == 302 and h["Location"] == "/a/"
+        assert st == 302 and h["Location"] == "/a/api/v1/"  # a is data only: its Model API, not a 404
         shutil.rmtree(built_two / "a")
         st, _, body = s.get("/")
         assert st == 200 and b"No built workspace here yet" in body

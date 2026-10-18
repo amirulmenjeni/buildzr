@@ -139,7 +139,8 @@ def test_one_broken_workspace_still_redirects(tmp_path: Path, monkeypatch: pytes
     s = Server(out_dir(root))
     try:
         st, h, _ = s.get("/")
-        assert (st, h["Location"]) == (302, "/a/")
+        assert (st, h["Location"]) == (302, "/a/api/v1/")  # data only: the API, which says it is broken
+        assert s.get("/a/api/v1/")[0] == 503
     finally:
         s.close()
 

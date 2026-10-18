@@ -20,12 +20,13 @@
       "additionalProperties": false,
       "required": ["file", "sha256"],
       "properties": {
-        "file": { "type": "string", "minLength": 1, "description": "The model file, relative to the workspaces folder, with / separators." },
+        "file": { "type": "string", "minLength": 1, "description": "The model file, relative to the workspaces folder (for a workspaces: list, to the folder of buildzr.yaml), with / separators." },
         "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
       }
     },
     "fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "Decides whether the built workspace is up to date; the same for an ok and a broken build of the same input." },
-    "workspacesFolder": { "type": "string", "minLength": 1, "description": "The workspaces folder, relative to the build output, with / separators." },
+    "workspacesFolder": { "type": "string", "minLength": 1, "description": "The workspaces folder, relative to the build output, with / separators. For a workspaces: list, the folder of buildzr.yaml." },
+    "workspacesList": { "type": "string", "minLength": 1, "description": "Only when the workspace was built from a workspaces: list: the config file holding the list, relative to the build output. A build removes only the workspaces it built itself: the same folder, and the same list or none." },
     "status": { "enum": ["ok", "broken"] },
     "stage": { "enum": ["model", "layout", "check"], "description": "Broken only: the step that failed." },
     "errors": {
