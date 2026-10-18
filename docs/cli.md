@@ -35,9 +35,9 @@ This page has three parts. A [tutorial](#tutorial-build-view-and-deploy-your-fir
 | **Model API** | The part of `buildzr serve` that answers questions about the model as JSON (a text format for data), under `/api/v1/`. |
 | **site check** | The check that `build` and `deploy` run on a built site before they use it. |
 | **`buildzr.yaml`** | The optional config file of your project. It holds the model file name, build settings and targets. |
-| **target** | A named destination in `buildzr.yaml` to which `deploy` copies the site. A `dir` target is a folder on this machine. A `url` target points to an instance. |
-| **instance** | A running `buildzr serve --store DIR --accept-deploys`. It serves many sites and accepts new ones from `buildzr deploy`. |
-| **store** | The folder `DIR` in which an instance keeps its sites. |
+| **target** | A named destination in `buildzr.yaml` to which `deploy` copies the site. A `dir` target is a folder on this machine. A `url` target points to the deploy listener of an instance. |
+| **instance** | A running `buildzr serve --store DIR`: one process that serves every site of a store. With `--accept-deploys`, it also accepts new sites from `buildzr deploy`. |
+| **store** | The folder `DIR` in which an instance keeps its sites. See [The site store](store.md). |
 | **site path** | Where a site sits below the address of its target. With the site path `pr/42`, the site is served at `/pr/42/`. Empty means the top. |
 | **release** | One deployed copy of a site on an instance. The instance keeps the current and the previous release of every site path. |
 | **deploy listener** | The second port of an instance. It accepts uploads from `buildzr deploy`, and only from the same machine. |
