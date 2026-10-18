@@ -81,6 +81,9 @@ jobs:
         with:
           version: 0.12.11
 
+      - name: Test package check
+        run: python3 .github/scripts/test_check_wheel.py
+
       - name: Test version bump check
         run: uv run --no-project --with packaging==26.3 python .github/scripts/test_check_version_bump.py
 
