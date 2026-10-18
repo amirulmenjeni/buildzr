@@ -33,7 +33,7 @@ Build data-only workspaces with `--no-viewer`, into a build output of their own,
 
 ```text
 $ buildzr build --no-viewer -o .buildzr/data
-built .buildzr/data/shop (data only; 2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
+built .buildzr/data/shop (data only; 2 elements, 1 relationship, 0 views; modelHash sha256:d784397d7419…)
 
 $ buildzr serve .buildzr/data
 Serving .buildzr/data at http://127.0.0.1:8000/ (Ctrl+C to stop)
@@ -81,44 +81,32 @@ GET /microservices-example/api/v1/elements?q=mongo
 
 ## Several workspaces in one folder
 
-Goal: keep the models of several systems in one repository, share code between them, and serve them together.
+Goal: keep the models of several systems in one repository and serve them together.
 
-Put one model file per system in the workspaces folder, in subfolders if you like. Code that several model files share goes in a file whose name starts with `_`: `build` and `serve` never run such a file on its own, and a change to it rebuilds every workspace. Save this as `workspaces/_people.py`:
-
-<!-- doctest: file workspaces/_people.py -->
-```python
-CUSTOMER = "Customer"
-SUPPORT = "Support Agent"
-```
-
-A model file imports it by its name: when buildzr runs a model file, the folder of that file comes first on the import path. One file may also create more than one workspace. Save this as `workspaces/support.py`:
+Put one model file per system in the workspaces folder, in subfolders if you like. One file may also create more than one workspace. Save this as `workspaces/support.py`:
 
 <!-- doctest: file workspaces/support.py -->
 ```python
 from buildzr.dsl import Workspace, Person, SoftwareSystem
 
-from _people import CUSTOMER, SUPPORT
-
 with Workspace("CRM") as crm_ws:
-    agent = Person(SUPPORT)
+    agent = Person("Support Agent")
     crm = SoftwareSystem("CRM")
     agent >> "Looks up customers in" >> crm
 
 with Workspace("Help Desk") as desk_ws:
-    customer = Person(CUSTOMER)
+    customer = Person("Customer")
     desk = SoftwareSystem("Help Desk")
     customer >> "Opens tickets in" >> desk
 ```
-
-A model file in a subfolder, such as `workspaces/teams/crm.py`, has its own folder on the import path, not the workspaces folder. To import `_people.py` from there, add the workspaces folder to `sys.path` at the top of the file, or put the shared file in the same subfolder.
 
 Build all of them:
 
 ```text
 $ buildzr build
-built .buildzr/build/shop (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
-built .buildzr/build/crm (2 elements, 1 relationship, 0 views; modelHash sha256:5a1f07c2b9d0…)
-built .buildzr/build/help-desk (2 elements, 1 relationship, 0 views; modelHash sha256:1b2c3d4e5f60…)
+built .buildzr/build/shop (2 elements, 1 relationship, 0 views; modelHash sha256:d784397d7419…)
+built .buildzr/build/crm (2 elements, 1 relationship, 0 views; modelHash sha256:a77bf728e3a0…)
+built .buildzr/build/help-desk (2 elements, 1 relationship, 0 views; modelHash sha256:a6a0ab691312…)
 ```
 
 Each workspace has its own folder and its own address: `/shop/`, `/crm/` and `/help-desk/`. `buildzr serve` lists all three at `/`. If two workspaces end up with the same name, `build` stops before it writes anything and names both, so you can rename one.

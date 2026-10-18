@@ -20,13 +20,12 @@ You need:
 
 ## 1. Create the project
 
-This is the project of [A project with several workspace files](config.md#a-project-with-several-workspace-files): a helper and two model files, which create three workspaces.
+This is the project of [A project with several workspace files](config.md#a-project-with-several-workspace-files): two model files, which create three workspaces.
 
 ```text
 my-project/
 ├── buildzr.yaml
 └── architecture/
-    ├── _shared.py      a helper: never built on its own
     ├── billing.py      creates the workspace Billing
     └── platform.py     creates the workspaces Core and Infra
 ```
@@ -39,25 +38,15 @@ workspaces: architecture
 
 `serve` then builds every model file of the folder. To build only some files, or to give one file its own build settings, list the files instead: see [Choosing which files to build](config.md#choosing-which-files-to-build).
 
-Create the folder `architecture`. Save this helper as `architecture/_shared.py`. Files whose name starts with `_` hold code that model files share; they are not model files themselves:
-
-<!-- doctest: file architecture/_shared.py -->
-```python
-"""Names that several model files use. Files whose name starts with _ are never built on their own."""
-
-PAYMENT_PROVIDER = "Payment Provider"
-```
-
-Save this as `architecture/billing.py`. It creates one workspace:
+Create the folder `architecture`. Save this as `architecture/billing.py`. It creates one workspace:
 
 <!-- doctest: file architecture/billing.py -->
 ```python
 from buildzr.dsl import Workspace, SoftwareSystem
-from _shared import PAYMENT_PROVIDER
 
 with Workspace("Billing") as w:
     invoicing = SoftwareSystem("Invoicing")
-    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    payments = SoftwareSystem("Payment Provider")
     invoicing >> "Collects payments through" >> payments
 ```
 
@@ -66,12 +55,11 @@ Save this as `architecture/platform.py`. It creates two workspaces, each built a
 <!-- doctest: file architecture/platform.py -->
 ```python
 from buildzr.dsl import Workspace, Person, SoftwareSystem
-from _shared import PAYMENT_PROVIDER
 
 with Workspace("Core") as core:
     customer = Person("Customer")
     shop = SoftwareSystem("Web Shop")
-    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    payments = SoftwareSystem("Payment Provider")
     customer >> "Buys from" >> shop
     shop >> "Takes payments through" >> payments
 
@@ -120,13 +108,12 @@ With only one workspace, the page at `/` is not shown: the browser goes straight
 Stop `buildzr serve` with Ctrl+C. Add a third system to `architecture/billing.py`:
 
 <!-- doctest: file architecture/billing.py -->
-```python hl_lines="7 9"
+```python hl_lines="6 8"
 from buildzr.dsl import Workspace, SoftwareSystem
-from _shared import PAYMENT_PROVIDER
 
 with Workspace("Billing") as w:
     invoicing = SoftwareSystem("Invoicing")
-    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    payments = SoftwareSystem("Payment Provider")
     ledger = SoftwareSystem("Ledger")
     invoicing >> "Collects payments through" >> payments
     invoicing >> "Books invoices in" >> ledger
@@ -145,9 +132,9 @@ Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
 Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 ```
 
-Only Billing was built again. `serve` compares a **fingerprint** of each model file with the one recorded in the `build.json` of the built workspace. The fingerprint covers the model file, every file of the workspaces folder whose name starts with `_` (such as `_shared.py`), the version of buildzr and the build options. `platform.py` did not change, so `serve` kept Core and Infra. A change to `_shared.py` would make all three out of date, because any model file may import it.
+Only Billing was built again. `serve` compares a **fingerprint** of each model file with the one recorded in the `build.json` of the built workspace. `platform.py` did not change, so `serve` kept Core and Infra.
 
-The fingerprint does not cover code that a model file imports from outside the workspaces folder. If you change such code, use `--rebuild` (step 5).
+The fingerprint covers the model file, the files of the workspaces folder and its subfolders whose name starts with `_` and ends with `.py`, the version of buildzr and the build options. Code that a model file imports from anywhere else is not tracked: after you change such code, use `--rebuild` (step 5).
 
 If you delete a model file, or rename a workspace in one, `serve` keeps serving the old built workspace, because it never removes anything from the build output. Run `buildzr build`: a build of the whole workspaces folder removes the built workspaces that no model file creates any more, and prints a `removed` line for each.
 
@@ -271,14 +258,13 @@ A workspace is **broken** when building it failed because of the workspace itsel
 Make a typo in `architecture/platform.py`, so that its last line names `databse` instead of `database`:
 
 <!-- doctest: file architecture/platform.py -->
-```python hl_lines="14"
+```python hl_lines="13"
 from buildzr.dsl import Workspace, Person, SoftwareSystem
-from _shared import PAYMENT_PROVIDER
 
 with Workspace("Core") as core:
     customer = Person("Customer")
     shop = SoftwareSystem("Web Shop")
-    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    payments = SoftwareSystem("Payment Provider")
     customer >> "Buys from" >> shop
     shop >> "Takes payments through" >> payments
 
@@ -297,11 +283,11 @@ NameError: name 'databse' is not defined
 built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
 buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
     NameError: name 'databse' is not defined
-    platform.py, line 14: cluster >> "Stores data in" >> databse
+    platform.py, line 13: cluster >> "Stores data in" >> databse
   this workspace is broken; the viewer says so
 buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
     NameError: name 'databse' is not defined
-    platform.py, line 14: cluster >> "Stores data in" >> databse
+    platform.py, line 13: cluster >> "Stores data in" >> databse
   this workspace is broken; the viewer says so
 [exit code 1]
 ```
@@ -315,11 +301,11 @@ $ buildzr serve
 up to date: billing, core, infra
 buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
     NameError: name 'databse' is not defined
-    platform.py, line 14: cluster >> "Stores data in" >> databse
+    platform.py, line 13: cluster >> "Stores data in" >> databse
   this workspace is broken; the viewer says so
 buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
     NameError: name 'databse' is not defined
-    platform.py, line 14: cluster >> "Stores data in" >> databse
+    platform.py, line 13: cluster >> "Stores data in" >> databse
   this workspace is broken; the viewer says so
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
   https://architecture.example.com/billing/
@@ -350,12 +336,11 @@ Fix the typo and build again. Core and Infra are ordinary workspaces again, and 
 <!-- doctest: file architecture/platform.py -->
 ```python
 from buildzr.dsl import Workspace, Person, SoftwareSystem
-from _shared import PAYMENT_PROVIDER
 
 with Workspace("Core") as core:
     customer = Person("Customer")
     shop = SoftwareSystem("Web Shop")
-    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    payments = SoftwareSystem("Payment Provider")
     customer >> "Buys from" >> shop
     shop >> "Takes payments through" >> payments
 

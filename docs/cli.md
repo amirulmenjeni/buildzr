@@ -98,7 +98,7 @@ buildzr build [-h] [-w PATH] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c 
 #### Which files run
 
 - With a folder, `build` runs every `.py` file in it and in its subfolders, in the order of their paths.
-- Files and folders whose name starts with `_` or `.` are skipped, and so is `__pycache__`. Put code that several model files share in a file such as `_shared.py`, and import it from them.
+- Files and folders whose name starts with `_` or `.` are skipped, and so is `__pycache__`.
 - A file that creates no workspace is skipped with one line, `skipped <file>: it creates no workspace`.
 - Each file runs in its own Python process, in a temporary folder, so a model file that calls `w.save()` does not write into your project.
 
@@ -111,6 +111,7 @@ Each workspace is written to a folder named after the workspace, and served at t
 - An empty name falls back to the name of the file without `.py`.
 - These names are reserved, because they would hide a file or an address of `buildzr serve`: `api`, `assets`, `data`, `_buildzr`, `index.html`, `build.json` and `llms.txt`. A workspace with one of them fails; rename it.
 - When two workspaces get the same name, `build` stops before it writes anything, with one error that names both workspaces and their files.
+- A model file that imports another model file also runs the `with Workspace(...)` blocks of that file, so it creates the same workspaces a second time. `build` then stops with the same error.
 
 #### When a workspace is broken
 
@@ -189,11 +190,11 @@ buildzr serve [-h] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOS
 A built workspace is rebuilt when its folder is missing, or when its **fingerprint** changed. `build` records the fingerprint in the `build.json` of the workspace. It is a sha256 hash of:
 
 - the model file that creates the workspace,
-- every file whose name starts with `_` and ends with `.py` in the workspaces folder and its subfolders, because model files probably import them (for a `workspaces:` list: in the folder of the file's entry, or the folder that holds the listed file, and their subfolders),
+- every file whose name starts with `_` and ends with `.py` in the workspaces folder and its subfolders (for a `workspaces:` list: in the folder of the file's entry, or the folder that holds the listed file, and their subfolders),
 - the version of buildzr,
 - the settings that change the output, as they are for this workspace: `k`, `text_color` and `viewer`, from an option, the file's list entry or `build:`. Changing the `k` of one list entry rebuilds only the workspaces of that entry.
 
-File dates are not used. Code that a model file imports from **outside** the workspaces folder is not part of the fingerprint: after you change such code, start `serve` with `--rebuild`.
+File dates are not used. Code that a model file imports from anywhere else is not part of the fingerprint: after you change such code, start `serve` with `--rebuild`.
 
 #### What `serve` serves
 

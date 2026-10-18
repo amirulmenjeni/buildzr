@@ -111,13 +111,12 @@ serve:
 
 ## A project with several workspace files
 
-A project can keep many model files in its workspaces folder, and one file can create several workspaces. This project has three workspaces in two files, and a helper file that both of them import. [Serve your workspaces](serve-workspaces.md) builds and serves the same project step by step.
+A project can keep many model files in its workspaces folder, and one file can create several workspaces. This project has three workspaces in two files. [Serve your workspaces](serve-workspaces.md) builds and serves the same project step by step.
 
 ```text
 my-project/
 ├── buildzr.yaml
 └── architecture/
-    ├── _shared.py      a helper: never built on its own
     ├── billing.py      creates the workspace Billing
     └── platform.py     creates the workspaces Core and Infra
 ```
@@ -128,25 +127,15 @@ my-project/
 workspaces: architecture
 ```
 
-`architecture/_shared.py` holds a name that both model files use:
-
-<!-- doctest: file architecture/_shared.py -->
-```python
-"""Names that several model files use. Files whose name starts with _ are never built on their own."""
-
-PAYMENT_PROVIDER = "Payment Provider"
-```
-
 `architecture/billing.py` creates one workspace:
 
 <!-- doctest: file architecture/billing.py -->
 ```python
 from buildzr.dsl import Workspace, SoftwareSystem
-from _shared import PAYMENT_PROVIDER
 
 with Workspace("Billing") as w:
     invoicing = SoftwareSystem("Invoicing")
-    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    payments = SoftwareSystem("Payment Provider")
     invoicing >> "Collects payments through" >> payments
 ```
 
@@ -155,12 +144,11 @@ with Workspace("Billing") as w:
 <!-- doctest: file architecture/platform.py -->
 ```python
 from buildzr.dsl import Workspace, Person, SoftwareSystem
-from _shared import PAYMENT_PROVIDER
 
 with Workspace("Core") as core:
     customer = Person("Customer")
     shop = SoftwareSystem("Web Shop")
-    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    payments = SoftwareSystem("Payment Provider")
     customer >> "Buys from" >> shop
     shop >> "Takes payments through" >> payments
 
@@ -209,6 +197,8 @@ What to know about such a project:
     buildzr: error: two workspaces would both be built as "billing": "Billing" in billing.py and "billing" in legacy.py (paths in /home/me/my-project/architecture); rename one of them
     ```
 
+    The same error appears when one model file imports another, for example `from billing import invoicing` in `legacy.py`: the import runs the `with Workspace("Billing")` block of `billing.py` again, so `legacy.py` creates a second Billing workspace.
+
 - **`-w` with one file builds only that file** and removes nothing, not even the built workspaces of files you deleted:
 
     ```text
@@ -216,41 +206,16 @@ What to know about such a project:
     built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
     ```
 
-- **A change to a helper makes every workspace out of date.** Files whose name starts with `_` are part of the fingerprint of every workspace, because any model file may import them. After this change to `_shared.py`, `serve` builds all three again:
-
-    <!-- doctest: file architecture/_shared.py -->
-    ```python
-    """Names that several model files use. Files whose name starts with _ are never built on their own."""
-
-    PAYMENT_PROVIDER = "Payment Provider"
-    CURRENCY = "EUR"
-    ```
-
-    ```text
-    $ buildzr serve
-    built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
-    built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
-    built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
-    Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
-      http://127.0.0.1:8000/billing/
-      http://127.0.0.1:8000/core/
-      http://127.0.0.1:8000/infra/
-    Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
-    ```
-
-    The modelHash of each workspace stays the same, because the models did not change.
-
 - **A broken file breaks only its own workspaces.** With a typo in the last line of `platform.py`, Core and Infra are broken and Billing is built as usual. The build exits with code 1:
 
     <!-- doctest: file architecture/platform.py -->
     ```python
     from buildzr.dsl import Workspace, Person, SoftwareSystem
-    from _shared import PAYMENT_PROVIDER
 
     with Workspace("Core") as core:
         customer = Person("Customer")
         shop = SoftwareSystem("Web Shop")
-        payments = SoftwareSystem(PAYMENT_PROVIDER)
+        payments = SoftwareSystem("Payment Provider")
         customer >> "Buys from" >> shop
         shop >> "Takes payments through" >> payments
 
@@ -267,11 +232,11 @@ What to know about such a project:
     built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
     buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
         NameError: name 'databse' is not defined
-        platform.py, line 14: cluster >> "Stores data in" >> databse
+        platform.py, line 13: cluster >> "Stores data in" >> databse
       this workspace is broken; the viewer says so
     buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
         NameError: name 'databse' is not defined
-        platform.py, line 14: cluster >> "Stores data in" >> databse
+        platform.py, line 13: cluster >> "Stores data in" >> databse
       this workspace is broken; the viewer says so
     [exit code 1]
     ```
@@ -313,7 +278,7 @@ What to know about such a project:
           "stage": "model",
           "errors": [
             "NameError: name 'databse' is not defined",
-            "platform.py, line 14: cluster >> \"Stores data in\" >> databse"
+            "platform.py, line 13: cluster >> \"Stores data in\" >> databse"
           ]
         },
         {
@@ -330,7 +295,7 @@ What to know about such a project:
           "stage": "model",
           "errors": [
             "NameError: name 'databse' is not defined",
-            "platform.py, line 14: cluster >> \"Stores data in\" >> databse"
+            "platform.py, line 13: cluster >> \"Stores data in\" >> databse"
           ]
         }
       ]
@@ -342,12 +307,11 @@ What to know about such a project:
     <!-- doctest: file architecture/platform.py -->
     ```python
     from buildzr.dsl import Workspace, Person, SoftwareSystem
-    from _shared import PAYMENT_PROVIDER
 
     with Workspace("Core") as core:
         customer = Person("Customer")
         shop = SoftwareSystem("Web Shop")
-        payments = SoftwareSystem(PAYMENT_PROVIDER)
+        payments = SoftwareSystem("Payment Provider")
         customer >> "Buys from" >> shop
         shop >> "Takes payments through" >> payments
 
@@ -373,12 +337,11 @@ This continues the project above. The team adds `architecture/api_catalog.py`, a
 <!-- doctest: file architecture/api_catalog.py -->
 ```python
 from buildzr.dsl import Workspace, SoftwareSystem
-from _shared import PAYMENT_PROVIDER
 
 with Workspace("API Catalog") as w:
     orders = SoftwareSystem("Orders API", "REST, owned by the shop team")
     invoices = SoftwareSystem("Invoices API", "REST, owned by the billing team")
-    payments = SoftwareSystem(PAYMENT_PROVIDER, "External")
+    payments = SoftwareSystem("Payment Provider", "External")
     orders >> "Asks for an invoice through" >> invoices
     invoices >> "Collects payments through" >> payments
 ```
@@ -387,7 +350,6 @@ with Workspace("API Catalog") as w:
 my-project/
 ├── buildzr.yaml
 └── architecture/
-    ├── _shared.py
     ├── api_catalog.py  creates the workspace API Catalog
     ├── billing.py      creates the workspace Billing
     └── platform.py     creates the workspaces Core and Infra
@@ -458,7 +420,7 @@ How a list works:
     3. The `build` section of the file.
     4. The built-in default.
 - **`-w` replaces the list.** `buildzr build -w architecture/platform.py` builds that file with the settings of the `build` section, so with `k` 4, not 9. To build one file with the settings of its entry, run `buildzr build` without `-w`.
-- **A change to one entry rebuilds only its workspaces.** The settings of each workspace are part of its fingerprint. Change `k: 9` to `k: 12`, and `serve` builds Core and Infra again and finds Billing and API Catalog up to date. A helper file counts for the files of the folder that holds it: here `_shared.py` counts for all three, because they are all in `architecture`.
+- **A change to one entry rebuilds only its workspaces.** The settings of each workspace are part of its fingerprint. Change `k: 9` to `k: 12`, and `serve` builds Core and Infra again and finds Billing and API Catalog up to date.
 - **Taking a file off the list removes its built workspace on the next full build**, as deleting the file does with a workspaces folder. Without the `api_catalog.py` entry:
 
     ```yaml

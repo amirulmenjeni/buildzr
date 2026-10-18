@@ -615,7 +615,7 @@ Content-Type: application/problem+json
 {"type": "urn:buildzr:problem:workspace-broken", "title": "Workspace broken", "status": 503,
  "detail": "building this workspace failed at the model step, so it has no model data: NameError: name 'databse' is not defined",
  "instance": "/infra/api/v1/", "code": "workspace-broken", "stage": "model",
- "errors": ["NameError: name 'databse' is not defined", "platform.py, line 14: cluster >> \"Stores data in\" >> databse"]}
+ "errors": ["NameError: name 'databse' is not defined", "platform.py, line 13: cluster >> \"Stores data in\" >> databse"]}
 ```
 
 ```http
