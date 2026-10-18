@@ -15,7 +15,7 @@ You do not need to know the code to follow it. For the commands and their flags 
 | **release** | One copy of a site on an instance (`r-0007`). The instance keeps the current and the previous release of every site path. See [the site store](store.md). |
 | **modelHash** | A fingerprint of the model, shown as `sha256:` and the start of a hash. The same model always has the same hash, so two equal hashes mean two equal models. |
 | **instance** | A running `buildzr serve --store DIR --accept-deploys`. It keeps its sites in the store folder `DIR`. |
-| **reading listener** | The address readers use (`--host`, `--port`, default `127.0.0.1:8000`). It only reads: GET and HEAD. |
+| **reading listener** | The address readers use (`--host`, `--port`, default `127.0.0.1:8000`). It only reads: GET and HEAD. It closes a connection that sends nothing for 60 seconds. |
 | **deploy listener** | A second address of the same instance, **always** `127.0.0.1:<--deploy-port>` (default `8001`). It is the only place that accepts an upload. Nothing can make it listen on another address. |
 | **target** | An entry in `buildzr.yaml` that says where `deploy` sends the site. A `url:` target names a deploy listener. |
 | **site path** | Where the site goes on the instance: `pr/42` is served at `/pr/42/`. Empty means the root. |

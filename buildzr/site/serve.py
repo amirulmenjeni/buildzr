@@ -24,6 +24,8 @@ MIME = {".json": "application/json", ".js": "text/javascript", ".mjs": "text/jav
 
 API_PREFIX = "/api/v1"
 
+READ_TIMEOUT = 60.0  # seconds a connection of the reading listener may stay silent before the server closes it
+
 
 def _etag_matches(header: Optional[str], etag: str) -> bool:
     """``If-None-Match`` against ``etag`` (weak comparison, as the rule for GET says)."""
@@ -46,6 +48,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**mimetypes.types_map, **MIME}
     source: Optional[Source] = None
     cors_origins: tuple[str, ...] = ()
+
+    def setup(self) -> None:
+        self.timeout = READ_TIMEOUT  # read when the connection starts, so a test can change READ_TIMEOUT
+        super().setup()
 
     def list_directory(self, path: Any) -> None:
         self.send_error(404, "No permission to list directory")
