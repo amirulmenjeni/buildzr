@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write the endpoint index of ``docs/agent-api.md`` from the orientation document of a site.
+"""Write the endpoint index of ``docs/model-api.md`` from the orientation document of a site.
 
 The orientation document (``GET api/v1/``) lists the endpoints as URL templates and the limits of each. This script
 builds the model of ``examples/buildzr_models_example.py`` in this process, asks the API module for that document
@@ -12,7 +12,7 @@ Everything outside the two lines stays as written by hand.
 
 Usage::
 
-    python scripts/gen_api_reference.py           # rewrite docs/agent-api.md
+    python scripts/gen_api_reference.py           # rewrite docs/model-api.md
     python scripts/gen_api_reference.py --check   # exit 1 when the page differs from a fresh generation
 """
 
@@ -26,7 +26,7 @@ import tempfile
 from typing import Any, Optional
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PAGE = os.path.join(ROOT, "docs", "agent-api.md")
+PAGE = os.path.join(ROOT, "docs", "model-api.md")
 EXAMPLE = os.path.join(ROOT, "examples", "buildzr_models_example.py")
 BEGIN = "<!-- BEGIN generated: endpoints -->"
 END = "<!-- END generated: endpoints -->"

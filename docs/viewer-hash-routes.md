@@ -1,6 +1,6 @@
 # Viewer links
 
-A viewer link is the address of the site plus a **hash**, the part after `#`. This page describes the hash. You can write one by hand, or take it from the `viewerUrl` field of an [agent API](agent-api.md) answer. For a short guide to sharing links, see [the recipes](publishing-recipes.md#sharing-a-link-to-one-element).
+A viewer link is the address of the site plus a **hash**, the part after `#`. This page describes the hash. You can write one by hand, or take it from the `viewerUrl` field of a [Model API](model-api.md) answer. For a short guide to sharing links, see [the recipes](publishing-recipes.md#sharing-a-link-to-one-element).
 
 Links in the forms below keep working in later versions of buildzr.
 

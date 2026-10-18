@@ -92,7 +92,7 @@ with Workspace('w') as w:
 
 ## Command line
 
-`pip install buildzr` also installs the `buildzr` command. `buildzr build` turns your model into a site you can browse, `buildzr serve` serves it, and `buildzr deploy` publishes it to a folder or a running instance. The model is also readable by programs and AI assistants through a read-only [agent API](https://buildzr.dev/agent-api/).
+`pip install buildzr` also installs the `buildzr` command. `buildzr build` turns your model into a site you can browse, `buildzr serve` serves it, and `buildzr deploy` publishes it to a folder or a running instance. The model is also readable by scripts, CI jobs, dashboards and AI assistants through a read-only [Model API](https://buildzr.dev/model-api/).
 
 See the [Publishing guide](https://buildzr.dev/cli/) for the commands, the `buildzr.yaml` file, deploying and ready-made recipes.
 

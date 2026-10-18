@@ -1,6 +1,6 @@
 # The site store
 
-A **store** is a folder in which one `buildzr serve` process keeps several built sites, each at its own address. One site might be the main model at `/`, another a preview of a pull request at `/pr/42/`. Each site has its own viewer, its own [agent API](agent-api.md) and its own `llms.txt`.
+A **store** is a folder in which one `buildzr serve` process keeps several built sites, each at its own address. One site might be the main model at `/`, another a preview of a pull request at `/pr/42/`. Each site has its own viewer, its own [Model API](model-api.md) and its own `llms.txt`.
 
 !!! note "Filling a store"
     `buildzr serve --store DIR` serves a store **read-only**. With `--accept-deploys` the same instance also accepts uploads from `buildzr deploy` on a second listener that only this machine can reach; see [deploying to an instance](deploy.md). The Python functions at the end of this page do the same steps for tests and scripts.
@@ -44,7 +44,7 @@ For a request the instance does this, in order:
 3. **Add the slash.** `/pr/42` is answered `308 Permanent Redirect` to `/pr/42/` (the query string is kept), because the viewer's relative links only work under a URL that ends in `/`.
 4. **Look inside the release.** The rest of the URL is looked up in the current release of that site with the same rule as plain `serve`: the file must be inside the release folder (symbolic links that leave it give `404`), there are no folder listings, and a folder asked for without its closing `/` is redirected.
 
-If the store has no site at the root, `/` shows a small page that lists the sites. An unknown address is `404`; for an address that looks like the API (`.../api/v1/...`, `/_buildzr/...`) the `404` is [problem details](agent-api.md) JSON.
+If the store has no site at the root, `/` shows a small page that lists the sites. An unknown address is `404`; for an address that looks like the API (`.../api/v1/...`, `/_buildzr/...`) the `404` is [problem details](model-api.md) JSON.
 
 ## Opening a viewer during a change
 
@@ -96,7 +96,7 @@ open: https://preview.example.com/pr/42/
 api:  https://preview.example.com/pr/42/api/v1/
 ```
 
-`GET /_buildzr/v1/sites` lists the sites, so an agent that knows only the host can find them:
+`GET /_buildzr/v1/sites` lists the sites, so a script or AI assistant that knows only the host can find them:
 
 <!-- doctest: api instance shape -->
 ```http
@@ -138,7 +138,7 @@ The addresses start with `/` when the instance was started without `--public-url
 - `name` is the workspace name of the site's model (what the model was called in the DSL), so a reader can tell `pr/41` from `pr/42` without opening either.
 - `previousModelHash` is `null` when the site has no previous release. `name`, `elements` and `relationships` are `null` when the release's model cannot be read (`name` also when the model has no workspace name).
 - With `--public-url https://models.example.com` the two URLs start with that address (`https://models.example.com/pr/42/`).
-- The answer has an `ETag` that changes when any site, release or `modelHash` changes; `If-None-Match` gets `304`. As in the agent API there are no CORS headers unless `--cors-origin` is given.
+- The answer has an `ETag` that changes when any site, release or `modelHash` changes; `If-None-Match` gets `304`. As in the Model API there are no CORS headers unless `--cors-origin` is given.
 - Every other address under `/_buildzr/` is `404`.
 
 Each site's own API lives next to it, `/pr/42/api/v1/`, with `/pr/42/llms.txt`. Its `viewerUrl` links carry the site path, so a link from `/pr/42/api/v1/element?id=billing` opens `/pr/42/#/m/billing?sel=billing`.

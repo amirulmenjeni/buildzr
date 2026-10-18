@@ -97,7 +97,7 @@ nav:
   - API Reference:
     - DSL: api/dsl.md
     - Models: api/models.md
-    - Agent API: agent-api.md
+    - Model API: model-api.md
   - Development:
     - Contributing: contributing.md
     - Roadmap: roadmap.md

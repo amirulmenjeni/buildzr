@@ -99,7 +99,7 @@ class Page:
         self.dir.mkdir()
         (self.dir / ".git").mkdir()  # so that the config search stops here
         (self.dir / "examples").mkdir()
-        shutil.copy(EXAMPLE_PY, self.dir / "examples")  # the model that agent-api.md builds
+        shutil.copy(EXAMPLE_PY, self.dir / "examples")  # the model that model-api.md builds
         self.instance = instance
         self.urls = False
         self.config_text = ""

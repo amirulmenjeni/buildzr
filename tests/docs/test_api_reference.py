@@ -1,4 +1,4 @@
-"""``docs/agent-api.md`` between its generated markers is what ``scripts/gen_api_reference.py`` writes."""
+"""``docs/model-api.md`` between its generated markers is what ``scripts/gen_api_reference.py`` writes."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def gen() -> ModuleType:
 def test_the_page_is_what_a_fresh_generation_writes(gen: ModuleType) -> None:
     with open(gen.PAGE, encoding="utf-8") as f:
         old = f.read()
-    assert gen.generate(old) == old, "docs/agent-api.md is out of date; run: python scripts/gen_api_reference.py"
+    assert gen.generate(old) == old, "docs/model-api.md is out of date; run: python scripts/gen_api_reference.py"
 
 
 def test_the_script_checks_without_writing(gen: ModuleType) -> None:

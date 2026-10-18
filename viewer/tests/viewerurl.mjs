@@ -1,4 +1,4 @@
-// viewerUrl round trip: the links the agent API gives for elements open the viewer at that element.
+// viewerUrl round trip: the links the Model API gives for elements open the viewer at that element.
 // Starts the real `buildzr serve` on a copy of the site (viewer bundle + the data dir), asks the API for
 // 5 elements and opens each `viewerUrl` in the browser.
 // Run: node tests/run.mjs --only viewerurl --data <dir>   (needs `uv` and the project's Python environment)

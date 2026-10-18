@@ -1,4 +1,4 @@
-"""The read-only agent API of ``buildzr serve`` (``<site>/api/v1/``): answers, limits, HTTP behaviour, safety."""
+"""The read-only Model API of ``buildzr serve`` (``<site>/api/v1/``): answers, limits, HTTP behaviour, safety."""
 
 from __future__ import annotations
 

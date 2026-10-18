@@ -105,7 +105,7 @@ def test_unchanged_keeps_the_release_and_is_logged(inst: Instance, sites: list[P
 
 def test_a_data_only_site_is_accepted(inst: Instance, tmp_path: Path) -> None:
     site = valid_site(tmp_path / "dataonly", 9, viewer=False)
-    s, _, doc = put_site(inst.port, site, "agents")
+    s, _, doc = put_site(inst.port, site, "model")
     assert s == 200 and doc["release"] == "r-0001"
 
 

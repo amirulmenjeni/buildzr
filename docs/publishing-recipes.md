@@ -112,26 +112,26 @@ Notes:
 
 ## A site for programs only
 
-Goal: publish the model for AI assistants and scripts, without the viewer. Set `viewer: false` on the target, or `--no-viewer` on the command:
+Goal: publish the model for scripts, CI jobs, dashboards and AI assistants, without the viewer. Set `viewer: false` on the target, or `--no-viewer` on the command:
 
 <!-- doctest: merge -->
 ```yaml
 workspace: architecture/model.py
 targets:
-  agents: {url: "http://127.0.0.1:8001", path: agents, viewer: false}
+  model: {url: "http://127.0.0.1:8001", path: model, viewer: false}
 ```
 
 ```text
-$ buildzr deploy -t agents
+$ buildzr deploy -t model
 <PATH>: 2 elements, 1 relationships, 0 views, 1 levels -> <PATH>
 built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
-uploading 6 files, 12 KB to http://127.0.0.1:8001 (path agents)
-deployed agents: release r-0001, modelHash sha256:87716f3c5b04…
-open: https://preview.example.com/agents/
-api:  https://preview.example.com/agents/api/v1/
+uploading 6 files, 12 KB to http://127.0.0.1:8001 (path model)
+deployed model: release r-0001, modelHash sha256:87716f3c5b04…
+open: https://preview.example.com/model/
+api:  https://preview.example.com/model/api/v1/
 ```
 
-The site has 6 files instead of 12 because the viewer is left out. The [agent API](agent-api.md) works as before. What changes is `viewerUrl`, the link in every answer that a person can open to see an element:
+The site has 6 files instead of 12 because the viewer is left out. The [Model API](model-api.md) works as before. What changes is `viewerUrl`, the link in every answer that a person can open to see an element:
 
 - When you run `buildzr serve` on a data-only site and give no `--public-url`, there is no viewer to link to, so `viewerUrl` is `null` everywhere and the orientation document says so in `notes`:
 
@@ -344,7 +344,7 @@ A viewer address keeps everything after `#` as the state of the screen, so a lin
 
 Put the hash after the address of the site: `https://preview.example.com/pr/42/#/m/billing?sel=billing/api`. The full grammar is in [Viewer links](viewer-hash-routes.md).
 
-You do not have to write them by hand. Every element in an [agent API](agent-api.md) answer carries its link as `viewerUrl`. Ask for the element and use the field:
+You do not have to write them by hand. Every element in a [Model API](model-api.md) answer carries its link as `viewerUrl`. Ask for the element and use the field:
 
 <!-- doctest: api example -->
 ```http

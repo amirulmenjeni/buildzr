@@ -12,7 +12,7 @@ DOCS = os.path.join(ROOT, "docs")
 
 #: The pages whose examples are tested, in the order of the Publishing section.
 PAGES = ["cli.md", "config.md", "deploy.md", "publishing-recipes.md", "store.md", "ui-settings.md",
-         "viewer-hash-routes.md", "agent-api.md"]
+         "viewer-hash-routes.md", "model-api.md"]
 
 FENCE = re.compile(r"^(\s*)```([\w+-]*)\s*$")
 DIRECTIVE = re.compile(r"^<!--\s*doctest:\s*(\w+)\s*(.*?)\s*-->\s*$")

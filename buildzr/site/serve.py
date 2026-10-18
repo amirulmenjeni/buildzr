@@ -1,6 +1,6 @@
 """``buildzr serve``: a read-only server for a built site (standard library only).
 
-Static files, plus the agent API of the site at ``/api/v1/`` and a generated ``/llms.txt`` (see
+Static files, plus the Model API of the site at ``/api/v1/`` and a generated ``/llms.txt`` (see
 :mod:`buildzr.site.api`). Only GET and HEAD are answered; nothing is ever written.
 """
 
@@ -196,7 +196,7 @@ def serve(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url:
     srv = make_server(directory, host, port, public_url, cors_origins)
     url = f"http://{host}:{srv.server_address[1]}/"
     print(f"Serving {os.path.abspath(directory)} at {url} (Ctrl+C to stop)")
-    print(f"Agent API at {(public_url + '/') if public_url else url}api/v1/ (read only)")
+    print(f"Model API at {(public_url + '/') if public_url else url}api/v1/ (read only)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

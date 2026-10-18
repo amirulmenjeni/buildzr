@@ -145,6 +145,6 @@ def test_the_publishing_section_is_in_the_nav_in_order() -> None:
     i = files.index("cli.md")
     assert files[i:i + len(pub)] == pub
     assert files.index("user-guide/export.md") < i < files.index("api/dsl.md")
-    assert files[files.index("api/models.md") + 1] == "agent-api.md"
+    assert files[files.index("api/models.md") + 1] == "model-api.md"
     for p in PAGES:
         assert p in files, f"{p} is not in the nav"

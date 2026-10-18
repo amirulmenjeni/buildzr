@@ -1,4 +1,4 @@
-"""The read-only agent API of a built site (``<site>/api/v1/``), as pure functions over a loaded model.
+"""The read-only Model API of a built site (``<site>/api/v1/``), as pure functions over a loaded model.
 
 :class:`Api` takes a ``buildzr.model/2`` object and answers the eight endpoints as plain dicts; it knows nothing
 about HTTP. :class:`Source` finds the model through ``data/index.json`` and reloads it when the site is rebuilt.

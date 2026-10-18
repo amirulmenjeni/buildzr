@@ -9,7 +9,7 @@
 | Draw a model in Python | [Quick Start](getting-started/quick-start.md) and the [User Guide](user-guide/core-concepts.md) |
 | Look at my model in a browser | This page, "A first run" below |
 | Publish my model for other people | [Deploying to an instance](deploy.md), then the [recipes](publishing-recipes.md) |
-| Let programs and AI assistants read my model | [The agent API](agent-api.md) |
+| Let scripts, CI jobs, dashboards and AI assistants read my model | [The Model API](model-api.md) |
 | Run a shared instance that holds many models | [The site store](store.md) and [Deploying to an instance](deploy.md) |
 | Keep my settings in one file | [`buildzr.yaml`](config.md) |
 | Link to one box of a diagram | [Viewer links](viewer-hash-routes.md) |
@@ -53,13 +53,13 @@ buildzr serve [-h] [--store DIR] [-p PORT] [--host HOST] [--public-url URL] [--c
 | `--store DIR` | Serve every site of the [store](store.md) folder `DIR`, read only, instead of one site. |
 | `-p PORT`, `--port PORT` | The port. Default 8000. |
 | `--host HOST` | The address to listen on. Default `127.0.0.1`, which only this machine can reach. Use `0.0.0.0` on purpose to share. |
-| `--public-url URL` | The address readers use for the site (`http://` or `https://`). The [agent API](agent-api.md) builds its `viewerUrl` links from it. |
+| `--public-url URL` | The address readers use for the site (`http://` or `https://`). The [Model API](model-api.md) builds its `viewerUrl` links from it. |
 | `--cors-origin ORIGIN` | Let a web page from this origin read the API from a browser. Repeat it for more origins. There is no wildcard. |
 | `--accept-deploys` | With `--store`: also accept uploads from `buildzr deploy`, on a second listener that only this machine can reach. Creates the store when the folder is missing or empty. |
 | `--deploy-port N` | The port of that second listener. Default 8001. It always listens on `127.0.0.1`. |
 | `--max-upload-mb N` | The largest upload accepted, compressed. Default 50. |
 
-`serve` answers `GET` and `HEAD` only. Besides the files it answers the [agent API](agent-api.md) under `/api/v1/` and a generated `/llms.txt`. `--deploy-port` and `--max-upload-mb` need `--accept-deploys`, and `--accept-deploys` needs `pip install 'buildzr[serve]'`.
+`serve` answers `GET` and `HEAD` only. Besides the files it answers the [Model API](model-api.md) under `/api/v1/` and a generated `/llms.txt`. `--deploy-port` and `--max-upload-mb` need `--accept-deploys`, and `--accept-deploys` needs `pip install 'buildzr[serve]'`.
 
 ### `buildzr deploy`
 
@@ -173,12 +173,12 @@ built .buildzr/site (5 elements, 3 relationships, 1 view; modelHash sha256:87716
 ```text
 $ buildzr serve
 Serving /home/you/shop/.buildzr/site at http://127.0.0.1:8000/ (Ctrl+C to stop)
-Agent API at http://127.0.0.1:8000/api/v1/ (read only)
+Model API at http://127.0.0.1:8000/api/v1/ (read only)
 ```
 
 Open `http://127.0.0.1:8000/` in a browser. You see the landscape of your model; click a box to open it. Press Ctrl+C in the terminal to stop the server. If the port is busy, pick another with `-p 8001`.
 
-The same address also answers questions about the model as JSON; see [the agent API](agent-api.md).
+The same address also answers questions about the model as JSON; see [the Model API](model-api.md).
 
 ### 4. Publish it to a folder
 
