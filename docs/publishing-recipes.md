@@ -313,7 +313,7 @@ The viewer keeps the state of the screen in the part of the address after `#`, t
 
 | To open... | Write |
 |---|---|
-| The landscape (the top level of the model) | `#/m` |
+| The landscape (every person and software system of the model) | `#/m` |
 | A box that contains other boxes, expanded | `#/m/billing?sel=billing` |
 | One element inside a box, selected | `#/m/billing?sel=billing/api` |
 | A view that the authors drew | `#/v/billing-containers` |

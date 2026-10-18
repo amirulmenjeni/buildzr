@@ -12,7 +12,7 @@ Links in the forms on this page keep working in later versions of buildzr.
 |---|---|
 | **viewer** | The web page inside a site that draws the diagrams. |
 | **hash** | The part of an address after `#`. The viewer keeps its navigation state there. |
-| **landscape** | The first diagram the viewer shows: the top level of the model. |
+| **landscape** | The first diagram the viewer shows, like a [System Landscape diagram](https://c4model.com/#SystemLandscapeDiagram) of the C4 model: every person and software system of the model. Groups draw a boundary around some of them; they do not hide any. |
 | **element path** | The id of an element: lower-case names joined by `/`, for example `billing/api`. It is the same id as in the Model API. |
 | **authored view** | A view that the authors of the model defined, such as a system context view. |
 | **arrow id** | The id of an arrow that the viewer draws, such as `billing/web->billing/api`. |

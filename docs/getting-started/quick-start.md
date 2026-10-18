@@ -207,7 +207,7 @@ Serving /home/you/quickstart/.buildzr/site at http://127.0.0.1:8000/ (Ctrl+C to 
 Model API at http://127.0.0.1:8000/api/v1/ (read only)
 ```
 
-Open `http://127.0.0.1:8000/` in your browser. You see the **landscape**, the top level of your model: the user, the web application and the "Uses" arrow between them.
+Open `http://127.0.0.1:8000/` in your browser. You see the **landscape**: every person and software system of your model, like a [System Landscape diagram](https://c4model.com/#SystemLandscapeDiagram) of the C4 model. Here, that is the user, the web application and the "Uses" arrow between them.
 
 ![The viewer after it opens: the User above the Web Application, joined by an arrow labelled Uses, with the model tree on the left](../images/quick-start/quick-start-landscape.png)
 
