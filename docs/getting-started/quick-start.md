@@ -209,7 +209,15 @@ Model API at http://127.0.0.1:8000/api/v1/ (read only)
 
 Open `http://127.0.0.1:8000/` in your browser. You see the **landscape**, the top level of your model: the user, the web application and the "Uses" arrow between them.
 
+![The viewer after it opens: the User above the Web Application, joined by an arrow labelled Uses, with the model tree on the left](../images/quick-start/quick-start-landscape.png)
+
+*The first screen. The left panel lists the elements of the model and, under **Views**, your System Context View.*
+
 Click the **Web Application** box. The right panel shows its details: its description, its path, the relationships that go in and out, and the views it appears in.
+
+![The Web Application box selected; the right panel lists its description, one incoming relationship from User, and the System Context View](../images/quick-start/quick-start-element-selected.png)
+
+*After the click. Under **Incoming**, the panel shows the "Uses" relationship from the User.*
 
 ## 9. Open a link to one element
 
@@ -220,6 +228,10 @@ http://127.0.0.1:8000/#/v/system-context?sel=user
 ```
 
 The viewer opens the System Context View that you added in step 5, with the User selected. You can share such a link with anyone who can open the site.
+
+![The System Context View opened from a link, with the User box selected and its details in the right panel](../images/quick-start/quick-start-view-link.png)
+
+*The view opened from the link. The top bar shows **View: System Context View**, and the right panel shows the User.*
 
 To stop `buildzr serve`, press Ctrl+C in the terminal.
 
