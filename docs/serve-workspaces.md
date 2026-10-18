@@ -37,6 +37,8 @@ In an empty project folder, save this as `buildzr.yaml`. It names the workspaces
 workspaces: architecture
 ```
 
+`serve` then builds every model file of the folder. To build only some files, or to give one file its own build settings, list the files instead: see [Choosing which files to build](config.md#choosing-which-files-to-build).
+
 Create the folder `architecture`. Save this helper as `architecture/_shared.py`. Files whose name starts with `_` hold code that model files share; they are not model files themselves:
 
 <!-- doctest: file architecture/_shared.py -->

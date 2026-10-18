@@ -8,7 +8,7 @@ This page is a reference. It lists where the commands look for the file, every k
 
 | Word | Meaning |
 |---|---|
-| **workspaces folder** | The folder of Python files that create your workspaces. The `workspaces:` key names it. |
+| **workspaces folder** | The folder of Python files that create your workspaces. The `workspaces:` key names it, or lists the files and folders to build instead. |
 | **built workspace** | The folder that `buildzr build` writes for one workspace: the viewer, the model data and a file called `build.json`. |
 | **build output** | The folder that holds every built workspace. The `build.out` key names it. |
 | **data-only workspace** | A built workspace without the viewer, only the model data. |
@@ -20,6 +20,8 @@ Each setting comes from the first of these that has it:
 1. An option on the command line.
 2. `buildzr.yaml`.
 3. The built-in default.
+
+When `workspaces:` is a list, an entry can set its own build settings, which come between the option and the `build:` section; see [Choosing which files to build](#choosing-which-files-to-build).
 
 No environment variable sets a setting directly. You can use environment variables only inside the file, as [`${VAR}`](#values-from-environment-variables).
 
@@ -42,7 +44,9 @@ Relative paths in the file are relative to the folder that holds the file, not t
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `version` | integer | `1` | The version of the file format. Only `1` is accepted. |
-| `workspaces` | text (path) | `workspaces` | The workspaces folder. A path to a single `.py` file also works. |
+| `workspaces` | text (path), or a list | `workspaces` | The workspaces folder. A path to a single `.py` file also works. Or a list of files and folders to build, each with its own build settings: see [Choosing which files to build](#choosing-which-files-to-build). `-w` on the command line replaces it. |
+| `workspaces[].path` | text (path) | none | In a list: a `.py` file, or a folder whose Python files are all built. An entry that is only a path is the same as an entry with only `path`. |
+| `workspaces[].build` | `k`, `text_color`, `viewer` | none | In a list: the build settings of this entry's workspaces. Each one wins over the same key of `build`. `out` is not allowed here. |
 | `build.k` | whole number, at least 1 | `4` | Room for a box that contains other boxes, as a multiple of the area of an empty box; the same value as `--k`. See [Choosing a value for `--k`](cli.md#choosing-a-value-for-k). |
 | `build.text_color` | `wcag` or `c4` | `wcag` | The text colour on boxes. See `--text-color` in [`buildzr build`](cli.md#buildzr-build). |
 | `build.viewer` | `true` / `false` | `true` | `false` builds data-only workspaces. |
@@ -60,7 +64,7 @@ To let your editor check the file, use the JSON Schema `buildzr/site/schema/conf
 
 ## Values from environment variables
 
-You can use environment variables in the text values `workspaces`, `build.out`, `serve.public_url`, `serve.host` and each entry of `serve.cors_origins`. Not in `serve.port`, which is a number.
+You can use environment variables in the text values `workspaces` (also each path of a list), `build.out`, `serve.public_url`, `serve.host` and each entry of `serve.cors_origins`. Not in `serve.port`, which is a number.
 
 - Write `${NAME}`, where `NAME` matches `[A-Z_][A-Z0-9_]*`. Write `${NAME:-fallback}` to use `fallback` when the variable is unset or empty. Write `$$` for a literal `$`. Any other `$` is an error.
 - A variable that is unset or empty, and has no fallback, is an error.
@@ -333,7 +337,183 @@ What to know about such a project:
     }
     ```
 
-    Fix the typo and run `buildzr build` again: all three are ok. [When a workspace is broken](cli.md#when-a-workspace-is-broken) has the details.
+    Fix the typo and build again: all three are ok. [When a workspace is broken](cli.md#when-a-workspace-is-broken) has the details.
+
+    <!-- doctest: file architecture/platform.py -->
+    ```python
+    from buildzr.dsl import Workspace, Person, SoftwareSystem
+    from _shared import PAYMENT_PROVIDER
+
+    with Workspace("Core") as core:
+        customer = Person("Customer")
+        shop = SoftwareSystem("Web Shop")
+        payments = SoftwareSystem(PAYMENT_PROVIDER)
+        customer >> "Buys from" >> shop
+        shop >> "Takes payments through" >> payments
+
+    with Workspace("Infra") as infra:
+        cluster = SoftwareSystem("Kubernetes Cluster")
+        database = SoftwareSystem("Database Service")
+        cluster >> "Stores data in" >> database
+    ```
+
+    ```text
+    $ buildzr build
+    built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
+    built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+    built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
+    ```
+
+## Choosing which files to build
+
+With `workspaces: architecture`, every model file of the folder is built, and every workspace gets the same build settings. To build only some files, or to give one file its own settings, make `workspaces:` a list of files and folders.
+
+This continues the project above. The team adds `architecture/api_catalog.py`, a list of the services and their APIs that scripts and AI assistants read through the [Model API](model-api.md). Nobody looks at it in a browser, so it needs no viewer:
+
+<!-- doctest: file architecture/api_catalog.py -->
+```python
+from buildzr.dsl import Workspace, SoftwareSystem
+from _shared import PAYMENT_PROVIDER
+
+with Workspace("API Catalog") as w:
+    orders = SoftwareSystem("Orders API", "REST, owned by the shop team")
+    invoices = SoftwareSystem("Invoices API", "REST, owned by the billing team")
+    payments = SoftwareSystem(PAYMENT_PROVIDER, "External")
+    orders >> "Asks for an invoice through" >> invoices
+    invoices >> "Collects payments through" >> payments
+```
+
+```text
+my-project/
+├── buildzr.yaml
+└── architecture/
+    ├── _shared.py
+    ├── api_catalog.py  creates the workspace API Catalog
+    ├── billing.py      creates the workspace Billing
+    └── platform.py     creates the workspaces Core and Infra
+```
+
+This `buildzr.yaml` lists the three model files. Platform diagrams have systems inside other systems, so `platform.py` gets more room for them (`k: 9`); the catalog is built without the viewer:
+
+```yaml
+build:
+  k: 4
+workspaces:
+  - architecture/billing.py
+  - path: architecture/platform.py
+    build:
+      k: 9
+  - path: architecture/api_catalog.py
+    build:
+      viewer: false
+```
+
+Each entry is a path, or a mapping with `path` and an optional `build` that holds `k`, `text_color` or `viewer`. The `built` line of a workspace shows the settings that are not the defaults:
+
+```text
+$ buildzr build
+built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
+built .buildzr/build/core (k 9; 3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+built .buildzr/build/infra (k 9; 2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
+built .buildzr/build/api-catalog (data only; 3 elements, 2 relationships, 0 views; modelHash sha256:ae661bde471c…)
+```
+
+`serve` serves the data-only workspace like the others, but gives the address of its Model API instead of a viewer:
+
+```text
+$ buildzr serve
+up to date: api-catalog, billing, core, infra
+Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+  http://127.0.0.1:8000/api-catalog/api/v1/ (data only, no viewer)
+  http://127.0.0.1:8000/billing/
+  http://127.0.0.1:8000/core/
+  http://127.0.0.1:8000/infra/
+Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
+```
+
+The index page at `http://127.0.0.1:8000/` links the Model API of the catalog, and in the workspace list for programs its `viewerUrl` is `null`.
+
+![The index page of buildzr serve: billing, core and infra link to their viewers; api-catalog is marked "data only, no viewer" and links to its Model API.](images/serve/index-data-only.png)
+
+*The index page with the data-only workspace api-catalog: it has no viewer link.*
+
+How a list works:
+
+- **Only the listed files are built.** A model file in `architecture` that is not on the list is not built. Paths are relative to the folder that holds `buildzr.yaml`, and they may use [environment variables](#values-from-environment-variables).
+- **A folder entry builds every model file in it**, as a workspaces folder does: its subfolders too, and not the files and folders whose name starts with `_` or `.`. Its `build` settings apply to each of those files:
+
+    ```yaml
+    workspaces:
+      - architecture/billing.py
+      - path: shared-models/
+        build:
+          text_color: c4
+    ```
+
+    A folder entry that holds no model file prints a warning and builds nothing; the other entries are built as usual.
+
+- **Each setting of a workspace comes from the first of these that has it:**
+    1. An option on the command line: `--k`, `--text-color`, `--no-viewer`.
+    2. The `build` of the file's entry.
+    3. The `build` section of the file.
+    4. The built-in default.
+- **`-w` replaces the list.** `buildzr build -w architecture/platform.py` builds that file with the settings of the `build` section, so with `k` 4, not 9. To build one file with the settings of its entry, run `buildzr build` without `-w`.
+- **A change to one entry rebuilds only its workspaces.** The settings of each workspace are part of its fingerprint. Change `k: 9` to `k: 12`, and `serve` builds Core and Infra again and finds Billing and API Catalog up to date. A helper file counts for the files of the folder that holds it: here `_shared.py` counts for all three, because they are all in `architecture`.
+- **Taking a file off the list removes its built workspace on the next full build**, as deleting the file does with a workspaces folder. Without the `api_catalog.py` entry:
+
+    ```yaml
+    build:
+      k: 4
+    workspaces:
+      - architecture/billing.py
+      - path: architecture/platform.py
+        build:
+          k: 9
+    ```
+
+    ```text
+    $ buildzr build
+    built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
+    built .buildzr/build/core (k 9; 3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+    built .buildzr/build/infra (k 9; 2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
+    removed api-catalog: its model file architecture/api_catalog.py is no longer in the workspaces: list
+    ```
+
+    `buildzr build -w FILE` and `serve` never remove anything. A build removes only the workspaces it built itself: `build.json` records the config file of the list, so a build of another config file, or of a single path with `-w`, never removes the workspaces of this list.
+
+- **A path that does not exist stops the command** before anything is built, with the line of the entry. With a typo in the first entry:
+
+    ```yaml
+    workspaces:
+      - architecture/biling.py
+      - architecture/platform.py
+    ```
+
+    ```text
+    $ buildzr build
+    buildzr.yaml:2: workspaces[0]: architecture/biling.py not found (relative to buildzr.yaml's folder)
+    [exit code 2]
+    ```
+
+    Entries are counted from 0: `workspaces[0]` is the first one.
+
+- **A file may be on the list only once**, also through a folder entry. Both entries are named:
+
+    ```yaml
+    workspaces:
+      - architecture/platform.py
+      - path: architecture
+        build:
+          k: 9
+    ```
+
+    ```text
+    $ buildzr build
+    buildzr.yaml:3: workspaces[1]: architecture holds architecture/platform.py, which is already in workspaces[0] (line 2); list each file once
+    [exit code 2]
+    ```
+
+    An empty list (`workspaces: []`) is an error too.
 
 ## Examples of error messages
 
@@ -397,4 +577,4 @@ The last line of each command example, such as `[exit code 2]`, shows the exit c
 
 ## Python functions
 
-The module `buildzr.site.config` has these functions for scripts and tests: `find_config(start)`, `load_config(path)`, `resolve_workspaces(cfg, env)`, `resolve_build(cfg, env)` and `resolve_serve(cfg, env)`. Problems raise `ConfigError`. `load_config` does not read environment variables; the `resolve_*` functions do.
+The module `buildzr.site.config` has these functions for scripts and tests: `find_config(start)`, `load_config(path)`, `resolve_workspaces(cfg, env)`, `resolve_workspace_entries(cfg, env)` (a list of `workspaces:`, or `None`), `workspace_files(cfg, entries)` (the model files of each entry; it checks that they exist and are listed once), `resolve_build(cfg, env)` and `resolve_serve(cfg, env)`. Problems raise `ConfigError`. `load_config` does not read environment variables; the `resolve_*` functions do.

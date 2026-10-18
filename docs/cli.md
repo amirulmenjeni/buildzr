@@ -72,7 +72,7 @@ uvx --with <package> buildzr build
 Each setting comes from the first of these that has it:
 
 1. An option on the command line.
-2. `buildzr.yaml`.
+2. `buildzr.yaml`. When `workspaces:` is a list, the `build:` of a file's entry comes before the `build:` of the whole file; see [Choosing which files to build](config.md#choosing-which-files-to-build).
 3. The built-in default.
 
 The tables below list every option. `buildzr COMMAND --help` prints the same list.
@@ -87,10 +87,10 @@ buildzr build [-h] [-w PATH] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c 
 
 | Option | What it does |
 |---|---|
-| `-w PATH`, `--workspaces PATH` | The Python file or folder that creates workspaces. Default: `workspaces:` in `buildzr.yaml`, else the folder `workspaces`. |
+| `-w PATH`, `--workspaces PATH` | The Python file or folder that creates workspaces. It takes one path, and it replaces `workspaces:` of `buildzr.yaml`, whether that is a path or a [list of files and folders](config.md#choosing-which-files-to-build). The `build:` settings of the file still apply; the settings of a list entry do not. Default: `workspaces:` in `buildzr.yaml`, else the folder `workspaces`. |
 | `--k N` | Room for a box that contains other boxes, as a multiple of the area of an empty box. Raise it if the insides of such boxes are too small to read; lower it for compact diagrams. A whole number of at least 1. Default: `build.k` in `buildzr.yaml`, else 4. See [Choosing a value for `--k`](#choosing-a-value-for-k). |
 | `--text-color {wcag,c4}` | The text colour on boxes whose styles do not set one. `wcag` picks black or white, whichever contrasts more with the box, following the Web Content Accessibility Guidelines (WCAG). `c4` uses the default C4 text colours. Default: `build.text_color`, else `wcag`. |
-| `--no-viewer` | Build data-only workspaces: the model data without the viewer. |
+| `--no-viewer` | Build data-only workspaces: the model data without the viewer. It also applies to the entries of a `workspaces:` list that set `viewer: true`. |
 | `-c FILE`, `--config FILE` | The config file. Default: `buildzr.yaml`, searched from the current folder upward. |
 | `-v`, `--verbose` | Also show the line from the step that runs each model file. It counts the elements, relationships, views and levels of each workspace, and names a temporary folder. Errors are always shown. |
 | `-o DIR`, `--out DIR` | The build output. Default: `build.out`, else `.buildzr/build`. |
@@ -142,7 +142,7 @@ buildzr: BROKEN: workspace billing (workspaces/billing.py) failed at the model s
 
 #### Removing built workspaces you no longer build
 
-A full build, without `-w` or with `-w` and a folder, removes a built workspace when its model file was deleted, or when its model file ran without failure in this build and no longer creates it (you renamed or removed the workspace in the file). It prints one line for each, such as `removed old-name: its model file workspaces/old-name.py is gone`. A model file that failed because of the machine keeps all its previous built workspaces. Only built workspaces built from the same workspaces folder are removed: `build.json` records that folder, so `buildzr build -w other/folder` never removes the workspaces of your workspaces folder. A folder without a `build.json` that names its model file is never removed, nor is anything when you build one file with `-w FILE`. `serve` never removes anything: run `buildzr build` to tidy the build output.
+A full build, without `-w` or with `-w` and a folder, removes a built workspace when its model file was deleted, or when its model file ran without failure in this build and no longer creates it (you renamed or removed the workspace in the file). It prints one line for each, such as `removed old-name: its model file workspaces/old-name.py is gone`. When `workspaces:` in `buildzr.yaml` is a list, a full build is a build without `-w`, and it also removes the built workspaces of a file you took off the list. A model file that failed because of the machine keeps all its previous built workspaces. Only built workspaces built from the same workspaces folder are removed: `build.json` records that folder, so `buildzr build -w other/folder` never removes the workspaces of your workspaces folder. A workspace built from a `workspaces:` list also records the config file of the list, so only a build of that same list removes it. A folder without a `build.json` that names its model file is never removed, nor is anything when you build one file with `-w FILE`. `serve` never removes anything: run `buildzr build` to tidy the build output.
 
 ### Choosing a value for `--k`
 
@@ -174,7 +174,7 @@ buildzr serve [-h] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOS
 
 | Option | What it does |
 |---|---|
-| `PATH` | What to serve. A workspaces folder or a model file: `serve` builds its workspaces when they are missing or out of date, then serves the build output. A folder that already holds built workspaces (it has a `build.json`, or subfolders that have one): `serve` serves it as it is, and builds nothing. Default: the workspaces folder of the project. |
+| `PATH` | What to serve. A workspaces folder or a model file: `serve` builds its workspaces when they are missing or out of date, then serves the build output. It replaces `workspaces:` of `buildzr.yaml`, as `-w` does for `build`. A folder that already holds built workspaces (it has a `build.json`, or subfolders that have one): `serve` serves it as it is, and builds nothing. Default: `workspaces:` in `buildzr.yaml` (a path or a list), else the folder `workspaces`. |
 | `--no-build` | Serve the build output as it is, without building. Node is then not needed. |
 | `--rebuild` | Build every workspace again, also the ones that are up to date. |
 | `-c FILE`, `--config FILE` | The config file. Default: `buildzr.yaml`, searched from the current folder upward. |
@@ -189,9 +189,9 @@ buildzr serve [-h] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOS
 A built workspace is rebuilt when its folder is missing, or when its **fingerprint** changed. `build` records the fingerprint in the `build.json` of the workspace. It is a sha256 hash of:
 
 - the model file that creates the workspace,
-- every file whose name starts with `_` and ends with `.py` in the workspaces folder and its subfolders, because model files probably import them,
+- every file whose name starts with `_` and ends with `.py` in the workspaces folder and its subfolders, because model files probably import them (for a `workspaces:` list: in the folder of the file's entry, or the folder that holds the listed file, and their subfolders),
 - the version of buildzr,
-- the options that change the output: `--k`, `--text-color` and `--no-viewer`.
+- the settings that change the output, as they are for this workspace: `k`, `text_color` and `viewer`, from an option, the file's list entry or `build:`. Changing the `k` of one list entry rebuilds only the workspaces of that entry.
 
 File dates are not used. Code that a model file imports from **outside** the workspaces folder is not part of the fingerprint: after you change such code, start `serve` with `--rebuild`.
 
@@ -202,7 +202,7 @@ File dates are not used. Code that a model file imports from **outside** the wor
 | `/<name>/` | The viewer of the workspace `<name>`, and its files, such as `/<name>/data/index.json`. |
 | `/<name>/api/v1/` | The [Model API](model-api.md) of the workspace. |
 | `/<name>/llms.txt` | A short plain-text page that tells AI tools where the Model API of the workspace is. |
-| `/` | With one workspace, a redirect (HTTP 302) to `/<name>/`. With several, a page that links to each one. |
+| `/` | With one workspace, a redirect (HTTP 302) to `/<name>/`, or to its Model API `/<name>/api/v1/` when it is data-only. With several, a page that links to each one: to its viewer, or to its Model API when it is data-only. |
 | `/_buildzr/v1/workspaces` | The list of workspaces as JSON. See [Serve your workspaces](serve-workspaces.md#6-list-the-workspaces-from-a-program). |
 
 - When `serve` starts, it prints each build failure as `build` does, and a block for every broken workspace in the build output, also those built earlier. It serves every built workspace, broken ones included: `/` marks them as broken, and `/_buildzr/v1/workspaces` gives their `status`, `stage` and `errors`. If nothing can be served, it exits with code 1.
