@@ -19,9 +19,9 @@ In Structurizr, you define architecture models and their relationships first. An
 uv add buildzr
 ```
 
-With pip instead: `pip install buildzr`. Add buildzr to the project's environment when you write models, because your model file imports it.
+With pip instead: `pip install buildzr`. Your model file imports buildzr, so add buildzr to the environment of the project in which you write models.
 
-`buildzr build` needs Node.js 18 or newer on the machine that builds (its layout step runs on Node). Check with `node --version`.
+The `buildzr build` command needs Node.js 18 or newer on the machine that builds, because its layout step runs on Node. Check your version with `node --version`.
 
 ## Quick Example
 
@@ -96,22 +96,30 @@ with Workspace('w') as w:
 ![Example Software System View](./docs/images/quick_example/web_app_system_context_00.svg)
 ![Example Container View](./docs/images/quick_example/web_app_container_view_00.svg)
 
-## Try it in a minute
+## Run the command line without installing it
 
-With [uv](https://docs.astral.sh/uv/) you can run the command line without installing anything. You need a model file (a `.py` file that creates a `Workspace`, like the examples above) in the current folder:
+With [uv](https://docs.astral.sh/uv/), the `uvx` tool runs the `buildzr` command in a temporary environment, without installing buildzr into your project. You need a model file in the current folder: a `.py` file that creates a `Workspace`, like the example above.
 
 ```bash
 uvx buildzr build -w model.py
 uvx buildzr serve
 ```
 
-`uvx` runs buildzr in its own isolated environment, so `buildzr build` works without installing anything. To run or edit the model file yourself (`python model.py`, your editor), add buildzr to your project with `uv add buildzr`. If the model file needs other libraries, add them with `uvx --with <package> buildzr build -w model.py`. To keep the command installed, run `uv tool install buildzr`.
+- If your model file imports other packages, add each one with `--with`: `uvx --with <package> buildzr build -w model.py`.
+- To run the model file yourself (`python model.py`) or to edit it with code completion in your editor, you still need buildzr in your project: `uv add buildzr`.
+- To keep the `buildzr` command installed on your machine, run `uv tool install buildzr`.
 
 ## Command line
 
-Installing buildzr also installs the `buildzr` command. `buildzr build` turns your model into a site you can browse, `buildzr serve` serves it, and `buildzr deploy` publishes it to a folder or a running instance. The model is also readable by scripts, CI jobs, dashboards and AI assistants through a read-only [Model API](https://buildzr.dev/model-api/).
+Installing buildzr also installs the `buildzr` command. It turns your model into a **site**: a folder of web pages that draws your diagrams in a browser.
 
-See the [Publishing guide](https://buildzr.dev/cli/) for the commands, the `buildzr.yaml` file, deploying and ready-made recipes.
+- `buildzr build` runs your model file and writes the site.
+- `buildzr serve` serves the site, so that you can open it in a browser.
+- `buildzr deploy` copies the site to a folder, or to an instance (a running `buildzr serve` that holds many sites), so that other people can open it.
+
+Scripts, CI (continuous integration) jobs, dashboards and AI assistants can read the model through the read-only [Model API](https://buildzr.dev/model-api/).
+
+The [Command line](https://buildzr.dev/cli/) page describes the commands and starts with a tutorial. The Publishing section of the documentation also covers `buildzr.yaml`, deploying to an instance and ready-made recipes.
 
 ## Getting Started
 
