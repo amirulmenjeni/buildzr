@@ -5,16 +5,15 @@ Conventions of the pages (the ``<!-- doctest: ... -->`` line goes just before th
 * a ``yaml`` block is a ``buildzr.yaml``; it must load. After ``invalid`` it must fail with the lines the next block
   quotes. It becomes the config of the commands that follow on the same page.
 * a ``text`` block that starts with ``$ buildzr ...`` is run in a folder made for the page; the lines after each ``$``
-  line are the expected output (hashes, paths, ports, sizes and timings are normalised; ``...`` stands for any lines)
-  and a line ``[exit code N]`` states the exit code (else it must be 0).
-* ``file PATH`` writes the next block to PATH of that folder (the model of the page).
+  line are the expected output (hashes, paths, ports and timings are normalised; ``...`` stands for any lines)
+  and a line ``[exit code N]`` states the exit code (else it must be 0). ``buildzr serve`` stops at once, as if
+  Ctrl+C was pressed, after it printed its addresses.
+* ``file PATH`` writes the next block to PATH of that folder (a model of the page).
 * an ``http`` block ``GET /path`` is sent to a live server; the ``json`` block after it is compared with the answer
   (same keys, same types, same values unless the directive is ``shape``).
-* ``api NAME`` chooses the server of an ``http`` block: ``example`` (default), ``data-only``
-  or ``instance`` (the instance that the commands of the page deployed to).
-* ``merge`` (before a ``yaml`` block): its targets are added to the config of the page instead of replacing it.
-* ``audit`` (before a ``json`` block): the block is a line of ``deploys.log``; it is compared, by shape, with the
-  first line the instance of the page wrote.
+* ``api NAME`` chooses the server of an ``http`` block: ``example`` (default: the build output that holds
+  ``examples/buildzr_models_example.py``), ``data-only`` (the same, built without the viewer) or ``page`` (the build
+  output that the commands of the page wrote).
 * ``skip REASON`` opts a block out; the reasons are listed by ``test_opt_outs_are_few_and_listed``.
 """
 
@@ -39,15 +38,13 @@ from buildzr.site.build import STATIC_DIR, build_workspace
 from buildzr.site.config import ConfigError, load_config
 from buildzr.site.serve import make_server
 from tests.docs.blocks import PAGES, ROOT, Block, compare_json, extract_blocks, same_lines
-from tests.site.deploy_helpers import Instance
 from tests.site.stub_layout import stub_layout
 from tests.site.test_cli import make_static
 
 EXAMPLE_PY = os.path.join(ROOT, "examples", "buildzr_models_example.py")
 HAS_NODE = bool(shutil.which("node") or os.environ.get("BUILDZR_NODE"))
 REAL = HAS_NODE and os.path.isfile(os.path.join(STATIC_DIR, "index.html")) and not os.environ.get("BUILDZR_DOCTEST_STUB")
-PUBLIC = "https://preview.example.com"
-PUBLIC_URLS: dict[str, Optional[str]] = {"publish-first-site.md": None}  # a local instance, as its tutorial starts it
+EXAMPLE_NAME = "microservices-example"  # the folder of the example in a build output: its workspace name
 MAX_OPT_OUTS = 8
 
 Json = dict[str, Any]
@@ -94,62 +91,35 @@ def run_cli(argv: list[str], cwd: Path, env: dict[str, str]) -> tuple[int, str]:
 class Page:
     """The folder and the state shared by the commands of one page."""
 
-    def __init__(self, name: str, root: Path, instance: Optional[Instance]) -> None:
+    def __init__(self, name: str, root: Path) -> None:
         self.name = name
         self.dir = root / name.replace("/", "-").replace(".", "-")
         self.dir.mkdir()
         (self.dir / ".git").mkdir()  # so that the config search stops here
         (self.dir / "examples").mkdir()
         shutil.copy(EXAMPLE_PY, self.dir / "examples")  # the model that model-api.md builds
-        self.instance = instance
-        self.urls = False
-        self.config_text = ""
 
     def path(self, p: str) -> Path:
         return self.dir / p.lstrip("/")
 
-    def write_config(self, text: str, merge: bool = False) -> None:
-        if merge and (self.dir / "buildzr.yaml").exists():  # `merge`: the targets are added to the page's config
-            import yaml
-            old = yaml.safe_load(self.config_text)
-            new = yaml.safe_load(text)
-            old["targets"] = {**old.get("targets", {}), **new.get("targets", {})}
-            text = yaml.safe_dump(old, sort_keys=False)
-        self.config_text = text
-        def url(m: re.Match[str]) -> str:
-            assert self.instance is not None
-            self.urls = True
-            return f"http://127.0.0.1:{self.instance.port}"
-
-        text = re.sub(r"http://127\.0\.0\.1:\d+", url, text)
-        text = re.sub(r"(\bdir:\s*)(\"?)(/[^\s,}\"]+)", lambda m: f"{m.group(1)}{m.group(2)}{self.path(m.group(3))}", text)
+    def write_config(self, text: str) -> None:
         (self.dir / "buildzr.yaml").write_text(text, encoding="utf-8")
 
     def argv(self, tokens: list[str]) -> list[str]:
         out = [str(self.path(t)) if t.startswith("/") else t for t in tokens]
-        if out[0] == "serve":
-            if "-p" not in out and "--port" not in out:
-                out += ["-p", "0"]
-            if "--accept-deploys" in out and "--deploy-port" not in out:
-                out += ["--deploy-port", "0"]
+        if out[0] == "serve" and "-p" not in out and "--port" not in out:
+            out += ["-p", "0"]
         return out
 
 
 @pytest.fixture(scope="module")
-def work(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, Any]]:
-    root = tmp_path_factory.mktemp("docs")
-    state: dict[str, Any] = {"root": root, "pages": {}, "instances": []}
-    yield state
-    for inst in state["instances"]:
-        inst.close()
+def work(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    return {"root": tmp_path_factory.mktemp("docs"), "pages": {}}
 
 
 def page_of(work: dict[str, Any], name: str) -> Page:
     if name not in work["pages"]:
-        folder = work["root"] / (name.replace("/", "-").replace(".", "-") + "-store")
-        inst = Instance(folder, public_url=PUBLIC_URLS.get(name, PUBLIC))
-        work["instances"].append(inst)
-        work["pages"][name] = Page(name, work["root"], inst)
+        work["pages"][name] = Page(name, work["root"])
     page: Page = work["pages"][name]
     return page
 
@@ -182,38 +152,40 @@ def layout(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFac
     if REAL:
         return
     static = make_static(tmp_path_factory.mktemp("static"))
-    real = cli.build_workspace
+    real = cli.build_all
 
-    def stub_build(workspace: str, out: str = ".buildzr/site", k: Any = None, text_color: Any = None,
-                   viewer: bool = True, **kw: Any) -> dict[str, Any]:
-        return real(workspace, out, k, text_color, viewer, layout_fn=stub_layout, static_dir=str(static))
+    def stub_build_all(path: str, out: str, *a: Any, **kw: Any) -> Any:
+        return real(path, out, *a, **{**kw, "layout_fn": stub_layout, "static_dir": str(static)})
 
-    monkeypatch.setattr(cli, "build_workspace", stub_build)
+    monkeypatch.setattr(cli, "build_all", stub_build_all)
+    monkeypatch.setattr(cli, "_node_problem", lambda: None)
 
 
 # --- servers for the API examples -----------------------------------------------------------------------
 
 
 @pytest.fixture(scope="module")
-def sites(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, int]]:
-    tmp = tmp_path_factory.mktemp("apisites")
+def servers(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, int]]:
+    """The models example, at ``/microservices-example/`` of a build output, with and without its viewer."""
+    tmp = tmp_path_factory.mktemp("apiservers")
+    built = tmp / "build" / EXAMPLE_NAME
     if REAL:
-        build_workspace(EXAMPLE_PY, str(tmp / "site"))
+        build_workspace(EXAMPLE_PY, str(built))
     else:
         static = make_static(tmp / "static")
-        build_workspace(EXAMPLE_PY, str(tmp / "site"), layout_fn=stub_layout, static_dir=str(static))
-    shutil.copytree(tmp / "site", tmp / "data-only")
-    (tmp / "data-only" / "index.html").unlink()
-    shutil.rmtree(tmp / "data-only" / "assets")
-    servers = []
+        build_workspace(EXAMPLE_PY, str(built), layout_fn=stub_layout, static_dir=str(static))
+    shutil.copytree(built, tmp / "data-only" / EXAMPLE_NAME)
+    (tmp / "data-only" / EXAMPLE_NAME / "index.html").unlink()
+    shutil.rmtree(tmp / "data-only" / EXAMPLE_NAME / "assets")
+    started = []
     ports = {}
-    for name, d in (("example", "site"), ("data-only", "data-only")):
+    for name, d in (("example", "build"), ("data-only", "data-only")):
         srv = make_server(str(tmp / d), port=0)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
-        servers.append(srv)
+        started.append(srv)
         ports[name] = srv.server_address[1]
     yield ports
-    for srv in servers:
+    for srv in started:
         srv.shutdown()
         srv.server_close()
 
@@ -259,25 +231,12 @@ TESTED = [b for b in BLOCKS if b.lang in ("yaml", "http", "json", "python", "tex
           and (b.lang != "python" or b.directive is not None)]
 
 
-def needs_real_layout(block: Block) -> bool:
-    """A deploy that succeeds (also a dry run) and what reads its result: the checker refuses the stub's scenes, which
-    belong to another model. These blocks run only where Node and the built viewer are."""
-    if block.lang == "text":
-        for cmd, _out, code in parse_steps(block.text):
-            if re.search(r"buildzr deploy\b", cmd) and code in (None, 0):
-                return True
-    d = block.directive
-    return bool(d and (d[0] == "audit" or (d[0] == "api" and d[1].split()[:1] == ["instance"])))
-
-
 @pytest.mark.parametrize("block", TESTED, ids=[b.id for b in TESTED])
-def test_block(block: Block, work: dict[str, Any], sites: dict[str, int], layout: None,
+def test_block(block: Block, work: dict[str, Any], servers: dict[str, int], layout: None,
                monkeypatch: pytest.MonkeyPatch) -> None:
     d = block.directive
     if d and d[0] == "skip":
         pytest.skip(d[1] or "opted out")
-    if not REAL and needs_real_layout(block):
-        pytest.skip("needs the real layout (Node and the built viewer)")
     idx = BLOCKS.index(block)
     page = page_of(work, block.page)
     if d and d[0] == "file":
@@ -298,7 +257,7 @@ def test_block(block: Block, work: dict[str, Any], sites: dict[str, int], layout
         tmp.parent.mkdir(exist_ok=True)
         tmp.write_text(block.text, encoding="utf-8")
         load_config(str(tmp))
-        page.write_config(block.text, merge=bool(d and d[0] == "merge"))
+        page.write_config(block.text)
     elif block.lang == "text":
         assert is_command_block(block), "a text block that is not a command block cannot carry a directive"
         for cmd, expected, code in parse_steps(block.text):
@@ -312,7 +271,7 @@ def test_block(block: Block, work: dict[str, Any], sites: dict[str, int], layout
             if serve:
                 monkeypatch.setattr("socketserver.BaseServer.serve_forever", stop_at_once)
             got, output = run_cli(page.argv(tokens[1:]), page.dir, env)
-            lines = [x for x in output.rstrip("\n").split("\n") if not x.startswith('{"time":')]  # the instance's audit log
+            lines = output.rstrip("\n").split("\n")
             msg = same_lines(expected, lines if output.strip() else [])
             assert msg is None, f"$ {cmd}\n{msg}"
             assert got == (0 if code is None else code), f"$ {cmd}: exit code {got}, the page says {code}\n{output}"
@@ -320,8 +279,19 @@ def test_block(block: Block, work: dict[str, Any], sites: dict[str, int], layout
         method, target, headers, answer = parse_http(block.text)
         flags = d[1].split() if d and d[0] == "api" else []
         name = flags[0] if flags else "example"
-        port = page.instance.rport if name == "instance" and page.instance else sites[name]
-        status, rheaders, body = fetch(port, method, target, headers)
+        srv = None
+        if name == "page":
+            srv = make_server(str(page.dir / ".buildzr" / "build"), port=0)
+            threading.Thread(target=srv.serve_forever, daemon=True).start()
+            port = srv.server_address[1]
+        else:
+            port = servers[name]
+        try:
+            status, rheaders, body = fetch(port, method, target, headers)
+        finally:
+            if srv is not None:
+                srv.shutdown()
+                srv.server_close()
         if answer:
             assert status == answer[0], (block.id, status, body[:200])
             for k, v in answer[1].items():
@@ -336,10 +306,6 @@ def test_block(block: Block, work: dict[str, Any], sites: dict[str, int], layout
             assert not diffs, "\n".join(diffs)
         elif not answer:
             assert status == 200, (block.id, status)
-    elif block.lang == "json" and d and d[0] == "audit":
-        assert page.instance is not None and page.instance.log(), "an audit example needs a deploy before it"
-        diffs = compare_json(json.loads(block.text), page.instance.log()[0], values=False)
-        assert not diffs, "\n".join(diffs)
     elif block.lang == "json":
         raise AssertionError("a json block needs an http block before it, or a skip directive")
 

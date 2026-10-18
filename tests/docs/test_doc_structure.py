@@ -33,7 +33,7 @@ def parser_options(command: str) -> tuple[set[str], set[str]]:
     return found, first
 
 
-@pytest.mark.parametrize("command", ["build", "serve", "deploy"])
+@pytest.mark.parametrize("command", ["build", "serve"])
 def test_cli_page_lists_exactly_the_options_of_the_parser(command: str) -> None:
     with open(os.path.join(DOCS, "cli.md"), encoding="utf-8") as f:
         text = f.read()
@@ -140,9 +140,9 @@ def test_the_publishing_section_is_in_the_nav_in_order() -> None:
     with open(os.path.join(ROOT, "mkdocs.yml"), encoding="utf-8") as f:
         nav = f.read().split("\nnav:\n")[1].split("\nextra:")[0]
     files = re.findall(r":\s+(\S+\.md)\s*$", nav, re.M)
-    pub = ["publish-first-site.md", "cli.md", "config.md", "deploy.md", "publishing-recipes.md", "store.md", "ui-settings.md",
+    pub = ["serve-workspaces.md", "cli.md", "config.md", "publishing-recipes.md", "hosting.md", "ui-settings.md",
            "viewer-hash-routes.md"]
-    i = files.index("publish-first-site.md")
+    i = files.index("serve-workspaces.md")
     assert files[i:i + len(pub)] == pub
     assert files.index("user-guide/export.md") < i < files.index("api/dsl.md")
     assert files[files.index("api/models.md") + 1] == "model-api.md"

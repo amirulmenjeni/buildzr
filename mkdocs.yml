@@ -87,12 +87,11 @@ nav:
     - Themes: user-guide/themes.md
     - Export: user-guide/export.md
   - Publishing:
-    - Publish your first site: publish-first-site.md
+    - Serve your workspaces: serve-workspaces.md
     - Command reference: cli.md
     - buildzr.yaml: config.md
-    - Deploying to an instance: deploy.md
     - Recipes: publishing-recipes.md
-    - The site store: store.md
+    - Hosting the built workspaces elsewhere: hosting.md
     - Viewer settings: ui-settings.md
     - Viewer links: viewer-hash-routes.md
   - API Reference:

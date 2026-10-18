@@ -11,7 +11,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 DOCS = os.path.join(ROOT, "docs")
 
 #: The pages whose examples are tested: the Publishing section in its order, then the Quick Start.
-PAGES = ["publish-first-site.md", "cli.md", "config.md", "deploy.md", "publishing-recipes.md", "store.md", "ui-settings.md",
+PAGES = ["serve-workspaces.md", "cli.md", "config.md", "publishing-recipes.md", "hosting.md", "ui-settings.md",
          "viewer-hash-routes.md", "model-api.md", "getting-started/quick-start.md"]
 
 FENCE = re.compile(r"^(\s*)```([\w+-]*)(?:\s+\w[^`]*)?\s*$")  # attributes such as hl_lines="2-4" may follow
@@ -72,9 +72,6 @@ _RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"sha256:[0-9a-f]{4,}…?"), "sha256:HASH"),
     (re.compile(r"(?<![\w:/.])/[\w.@+\-/]+"), "<PATH>"),
     (re.compile(r"(?<=[\d\]]):\d{2,5}\b"), ":PORT"),
-    (re.compile(r"\b\d+ files, \d+ (?:B|KB|MB)\b"), "N files, SIZE"),
-    (re.compile(r"\(\d+ (?:B|KB|MB) compressed\)"), "(SIZE compressed)"),
-    (re.compile(r"\bsite is \d+ MB\b"), "site is N MB"),
     (re.compile(r"\b\d+ ms\b"), "N ms"),
 ]
 
