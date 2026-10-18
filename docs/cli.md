@@ -116,7 +116,10 @@ Each workspace is written to a folder named after the workspace, and served at t
 
 - If a model file or one of its workspaces fails, the other workspaces are still built. Each failure is printed with the name of its file, and `build` exits with code 1.
 - A failed workspace keeps its previous built folder, unchanged. A built workspace is written to a temporary folder first and then put in place in one step, so a reader never sees half of one.
-- If a model file now creates a workspace under another name, the built folder of the old name is removed.
+
+#### Removing built workspaces you no longer build
+
+A full build, without `-w` or with `-w` and a folder, removes a built workspace when its model file was deleted, or when its model file ran without failure in this build and no longer creates it (you renamed or removed the workspace in the file). It prints one line for each, such as `removed old-name: its model file workspaces/old-name.py is gone`. A model file that failed keeps all its previous built workspaces. A folder without a `build.json` that names its model file is never removed, nor is anything when you build one file with `-w FILE`. `serve` never removes anything: run `buildzr build` to tidy the build output.
 
 ### Choosing a value for `--k`
 

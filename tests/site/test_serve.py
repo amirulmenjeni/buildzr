@@ -175,6 +175,18 @@ def test_serve_one_file(two: Path, counted: list[list[str]], monkeypatch: pytest
     assert json.loads(bj(two, "a"))["input"]["file"] == "a.py"
 
 
+@pytest.mark.usefixtures("stubbed", "served")
+def test_serve_removes_nothing(two: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    tree(two / "workspaces", {"c.py": HEAD + ws("C") + ws("D")})
+    assert run(two, monkeypatch, capsys, "serve")[0] == 0
+    (two / "workspaces" / "b.py").unlink()
+    (two / "workspaces" / "c.py").write_text(HEAD + ws("C"))
+    for flags in ([], ["--rebuild"]):
+        code, out, _ = run(two, monkeypatch, capsys, "serve", *flags)
+        assert code == 0 and "removed" not in out
+        assert sorted(os.listdir(out_dir(two))) == ["a", "b", "c", "d"]
+
+
 # --- HTTP ----------------------------------------------------------------------------------------------
 
 

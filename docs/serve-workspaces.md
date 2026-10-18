@@ -110,6 +110,8 @@ Only Billing was built again. `serve` compares a **fingerprint** of each model f
 
 The fingerprint does not cover code that a model file imports from outside the workspaces folder. If you change such code, use `--rebuild` (step 5).
 
+If you delete a model file, or rename a workspace in one, `serve` keeps serving the old built workspace, because it never removes anything from the build output. Run `buildzr build`: a build of the whole workspaces folder removes the built workspaces that no model file creates any more, and prints a `removed` line for each.
+
 You do not have to stop `buildzr serve` to see a change: run `buildzr build` in a second terminal, then reload the page. `serve` notices new and replaced workspaces on the next request.
 
 ## 5. Build nothing, or build everything

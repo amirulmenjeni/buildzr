@@ -285,6 +285,15 @@ class Failure:
 
 
 @dataclass
+class Removed:
+    """A built workspace that :func:`build_all` removed, and why (``"gone"`` or ``"dropped"``)."""
+
+    name: str
+    source: str
+    reason: str
+
+
+@dataclass
 class BuildResult:
     """What :func:`build_all` did. ``empty`` lists the files (absolute paths) that create no workspace."""
 
@@ -292,6 +301,7 @@ class BuildResult:
     failed: list[Failure] = field(default_factory=list)
     empty: list[str] = field(default_factory=list)
     fresh: list[Built] = field(default_factory=list)
+    removed: list[Removed] = field(default_factory=list)
 
 
 def _owned(out: str) -> dict[str, dict[str, Any]]:
@@ -359,7 +369,7 @@ def plan(path: str, out: str, k: int, text_color: str, viewer: bool, root: Optio
 
 def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional[str] = None, viewer: bool = True,
               layout_fn: Optional[LayoutFn] = None, static_dir: str = STATIC_DIR, verbose: bool = False,
-              only_stale: bool = False, root: Optional[str] = None) -> BuildResult:
+              only_stale: bool = False, root: Optional[str] = None, prune: bool = False) -> BuildResult:
     """Build every workspace of the Python file or workspaces folder ``path`` into ``out/<name>/``.
 
     Each file runs in a fresh subprocess. A file that fails, or one workspace of it, is recorded in
@@ -367,7 +377,8 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
     it was. Two workspaces with the same folder name stop the whole build before anything is written
     (:class:`BuildError`). With ``only_stale``, a file whose workspaces are all in ``out`` with the current
     fingerprint is not run (:attr:`BuildResult.fresh`). ``root`` is the workspaces folder the source paths in
-    ``build.json`` are relative to (default: ``path`` or the folder holding it).
+    ``build.json`` are relative to (default: ``path`` or the folder holding it). With ``prune``, built workspaces
+    this build did not produce are removed as :func:`_prune` says (:attr:`BuildResult.removed`).
     """
     k, text_color = _check_options(k, text_color, viewer, static_dir)
     out = os.path.abspath(out)
@@ -376,6 +387,8 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
     result = BuildResult(fresh=p.fresh)
     todo, fps = p.todo, p.fingerprints
     if not todo:
+        if prune:
+            _prune(out, root, result)
         return result
     layout = layout_fn or _default_layout()
     with tempfile.TemporaryDirectory(prefix="buildzr-export-") as stage:
@@ -425,20 +438,36 @@ def build_all(path: str, out: str, k: Optional[int] = None, text_color: Optional
                 result.failed.append(Failure(rel, e["name"], f"{type(err).__name__}: {err}", s))
                 continue
             result.built.append(Built(name, dest, rel, written))
-    _prune(out, result)
+    if prune:
+        _prune(out, root, result)
     return result
 
 
-def _prune(out: str, result: BuildResult) -> None:
-    """Remove the built workspaces a file no longer creates (renamed in it), for the files built without failure."""
+def _prune(out: str, root: str, result: BuildResult) -> None:
+    """Remove the built workspaces of ``out`` that this build did not produce and whose model file is gone or no
+    longer creates them.
+
+    Only folders with a ``build.json`` that records a source file are considered. A folder is removed when that
+    file no longer exists in ``root``, or when the file ran without failure in this build and did not create the
+    workspace (renamed or removed in the file). A file that failed keeps all its previous output.
+    """
     failed = {f.source for f in result.failed}
-    done: dict[str, set[str]] = {}
+    done: dict[str, set[str]] = {relative_source(e, root): set() for e in result.empty}
     for b in result.built:
         done.setdefault(b.source, set()).update(b.info.get("workspaces") or [b.name])
+    produced = {b.name for b in result.built} | {b.name for b in result.fresh}
     for name, info in _owned(out).items():
         src = info["input"].get("file")
-        if src in done and src not in failed and name not in done[src]:
-            shutil.rmtree(os.path.join(out, name), ignore_errors=True)
+        if name in produced or not isinstance(src, str) or not src or src in failed:
+            continue
+        if not os.path.exists(os.path.join(root, src)):
+            reason = "gone"
+        elif src in done and name not in done[src]:
+            reason = "dropped"
+        else:
+            continue
+        shutil.rmtree(os.path.join(out, name))
+        result.removed.append(Removed(name, src, reason))
 
 
 def warn(msg: str) -> None:

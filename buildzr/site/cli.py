@@ -166,12 +166,16 @@ class _BuildArgs:
 # --- commands -----------------------------------------------------------------------------------
 
 
-def _report(result: BuildResult) -> None:
-    """One line per skipped file and built workspace on stdout, one per failure on stderr."""
+def _report(result: BuildResult, root: Optional[str] = None) -> None:
+    """One line per skipped file, built and removed workspace on stdout, one per failure on stderr."""
     for e in result.empty:
         print(f"skipped {_show(Path(e))}: it creates no workspace")
     for b in result.built:
         print(f"built {_show(Path(b.folder))} ({_summary(b.folder, b.info)})")
+    for r in result.removed:
+        source = _show(Path(root) / r.source) if root is not None else r.source
+        why = f"its model file {source} is gone" if r.reason == "gone" else f"{source} no longer creates it"
+        print(f"removed {r.name}: {why}")
     for f in result.failed:
         print(f"buildzr: error: {f.where(_show(Path(f.path)))}: {f.message}", file=sys.stderr)
 
@@ -180,8 +184,10 @@ def _cmd_build(args: argparse.Namespace) -> int:
     cfg = _load_config(args.config)
     b = _BuildArgs(args, cfg)
     path = b.need_path()
-    result = build_all(path, str(b.out), b.k, b.text_color, viewer=b.viewer, verbose=args.verbose, root=b.root)
-    _report(result)
+    # A full build (the workspaces folder, or -w FOLDER) removes what it no longer builds; -w FILE removes nothing.
+    result = build_all(path, str(b.out), b.k, b.text_color, viewer=b.viewer, verbose=args.verbose, root=b.root,
+                       prune=os.path.isdir(path))
+    _report(result, b.root)
     if result.failed:
         return 1
     if not result.built:

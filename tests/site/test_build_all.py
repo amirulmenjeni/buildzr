@@ -133,8 +133,89 @@ def test_a_renamed_workspace_replaces_its_old_folder(tmp_path: Path, monkeypatch
     tree(root / "workspaces", {"a.py": HEAD + ws("Old"), "b.py": HEAD + ws("Kept")})
     assert run(root, monkeypatch, capsys, "build")[0] == 0
     (root / "workspaces" / "a.py").write_text(HEAD + ws("New"))
-    assert run(root, monkeypatch, capsys, "build")[0] == 0
+    code, out, _ = run(root, monkeypatch, capsys, "build")
+    assert code == 0
     assert built(root) == ["kept", "new"]
+    assert "removed old: workspaces/a.py no longer creates it\n" in out
+
+
+# --- removing built workspaces that a full build no longer produces ------------------------------------
+
+
+def test_a_deleted_model_file_loses_its_built_workspaces(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                         capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, "build: {viewer: false}\n", ws=False)
+    tree(root / "workspaces", {"old.py": HEAD + ws("Old Name") + ws("Other"), "b.py": HEAD + ws("Kept")})
+    assert run(root, monkeypatch, capsys, "build")[0] == 0
+    (root / "workspaces" / "old.py").unlink()
+    code, out, err = run(root, monkeypatch, capsys, "build")
+    assert (code, err) == (0, "")
+    assert built(root) == ["kept"]
+    assert out.splitlines()[1:] == ["removed old-name: its model file workspaces/old.py is gone",
+                                    "removed other: its model file workspaces/old.py is gone"]
+
+
+def test_a_workspace_removed_inside_a_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                           capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, "build: {viewer: false}\n", ws=False)
+    tree(root / "workspaces", {"a.py": HEAD + ws("One") + ws("Two"), "b.py": "x = 1\n"})
+    assert run(root, monkeypatch, capsys, "build")[0] == 0
+    (root / "workspaces" / "a.py").write_text(HEAD + ws("One"))
+    code, out, _ = run(root, monkeypatch, capsys, "build")
+    assert code == 0 and built(root) == ["one"]
+    assert out.endswith("removed two: workspaces/a.py no longer creates it\n")
+    # A file that now creates no workspace at all ran without failure too: its old output goes.
+    (root / "workspaces" / "b.py").write_text(HEAD + ws("Three"))
+    assert run(root, monkeypatch, capsys, "build")[0] == 0
+    (root / "workspaces" / "b.py").write_text("x = 1\n")
+    code, out, _ = run(root, monkeypatch, capsys, "build")
+    assert code == 0 and built(root) == ["one"]
+    assert "removed three: workspaces/b.py no longer creates it\n" in out
+
+
+def test_a_failed_file_keeps_its_old_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                            capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, "build: {viewer: false}\n", ws=False)
+    tree(root / "workspaces", {"a.py": HEAD + ws("One") + ws("Two") + ws("API")})
+    assert run(root, monkeypatch, capsys, "build")[0] == 1  # "API" is reserved; "one" and "two" are built
+    assert built(root) == ["one", "two"]
+    before = info(root, "two")
+    (root / "workspaces" / "a.py").write_text(HEAD + ws("One") + ws("API"))  # "Two" gone, but the file fails
+    code, out, _ = run(root, monkeypatch, capsys, "build")
+    assert code == 1 and "removed" not in out
+    assert built(root) == ["one", "two"] and info(root, "two") == before
+    (root / "workspaces" / "a.py").write_text("raise RuntimeError('boom')\n")  # the whole file fails
+    code, out, _ = run(root, monkeypatch, capsys, "build")
+    assert code == 1 and "removed" not in out and built(root) == ["one", "two"]
+
+
+def test_folders_that_are_not_ours_are_never_removed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                     capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, "build: {viewer: false}\n", ws=False)
+    tree(root / "workspaces", {"a.py": HEAD + ws("A")})
+    tree(root / ".buildzr" / "build", {
+        "notes/readme.txt": "mine",
+        "no-source/build.json": json.dumps({"name": "no-source", "input": {"sha256": "x"}}),
+        "no-input/build.json": json.dumps({"name": "no-input"}),
+    })
+    code, out, _ = run(root, monkeypatch, capsys, "build")
+    assert code == 0 and "removed" not in out
+    assert built(root) == ["a", "no-input", "no-source", "notes"]
+
+
+def test_a_partial_build_removes_nothing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                         capsys: pytest.CaptureFixture[str]) -> None:
+    root = project(tmp_path, "build: {viewer: false}\n", ws=False)
+    tree(root / "workspaces", {"a.py": HEAD + ws("One") + ws("Two"), "gone.py": HEAD + ws("Gone")})
+    assert run(root, monkeypatch, capsys, "build")[0] == 0
+    (root / "workspaces" / "gone.py").unlink()
+    (root / "workspaces" / "a.py").write_text(HEAD + ws("One"))
+    code, out, _ = run(root, monkeypatch, capsys, "build", "-w", "workspaces/a.py")
+    assert code == 0 and "removed" not in out
+    assert built(root) == ["gone", "one", "two"]
+    code, out, _ = run(root, monkeypatch, capsys, "build", "-w", "workspaces")  # -w FOLDER is a full build
+    assert code == 0 and built(root) == ["one"]
+    assert out.count("removed ") == 2
 
 
 def test_one_file_with_w(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
