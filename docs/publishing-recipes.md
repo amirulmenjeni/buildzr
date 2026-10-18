@@ -54,7 +54,6 @@ Set it and deploy. With the tunnel open, this is the whole job:
 
 ```text
 $ PR_NUMBER=42 buildzr deploy -t preview
-<PATH>: 2 elements, 1 relationships, 0 views, 1 levels -> <PATH>
 built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
 uploading 12 files, 517 KB to http://127.0.0.1:9001 (path pr/42)
 deployed pr/42: release r-0001, modelHash sha256:87716f3c5b04…
@@ -123,7 +122,6 @@ targets:
 
 ```text
 $ buildzr deploy -t model
-<PATH>: 2 elements, 1 relationships, 0 views, 1 levels -> <PATH>
 built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
 uploading 6 files, 12 KB to http://127.0.0.1:8001 (path model)
 deployed model: release r-0001, modelHash sha256:87716f3c5b04…
@@ -184,7 +182,6 @@ with Workspace("shop") as w:
 
 ```text
 $ PR_NUMBER=42 buildzr deploy -t preview
-<PATH>: 3 elements, 2 relationships, 0 views, 1 levels -> <PATH>
 built (3 elements, 2 relationships, 0 views; modelHash sha256:3f8e56fad26b…)
 uploading 12 files, 518 KB to http://127.0.0.1:9001 (path pr/42)
 deployed pr/42: release r-0002, modelHash sha256:3f8e56fad26b… (previous sha256:87716f3c5b04…)
@@ -236,7 +233,6 @@ with Workspace("crm") as w:
 
 ```text
 $ buildzr deploy -t shared
-<PATH>: 3 elements, 2 relationships, 0 views, 1 levels -> <PATH>
 built (3 elements, 2 relationships, 0 views; modelHash sha256:3f8e56fad26b…)
 uploading 12 files, 518 KB to http://127.0.0.1:9001 (path billing)
 deployed billing: release r-0001, modelHash sha256:3f8e56fad26b…
@@ -244,7 +240,6 @@ open: https://preview.example.com/billing/
 api:  https://preview.example.com/billing/api/v1/
 
 $ buildzr deploy -t shared --path crm -w other/model.py
-<PATH>: 2 elements, 1 relationships, 0 views, 1 levels -> <PATH>
 built (2 elements, 1 relationship, 0 views; modelHash sha256:5a1f07c2b9d0…)
 uploading 12 files, 517 KB to http://127.0.0.1:9001 (path crm)
 deployed crm: release r-0001, modelHash sha256:5a1f07c2b9d0…

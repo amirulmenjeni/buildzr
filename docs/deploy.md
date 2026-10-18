@@ -74,7 +74,6 @@ targets:
 
 ```text
 $ PR_NUMBER=42 buildzr deploy -t preview
-/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
 uploading 12 files, 517 KB to http://127.0.0.1:9001 (path pr/42)
 deployed pr/42: release r-0001, modelHash sha256:87716f3c5b04…
@@ -82,7 +81,7 @@ open: https://preview.example.com/pr/42/
 api:  https://preview.example.com/pr/42/api/v1/
 ```
 
-The first line comes from the step that runs your model file. When a site replaces an older release, the `deployed` line ends with `(previous sha256:…)`, the hash of the release it replaced.
+With `-v` there is one more line before these, from the step that runs your model file. When a site replaces an older release, the `deployed` line ends with `(previous sha256:…)`, the hash of the release it replaced.
 
 What `deploy` does:
 
@@ -98,7 +97,6 @@ Other forms:
 
 ```text
 $ PR_NUMBER=42 buildzr deploy -t preview --dry-run
-/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
 packed 12 files, 517 KB (192 KB compressed)
 dry run: would upload 12 files, 517 KB to http://127.0.0.1:9001 (path pr/42); nothing was sent
@@ -108,7 +106,6 @@ dry run: would upload 12 files, 517 KB to http://127.0.0.1:9001 (path pr/42); no
 
 ```text
 $ PR_NUMBER=42 buildzr deploy -t preview
-/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
 uploading 12 files, 517 KB to http://127.0.0.1:9001 (path pr/42)
 unchanged pr/42: release r-0001 already has these files (modelHash sha256:87716f3c5b04…)

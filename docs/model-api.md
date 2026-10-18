@@ -6,7 +6,6 @@ The API is **read-only**. It only answers `GET` (and `HEAD`). It lives next to t
 
 ```text
 $ buildzr build -w examples/buildzr_models_example.py
-/home/you/buildzr/examples/buildzr_models_example.py: 13 elements, 6 relationships, 1 views, 5 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built .buildzr/site (13 elements, 6 relationships, 1 view; modelHash sha256:ea077dc27381…)
 
 $ buildzr serve

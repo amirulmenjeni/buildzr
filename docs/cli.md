@@ -27,7 +27,7 @@ Every setting comes from a flag first, then from `buildzr.yaml`, then from a bui
 ### `buildzr build`
 
 ```text
-buildzr build [-h] [-w FILE] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c FILE] [-o DIR]
+buildzr build [-h] [-w FILE] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c FILE] [-v] [-o DIR]
 ```
 
 | Option | What it does |
@@ -37,6 +37,7 @@ buildzr build [-h] [-w FILE] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c 
 | `--text-color {wcag,c4}` | The rule for the colour of text on boxes. Default: `build.text_color`, else `wcag`. |
 | `--no-viewer` | Write the data only, without the viewer. |
 | `-c FILE`, `--config FILE` | The config file. Default: `buildzr.yaml`, searched from the current folder upward. |
+| `-v`, `--verbose` | Also show a line from the step that runs your model file, with the number of elements, relationships, views and levels it found and a temporary folder. Errors are always shown. |
 | `-o DIR`, `--out DIR` | Where to write the site. Default: `build.out`, else `.buildzr/site`. |
 
 `build` runs your file, lays out the diagrams and checks the result. If a step fails, the previous output is left as it was.
@@ -64,7 +65,7 @@ buildzr serve [-h] [--store DIR] [-p PORT] [--host HOST] [--public-url URL] [--c
 ### `buildzr deploy`
 
 ```text
-buildzr deploy [-h] [-w FILE] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c FILE] [-t NAME] [--path P] [--from DIR] [--dry-run] [--rollback]
+buildzr deploy [-h] [-w FILE] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c FILE] [-v] [-t NAME] [--path P] [--from DIR] [--dry-run] [--rollback]
 ```
 
 | Option | What it does |
@@ -74,7 +75,7 @@ buildzr deploy [-h] [-w FILE] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c
 | `--from DIR` | Deploy an already built site instead of building one. The build flags are then refused. |
 | `--dry-run` | Load the config, build and check, and print what would happen. Nothing is written or sent. |
 | `--rollback` | For `url` targets: make the previous release of the site current again. Nothing is built. |
-| `-w`, `--workspace`, `--k`, `--text-color`, `--no-viewer`, `-c`, `--config` | As for `build`. |
+| `-w`, `--workspace`, `--k`, `--text-color`, `--no-viewer`, `-c`, `--config`, `-v`, `--verbose` | As for `build`. |
 
 For a `dir` target the site is written to `<dir>/<path>/` in one step. For a `url` target it is sent to a running instance. [Deploying to an instance](deploy.md) explains that flow, and [`buildzr.yaml`](config.md) explains targets.
 
@@ -148,11 +149,16 @@ Pass the file with `-w`:
 
 ```text
 $ buildzr build -w architecture/model.py
-/home/you/shop/architecture/model.py: 5 elements, 3 relationships, 1 views, 3 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built .buildzr/site (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
 ```
 
-The first line comes from the step that runs your model file. It counts what it found. The second line says where the site is and shows the **modelHash**, a fingerprint of the model: the same model always gives the same hash.
+The line says where the site is and shows the **modelHash**, a fingerprint of the model: the same model always gives the same hash. With `-v` you also get a first line from the step that runs your model file; it counts what it found and names a temporary folder that changes every run.
+
+```text
+$ buildzr build -w architecture/model.py -v
+/home/you/shop/architecture/model.py: 5 elements, 3 relationships, 1 views, 3 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
+built .buildzr/site (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
+```
 
 To save typing the file name, put it in a `buildzr.yaml` next to your `.git` folder or at the top of your project:
 
@@ -164,7 +170,6 @@ Now the file name is not needed:
 
 ```text
 $ buildzr build
-/home/you/shop/architecture/model.py: 5 elements, 3 relationships, 1 views, 3 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built .buildzr/site (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
 ```
 
@@ -195,7 +200,6 @@ A dry run builds and checks the site and shows what would be written:
 
 ```text
 $ buildzr deploy --dry-run
-/home/you/shop/architecture/model.py: 5 elements, 3 relationships, 1 views, 3 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
 checked 12 files, 517 KB: no problems
 dry run: would write 12 files, 517 KB to /home/you/shop/public/architecture (target www); nothing was written
@@ -205,7 +209,6 @@ Without `--dry-run` it writes the site:
 
 ```text
 $ buildzr deploy
-/home/you/shop/architecture/model.py: 5 elements, 3 relationships, 1 views, 3 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built (5 elements, 3 relationships, 1 view; modelHash sha256:87716f3c5b04…)
 writing 12 files, 517 KB to /home/you/shop/public/architecture (target www)
 deployed www: modelHash sha256:87716f3c5b04…

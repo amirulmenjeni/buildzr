@@ -80,7 +80,6 @@ targets:
 
 ```text
 $ buildzr deploy -t main
-/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
 uploading 12 files, 517 KB to http://127.0.0.1:8001 (the root site)
 deployed /: release r-0001, modelHash sha256:87716f3c5b04…
@@ -88,7 +87,6 @@ open: https://preview.example.com/
 api:  https://preview.example.com/api/v1/
 
 $ PR_NUMBER=42 buildzr deploy -t preview
-/home/you/shop/architecture/model.py: 2 elements, 1 relationships, 0 views, 1 levels -> /tmp/tmpab12cd/.build-x1y2z3/export
 built (2 elements, 1 relationship, 0 views; modelHash sha256:87716f3c5b04…)
 uploading 12 files, 517 KB to http://127.0.0.1:8001 (path pr/42)
 deployed pr/42: release r-0001, modelHash sha256:87716f3c5b04…
