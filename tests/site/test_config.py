@@ -16,11 +16,9 @@ from buildzr.site.config import (
     BuildSettings,
     Config,
     ConfigError,
-    TargetSpec,
     find_config,
     load_config,
     resolve_build,
-    resolve_target,
     resolve_workspace,
 )
 
@@ -50,42 +48,23 @@ def test_error_text_not_number(tmp_path: Path) -> None:
 
 
 def test_error_secret_key(tmp_path: Path) -> None:
-    text = "# 1\n# 2\n# 3\n# 4\n# 5\n# 6\n# 7\ntargets:\n  prod: {url: \"http://127.0.0.1:9101\", token: abc}\n"
+    text = "# 1\n# 2\n# 3\n# 4\n# 5\n# 6\n# 7\nbuild:\n  token: abc\n"
     assert problems(tmp_path, text) == [
-        'buildzr.yaml:9: targets.prod: unknown key "token". '
+        'buildzr.yaml:9: build: unknown key "token". '
         "Secrets never go in this file; keep them in an environment variable."
     ]
 
 
 def test_error_unset_variable(tmp_path: Path) -> None:
-    text = (
-        "version: 1\nworkspace: m.py\nbuild: {k: 4}\ndefault_target: dev\ntargets:\n"
-        '  dev: {url: "http://127.0.0.1:8001"}\n'
-        '  preview: {url: "http://127.0.0.1:9001", path: "pr/${PR_NUMBER}"}\n'
-    )
-    # path is on line 8 here: pad so the line matches the note's example
-    text = text.replace("version: 1\n", "version: 1\n# pad\n")
+    text = "version: 1\n# pad\nworkspace: m.py\nbuild:\n  k: 4\n  # pad\n  # pad\n  out: \"out/${BRANCH}\"\n"
     cfg = load_config(write(tmp_path, text))
     with pytest.raises(ConfigError) as e:
-        resolve_target(cfg, "preview", {})
+        resolve_build(cfg, {})
     assert e.value.problems == [
-        'buildzr.yaml:8: targets.preview.path: environment variable PR_NUMBER is not set (used in "pr/${PR_NUMBER}")'
+        'buildzr.yaml:8: build.out: environment variable BRANCH is not set (used in "out/${BRANCH}")'
     ]
-    # the other target does not need the variable
-    assert resolve_target(cfg, "dev", {}).url == "http://127.0.0.1:8001"
-
-
-def test_error_no_target_named() -> None:
-    cfg = Config(
-        path=Path("/repo/buildzr.yaml"),
-        default_target="dev",
-        targets={n: TargetSpec(n, url="http://127.0.0.1:1") for n in ("dev", "preview", "prod")},
-    )
-    with pytest.raises(ConfigError) as e:
-        resolve_target(cfg, "staging", {})
-    assert str(e.value) == (
-        'buildzr: error: no target named "staging"; targets in /repo/buildzr.yaml: dev (default), preview, prod'
-    )
+    # the workspace does not need the variable
+    assert resolve_workspace(cfg, {}) == tmp_path / "m.py"
 
 
 # ------------------------------------------------------------ strict YAML reading
@@ -104,17 +83,15 @@ def test_yaml_1_1_traps_stay_text(tmp_path: Path) -> None:
 
 
 def test_text_values_are_not_converted(tmp_path: Path) -> None:
-    p = write(tmp_path, "workspace: 0755\nbuild: {out: on, text_color: c4}\ntargets: {no: {dir: y}}\n")
+    p = write(tmp_path, "workspace: 0755\nbuild: {out: on, text_color: c4}\n")
     cfg = load_config(p)
     assert cfg.workspace == "0755"
     assert cfg.build.out == "on"
-    assert list(cfg.targets) == ["no"]
-    assert cfg.targets["no"].dir == "y"
 
 
 def test_key_on_stays_text(tmp_path: Path) -> None:
     assert problems(tmp_path, "on: 1\n") == [
-        'buildzr.yaml:1: unknown key "on"; allowed keys: version, workspace, build, default_target, targets'
+        'buildzr.yaml:1: unknown key "on"; allowed keys: version, workspace, build'
     ]
 
 
@@ -162,11 +139,11 @@ def test_syntax_error_and_multiple_documents(tmp_path: Path) -> None:
 
 def test_empty_file_is_valid(tmp_path: Path) -> None:
     cfg = load_config(write(tmp_path, ""))
-    assert cfg.workspace is None and cfg.build == BuildSettings() and not cfg.targets
+    assert cfg.workspace is None and cfg.build == BuildSettings()
 
 
 def test_all_problems_listed_at_once(tmp_path: Path) -> None:
-    out = problems(tmp_path, "version: 2\nbuild: {k: x, bogus: 1}\ntargets:\n  Prod: {}\n  b: {dir: a, url: http://h}\n")
+    out = problems(tmp_path, "version: 2\nbuild: {k: x, bogus: 1, viewer: 1}\nworkspace: 5\ncolour: red\n")
     assert len(out) == 6, out
     assert [int(line.split(":")[1]) for line in out] == sorted(int(line.split(":")[1]) for line in out)
 
@@ -179,20 +156,11 @@ def test_full_valid_file(tmp_path: Path) -> None:
         write(
             tmp_path,
             "version: 1\nworkspace: architecture/model.py\n"
-            "build: {k: 6, text_color: c4, viewer: false, out: out/site}\n"
-            "default_target: preview\n"
-            "targets:\n"
-            '  preview: {url: "http://127.0.0.1:9001", path: "/pr/42/", timeout: 30, viewer: false}\n'
-            "  www: {dir: /var/www/arch}\n",
+            "build: {k: 6, text_color: c4, viewer: false, out: out/site}\n",
         )
     )
     assert cfg.build == BuildSettings(6, "c4", False, "out/site")
-    assert cfg.default_target == "preview"
-    t = resolve_target(cfg, None, {})
-    assert (t.name, t.url, t.path, t.viewer, t.timeout, t.dir) == ("preview", "http://127.0.0.1:9001", "pr/42", False, 30.0, None)
-    w = resolve_target(cfg, "www", {})
-    assert w.dir == Path("/var/www/arch") and w.viewer is False and w.timeout == 120.0
-    assert w.site_dir == Path("/var/www/arch")
+    assert cfg.workspace == "architecture/model.py"
 
 
 def test_defaults(tmp_path: Path) -> None:
@@ -201,18 +169,7 @@ def test_defaults(tmp_path: Path) -> None:
     assert (b.k, b.text_color, b.viewer, b.out) == (4, "wcag", True, tmp_path / ".buildzr" / "site")
 
 
-def test_target_needs_exactly_one_of_dir_url(tmp_path: Path) -> None:
-    assert problems(tmp_path, "targets:\n  a: {path: x}\n") == [
-        'buildzr.yaml:2: targets.a: expected exactly one of "dir" or "url", got neither'
-    ]
-    assert problems(tmp_path, "targets:\n  a: {dir: x, url: http://h}\n") == [
-        'buildzr.yaml:2: targets.a: expected exactly one of "dir" or "url", got both'
-    ]
-
-
-def test_token_env_rejected_and_secrets(tmp_path: Path) -> None:
-    out = problems(tmp_path, "targets:\n  a: {url: http://h, token_env: X}\n")
-    assert len(out) == 1 and out[0].startswith("buildzr.yaml:2: targets.a.token_env: token_env is reserved")
+def test_secret_keys_get_their_own_message(tmp_path: Path) -> None:
     for key in ("token", "password", "secret"):
         out = problems(tmp_path, f"{key}: abc\n")
         assert out == [
@@ -226,89 +183,31 @@ def test_unknown_keys_are_errors(tmp_path: Path) -> None:
     ]
 
 
-def test_default_target_rules(tmp_path: Path) -> None:
-    one = load_config(write(tmp_path, "targets: {only: {dir: x}}\n"))
-    assert one.default_target == "only"
-    assert resolve_target(one, None, {}).name == "only"
-    two = load_config(write(tmp_path, "targets: {a: {dir: x}, b: {dir: y}}\n"))
-    assert two.default_target is None
-    with pytest.raises(ConfigError, match="no target given and no default_target; targets in .*: a, b"):
-        resolve_target(two, None, {})
-    assert problems(tmp_path, "default_target: z\ntargets: {a: {dir: x}}\n") == [
-        'buildzr.yaml:1: default_target: no target named "z" in targets (targets: a)'
-    ]
-
-
-@pytest.mark.parametrize("name", ["Prod", "1a", "a b", "-a"])
-def test_target_names(tmp_path: Path, name: str) -> None:
-    out = problems(tmp_path, f'targets:\n  "{name}": {{dir: x}}\n')
-    assert any("invalid target name" in line for line in out)
-
-
-@pytest.mark.parametrize(
-    "path, expected",
-    [("pr/42", "pr/42"), ("/pr/42/", "pr/42"), ("", ""), ("/", ""), ("a.b/c_d-e", "a.b/c_d-e")],
-)
-def test_path_normalised(tmp_path: Path, path: str, expected: str) -> None:
-    cfg = load_config(write(tmp_path, f'targets: {{a: {{dir: x, path: "{path}"}}}}\n'))
-    assert resolve_target(cfg, "a", {}).path == expected
-
-
-@pytest.mark.parametrize("path", ["../x", "a/../b", "a//b", "A/b", ".hidden", "a/ b", "a/_b"])
-def test_bad_paths(tmp_path: Path, path: str) -> None:
-    out = problems(tmp_path, f'targets: {{a: {{dir: x, path: "{path}"}}}}\n')
-    assert len(out) == 1 and out[0].startswith("buildzr.yaml:1: targets.a.path: ")
-
-
-def test_path_checked_after_expansion(tmp_path: Path) -> None:
-    cfg = load_config(write(tmp_path, 'targets: {a: {dir: x, path: "pr/${N}"}}\n'))
-    assert resolve_target(cfg, "a", {"N": "42"}).path == "pr/42"
-    with pytest.raises(ConfigError) as e:
-        resolve_target(cfg, "a", {"N": ".."})
-    assert e.value.problems == ['buildzr.yaml:1: targets.a.path: must not contain a ".." segment']
-    with pytest.raises(ConfigError) as e:
-        resolve_target(cfg, "a", {"N": "A B"})
-    assert "is not allowed" in e.value.problems[0]
-
-
-@pytest.mark.parametrize("url", ["ftp://h", "h:8000", "http://", "https:/h", "http://a b"])
-def test_bad_urls(tmp_path: Path, url: str) -> None:
-    out = problems(tmp_path, f'targets: {{a: {{url: "{url}"}}}}\n')
-    assert len(out) == 1 and "expected a URL starting with http:// or https://" in out[0]
-
-
-def test_timeout_rules(tmp_path: Path) -> None:
-    assert problems(tmp_path, "targets: {a: {dir: x, timeout: 5}}\n") == [
-        'buildzr.yaml:1: targets.a.timeout: only applies to targets with "url"'
-    ]
-    assert "expected a number of seconds above 0" in problems(tmp_path, "targets: {a: {url: http://h, timeout: 0}}\n")[0]
-
-
 # ------------------------------------------------------------------ ${VAR} expansion
 
 
-def cfg_with(tmp_path: Path, path_value: str) -> Config:
-    return load_config(write(tmp_path, f"targets:\n  a: {{dir: x, path: '{path_value}'}}\n"))
+def cfg_with(tmp_path: Path, out_value: str) -> Config:
+    return load_config(write(tmp_path, f"build:\n  out: '{out_value}'\n"))
 
 
 def test_unset_and_empty_variables(tmp_path: Path) -> None:
     cfg = cfg_with(tmp_path, "pr/${N}")
     for env, state in (({}, "not set"), ({"N": ""}, "empty")):
         with pytest.raises(ConfigError) as e:
-            resolve_target(cfg, "a", env)
-        assert e.value.problems == [f'buildzr.yaml:2: targets.a.path: environment variable N is {state} (used in "pr/${{N}}")']
+            resolve_build(cfg, env)
+        assert e.value.problems == [f'buildzr.yaml:2: build.out: environment variable N is {state} (used in "pr/${{N}}")']
 
 
 def test_fallback(tmp_path: Path) -> None:
     cfg = cfg_with(tmp_path, "pr/${N:-local}")
-    assert resolve_target(cfg, "a", {}).path == "pr/local"
-    assert resolve_target(cfg, "a", {"N": ""}).path == "pr/local"
-    assert resolve_target(cfg, "a", {"N": "7"}).path == "pr/7"
+    assert resolve_build(cfg, {}).out == tmp_path / "pr" / "local"
+    assert resolve_build(cfg, {"N": ""}).out == tmp_path / "pr" / "local"
+    assert resolve_build(cfg, {"N": "7"}).out == tmp_path / "pr" / "7"
 
 
 def test_dollar_dollar_is_a_literal_dollar(tmp_path: Path) -> None:
-    cfg = load_config(write(tmp_path, "targets: {a: {dir: 'a$$b'}}\n"))
-    assert resolve_target(cfg, "a", {}).dir == tmp_path / "a$b"
+    cfg = load_config(write(tmp_path, "build: {out: 'a$$b'}\n"))
+    assert resolve_build(cfg, {}).out == tmp_path / "a$b"
 
 
 @pytest.mark.parametrize("value", ["$X", "${x}", "${X", "a$", "${X:-a$b}", "${1X}", "$ {X}"])
@@ -320,26 +219,23 @@ def test_bad_dollar_is_an_error_at_load(tmp_path: Path, value: str) -> None:
 def test_several_unset_variables_all_reported(tmp_path: Path) -> None:
     cfg = cfg_with(tmp_path, "${A}/${B}")
     with pytest.raises(ConfigError) as e:
-        resolve_target(cfg, "a", {})
+        resolve_build(cfg, {})
     assert len(e.value.problems) == 2
 
 
 def test_variables_in_other_text_fields(tmp_path: Path) -> None:
     cfg = load_config(
-        write(tmp_path, "workspace: '${W}'\nbuild: {out: '${O:-o}'}\ntargets: {a: {url: '${U}'}}\n")
+        write(tmp_path, "workspace: '${W}'\nbuild: {out: '${O:-o}'}\n")
     )
     assert resolve_workspace(cfg, {"W": "m.py"}) == tmp_path / "m.py"
     assert resolve_build(cfg, {}).out == tmp_path / "o"
-    assert resolve_target(cfg, "a", {"U": "http://h:1"}).url == "http://h:1"
     with pytest.raises(ConfigError, match="workspace: environment variable W is not set"):
         resolve_workspace(cfg, {})
-    with pytest.raises(ConfigError, match="url: expected a URL"):
-        resolve_target(cfg, "a", {"U": "nope"})
 
 
 def test_variables_are_not_read_by_load_config(tmp_path: Path) -> None:
     # loading must succeed with the variable unset: only the resolve calls look at the environment
-    load_config(write(tmp_path, "targets: {a: {dir: '${NOPE_NOT_SET}'}}\n"))
+    load_config(write(tmp_path, "build: {out: '${NOPE_NOT_SET}'}\n"))
 
 
 # ------------------------------------------------------------------------ discovery
@@ -396,17 +292,15 @@ def test_correct_name_wins_over_misnamed(tmp_path: Path) -> None:
 def test_relative_paths_resolve_against_the_file_folder(tmp_path: Path) -> None:
     proj = tmp_path / "proj"
     (proj / "sub").mkdir(parents=True)
-    p = write(proj, "workspace: architecture/model.py\nbuild: {out: out}\ntargets: {a: {dir: ../pub, path: x}}\n")
+    p = write(proj, "workspace: architecture/model.py\nbuild: {out: ../pub}\n")
     cwd = os.getcwd()
     os.chdir(proj / "sub")
     try:
         cfg = load_config(p)
         assert resolve_workspace(cfg, {}) == proj / "architecture" / "model.py"
-        assert resolve_build(cfg, {}).out == proj / "out"
-        t = resolve_target(cfg, "a", {})
+        assert resolve_build(cfg, {}).out == tmp_path / "pub"
     finally:
         os.chdir(cwd)
-    assert t.dir == tmp_path / "pub" and t.site_dir == tmp_path / "pub" / "x"
     assert cfg.root == proj
 
 
@@ -435,12 +329,9 @@ FIXTURES: dict[str, tuple[str, bool]] = {
     "empty": ("", True),
     "workspace-only": ("workspace: architecture/model.py\n", True),
     "full": (
-        "version: 1\nworkspace: m.py\nbuild: {k: 4, text_color: wcag, viewer: true, out: .buildzr/site}\n"
-        "default_target: dev\ntargets:\n  dev: {url: 'http://127.0.0.1:8001'}\n"
-        "  preview: {url: 'http://127.0.0.1:9001', path: 'pr/${PR_NUMBER}', timeout: 30.5}\n  www: {dir: /var/www, viewer: false}\n",
+        "version: 1\nworkspace: m.py\nbuild: {k: 4, text_color: wcag, viewer: true, out: 'out/${BRANCH:-main}'}\n",
         True,
     ),
-    "path-slashes": ("targets: {a: {dir: x, path: '/pr/42/'}}\n", True),
     "version-2": ("version: 2\n", False),
     "k-text": ("build: {k: four}\n", False),
     "k-zero": ("build: {k: 0}\n", False),
@@ -449,19 +340,9 @@ FIXTURES: dict[str, tuple[str, bool]] = {
     "viewer-text": ("build: {viewer: 'yes'}\n", False),
     "unknown-top": ("colour: 1\n", False),
     "unknown-build": ("build: {colour: 1}\n", False),
-    "secret-token": ("targets: {a: {url: 'http://h', token: x}}\n", False),
-    "token-env": ("targets: {a: {url: 'http://h', token_env: X}}\n", False),
-    "both-dir-url": ("targets: {a: {dir: x, url: 'http://h'}}\n", False),
-    "neither-dir-url": ("targets: {a: {path: x}}\n", False),
-    "bad-target-name": ("targets: {Prod: {dir: x}}\n", False),
-    "bad-url": ("targets: {a: {url: 'ftp://h'}}\n", False),
-    "path-dotdot": ("targets: {a: {dir: x, path: '../x'}}\n", False),
-    "path-upper": ("targets: {a: {dir: x, path: 'PR/1'}}\n", False),
-    "timeout-on-dir": ("targets: {a: {dir: x, timeout: 5}}\n", False),
-    "timeout-zero": ("targets: {a: {url: 'http://h', timeout: 0}}\n", False),
-    "default-target-bad-name": ("default_target: Dev\n", False),
+    "secret-token": ("build: {token: x}\n", False),
     "workspace-number": ("workspace: 5\n", False),
-    "targets-list": ("targets: [a, b]\n", False),
+    "build-list": ("build: [a, b]\n", False),
 }
 
 
@@ -486,9 +367,3 @@ def test_loader_and_schema_agree(tmp_path: Path, name: str) -> None:
     text, valid = FIXTURES[name]
     assert loader_valid(tmp_path, text) is valid, "loader"
     assert schema_valid(text) is valid, "schema"
-
-
-def test_default_target_unknown_name_is_loader_only(tmp_path: Path) -> None:
-    # cross-reference between keys: the schema cannot express it, the loader does
-    assert not loader_valid(tmp_path, "default_target: dev\ntargets: {a: {dir: x}}\n")
-    assert schema_valid("default_target: dev\ntargets: {a: {dir: x}}\n")

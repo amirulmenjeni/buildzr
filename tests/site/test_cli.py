@@ -1,4 +1,4 @@
-"""Stage 5: ``buildzr build`` / ``serve`` / ``deploy``."""
+"""Stage 5: ``buildzr build`` / ``serve``."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ import pytest
 import buildzr.site.build as build_mod
 import buildzr.site.cli as cli
 from buildzr.site.build import BuildError, build_site
-from buildzr.site.check import Report, check_site
+from buildzr.site.check import check_site
 from buildzr.site.cli import main
 from buildzr.site.serve import make_server
 from tests.site.stub_layout import stub_layout
@@ -207,7 +207,7 @@ def test_serve_does_not_follow_symlink_out(tmp_path: Path) -> None:
         srv.server_close()
 
 
-# --- commands: buildzr.yaml, flags, targets, exit codes -----------------------------------------------
+# --- commands: buildzr.yaml, flags, exit codes -------------------------------------------------------
 
 needs_node = pytest.mark.skipif(shutil.which("node") is None and not os.environ.get("BUILDZR_NODE"),
                                 reason="node is not installed")
@@ -220,18 +220,6 @@ def stubbed(monkeypatch: pytest.MonkeyPatch) -> None:
     """Build with the stub layout (no Node), and let the export subprocess import ``tests.site``."""
     monkeypatch.setattr(build_mod, "_default_layout", lambda: stub_layout)
     monkeypatch.setenv("PYTHONPATH", ROOT)
-
-
-@pytest.fixture
-def checks(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]]:
-    """Replace the checker (the stub layout does not draw a checkable site); record how it is called."""
-    calls: list[tuple[str, dict[str, Any]]] = []
-
-    def fake(data_dir: str, **kw: Any) -> Report:
-        calls.append((data_dir, kw))
-        return Report()
-    monkeypatch.setattr(cli, "check_site", fake)
-    return calls
 
 
 def project(tmp_path: Path, yaml: str = "", ws: bool = True) -> Path:
@@ -292,23 +280,11 @@ def test_build_is_quiet_about_the_model_run_unless_verbose(tmp_path: Path, stubb
         assert lines[1].startswith("built .buildzr/site (")
 
 
-def test_deploy_is_quiet_about_the_model_run_unless_verbose(tmp_path: Path, stubbed: None, checks: Any,
-                                                            monkeypatch: pytest.MonkeyPatch,
-                                                            capfd: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: ws/workspace.py\ntargets:\n  d: {dir: out/d, viewer: false}\n")
-    code, out, err = runfd(root, monkeypatch, capfd, "deploy", "-t", "d")
-    assert (code, err) == (0, "")
-    assert not SUMMARY.search(out) and out.splitlines()[0].startswith("built ")
-    code, out, err = runfd(root, monkeypatch, capfd, "deploy", "-t", "d", "-v")
-    assert (code, err) == (0, "")
-    assert SUMMARY.match(out.splitlines()[0]) and out.splitlines()[1].startswith("built ")
-
-
-@pytest.mark.parametrize("command", [["build"], ["deploy", "-t", "d"]])
+@pytest.mark.parametrize("command", [["build"]])
 @pytest.mark.parametrize("verbose", [False, True])
 def test_a_failing_model_still_shows_its_error(tmp_path: Path, stubbed: None, command: list[str], verbose: bool,
                                                monkeypatch: pytest.MonkeyPatch, capfd: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false}\ntargets:\n  d: {dir: out/d, viewer: false}\n")
+    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false}\n")
     (root / "ws" / "workspace.py").write_text("import sys\nprint('model output')\nraise RuntimeError('boom in the model')\n")
     code, out, err = runfd(root, monkeypatch, capfd, *command, *(["-v"] if verbose else []))
     assert code == 1
@@ -369,11 +345,11 @@ def test_build_without_a_workspace_is_a_usage_error(tmp_path: Path, monkeypatch:
 
 def test_config_problems_are_printed_as_the_loader_formats_them(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "build:\n  k: four\ntargets:\n  prod: {dir: x, token: abc}\n")
+    root = project(tmp_path, "build:\n  k: four\n  token: abc\n")
     code, out, err = run(root, monkeypatch, capsys, "build", "-w", "x.py")
     assert code == 2 and out == ""
     assert err.splitlines()[0] == 'buildzr.yaml:2: build.k: expected a whole number of at least 1, got the text "four"'
-    assert 'targets.prod: unknown key "token"' in err and "buildzr: error:" not in err
+    assert 'build: unknown key "token"' in err and "buildzr: error:" not in err
 
 
 def test_missing_config_file_flag_and_misnamed_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
@@ -403,7 +379,7 @@ def test_build_failure_exits_1(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 
 
 @pytest.mark.parametrize("argv", [[], ["frobnicate"], ["build", "--nope"], ["build", "--text-color", "red"],
-                                  ["serve", "-p", "x"], ["deploy", "--from"]])
+                                  ["serve", "-p", "x"], ["deploy"]])
 def test_argparse_problems_exit_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
                                   argv: list[str]) -> None:
     code, _, err = run(project(tmp_path), monkeypatch, capsys, *argv)
@@ -417,226 +393,13 @@ def test_k_must_be_at_least_1(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 
 
 def test_help_exits_0(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["deploy", "--help"]) == 0
-    assert "--dry-run" in capsys.readouterr().out
+    assert main(["build", "--help"]) == 0
+    assert "--no-viewer" in capsys.readouterr().out
 
 
-DEPLOY_YAML = """workspace: ws/workspace.py
-build: {viewer: false}
-targets:
-  www: {dir: out/www}
-  preview: {dir: out/preview, path: "pr/${PR_NUMBER}"}
-  live: {url: "http://127.0.0.1:9001"}
-"""
-
-
-def test_unknown_target_lists_the_available_ones(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                                 capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML + "default_target: www\n")
-    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "staging")
-    assert code == 2 and out == ""
-    assert err == (f'buildzr: error: no target named "staging"; targets in {root / "buildzr.yaml"}: '
-                   "www (default), preview, live\n")
-
-
-def test_deploy_needs_a_config_and_a_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                            capsys: pytest.CaptureFixture[str]) -> None:
-    code, _, err = run(project(tmp_path), monkeypatch, capsys, "deploy", "-t", "x")
-    assert code == 2 and err == "buildzr: error: no buildzr.yaml found; deploy needs a target\n"
-    code, _, err = run(project(tmp_path / "b", DEPLOY_YAML), monkeypatch, capsys, "deploy")
-    assert code == 2 and "no target given and no default_target" in err
-
-
-def test_dry_run_prints_the_resolved_target_and_writes_nothing(
-        tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]], monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    before = sorted(os.listdir(root))
-    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "www", "--dry-run")
-    assert (code, err) == (0, "")
-    assert "dry run: would write " in out and " files, " in out
-    assert f"to {root / 'out' / 'www'} (target www)" in out and "nothing was written" in out
-    assert out.startswith("built (")
-    assert sorted(os.listdir(root)) == before and not (root / "out").exists()
-    assert len(checks) == 1 and checks[0][1] == {"require_build_json": True}
-    assert checks[0][0].endswith(os.path.join("site", "data"))
-
-
-def test_dir_deploy_writes_the_site_below_the_path(tmp_path: Path, stubbed: None,
-                                                    checks: list[tuple[str, dict[str, Any]]],
-                                                    monkeypatch: pytest.MonkeyPatch,
-                                                    capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    monkeypatch.setenv("PR_NUMBER", "42")
-    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "preview")
-    assert (code, err) == (0, "")
-    site = root / "out" / "preview" / "pr" / "42"
-    assert (site / "data" / "index.json").is_file() and (site / "build.json").is_file()
-    assert "writing " in out and "deployed pr/42: modelHash sha256:" in out and "previous" not in out
-    assert not [n for n in os.listdir(root / "out" / "preview" / "pr") if n.startswith(".")]
-    assert len(checks) == 1 and checks[0][1] == {"require_build_json": True}
-    # a second deploy replaces it and names the previous model
-    code, out, _ = run(root, monkeypatch, capsys, "deploy", "-t", "preview")
-    assert code == 0 and "(previous sha256:" in out
-
-
-def test_dir_deploy_with_the_variable_unset_fails(tmp_path: Path, stubbed: None,
-                                                  checks: list[tuple[str, dict[str, Any]]],
-                                                  monkeypatch: pytest.MonkeyPatch,
-                                                  capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    monkeypatch.delenv("PR_NUMBER", raising=False)
-    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "preview")
-    assert code == 2 and out == ""
-    assert err == ('buildzr.yaml:5: targets.preview.path: environment variable PR_NUMBER is not set '
-                   '(used in "pr/${PR_NUMBER}")\n')
-    assert not (root / "out").exists()
-    # another target's variable does not matter
-    code, _, _ = run(root, monkeypatch, capsys, "deploy", "-t", "www", "--dry-run")
-    assert code == 0
-
-
-def test_path_flag_overrides_the_targets_path(tmp_path: Path, stubbed: None,
-                                              checks: list[tuple[str, dict[str, Any]]],
-                                              monkeypatch: pytest.MonkeyPatch,
-                                              capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www", "--path", "/team/a/")
-    assert (code, err) == (0, "")
-    assert (root / "out" / "www" / "team" / "a" / "data" / "index.json").is_file()
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www", "--path", "../x")
-    assert code == 2 and err == 'buildzr: error: --path: must not contain a ".." segment\n'
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www", "--path", "Up")
-    assert code == 2 and "--path: segment" in err
-
-
-def test_a_url_target_off_this_machine_is_refused_before_building(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                                                    capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML + "  far: {url: \"http://10.1.2.3:8001\"}\n")
-    for extra in ([], ["--dry-run"], ["--rollback"]):
-        code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "far", *extra)
-        assert code == 2 and out == ""
-        assert "10.1.2.3 is not this machine" in err and "ssh -N -L 9001:127.0.0.1:8001" in err
-
-
-def test_base_path_flag_is_gone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "www", "--base-path", "pr/42")
-    assert code == 2 and out == ""
-    assert err == "buildzr: error: --base-path was removed; use --path P (or the target's path: in buildzr.yaml)\n"
-    assert not (root / "out").exists()
-
-
-def test_old_target_dir_flag_is_a_name_now(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                           capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "--target", "./some/dir")
-    assert code == 2 and 'no target named "./some/dir"' in err
-
-
-def test_rollback_is_not_built(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                               capsys: pytest.CaptureFixture[str]) -> None:
-    code, _, err = run(project(tmp_path, DEPLOY_YAML), monkeypatch, capsys, "deploy", "-t", "www", "--rollback")
-    assert code == 2
-    assert err == "buildzr: error: --rollback works with url targets only (a dir target keeps no previous release)\n"
-
-
-def test_checker_failure_exits_1_and_leaves_the_target_alone(
-        tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    monkeypatch.setattr(cli, "check_site", lambda d, **kw: Report(errors=[f"scene {i}: broken" for i in range(25)]))
-    keep = root / "out" / "www"
-    keep.mkdir(parents=True)
-    (keep / "build.json").write_text("{}")
-    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
-    assert code == 1 and "checker found 25 problem(s)" in err and "... and 5 more" in err
-    assert err.count("broken") == 20
-    assert sorted(os.listdir(keep)) == ["build.json"] and (keep / "build.json").read_text() == "{}"
-    assert not [n for n in os.listdir(root / "out") if n.startswith(".")]
-
-
-def test_deploy_will_not_replace_a_folder_that_is_not_a_site(
-        tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]], monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    (root / "out" / "www").mkdir(parents=True)
-    (root / "out" / "www" / "notes.txt").write_text("mine")
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
-    assert code == 1 and "is not a buildzr site" in err
-    assert (root / "out" / "www" / "notes.txt").read_text() == "mine"
-
-
-def test_deploy_from_a_built_site(tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]],
-                                  monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    code, _, _ = run(root, monkeypatch, capsys, "build", "-o", "built")
-    assert code == 0
-    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "www", "--from", "built")
-    assert (code, err) == (0, "")
-    assert out.startswith("using built (") and (root / "out" / "www" / "data" / "index.json").is_file()
-    assert (root / "out" / "www" / "build.json").read_bytes() == (root / "built" / "build.json").read_bytes()
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www", "--from", "built", "--k", "2")
-    assert code == 2 and "--k cannot be used with --from" in err
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www", "--from", "nothing-here")
-    assert code == 1 and "does not look like a built site" in err
-
-
-def test_deploy_warns_when_jsonschema_is_missing(tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch,
-                                                  capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    monkeypatch.setattr(cli, "check_site", lambda d, **kw: Report())
-    monkeypatch.setitem(sys.modules, "jsonschema", None)  # makes ``import jsonschema`` raise ImportError
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
-    warning = "buildzr: warning: jsonschema is not installed; the site check skips the schema step\n"
-    assert code == 0 and err == warning
-
-
-def test_deploy_does_not_warn_when_jsonschema_is_installed(
-        tmp_path: Path, stubbed: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    pytest.importorskip("jsonschema")
-    root = project(tmp_path, DEPLOY_YAML)
-    monkeypatch.setattr(cli, "check_site", lambda d, **kw: Report())
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
-    assert (code, err) == (0, "")
-
-
-@pytest.mark.skipif(os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0),
-                    reason="needs a user that file permissions apply to")
-def test_dir_deploy_into_a_read_only_parent_is_an_error_not_a_traceback(
-        tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]], monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-    (root / "out").mkdir()
-    (root / "out").chmod(0o555)
-    try:
-        code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
-    finally:
-        (root / "out").chmod(0o755)
-    assert code == 1 and out == ""
-    assert err.startswith(f"buildzr: error: cannot write to {root / 'out' / 'www'}: ") and "Traceback" not in err
-    assert err.count("\n") == 1 and os.listdir(root / "out") == []
-
-
-def test_dir_deploy_swap_failure_is_an_error_not_a_traceback(
-        tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]], monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, DEPLOY_YAML)
-
-    def boom(src: str, dest: str) -> None:
-        raise PermissionError(13, "Permission denied")
-    monkeypatch.setattr(cli, "swap_dir", boom)
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "www")
-    assert code == 1 and err == f"buildzr: error: cannot write to {root / 'out' / 'www'}: Permission denied\n"
-    assert not [n for n in os.listdir(root / "out") if n.startswith(".")]  # the staging folder is removed
-
-
-def test_deploy_viewer_follows_the_target(tmp_path: Path, stubbed: None, checks: list[tuple[str, dict[str, Any]]],
-                                          monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    root = project(tmp_path, "workspace: ws/workspace.py\ntargets:\n  d: {dir: out/d, viewer: false}\n")
-    code, _, err = run(root, monkeypatch, capsys, "deploy", "-t", "d")
-    assert (code, err) == (0, "")  # no viewer bundle needed: the target says data only
-    assert sorted(os.listdir(root / "out" / "d")) == ["build.json", "data"]
+def test_deploy_is_gone(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["deploy"]) == 2
+    assert "invalid choice: 'deploy'" in capsys.readouterr().err
 
 
 # --- serve: default directory ---------------------------------------------------------------------------
@@ -724,18 +487,17 @@ def test_plain_serve_stays_read_only(tmp_path: Path) -> None:
         srv.server_close()
 
 
-# --- real layout (Node): the checker accepts what deploy writes ------------------------------------------
+# --- real layout (Node): the checker accepts what build writes ------------------------------------------
 
 
 @needs_node
-def test_real_dir_deploy_passes_the_checker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-                                            capsys: pytest.CaptureFixture[str]) -> None:
+def test_real_build_passes_the_checker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                       capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setenv("PYTHONPATH", ROOT)
-    monkeypatch.setenv("PR_NUMBER", "42")
-    root = project(tmp_path, DEPLOY_YAML)
-    code, out, err = run(root, monkeypatch, capsys, "deploy", "-t", "preview")
+    root = project(tmp_path, "workspace: ws/workspace.py\nbuild: {viewer: false, out: out/site}\n")
+    code, out, err = run(root, monkeypatch, capsys, "build")
     assert (code, err) == (0, ""), err
-    site = root / "out" / "preview" / "pr" / "42"
+    site = root / "out" / "site"
     assert (site / "data" / "index.json").is_file()
     assert check_site(str(site / "data"), require_build_json=True).errors == []
     index = json.loads((site / "data" / "index.json").read_text(encoding="utf-8"))

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://buildzr.dev/schema/config/1",
   "title": "buildzr config file (buildzr.yaml, version 1)",
-  "description": "buildzr.yaml: the workspace file, build options and named deploy targets. Text values may use ${NAME}, ${NAME:-fallback} and $$; they are expanded when a command uses them, so values that contain '$' are only checked for their type here. Secrets never go in this file. Relative paths are relative to the folder holding the file. The loader (buildzr.site.config) is the authority; this schema lets editors check the same rules.",
+  "description": "buildzr.yaml: the workspace file and the build options. Text values may use ${NAME}, ${NAME:-fallback} and $$; they are expanded when a command uses them, so values that contain '$' are only checked for their type here. Secrets never go in this file. Relative paths are relative to the folder holding the file. The loader (buildzr.site.config) is the authority; this schema lets editors check the same rules.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -17,55 +17,6 @@
         "viewer": { "type": "boolean", "default": true, "description": "false writes data only." },
         "out": { "type": "string", "minLength": 1, "default": ".buildzr/site", "description": "Where build writes and serve reads by default." }
       }
-    },
-    "default_target": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9_-]*$",
-      "description": "Must name a key of targets. With exactly one target it is the default."
-    },
-    "targets": {
-      "type": "object",
-      "propertyNames": { "pattern": "^[a-z][a-z0-9_-]*$" },
-      "additionalProperties": { "$ref": "#/$defs/target" }
-    }
-  },
-  "$defs": {
-    "target": {
-      "type": "object",
-      "description": "Exactly one of dir and url, plus an optional path.",
-      "properties": {
-        "dir": { "type": "string", "minLength": 1, "description": "A folder on this machine." },
-        "url": {
-          "type": "string",
-          "description": "Deploy address of a running instance (http:// or https://).",
-          "anyOf": [
-            { "pattern": "\\$" },
-            { "pattern": "^https?://[^\\s/]+\\S*$" }
-          ]
-        },
-        "path": {
-          "type": "string",
-          "default": "",
-          "description": "Site path below the root. Segments [a-z0-9][a-z0-9._-]*, no '..'; leading and trailing '/' are removed.",
-          "anyOf": [
-            { "pattern": "\\$" },
-            { "pattern": "^/*([a-z0-9][a-z0-9._-]*(/+[a-z0-9][a-z0-9._-]*)*)?/*$" }
-          ]
-        },
-        "viewer": { "type": "boolean", "description": "Defaults to build.viewer." },
-        "timeout": { "type": "number", "exclusiveMinimum": 0, "default": 120, "description": "Seconds; url targets only." }
-      },
-      "oneOf": [
-        {
-          "required": ["dir"],
-          "properties": { "url": false, "timeout": false }
-        },
-        {
-          "required": ["url"],
-          "properties": { "dir": false }
-        }
-      ],
-      "unevaluatedProperties": false
     }
   }
 }

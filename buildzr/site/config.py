@@ -4,11 +4,10 @@ Typical use (what the commands do)::
 
     path = find_config(Path.cwd())            # None when there is no file
     cfg = load_config(path)                   # strict parse + validation, no env needed
-    target = resolve_target(cfg, "preview", os.environ)   # ${VAR} expanded for this target only
+    build = resolve_build(cfg, os.environ)    # ${VAR} expanded in build.out
 
 ``load_config`` never reads the environment. ``${VAR}`` is expanded only by the
-``resolve_*`` functions, and only for the parts they are asked about, so
-``deploy -t dev`` does not fail on a variable that only ``prod`` uses.
+``resolve_*`` functions, and only for the parts they are asked about.
 
 Every problem is reported as ``buildzr.yaml:<line>: <dotted.key>: <message>``;
 all problems of one call are collected in a single :class:`ConfigError`.
@@ -23,7 +22,6 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, Union
-from urllib.parse import urlsplit
 
 import yaml
 
@@ -33,28 +31,22 @@ __all__ = [
     "Config",
     "ConfigError",
     "ResolvedBuild",
-    "ResolvedTarget",
-    "TargetSpec",
     "find_config",
     "load_config",
     "resolve_build",
-    "resolve_target",
     "resolve_workspace",
 ]
 
 CONFIG_NAME = "buildzr.yaml"
 _MISNAMED = ("buildzr.yml", ".buildzr.yaml")
 DEFAULT_OUT = ".buildzr/site"
-DEFAULT_TIMEOUT = 120.0
 
-_TARGET_NAME = re.compile(r"^[a-z][a-z0-9_-]*$")
-_PATH_SEGMENT = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _VAR_NAME = re.compile(r"[A-Z_][A-Z0-9_]*")
 _SECRET_KEYS = ("token", "password", "secret")
 
 
 class ConfigError(Exception):
-    """One or more problems with the config file or a target lookup.
+    """One or more problems with the config file.
 
     Attributes:
         problems: The message lines exactly as they are printed, one per problem.
@@ -79,22 +71,6 @@ class BuildSettings:
 
 
 @dataclass(frozen=True)
-class TargetSpec:
-    """One entry of ``targets:`` as written (``dir``, ``url`` and ``path`` unexpanded).
-
-    Exactly one of ``dir`` and ``url`` is set. ``viewer`` is ``None`` when the
-    target does not say, which means "use ``build.viewer``".
-    """
-
-    name: str
-    dir: Optional[str] = None
-    url: Optional[str] = None
-    path: str = ""
-    viewer: Optional[bool] = None
-    timeout: float = DEFAULT_TIMEOUT
-
-
-@dataclass(frozen=True)
 class Config:
     """A loaded and validated ``buildzr.yaml``.
 
@@ -102,9 +78,6 @@ class Config:
         path: Absolute path of the file.
         workspace: The ``workspace:`` text, unexpanded and unresolved, or ``None``.
         build: The build settings with defaults.
-        default_target: The ``default_target`` value, or the only target's name
-            when there is exactly one target, else ``None``.
-        targets: Targets by name, in file order.
         lines: Line number of every key, by dotted key (for messages).
     """
 
@@ -112,8 +85,6 @@ class Config:
     version: int = 1
     workspace: Optional[str] = None
     build: BuildSettings = field(default_factory=BuildSettings)
-    default_target: Optional[str] = None
-    targets: Mapping[str, TargetSpec] = field(default_factory=dict)
     lines: Mapping[str, int] = field(default_factory=dict)
 
     @property
@@ -135,34 +106,6 @@ class ResolvedBuild:
     text_color: str
     viewer: bool
     out: Path
-
-
-@dataclass(frozen=True)
-class ResolvedTarget:
-    """A target after ``${VAR}`` expansion and validation.
-
-    Attributes:
-        name: The target's name.
-        dir: Absolute folder for a ``dir`` target, else ``None``.
-        url: Deploy address for a ``url`` target, else ``None``.
-        path: The site path: no leading or trailing ``/``, ``""`` for the root.
-        viewer: The target's ``viewer`` or else ``build.viewer``.
-        timeout: Seconds (``url`` targets).
-    """
-
-    name: str
-    dir: Optional[Path]
-    url: Optional[str]
-    path: str
-    viewer: bool
-    timeout: float
-
-    @property
-    def site_dir(self) -> Optional[Path]:
-        """Where a ``dir`` target's site goes (``dir`` plus ``path``), else ``None``."""
-        if self.dir is None:
-            return None
-        return self.dir / self.path if self.path else self.dir
 
 
 # ------------------------------------------------------------------- discovery
@@ -391,40 +334,10 @@ def _expand(parts: list[_Part], text: str, env: Mapping[str, str]) -> tuple[str,
     return "".join(out), errs
 
 
-# ------------------------------------------------------------ value validation
-
-
-def _check_path(value: str) -> tuple[str, Optional[str]]:
-    """Normalise a site path. Returns (path, error)."""
-    p = value.strip("/")
-    if not p:
-        return "", None
-    for seg in p.split("/"):
-        if seg == "..":
-            return "", 'must not contain a ".." segment'
-        if not _PATH_SEGMENT.match(seg):
-            return "", f'segment "{seg}" is not allowed; segments match [a-z0-9][a-z0-9._-]*'
-    return p, None
-
-
-def _check_url(value: str) -> Optional[str]:
-    try:
-        u = urlsplit(value)
-        ok = u.scheme in ("http", "https") and bool(u.netloc) and not re.search(r"\s", value)
-    except ValueError:
-        ok = False
-    return None if ok else f'expected a URL starting with http:// or https://, got "{value}"'
-
-
 # ----------------------------------------------------------------- the loader
 
-_TOP_KEYS = ("version", "workspace", "build", "default_target", "targets")
+_TOP_KEYS = ("version", "workspace", "build")
 _BUILD_KEYS = ("k", "text_color", "viewer", "out")
-_TARGET_KEYS = ("dir", "url", "path", "viewer", "timeout")
-_TOKEN_ENV_MSG = (
-    "token_env is reserved and not supported in this version; deploy tokens are not implemented, "
-    "so nothing would be protected. Remove it."
-)
 
 
 class _Validator:
@@ -433,15 +346,13 @@ class _Validator:
         self.name = name
         self.lines: dict[str, int] = {}
 
-    def keys(self, n: _Node, key: str, allowed: Sequence[str], target: bool = False) -> None:
+    def keys(self, n: _Node, key: str, allowed: Sequence[str]) -> None:
         for k, line in n.key_lines.items():
             self.lines[f"{key}.{k}" if key else k] = line
             if k in allowed:
                 continue
             if k in _SECRET_KEYS:
                 self.p.add(line, key, f'unknown key "{k}". Secrets never go in this file; keep them in an environment variable.')
-            elif target and k == "token_env":
-                self.p.add(line, f"{key}.{k}", _TOKEN_ENV_MSG)
             else:
                 self.p.add(line, key, f'unknown key "{k}"; allowed keys: {", ".join(allowed)}')
 
@@ -468,15 +379,6 @@ class _Validator:
             return n.value
         self.p.add(n.line, key, f"expected true or false, got {_describe(n)}")
         return None
-
-    def literal_or_defer(self, n: _Node, key: str, text: str, check: Any) -> None:
-        """Run ``check(text)`` now unless the text has ``${VAR}`` (then resolve time does it)."""
-        parts = _parse_template(text)
-        if any(not isinstance(x, str) for x in parts):
-            return
-        err = check("".join(x for x in parts if isinstance(x, str)))
-        if err:
-            self.p.add(n.line, key, err)
 
 
 def load_config(path: Union[str, "os.PathLike[str]"]) -> Config:
@@ -555,79 +457,9 @@ def load_config(path: Union[str, "os.PathLike[str]"]) -> Config:
                         out = o
             build = BuildSettings(k, tc, viewer, out)
 
-    targets: dict[str, TargetSpec] = {}
-    if "targets" in top:
-        tn = top["targets"]
-        tmap = v.mapping(tn, "targets")
-        if tmap is not None:
-            for tname, t in tmap.items():
-                spec = _load_target(v, tname, t, tn.key_lines[tname])
-                if spec is not None:
-                    targets[tname] = spec
-
-    default: Optional[str] = None
-    if "default_target" in top:
-        n = top["default_target"]
-        if not isinstance(n.value, str):
-            probs.add(n.line, "default_target", f"expected the name of a target, got {_describe(n)}")
-        elif n.value not in targets:
-            have = ", ".join(targets) or "none"
-            probs.add(n.line, "default_target", f'no target named "{n.value}" in targets (targets: {have})')
-        else:
-            default = n.value
-    elif len(targets) == 1:
-        default = next(iter(targets))
-
     if probs:
         raise ConfigError(probs.lines())
-    return Config(cpath, version, workspace, build, default, targets, dict(v.lines))
-
-
-def _load_target(v: _Validator, name: str, n: _Node, name_line: int) -> Optional[TargetSpec]:
-    probs = v.p
-    key = f"targets.{name}"
-    v.lines[key] = name_line
-    if not _TARGET_NAME.match(name):
-        probs.add(name_line, key, f'invalid target name "{name}"; names match [a-z][a-z0-9_-]*')
-    t = v.mapping(n, key)
-    if t is None:
-        return None
-    v.keys(n, key, _TARGET_KEYS, target=True)
-    before = len(probs._items)
-    has_dir, has_url = "dir" in t, "url" in t
-    if has_dir == has_url:
-        what = "both" if has_dir else "neither"
-        probs.add(name_line, key, f'expected exactly one of "dir" or "url", got {what}')
-    dir_ = url = None
-    if has_dir:
-        dir_ = v.text(t["dir"], f"{key}.dir", template=True)
-        if dir_ == "":
-            probs.add(t["dir"].line, f"{key}.dir", "expected a folder, got empty text")
-    if has_url:
-        url = v.text(t["url"], f"{key}.url", template=True)
-        if url is not None:
-            v.literal_or_defer(t["url"], f"{key}.url", url, _check_url)
-    path = ""
-    if "path" in t:
-        pt = v.text(t["path"], f"{key}.path", template=True)
-        if pt is not None:
-            path = pt
-            v.literal_or_defer(t["path"], f"{key}.path", pt, lambda s: _check_path(s)[1])
-    viewer: Optional[bool] = None
-    if "viewer" in t:
-        viewer = v.boolean(t["viewer"], f"{key}.viewer")
-    timeout = DEFAULT_TIMEOUT
-    if "timeout" in t:
-        tm = t["timeout"]
-        if has_dir and not has_url:
-            probs.add(tm.line, f"{key}.timeout", 'only applies to targets with "url"')
-        elif isinstance(tm.value, (int, float)) and not isinstance(tm.value, bool) and tm.value > 0:
-            timeout = float(tm.value)
-        else:
-            probs.add(tm.line, f"{key}.timeout", f"expected a number of seconds above 0, got {_describe(tm)}")
-    if len(probs._items) > before or has_dir == has_url:
-        return None
-    return TargetSpec(name, dir_, url, path, viewer, timeout)
+    return Config(cpath, version, workspace, build, dict(v.lines))
 
 
 # ------------------------------------------------------------------- resolving
@@ -691,61 +523,3 @@ def resolve_build(cfg: Config, env: Mapping[str, str]) -> ResolvedBuild:
     r.raise_if_any()
     b = cfg.build
     return ResolvedBuild(b.k, b.text_color, b.viewer, r.folder(out))
-
-
-def resolve_target(cfg: Config, name: Optional[str], env: Mapping[str, str]) -> ResolvedTarget:
-    """Pick a target and expand ``${VAR}`` in it (and only in it).
-
-    Args:
-        cfg: The loaded config.
-        name: Target name, or ``None`` for the default target.
-        env: Variables for ``${VAR}``, normally ``os.environ``.
-
-    Returns:
-        The target with ``dir`` absolute, ``path`` normalised and ``viewer`` filled in.
-
-    Raises:
-        ConfigError: No such target, no default to fall back on, or a variable is
-            unset or empty, or an expanded value is not valid (for example a
-            ``path`` that becomes ``..``).
-    """
-    if name is None:
-        name = cfg.default_target
-        if name is None:
-            raise ConfigError([f"buildzr: error: no target given and no default_target; {_target_list(cfg)}"])
-    spec = cfg.targets.get(name)
-    if spec is None:
-        raise ConfigError([f'buildzr: error: no target named "{name}"; {_target_list(cfg)}'])
-    key = f"targets.{name}"
-    r = _Resolver(cfg, env)
-    dir_: Optional[Path] = None
-    url: Optional[str] = None
-    if spec.dir is not None:
-        d = r.expand(f"{key}.dir", spec.dir)
-        if not r.errors:
-            if d == "":
-                r.problem(f"{key}.dir", "expected a folder, got empty text")
-            else:
-                dir_ = r.folder(d)
-    if spec.url is not None:
-        url = r.expand(f"{key}.url", spec.url)
-        if not r.errors:
-            err = _check_url(url)
-            if err:
-                r.problem(f"{key}.url", err)
-    path_text = r.expand(f"{key}.path", spec.path)
-    path = ""
-    if not r.errors:
-        path, perr = _check_path(path_text)
-        if perr:
-            r.problem(f"{key}.path", perr)
-    r.raise_if_any()
-    viewer = spec.viewer if spec.viewer is not None else cfg.build.viewer
-    return ResolvedTarget(name, dir_, url, path, viewer, spec.timeout)
-
-
-def _target_list(cfg: Config) -> str:
-    if not cfg.targets:
-        return f"no targets in {cfg.path}"
-    names = ", ".join(n + (" (default)" if n == cfg.default_target else "") for n in cfg.targets)
-    return f"targets in {cfg.path}: {names}"

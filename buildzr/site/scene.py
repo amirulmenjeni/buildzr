@@ -100,7 +100,7 @@ def scene_path(key: str, h8: str) -> str:
 
 
 def model_path(h8: str) -> str:
-    """Relative path (under the data dir) of the model file; the hash in the name keeps two deploys apart."""
+    """Relative path (under the data dir) of the model file; the hash in the name keeps two builds apart."""
     return f"model.{h8}.json"
 
 

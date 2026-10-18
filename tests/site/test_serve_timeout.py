@@ -1,4 +1,4 @@
-"""The reading listener (``serve`` and ``serve --store``) closes a connection that stays silent, so an idle client does
+"""The reading listener of ``serve`` closes a connection that stays silent, so an idle client does
 not hold a thread for ever. ``READ_TIMEOUT`` is 60 seconds; the tests make it 1 second."""
 
 from __future__ import annotations
@@ -13,25 +13,24 @@ from typing import Any, Callable, Iterator
 import pytest
 
 import buildzr.site.serve as serve
-from buildzr.site.serve import make_server, make_store_server
-from buildzr.site.store import Store
-from tests.site.store_helpers import put, variant
-from tests.site.test_store_serve import base_site  # noqa: F401
+from buildzr.site.serve import make_server
+from tests.site.test_cli import WS_TEXT, build, make_static
 
 TIMEOUT = 1.0
 
 
-@pytest.fixture(params=["site", "store"])
-def port(request: pytest.FixtureRequest, base_site: Path, tmp_path: Path,  # noqa: F811
-         monkeypatch: pytest.MonkeyPatch) -> Iterator[int]:
+@pytest.fixture(scope="module")
+def base_site(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    tmp = tmp_path_factory.mktemp("servetimeoutbase")
+    (tmp / "workspace.py").write_text(WS_TEXT)
+    build(str(tmp / "workspace.py"), tmp / "site", make_static(tmp / "static"))
+    return tmp / "site"
+
+
+@pytest.fixture
+def port(base_site: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[int]:
     monkeypatch.setattr(serve, "READ_TIMEOUT", TIMEOUT)
-    srv: Any
-    if request.param == "site":
-        srv = make_server(str(base_site), port=0)
-    else:
-        store = Store.open(str(tmp_path / "store"), create=True)
-        put(store, variant(base_site, tmp_path / "v1", 1), "")
-        srv = make_store_server(store, port=0)
+    srv: Any = make_server(str(base_site), port=0)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield int(srv.server_address[1])
     srv.shutdown()
