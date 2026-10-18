@@ -88,13 +88,13 @@ class TestCheckWheel(unittest.TestCase):
     def test_wheel_without_schema_or_module(self) -> None:
         files: List[str] = [
             f for f in VIEWER + OTHER
-            if not f.endswith(('model.schema.json', 'store.py'))
+            if not f.endswith(('model.schema.json', 'serve.py'))
         ]
         make_wheel(self.tmp, files)
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 1)
         self.assertIn('missing buildzr/site/schema/model.schema.json', result.stdout)
-        self.assertIn('missing buildzr/site/store.py', result.stdout)
+        self.assertIn('missing buildzr/site/serve.py', result.stdout)
 
     def test_wrong_version(self) -> None:
         make_wheel(self.tmp, VIEWER + OTHER, version='9.9.9')

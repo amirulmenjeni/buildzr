@@ -10,7 +10,9 @@ so a build made without `npm run build` in `viewer/` silently lacks it. This
 check makes such a build fail before it can be published.
 
 Every archive must contain the viewer (`index.html` and a JS bundle), the five
-JSON schemas, `deploy.py` and `store.py` of `buildzr/site/`. The wheel version
+JSON schemas, the modules of `buildzr build` and `buildzr serve` (`cli.py`,
+`build.py`, `serve.py`) and the layout's Node runner with its vendored elkjs
+bundle. The wheel version
 must equal the version in `buildzr/__about__.py`. Stdlib only.
 """
 
@@ -25,8 +27,11 @@ ROOT = Path(__file__).resolve().parents[2]
 SITE = 'buildzr/site'
 REQUIRED = [
     f'{SITE}/static/index.html',
-    f'{SITE}/deploy.py',
-    f'{SITE}/store.py',
+    f'{SITE}/cli.py',
+    f'{SITE}/build.py',
+    f'{SITE}/serve.py',
+    f'{SITE}/layout/runner.mjs',
+    f'{SITE}/layout/vendor/elk.bundled.js',
 ] + [
     f'{SITE}/schema/{name}.schema.json'
     for name in ('config', 'index', 'levels', 'model', 'scene')
@@ -115,7 +120,7 @@ def main(argv: List[str]) -> int:
     if errors:
         print(f'FAILED: {len(errors)} problem(s) found in the built package.', file=sys.stderr)
         return 1
-    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas and site modules.')
+    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas, layout and command modules.')
     return 0
 
 

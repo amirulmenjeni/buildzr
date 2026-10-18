@@ -285,7 +285,7 @@ jobs:
 
   # Proves that the package a user would install works: builds the viewer and
   # the package like the release workflow, checks them, then installs the wheel
-  # into a fresh venv and runs build, serve and deploy for real. All the logic
+  # into a fresh venv and runs build and serve for real. All the logic
   # is in smoke_wheel.sh, which can also be run locally.
   smoke:
     runs-on: ubuntu-latest

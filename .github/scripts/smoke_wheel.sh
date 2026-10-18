@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prove that a built wheel works for a user: install it into a fresh venv and
-# run the real commands (build, serve, deploy) against it.
+# run the real commands (build, serve) against a workspaces folder.
 #
 # Usage: smoke_wheel.sh [DIST_DIR]    (default: dist, relative to the repo)
 #
@@ -34,6 +34,11 @@ free_port() {
   "$WORK/venv/bin/python" -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])'
 }
 
+# status URL: the HTTP status of URL, without following a redirect
+status() {
+  curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "$1" || fail "cannot reach $1"
+}
+
 # get URL BODY_FILE: fail unless URL answers 200
 get() {
   local code
@@ -63,54 +68,71 @@ uv venv --python 3.10 "$WORK/venv" >/dev/null
 step "Check the package"
 "$WORK/venv/bin/python" "$REPO/.github/scripts/check_wheel.py" "$DIST" --sdist
 
-step "Install $(basename "$WHEEL") with the serve extra"
-uv pip install --python "$WORK/venv/bin/python" "buildzr[serve] @ file://$WHEEL" >/dev/null
+step "Install $(basename "$WHEEL")"
+uv pip install --python "$WORK/venv/bin/python" "buildzr @ file://$WHEEL" >/dev/null
 export PATH="$WORK/venv/bin:$PATH"
 cd "$WORK"
 mkdir run && cd run   # the working folder holds no checkout files
 python -I -c 'import buildzr, sys; print(buildzr.__file__); sys.exit(0 if "'"$WORK"'/venv" in buildzr.__file__ else 1)' \
   || fail "buildzr is not imported from the fresh venv"
 
-step "buildzr build"
-cp "$REPO/examples/buildzr_models_example.py" model.py
-buildzr build -w model.py -o site
-[[ -f site/index.html ]] || fail "buildzr build wrote no site/index.html (the viewer is missing)"
-[[ -f site/data/index.json ]] || fail "buildzr build wrote no site/data/index.json"
+# example NAME: the bundled example as a workspace called NAME
+example() {
+  sed "s/Workspace('microservices-example'/Workspace('$1'/" "$REPO/examples/buildzr_models_example.py"
+}
 
-step "buildzr serve"
+step "buildzr build (two workspaces in workspaces/)"
+mkdir workspaces
+example a >workspaces/a.py
+example b >workspaces/b.py
+buildzr build
+for name in a b; do
+  [[ -f .buildzr/build/$name/index.html ]] || fail "buildzr build wrote no .buildzr/build/$name/index.html (the viewer is missing)"
+  [[ -f .buildzr/build/$name/data/index.json ]] || fail "buildzr build wrote no .buildzr/build/$name/data/index.json"
+done
+
+step "buildzr serve (both up to date: nothing is built)"
 PORT="$(free_port)"
-buildzr serve site -p "$PORT" >"$WORK/serve.log" 2>&1 &
+buildzr serve -p "$PORT" >"$WORK/serve.log" 2>&1 &
 PIDS+=($!)
-wait_for "http://127.0.0.1:$PORT/data/index.json" "buildzr serve"
-get "http://127.0.0.1:$PORT/" "$WORK/page.html"
-grep -q 'id="root"' "$WORK/page.html" || fail "the served page has no viewer root element (id=\"root\")"
-get "http://127.0.0.1:$PORT/data/index.json" "$WORK/index.json"
-get "http://127.0.0.1:$PORT/api/v1/" "$WORK/api.json"
+wait_for "http://127.0.0.1:$PORT/_buildzr/v1/workspaces" "buildzr serve"
+grep -q '^up to date: a, b$' "$WORK/serve.log" || fail "buildzr serve did not find both workspaces up to date"
+get "http://127.0.0.1:$PORT/" "$WORK/index.html"
+grep -q 'href="/a/"' "$WORK/index.html" && grep -q 'href="/b/"' "$WORK/index.html" \
+  || fail "the index page does not link both workspaces"
+for name in a b; do
+  get "http://127.0.0.1:$PORT/$name/" "$WORK/$name.html"
+  grep -q 'id="root"' "$WORK/$name.html" || fail "/$name/ has no viewer root element (id=\"root\")"
+done
+get "http://127.0.0.1:$PORT/a/api/v1/" "$WORK/api.json"
+grep -q '"name":"a"' "$WORK/api.json" || fail "/a/api/v1/ is not the orientation document of workspace a"
+get "http://127.0.0.1:$PORT/_buildzr/v1/workspaces" "$WORK/list.json"
+python -I -c 'import json, sys; names = [w["name"] for w in json.load(open(sys.argv[1]))["workspaces"]]; sys.exit(names != ["a", "b"])' \
+  "$WORK/list.json" || fail "/_buildzr/v1/workspaces does not list a and b"
 
-step "buildzr serve --store --accept-deploys, then buildzr deploy"
-READ="$(free_port)"
-DEPLOY="$(free_port)"
-buildzr serve --store "$WORK/store" --accept-deploys -p "$READ" --deploy-port "$DEPLOY" >"$WORK/instance.log" 2>&1 &
+step "buildzr serve of a project with one workspace (it builds, / redirects)"
+mkdir "$WORK/one" && cd "$WORK/one"
+mkdir workspaces
+example solo >workspaces/solo.py
+ONE="$(free_port)"
+buildzr serve -p "$ONE" >"$WORK/serve-one.log" 2>&1 &
 PIDS+=($!)
-wait_for "http://127.0.0.1:$READ/" "the instance"
-cat >buildzr.yaml <<YAML
-workspace: model.py
-targets:
-  smoke: {url: "http://127.0.0.1:$DEPLOY", path: "pr/1"}
-YAML
-buildzr deploy -t smoke
-get "http://127.0.0.1:$READ/pr/1/" "$WORK/pr.html"
-grep -q 'id="root"' "$WORK/pr.html" || fail "the deployed page has no viewer root element (id=\"root\")"
-get "http://127.0.0.1:$READ/pr/1/api/v1/" "$WORK/pr-api.json"
+wait_for "http://127.0.0.1:$ONE/_buildzr/v1/workspaces" "buildzr serve (one workspace)"
+code="$(status "http://127.0.0.1:$ONE/")"
+[[ "$code" = 302 ]] || fail "GET / answered $code, expected 302"
+location="$(curl -sS -o /dev/null -w '%{redirect_url}' --max-time 20 "http://127.0.0.1:$ONE/")"
+[[ "$location" = "http://127.0.0.1:$ONE/solo/" ]] || fail "GET / redirects to $location, expected /solo/"
+echo "302 http://127.0.0.1:$ONE/ -> /solo/"
+get "http://127.0.0.1:$ONE/solo/" "$WORK/solo.html"
 
 step "uvx --from the wheel buildzr build (the isolated route of the docs)"
 if command -v uvx >/dev/null 2>&1; then
   # An empty folder and a tool environment of their own: nothing of the venv above is used.
-  mkdir "$WORK/uvx" && cd "$WORK/uvx"
-  cp "$REPO/examples/buildzr_models_example.py" model.py
-  PATH="${PATH#"$WORK/venv/bin:"}" uvx --from "$WHEEL" buildzr build -w model.py -o out
-  [[ -f out/index.html ]] || fail "uvx buildzr build wrote no out/index.html (the viewer is missing)"
-  [[ -f out/data/index.json ]] || fail "uvx buildzr build wrote no out/data/index.json"
+  mkdir -p "$WORK/uvx/workspaces" && cd "$WORK/uvx"
+  example model >workspaces/model.py
+  PATH="${PATH#"$WORK/venv/bin:"}" uvx --from "$WHEEL" buildzr build
+  [[ -f .buildzr/build/model/index.html ]] || fail "uvx buildzr build wrote no .buildzr/build/model/index.html (the viewer is missing)"
+  [[ -f .buildzr/build/model/data/index.json ]] || fail "uvx buildzr build wrote no .buildzr/build/model/data/index.json"
 else
   echo "uvx not available, skipping the isolated-run check"
 fi
