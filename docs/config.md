@@ -105,6 +105,236 @@ serve:
     - https://dashboard.example.com
 ```
 
+## A project with several workspace files
+
+A project can keep many model files in its workspaces folder, and one file can create several workspaces. This project has three workspaces in two files, and a helper file that both of them import. [Serve your workspaces](serve-workspaces.md) builds and serves the same project step by step.
+
+```text
+my-project/
+├── buildzr.yaml
+└── architecture/
+    ├── _shared.py      a helper: never built on its own
+    ├── billing.py      creates the workspace Billing
+    └── platform.py     creates the workspaces Core and Infra
+```
+
+`buildzr.yaml` names the workspaces folder:
+
+```yaml
+workspaces: architecture
+```
+
+`architecture/_shared.py` holds a name that both model files use:
+
+<!-- doctest: file architecture/_shared.py -->
+```python
+"""Names that several model files use. Files whose name starts with _ are never built on their own."""
+
+PAYMENT_PROVIDER = "Payment Provider"
+```
+
+`architecture/billing.py` creates one workspace:
+
+<!-- doctest: file architecture/billing.py -->
+```python
+from buildzr.dsl import Workspace, SoftwareSystem
+from _shared import PAYMENT_PROVIDER
+
+with Workspace("Billing") as w:
+    invoicing = SoftwareSystem("Invoicing")
+    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    invoicing >> "Collects payments through" >> payments
+```
+
+`architecture/platform.py` creates two:
+
+<!-- doctest: file architecture/platform.py -->
+```python
+from buildzr.dsl import Workspace, Person, SoftwareSystem
+from _shared import PAYMENT_PROVIDER
+
+with Workspace("Core") as core:
+    customer = Person("Customer")
+    shop = SoftwareSystem("Web Shop")
+    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    customer >> "Buys from" >> shop
+    shop >> "Takes payments through" >> payments
+
+with Workspace("Infra") as infra:
+    cluster = SoftwareSystem("Kubernetes Cluster")
+    database = SoftwareSystem("Database Service")
+    cluster >> "Stores data in" >> database
+```
+
+Build the project. Every workspace of every file gets its own built workspace:
+
+```text
+$ buildzr build
+built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
+built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
+```
+
+The build output then holds one folder per workspace:
+
+```text
+.buildzr/build/
+├── billing/    build.json, index.html, assets/, data/
+├── core/       build.json, index.html, assets/, data/
+└── infra/      build.json, index.html, assets/, data/
+```
+
+`buildzr serve` finds all three up to date and serves each one at its own address:
+
+```text
+$ buildzr serve
+up to date: billing, core, infra
+Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+  http://127.0.0.1:8000/billing/
+  http://127.0.0.1:8000/core/
+  http://127.0.0.1:8000/infra/
+Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
+```
+
+What to know about such a project:
+
+- **Folder names come from workspace names**, not from file names: `Workspace("Core")` in `platform.py` becomes `core`, at `/core/`. The [naming rule](cli.md#the-name-of-a-built-workspace) lowers the case and replaces spaces and other characters with `-`.
+- **Two workspaces with the same name stop the build** before anything is written. If `architecture/legacy.py` also created `Workspace("billing")`, `build` would print, with the full path of your workspaces folder:
+
+    ```text
+    buildzr: error: two workspaces would both be built as "billing": "Billing" in billing.py and "billing" in legacy.py (paths in /home/me/my-project/architecture); rename one of them
+    ```
+
+- **`-w` with one file builds only that file** and removes nothing, not even the built workspaces of files you deleted:
+
+    ```text
+    $ buildzr build -w architecture/billing.py
+    built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
+    ```
+
+- **A change to a helper makes every workspace out of date.** Files whose name starts with `_` are part of the fingerprint of every workspace, because any model file may import them. After this change to `_shared.py`, `serve` builds all three again:
+
+    <!-- doctest: file architecture/_shared.py -->
+    ```python
+    """Names that several model files use. Files whose name starts with _ are never built on their own."""
+
+    PAYMENT_PROVIDER = "Payment Provider"
+    CURRENCY = "EUR"
+    ```
+
+    ```text
+    $ buildzr serve
+    built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
+    built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+    built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
+    Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+      http://127.0.0.1:8000/billing/
+      http://127.0.0.1:8000/core/
+      http://127.0.0.1:8000/infra/
+    Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
+    ```
+
+    The modelHash of each workspace stays the same, because the models did not change.
+
+- **A broken file breaks only its own workspaces.** With a typo in the last line of `platform.py`, Core and Infra are broken and Billing is built as usual. The build exits with code 1:
+
+    <!-- doctest: file architecture/platform.py -->
+    ```python
+    from buildzr.dsl import Workspace, Person, SoftwareSystem
+    from _shared import PAYMENT_PROVIDER
+
+    with Workspace("Core") as core:
+        customer = Person("Customer")
+        shop = SoftwareSystem("Web Shop")
+        payments = SoftwareSystem(PAYMENT_PROVIDER)
+        customer >> "Buys from" >> shop
+        shop >> "Takes payments through" >> payments
+
+    with Workspace("Infra") as infra:
+        cluster = SoftwareSystem("Kubernetes Cluster")
+        database = SoftwareSystem("Database Service")
+        cluster >> "Stores data in" >> databse
+    ```
+
+    ```text
+    $ buildzr build
+    ...
+    NameError: name 'databse' is not defined
+    built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
+    buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
+        NameError: name 'databse' is not defined
+        platform.py, line 14: cluster >> "Stores data in" >> databse
+      this workspace is broken; the viewer says so
+    buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
+        NameError: name 'databse' is not defined
+        platform.py, line 14: cluster >> "Stores data in" >> databse
+      this workspace is broken; the viewer says so
+    [exit code 1]
+    ```
+
+    Core is broken too, although the error is in the part that creates Infra: when a file fails, none of its workspaces can be trusted. `serve` lists the broken workspaces next to the good one, and the list for programs gives each one its `status`:
+
+    <!-- doctest: api page shape -->
+    ```http
+    GET /_buildzr/v1/workspaces
+    ```
+
+    ```json
+    {
+      "apiVersion": "1",
+      "workspaces": [
+        {
+          "name": "billing",
+          "path": "/billing/",
+          "workspaceName": "Billing",
+          "status": "ok",
+          "viewerUrl": "/billing/",
+          "apiUrl": "/billing/api/v1/",
+          "llmsUrl": "/billing/llms.txt",
+          "modelHash": "sha256:4b0dfb4153c1e2f16f2d94c116fc6c70c705b5935e51069616ec8f3e30feac0b",
+          "builtAt": "2026-10-18T16:45:54Z",
+          "source": "billing.py"
+        },
+        {
+          "name": "core",
+          "path": "/core/",
+          "workspaceName": "Core",
+          "status": "broken",
+          "viewerUrl": "/core/",
+          "apiUrl": "/core/api/v1/",
+          "llmsUrl": "/core/llms.txt",
+          "modelHash": null,
+          "builtAt": "2026-10-18T16:45:54Z",
+          "source": "platform.py",
+          "stage": "model",
+          "errors": [
+            "NameError: name 'databse' is not defined",
+            "platform.py, line 14: cluster >> \"Stores data in\" >> databse"
+          ]
+        },
+        {
+          "name": "infra",
+          "path": "/infra/",
+          "workspaceName": "Infra",
+          "status": "broken",
+          "viewerUrl": "/infra/",
+          "apiUrl": "/infra/api/v1/",
+          "llmsUrl": "/infra/llms.txt",
+          "modelHash": null,
+          "builtAt": "2026-10-18T16:45:54Z",
+          "source": "platform.py",
+          "stage": "model",
+          "errors": [
+            "NameError: name 'databse' is not defined",
+            "platform.py, line 14: cluster >> \"Stores data in\" >> databse"
+          ]
+        }
+      ]
+    }
+    ```
+
+    Fix the typo and run `buildzr build` again: all three are ok. [When a workspace is broken](cli.md#when-a-workspace-is-broken) has the details.
+
 ## Examples of error messages
 
 Each message names the line of the file and the key it is about.
@@ -167,4 +397,4 @@ The last line of each command example, such as `[exit code 2]`, shows the exit c
 
 ## Python functions
 
-The module `buildzr.site.config` has these functions for scripts and tests: `find_config(start)`, `load_config(path)`, `resolve_workspaces(cfg, env)` and `resolve_build(cfg, env)`. Problems raise `ConfigError`. `load_config` does not read environment variables; the `resolve_*` functions do.
+The module `buildzr.site.config` has these functions for scripts and tests: `find_config(start)`, `load_config(path)`, `resolve_workspaces(cfg, env)`, `resolve_build(cfg, env)` and `resolve_serve(cfg, env)`. Problems raise `ConfigError`. `load_config` does not read environment variables; the `resolve_*` functions do.

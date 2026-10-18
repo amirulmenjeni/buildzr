@@ -606,16 +606,16 @@ Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457.html) problem detai
 | 503 | `model-unavailable` | The workspace has no readable model (for example while it is being rebuilt). Try again. |
 | 503 | `workspace-broken` | Building the workspace failed at the `model` or `layout` step, so it has no data. `stage` names the step and `errors` lists the first 10 errors. Fix the model and build again. |
 
-A broken workspace without data answers every request below `api/v1/`, and `llms.txt`, like this:
+A broken workspace without data answers every request below `api/v1/`, and `llms.txt`, like this (the Infra workspace of [Serve your workspaces](serve-workspaces.md#8-when-a-workspace-is-broken)):
 
 ```text
 HTTP/1.0 503
 Content-Type: application/problem+json
 
 {"type": "urn:buildzr:problem:workspace-broken", "title": "Workspace broken", "status": 503,
- "detail": "building this workspace failed at the model step, so it has no model data: NameError: name 'shopp' is not defined",
- "instance": "/shop/api/v1/", "code": "workspace-broken", "stage": "model",
- "errors": ["NameError: name 'shopp' is not defined", "shop.py, line 6: customer >> \"Buys from\" >> shopp"]}
+ "detail": "building this workspace failed at the model step, so it has no model data: NameError: name 'databse' is not defined",
+ "instance": "/infra/api/v1/", "code": "workspace-broken", "stage": "model",
+ "errors": ["NameError: name 'databse' is not defined", "platform.py, line 14: cluster >> \"Stores data in\" >> databse"]}
 ```
 
 ```http

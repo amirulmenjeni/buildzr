@@ -1,6 +1,6 @@
 # Serve your workspaces
 
-In this tutorial, you put two models in one workspaces folder and serve both with one `buildzr serve`. You open the page that lists them, change one model and see that only that one is built again, and learn the options for serving to other people. At the end, you know how `buildzr serve` decides what to build and where each workspace is.
+In this tutorial, you build a project with three workspaces in two model files and serve them all with one `buildzr serve`. You open the page that lists them, change one model and see that only that one is built again, learn the options for serving to other people, and see what happens when a model file breaks. At the end, you know how `buildzr serve` decides what to build and where each workspace is.
 
 ## Before you start
 
@@ -14,37 +14,70 @@ You need:
 | Word | Meaning |
 |---|---|
 | **workspace** | A `Workspace(...)` that you write in Python, and what readers open at `/<name>/`: its viewer, its data and its Model API. |
-| **workspaces folder** | The folder of Python files that create your workspaces. Here, it is `workspaces/`, the default. |
+| **workspaces folder** | The folder of Python files that create your workspaces. Here, it is `architecture/`, named in `buildzr.yaml`. Without that file, it is `workspaces/`. |
 | **built workspace** | The folder that the build writes for one workspace: the viewer, the model data and `build.json`. |
 | **build output** | The folder that holds every built workspace: `.buildzr/build`, the default. |
 
-## 1. Create two model files
+## 1. Create the project
 
-In an empty project folder, create a folder called `workspaces`. Save this file as `workspaces/shop.py`:
+This is the project of [A project with several workspace files](config.md#a-project-with-several-workspace-files): a helper and two model files, which create three workspaces.
 
-<!-- doctest: file workspaces/shop.py -->
-```python
-from buildzr.dsl import Workspace, Person, SoftwareSystem
-
-with Workspace("Shop") as w:
-    customer = Person("Customer")
-    shop = SoftwareSystem("Web Shop")
-    customer >> "Buys from" >> shop
+```text
+my-project/
+├── buildzr.yaml
+└── architecture/
+    ├── _shared.py      a helper: never built on its own
+    ├── billing.py      creates the workspace Billing
+    └── platform.py     creates the workspaces Core and Infra
 ```
 
-Save this one as `workspaces/billing.py`:
+In an empty project folder, save this as `buildzr.yaml`. It names the workspaces folder:
 
-<!-- doctest: file workspaces/billing.py -->
+```yaml
+workspaces: architecture
+```
+
+Create the folder `architecture`. Save this helper as `architecture/_shared.py`. Files whose name starts with `_` hold code that model files share; they are not model files themselves:
+
+<!-- doctest: file architecture/_shared.py -->
+```python
+"""Names that several model files use. Files whose name starts with _ are never built on their own."""
+
+PAYMENT_PROVIDER = "Payment Provider"
+```
+
+Save this as `architecture/billing.py`. It creates one workspace:
+
+<!-- doctest: file architecture/billing.py -->
 ```python
 from buildzr.dsl import Workspace, SoftwareSystem
+from _shared import PAYMENT_PROVIDER
 
 with Workspace("Billing") as w:
     invoicing = SoftwareSystem("Invoicing")
-    payments = SoftwareSystem("Payment Provider")
+    payments = SoftwareSystem(PAYMENT_PROVIDER)
     invoicing >> "Collects payments through" >> payments
 ```
 
-Each file creates one workspace. A file may also create several; each one is built and served on its own.
+Save this as `architecture/platform.py`. It creates two workspaces, each built and served on its own:
+
+<!-- doctest: file architecture/platform.py -->
+```python
+from buildzr.dsl import Workspace, Person, SoftwareSystem
+from _shared import PAYMENT_PROVIDER
+
+with Workspace("Core") as core:
+    customer = Person("Customer")
+    shop = SoftwareSystem("Web Shop")
+    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    customer >> "Buys from" >> shop
+    shop >> "Takes payments through" >> payments
+
+with Workspace("Infra") as infra:
+    cluster = SoftwareSystem("Kubernetes Cluster")
+    database = SoftwareSystem("Database Service")
+    cluster >> "Stores data in" >> database
+```
 
 ## 2. Start `buildzr serve`
 
@@ -52,43 +85,46 @@ In the project folder, run `buildzr serve`:
 
 ```text
 $ buildzr serve
-built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:2a3b8c4d5e6f…)
-built .buildzr/build/shop (2 elements, 1 relationship, 0 views; modelHash sha256:7f1e2d3c4b5a…)
+built .buildzr/build/billing (2 elements, 1 relationship, 0 views; modelHash sha256:4b0dfb4153c1…)
+built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
   http://127.0.0.1:8000/billing/
-  http://127.0.0.1:8000/shop/
+  http://127.0.0.1:8000/core/
+  http://127.0.0.1:8000/infra/
 Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 ```
 
-Nothing was built yet, so `serve` built both workspaces first. Each one went to a folder of the build output named after the workspace: `Shop` became `shop` and `Billing` became `billing`. The [Command reference](cli.md#the-name-of-a-built-workspace) gives the full naming rule.
+Nothing was built yet, so `serve` built the three workspaces first. Each one went to a folder of the build output named after the workspace, not after its file: `Core` and `Infra` from `platform.py` became `core` and `infra`. The [Command reference](cli.md#the-name-of-a-built-workspace) gives the full naming rule.
 
 ## 3. Open the list of workspaces
 
 Open `http://127.0.0.1:8000/` in your browser. With more than one workspace, the page lists them, with a link to each:
 
-![A plain page titled buildzr workspaces, with two links: billing and shop, each followed by the workspace name and the start of its modelHash](images/serve/serve-index.png)
+![A plain page titled buildzr workspaces, with three links: billing, core and infra, each followed by the workspace name and the start of its modelHash](images/serve/serve-index.png)
 
 *The page at `/`. Each line shows the address of a workspace, the name you gave it in Python and the start of its modelHash.*
 
-Click **shop**. The viewer of the Shop workspace opens at `http://127.0.0.1:8000/shop/`:
+Click **core**. The viewer of the Core workspace opens at `http://127.0.0.1:8000/core/`:
 
-![The viewer at /shop/: the Customer above the Web Shop, joined by an arrow labelled Buys from](images/serve/serve-workspace.png)
+![The viewer at /core/: the Customer, the Web Shop and the Payment Provider, joined by arrows labelled Buys from and Takes payments through](images/serve/serve-workspace.png)
 
-*The Shop workspace at `/shop/`. Every workspace has its own viewer, its own data and its own [Model API](model-api.md), at `/shop/api/v1/`.*
+*The Core workspace at `/core/`. Every workspace has its own viewer, its own data and its own [Model API](model-api.md), at `/core/api/v1/`.*
 
 With only one workspace, the page at `/` is not shown: the browser goes straight on to `/<name>/`, as in the Quick Start. The address `/` keeps working when you add a second workspace later, and then shows this list.
 
 ## 4. Change one model and serve again
 
-Stop `buildzr serve` with Ctrl+C. Add a third system to `workspaces/billing.py`:
+Stop `buildzr serve` with Ctrl+C. Add a third system to `architecture/billing.py`:
 
-<!-- doctest: file workspaces/billing.py -->
-```python hl_lines="6 8"
+<!-- doctest: file architecture/billing.py -->
+```python hl_lines="7 9"
 from buildzr.dsl import Workspace, SoftwareSystem
+from _shared import PAYMENT_PROVIDER
 
 with Workspace("Billing") as w:
     invoicing = SoftwareSystem("Invoicing")
-    payments = SoftwareSystem("Payment Provider")
+    payments = SoftwareSystem(PAYMENT_PROVIDER)
     ledger = SoftwareSystem("Ledger")
     invoicing >> "Collects payments through" >> payments
     invoicing >> "Books invoices in" >> ledger
@@ -98,15 +134,16 @@ Start `buildzr serve` again:
 
 ```text
 $ buildzr serve
-up to date: shop
-built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:9c8b7a6f5e4d…)
+up to date: core, infra
+built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
   http://127.0.0.1:8000/billing/
-  http://127.0.0.1:8000/shop/
+  http://127.0.0.1:8000/core/
+  http://127.0.0.1:8000/infra/
 Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 ```
 
-Only Billing was built again. `serve` compares a **fingerprint** of each model file with the one recorded in the `build.json` of the built workspace. The fingerprint covers the model file, every file of the workspaces folder whose name starts with `_` (shared code), the version of buildzr and the build options. Shop did not change, so `serve` kept it.
+Only Billing was built again. `serve` compares a **fingerprint** of each model file with the one recorded in the `build.json` of the built workspace. The fingerprint covers the model file, every file of the workspaces folder whose name starts with `_` (such as `_shared.py`), the version of buildzr and the build options. `platform.py` did not change, so `serve` kept Core and Infra. A change to `_shared.py` would make all three out of date, because any model file may import it.
 
 The fingerprint does not cover code that a model file imports from outside the workspaces folder. If you change such code, use `--rebuild` (step 5).
 
@@ -125,17 +162,20 @@ Two options change what `serve` builds:
 $ buildzr serve --no-build
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
   http://127.0.0.1:8000/billing/
-  http://127.0.0.1:8000/shop/
+  http://127.0.0.1:8000/core/
+  http://127.0.0.1:8000/infra/
 Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 ```
 
 ```text
 $ buildzr serve --rebuild
-built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:9c8b7a6f5e4d…)
-built .buildzr/build/shop (2 elements, 1 relationship, 0 views; modelHash sha256:7f1e2d3c4b5a…)
+built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
+built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
   http://127.0.0.1:8000/billing/
-  http://127.0.0.1:8000/shop/
+  http://127.0.0.1:8000/core/
+  http://127.0.0.1:8000/infra/
 Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 ```
 
@@ -162,7 +202,7 @@ GET /_buildzr/v1/workspaces
       "viewerUrl": "/billing/",
       "apiUrl": "/billing/api/v1/",
       "llmsUrl": "/billing/llms.txt",
-      "modelHash": "sha256:9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b",
+      "modelHash": "sha256:ddcb904a937d4b261b51564d348d4e92376d670e1ae3ed0692198ae64ae43cab",
       "builtAt": "2026-10-18T14:15:02Z",
       "source": "billing.py"
     }
@@ -192,7 +232,8 @@ By default, `buildzr serve` listens on `127.0.0.1`, so only your own machine can
 $ buildzr serve --no-build --public-url https://architecture.example.com
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
   https://architecture.example.com/billing/
-  https://architecture.example.com/shop/
+  https://architecture.example.com/core/
+  https://architecture.example.com/infra/
 Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
 ```
 
@@ -200,9 +241,10 @@ Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
 
 `serve` itself still listens on `http://127.0.0.1:8000/`; point the proxy there. The [Command reference](cli.md#buildzr-serve) lists every option.
 
-To avoid typing the options every time, put them in `buildzr.yaml` in the project folder, under `serve:`. Save this as `buildzr.yaml`:
+To avoid typing the options every time, put them in `buildzr.yaml`, under `serve:`. Add the last two lines to `buildzr.yaml`:
 
-```yaml
+```yaml hl_lines="2 3"
+workspaces: architecture
 serve:
   public_url: https://architecture.example.com
 ```
@@ -213,7 +255,8 @@ serve:
 $ buildzr serve --no-build
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
   https://architecture.example.com/billing/
-  https://architecture.example.com/shop/
+  https://architecture.example.com/core/
+  https://architecture.example.com/infra/
 Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
 ```
 
@@ -223,16 +266,24 @@ The same section takes `port`, `host` and `cors_origins`. An option on the comma
 
 A workspace is **broken** when building it failed because of the workspace itself: its model file raised an error, the layout failed on it, or its data failed the checks that `build` runs on every workspace. A broken workspace replaces its previous built workspace, so nobody looks at an old diagram that no longer matches the model, and everything that shows the workspace says that it is broken.
 
-Make a typo in `workspaces/shop.py`, so that the last line names `shopp` instead of `shop`:
+Make a typo in `architecture/platform.py`, so that its last line names `databse` instead of `database`:
 
-<!-- doctest: file workspaces/shop.py -->
-```python hl_lines="6"
+<!-- doctest: file architecture/platform.py -->
+```python hl_lines="14"
 from buildzr.dsl import Workspace, Person, SoftwareSystem
+from _shared import PAYMENT_PROVIDER
 
-with Workspace("Shop") as w:
+with Workspace("Core") as core:
     customer = Person("Customer")
     shop = SoftwareSystem("Web Shop")
-    customer >> "Buys from" >> shopp
+    payments = SoftwareSystem(PAYMENT_PROVIDER)
+    customer >> "Buys from" >> shop
+    shop >> "Takes payments through" >> payments
+
+with Workspace("Infra") as infra:
+    cluster = SoftwareSystem("Kubernetes Cluster")
+    database = SoftwareSystem("Database Service")
+    cluster >> "Stores data in" >> databse
 ```
 
 Build again. Python prints its error first, then `build` prints a block for each broken workspace and exits with code 1. Billing is still built:
@@ -240,65 +291,83 @@ Build again. Python prints its error first, then `build` prints a block for each
 ```text
 $ buildzr build
 ...
-NameError: name 'shopp' is not defined
-built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:9c8b7a6f5e4d…)
-buildzr: BROKEN: workspace shop (workspaces/shop.py) failed at the model step
-    NameError: name 'shopp' is not defined
-    shop.py, line 6: customer >> "Buys from" >> shopp
+NameError: name 'databse' is not defined
+built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
+buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
+    NameError: name 'databse' is not defined
+    platform.py, line 14: cluster >> "Stores data in" >> databse
+  this workspace is broken; the viewer says so
+buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
+    NameError: name 'databse' is not defined
+    platform.py, line 14: cluster >> "Stores data in" >> databse
   this workspace is broken; the viewer says so
 [exit code 1]
 ```
 
-In a terminal, the block is red. Each block names the workspace, its model file, the step that failed (`model`, `layout` or `check`) and the first 10 errors.
+Core is broken too, although the typo is in the part that creates Infra: when a model file fails, none of its workspaces can be trusted. In a terminal, each block is red. It names the workspace, its model file, the step that failed (`model`, `layout` or `check`) and the first 10 errors.
 
-`buildzr serve` shows the broken workspace too, and prints the same block when it starts:
+`buildzr serve` shows the broken workspaces too, and prints the same blocks when it starts:
 
 ```text
 $ buildzr serve
-up to date: billing, shop
-buildzr: BROKEN: workspace shop (workspaces/shop.py) failed at the model step
-    NameError: name 'shopp' is not defined
-    shop.py, line 6: customer >> "Buys from" >> shopp
+up to date: billing, core, infra
+buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
+    NameError: name 'databse' is not defined
+    platform.py, line 14: cluster >> "Stores data in" >> databse
+  this workspace is broken; the viewer says so
+buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
+    NameError: name 'databse' is not defined
+    platform.py, line 14: cluster >> "Stores data in" >> databse
   this workspace is broken; the viewer says so
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
   https://architecture.example.com/billing/
-  https://architecture.example.com/shop/
+  https://architecture.example.com/core/
+  https://architecture.example.com/infra/
 Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
 ```
 
-`serve` did not build Shop again: the broken workspace has the fingerprint of the file as it is now, so it is up to date until you change the file.
+`serve` did not build Core and Infra again: a broken workspace has the fingerprint of the file as it is now, so it is up to date until you change the file.
 
-- **The list at `/`** shows `broken` in red next to the workspace, with the step and the first error. In `/_buildzr/v1/workspaces`, its `status` is `broken`, with `stage` and `errors`.
+- **The list at `/`** shows `broken` in red next to each broken workspace, with the step and the first error, and the good ones as usual. In `/_buildzr/v1/workspaces`, its `status` is `broken`, with `stage` and `errors`.
 - **The viewer** of a workspace that has no data, because its model file or its layout failed, shows only the error:
 
-![The viewer at /shop/: a red bar that says This workspace is broken: building it failed at the model step, then the workspace name Shop, the two errors in a grey box, and the line Fix the error in shop.py and run buildzr build again, or restart buildzr serve](images/serve/serve-broken-model.png)
+![The viewer at /infra/: a red bar that says This workspace is broken: building it failed at the model step, then the workspace name Infra, the two errors in a pink box, and the line Fix the error in platform.py and run buildzr build again, or restart buildzr serve](images/serve/serve-broken-model.png)
 
 *A workspace broken at the model step. There is no diagram, because there is no data to draw.*
 
 - **The viewer** of a workspace whose data failed the checks still draws the diagram, under a red bar that you cannot close. **Show the errors** opens the list:
 
-![The viewer of Billing with a red bar at the top that says This workspace is broken: the data failed its checks, a Hide the errors button, and below it one error about an edge of the landscape that is 40 px from the border of Invoicing; the toolbar and the diagram follow below](images/serve/serve-broken-check.png)
+![The viewer of Billing with a red bar at the top that says This workspace is broken: the data failed its checks, a Hide the errors button, and below it one error about an arrow of the landscape that starts 40 px from the border of Invoicing; the toolbar and the diagram follow below](images/serve/serve-broken-check.png)
 
 *A workspace broken at the check step. The data is kept, so you can see what is wrong; trust the diagram less than usual. For this picture, one arrow was moved on purpose after the layout. A check failure is rare: it means a bug in buildzr or damaged files, so please [report it](https://github.com/amirulmenjeni/buildzr/issues) with the errors.*
 
 - **The [Model API](model-api.md)** of a workspace without data answers `503` with the stage and the errors. With data, it answers as usual and its orientation document has `status: broken` and the errors.
 
-Fix the typo and build again. Shop is an ordinary workspace again, and the viewer shows the diagram:
+Fix the typo and build again. Core and Infra are ordinary workspaces again, and their viewers show the diagrams:
 
-<!-- doctest: file workspaces/shop.py -->
+<!-- doctest: file architecture/platform.py -->
 ```python
 from buildzr.dsl import Workspace, Person, SoftwareSystem
+from _shared import PAYMENT_PROVIDER
 
-with Workspace("Shop") as w:
+with Workspace("Core") as core:
     customer = Person("Customer")
     shop = SoftwareSystem("Web Shop")
+    payments = SoftwareSystem(PAYMENT_PROVIDER)
     customer >> "Buys from" >> shop
+    shop >> "Takes payments through" >> payments
+
+with Workspace("Infra") as infra:
+    cluster = SoftwareSystem("Kubernetes Cluster")
+    database = SoftwareSystem("Database Service")
+    cluster >> "Stores data in" >> database
 ```
 
 ```text
 $ buildzr build
-built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:9c8b7a6f5e4d…)
-built .buildzr/build/shop (2 elements, 1 relationship, 0 views; modelHash sha256:7f1e2d3c4b5a…)
+built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
+built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
 ```
 
 If Node.js is missing, the disk is full or the build is killed, the workspace is not at fault: `build` writes nothing, keeps the previous built workspace and prints an error line instead. The [Command reference](cli.md#when-a-workspace-is-broken) lists which failures are which.
