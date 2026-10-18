@@ -10,11 +10,11 @@ from typing import Any, Optional
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOCS = os.path.join(ROOT, "docs")
 
-#: The pages whose examples are tested, in the order of the Publishing section.
+#: The pages whose examples are tested: the Publishing section in its order, then the Quick Start.
 PAGES = ["cli.md", "config.md", "deploy.md", "publishing-recipes.md", "store.md", "ui-settings.md",
-         "viewer-hash-routes.md", "model-api.md"]
+         "viewer-hash-routes.md", "model-api.md", "getting-started/quick-start.md"]
 
-FENCE = re.compile(r"^(\s*)```([\w+-]*)\s*$")
+FENCE = re.compile(r"^(\s*)```([\w+-]*)(?:\s+\w[^`]*)?\s*$")  # attributes such as hl_lines="2-4" may follow
 DIRECTIVE = re.compile(r"^<!--\s*doctest:\s*(\w+)\s*(.*?)\s*-->\s*$")
 
 

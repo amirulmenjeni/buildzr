@@ -95,7 +95,7 @@ class Page:
 
     def __init__(self, name: str, root: Path, instance: Optional[Instance]) -> None:
         self.name = name
-        self.dir = root / name.replace(".", "-")
+        self.dir = root / name.replace("/", "-").replace(".", "-")
         self.dir.mkdir()
         (self.dir / ".git").mkdir()  # so that the config search stops here
         (self.dir / "examples").mkdir()
@@ -145,7 +145,7 @@ def work(tmp_path_factory: pytest.TempPathFactory) -> Iterator[dict[str, Any]]:
 
 def page_of(work: dict[str, Any], name: str) -> Page:
     if name not in work["pages"]:
-        inst = Instance(work["root"] / (name.replace(".", "-") + "-store"), public_url=PUBLIC)
+        inst = Instance(work["root"] / (name.replace("/", "-").replace(".", "-") + "-store"), public_url=PUBLIC)
         work["instances"].append(inst)
         work["pages"][name] = Page(name, work["root"], inst)
     page: Page = work["pages"][name]
