@@ -197,26 +197,34 @@ Data is persisted in `~/.structurizr-onpremises/` so your workspaces survive con
 
 ## Working on the documentation
 
-The documentation is a MkDocs site built from the files under `docs/` and
-configured in `mkdocs.yml`. Install its dependencies with the `docs` extra:
-`uv sync --extra docs --python 3.10` (this removes the other extras from the
-environment; `uv sync --all-extras --locked` brings them back). Then
-`uv run --python 3.10 mkdocs serve` serves the site at http://127.0.0.1:8000
-and reloads it when you save a file.
+The documentation is a MkDocs site. Its pages are the Markdown files under `docs/`, and `mkdocs.yml` configures it. The `docs` workflow builds the site with `--strict` and deploys it to GitHub Pages on every push to `master`. The public address is https://buildzr.dev.
 
-Before you submit, run the strict build, which fails on any warning such as a
-broken link, and the documentation tests, which check the links and run the
-examples in the pages:
+### Set up the environment
+
+Work in the devcontainer of the repository; it has the same Python, uv and Java tools as CI. Install every extra, which includes the `docs` extra:
+
+```bash
+uv sync --all-extras --locked
+```
+
+`uv sync --extra docs --python 3.10` also installs the documentation tools, but it removes the other extras from the environment, and tests that need them, such as the deploy tests, fail. `uv sync --all-extras --locked` brings them back.
+
+The documentation tests run the `buildzr deploy` examples of the pages only when Node.js 18 or newer is on `PATH` and the viewer is built (`(cd viewer && npm ci && npm run build)`). Without them, these examples are skipped, and the test summary shows the skips.
+
+### Preview and check your changes
+
+`uv run --python 3.10 mkdocs serve` serves the site at http://127.0.0.1:8000 and reloads it when you save a file.
+
+Before you submit, run the strict build and the documentation tests. The strict build fails on any warning, such as a broken link. The documentation tests check the links between pages and run the examples in the pages.
 
 ```bash
 uv run --python 3.10 mkdocs build --strict
 uv run pytest tests/docs
 ```
 
-To add a page, create a Markdown file under `docs/` and add it to the `nav`
-section of `mkdocs.yml`, otherwise it is not in the menu.
-The `docs` workflow builds the site with `--strict` and deploys it to GitHub
-Pages on every push to `master`. The public address is https://buildzr.dev.
+### Add a page
+
+Create a Markdown file under `docs/` and add it to the `nav` section of `mkdocs.yml`. A page that is not in `nav` does not appear in the menu.
 
 ## Submitting Changes
 
@@ -224,31 +232,32 @@ As usual, just fork the repo, make changes, and submit PRs!
 
 ## Releasing
 
-Releases are published from `master` by the `release` workflow. To cut a
-release, open a pull request that sets a final version (for example `0.0.33`)
-in `buildzr/__about__.py`. Once it is merged, the workflow builds the viewer
-and the package, checks them, publishes the package to PyPI, and pushes the
-`v0.0.33` tag. It never pushes commits to `master`.
+The `release` workflow publishes releases from `master`. It never pushes commits to `master`.
 
-To cut a release candidate, do the same with a version such as `0.1.0rc1`
-(PEP 440, only `rc` is released). Candidates are numbered `rc1`, `rc2`, and so
-on, and the final `0.1.0` sorts after them. The tag is `v0.1.0rc1`. PyPI does
-not offer a release candidate to a plain `pip install buildzr`; install it with
-`uvx --from buildzr==0.1.0rc1 buildzr build`, `uv add buildzr==0.1.0rc1`,
-`pip install buildzr==0.1.0rc1` or `pip install --pre buildzr`.
+### Cut a release
 
-Every push to `master` runs the workflow, but it only releases when the
-version is final or a release candidate and its tag does not exist yet.
-Development, alpha, beta and post-release versions such as `0.0.33.dev0`,
-`0.0.33a1`, `0.0.33b1` or `0.0.33.post1` are skipped, so bumping to `.dev0`
-does not trigger a release.
+Open a pull request that sets a final version, for example `0.0.33`, in `buildzr/__about__.py`. When the pull request is merged, the workflow builds the viewer and the package, checks them, publishes the package to PyPI and pushes the tag `v0.0.33`.
 
-The viewer (`viewer/`, built into the gitignored `buildzr/site/static/`) ships
-inside the package, so the workflow runs `npm ci` and `npm run build` in
-`viewer/` before `uv build`. Then `.github/scripts/check_wheel.py dist --sdist`
-fails the run, before anything is published, unless the sdist and the wheel
-both contain the viewer, the JSON schemas and the site modules, and the wheel
-version equals `buildzr/__about__.py`. To check a build yourself:
+### Cut a release candidate
+
+Do the same with a version such as `0.1.0rc1`. Versions follow PEP 440, and `rc` is the only pre-release kind that is released. Number the candidates `rc1`, `rc2`, and so on; the final `0.1.0` sorts after them. The tag of `0.1.0rc1` is `v0.1.0rc1`.
+
+PyPI does not offer a release candidate to a plain `pip install buildzr`. Install it with one of these commands:
+
+- `uvx --from buildzr==0.1.0rc1 buildzr build`
+- `uv add buildzr==0.1.0rc1`
+- `pip install buildzr==0.1.0rc1`
+- `pip install --pre buildzr`
+
+### Which pushes release
+
+Every push to `master` runs the workflow. It releases only when the version is final or a release candidate, and its tag does not exist yet. The workflow skips development, alpha, beta and post-release versions, such as `0.0.33.dev0`, `0.0.33a1`, `0.0.33b1` or `0.0.33.post1`. Bumping the version to `.dev0` therefore does not trigger a release.
+
+### What the workflow checks before it publishes
+
+The viewer (`viewer/`) is built into the gitignored folder `buildzr/site/static/` and ships inside the package. The workflow therefore runs `npm ci` and `npm run build` in `viewer/` before `uv build`.
+
+Then `.github/scripts/check_wheel.py dist --sdist` fails the run, before anything is published, unless both the sdist and the wheel contain the viewer, the JSON schemas and the site modules, and the version of the wheel equals `buildzr/__about__.py`. To check a build yourself:
 
 ```bash
 (cd viewer && npm ci && npm run build)
@@ -256,26 +265,26 @@ uv build
 python .github/scripts/check_wheel.py dist --sdist
 ```
 
-Pull requests that touch the package also run a smoke test in the `build`
-workflow. It installs the built wheel into a fresh virtual environment and runs
-`buildzr build`, `buildzr serve` and `buildzr serve --accept-deploys` with
-`buildzr deploy`, then fetches the pages. Run it locally after the three
-commands above (it needs `uv`, Node.js 18 or newer and `curl`):
+### The smoke test of the wheel
+
+Pull requests that change the package also run a smoke test in the `build` workflow. It installs the built wheel into a new virtual environment, runs `buildzr build`, `buildzr serve`, and `buildzr serve --accept-deploys` with `buildzr deploy`, and then fetches the pages. To run it locally, run the three commands above first. The smoke test needs `uv`, Node.js 18 or newer and `curl`.
 
 ```bash
 .github/scripts/smoke_wheel.sh dist
 ```
 
-When a pull request changes the version, the `check_version` job of the
-`build` workflow validates it before merging: it fails on a version that is not
-canonical PEP 440 (for example `0.0.033`), on a final version or release
-candidate that is already tagged, and on a version that is not higher than the
-latest `v*` tag (`0.1.0rc2` is higher than `0.1.0rc1`, `0.1.0` is higher than
-`0.1.0rc2`, but `0.1.0rc3` is not higher than the released `0.1.0`).
-Otherwise it reports whether merging will release the version to PyPI.
+### The version check on pull requests
 
-If a release fails, no tag is pushed. Re-run the failed run from the Actions
-tab before merging anything else; otherwise the next push to `master`
-releases that version from the newer commit. Files already on PyPI are
-skipped, so a re-run after a failed tag push only pushes the tag. A version
-that reached PyPI cannot be uploaded again: fix forward with a new version.
+When a pull request changes the version, the `check_version` job of the `build` workflow checks the version before the merge. It fails on:
+
+- a version that is not canonical PEP 440, for example `0.0.033`;
+- a final version or release candidate that already has a tag;
+- a version that is not higher than the latest `v*` tag. For example, `0.1.0rc2` is higher than `0.1.0rc1`, and `0.1.0` is higher than `0.1.0rc2`, but `0.1.0rc3` is not higher than the released `0.1.0`.
+
+Otherwise, the job reports whether the merge will release the version to PyPI.
+
+### If a release fails
+
+If a release fails, no tag is pushed. Re-run the failed run from the Actions tab before you merge anything else. Otherwise, the next push to `master` releases that version from the newer commit.
+
+A re-run skips files that are already on PyPI, so a re-run after a failed tag push only pushes the tag. A version that reached PyPI cannot be uploaded again: fix forward with a new version.
