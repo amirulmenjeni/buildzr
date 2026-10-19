@@ -255,8 +255,12 @@ async function runCodeInBrowser(code, index, button) {
     const outputContainer = document.getElementById(`output-container-${index}`);
     const outputArea = document.getElementById(`output-${index}`);
     outputContainer.style.display = 'block';
-    outputArea.style.display = 'block';
-    outputArea.innerHTML = '<div class="loading" role="status">⏳ Loading Python and the viewer (the first time takes a few seconds)…</div>';
+    outputArea.style.display = 'block'; // expands it if the toggle had collapsed it
+    const toggle = outputContainer.querySelector('.interactive-toggle-button');
+    if (toggle) toggle.innerHTML = '▼ Hide';
+    // The placeholder takes the frame's height, so the page does not grow under the reader when the frame arrives.
+    outputArea.innerHTML = '<div class="loading runcode-placeholder" role="status">⏳ Loading Python and the viewer (the first time takes a few seconds)…</div>';
+    scrollToDiagram(outputContainer, false); // the reader sees the loading state at once
     const originalText = button.innerHTML;
     button.disabled = true;
     button.innerHTML = '⏳ Running…';
@@ -268,6 +272,7 @@ async function runCodeInBrowser(code, index, button) {
         run.destroy();
         window.__runcodeTimings[index] = { run_ms: Math.round(performance.now() - t0), ms: result.ms, focus: result.focus };
         showViewer(outputArea, result, index);
+        scrollToDiagram(outputContainer, true);
     } catch (error) {
         const msg = String(error.message || error).split('\n').filter((l) => l.trim()).slice(-3).join('\n');
         outputArea.innerHTML = `<div class="output-error" role="alert"><strong>Error:</strong>\n${escapeHtml(msg)}</div>`;
@@ -275,6 +280,20 @@ async function runCodeInBrowser(code, index, button) {
         button.disabled = false;
         button.innerHTML = originalText;
     }
+}
+
+// SPIKE: bring the diagram of a snippet into view, its top just below the sticky header of mkdocs-material.
+// Nothing happens when it is already fully visible; with `onlyIfMoved`, only when its top has left the view
+// (the frame replacing the loading line can push it down, or the reader scrolled away while Python loaded).
+function scrollToDiagram(container, onlyIfMoved) {
+    const header = document.querySelector('.md-header');
+    const headerBottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+    const r = container.getBoundingClientRect();
+    const fullyVisible = r.top >= headerBottom && r.bottom <= window.innerHeight;
+    const topVisible = r.top >= headerBottom && r.top < window.innerHeight;
+    if (fullyVisible || (onlyIfMoved && topVisible)) return;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: window.scrollY + r.top - headerBottom - 8, behavior: reduce ? 'auto' : 'smooth' });
 }
 
 function escapeHtml(text) {

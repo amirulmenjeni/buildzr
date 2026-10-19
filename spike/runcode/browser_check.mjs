@@ -110,17 +110,23 @@ async function runBlock(page, i, fi = i) {
 
   // ---- 2. the browser build gives the same files as the normal build (every snippet the Node run built)
   const names = fs.readdirSync(cpyDir);
-  let same = 0; const diffs = [];
+  let same = 0; const diffs = []; const browserOnlyErrors = [];
   for (const name of names) {
     const code = fs.readFileSync(path.join(wrappedDir, name + '.py'), 'utf8');
-    const files = await page.evaluate((c) => JSON.parse(pyodideInstance.globals.get('browser_build').run_snippet(c, '/rc/cmp')).files, code);
+    let files;
+    try {
+      files = await page.evaluate((c) => JSON.parse(pyodideInstance.globals.get('browser_build').run_snippet(c, '/rc/cmp')).files, code);
+    } catch (e) {
+      browserOnlyErrors.push(name + ': ' + String(e.message).split('\n').filter((l) => /Error:/.test(l)).pop());
+      continue;
+    }
     const want = {};
     const walk = (d, rel) => { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); if (fs.statSync(p).isDirectory()) walk(p, rel + f + '/'); else want[rel + f] = fs.readFileSync(p, 'utf8'); } };
     walk(path.join(cpyDir, name), '');
     const ok = Object.keys(want).length === Object.keys(files).length && Object.entries(want).every(([k, v]) => files[k] === v);
     if (ok) same++; else diffs.push(name);
   }
-  log({ step: 'Chromium build vs normal build (CPython + Node ELK)', identical: same, different: diffs.length, diffs });
+  log({ step: 'Chromium build vs normal build (CPython + Node ELK)', identical: same, different: diffs.length, diffs, browserOnlyErrors });
   await ctx.close();
 }
 
@@ -148,6 +154,80 @@ async function runBlock(page, i, fi = i) {
   const phoneLayout = await page.frameLocator('iframe.runcode-viewer').first().locator('.app.phone').count();
   log({ step: 'phone', horizontalOverflowPx: overflow, viewerUsesPhoneLayout: phoneLayout === 1 });
   await page.screenshot({ path: path.join(shots, 'phone-light-page.png') });
+  await ctx.close();
+}
+// ---- 5. Follow-up 1: Run Code scrolls to its diagram (long snippet = block 3), desktop (smooth) and phone (reduced motion)
+async function where(page, i) {
+  return page.evaluate((i) => {
+    const h = document.querySelector('.md-header').getBoundingClientRect().bottom;
+    const c = document.querySelectorAll('.interactive-output-container')[i].getBoundingClientRect();
+    const pre = document.querySelectorAll('.interactive-code-wrapper')[i].querySelector('pre').getBoundingClientRect();
+    return { scrollY: Math.round(scrollY), headerBottom: Math.round(h), top: Math.round(c.top), bottom: Math.round(c.bottom),
+      codeBottom: Math.round(pre.bottom), innerHeight, topInView: c.height > 0 && c.top >= h - 1 && c.top < innerHeight,
+      // the top just below the header (within 16 px), or the page cannot scroll further
+      belowHeader: c.top >= h - 1 && c.top <= h + 16,
+      atPageEnd: Math.ceil(scrollY + innerHeight) >= document.documentElement.scrollHeight - 1 };
+  }, i);
+}
+const waitTopInView = (page, i) => page.waitForFunction((i) => {
+  const h = document.querySelector('.md-header').getBoundingClientRect().bottom;
+  const c = document.querySelectorAll('.interactive-output-container')[i].getBoundingClientRect();
+  return c.height > 0 && c.top >= h - 1 && c.top < innerHeight;
+}, i, { timeout: 5000 }).then(() => true, () => false);
+for (const [label, opts] of [
+  ['desktop', { viewport: { width: 1280, height: 900 }, reducedMotion: 'no-preference' }],
+  ['phone', { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, reducedMotion: 'reduce' }],
+]) {
+  const ctx = await browser.newContext({ ...opts, colorScheme: 'light' });
+  const page = await ctx.newPage();
+  await page.goto(url + 'spike-run-code/');
+  // the long snippet's Run Code button just below the header, as a reader who starts reading the example
+  await page.evaluate(() => {
+    const b = document.querySelectorAll('.interactive-run-button')[3];
+    const h = document.querySelector('.md-header').getBoundingClientRect().bottom;
+    window.scrollTo({ top: scrollY + b.getBoundingClientRect().top - h - 8, behavior: 'instant' });
+  });
+  const before = await where(page, 3);
+  await page.locator('.interactive-run-button').nth(3).click();
+  const t0 = Date.now();
+  const placeholderInView = await waitTopInView(page, 3);
+  const placeholderMs = Date.now() - t0;
+  await page.waitForTimeout(900); // let a smooth scroll finish (the first load takes ~2 s, the frame is not there yet)
+  const placeholder = { ...(await where(page, 3)), ms: placeholderMs,
+    loading: await page.locator('.interactive-output').nth(3).locator('.loading').count() };
+  await page.frameLocator('iframe.runcode-viewer').first().locator('.react-flow__node').first().waitFor({ timeout: 120000 });
+  await page.waitForTimeout(1200);
+  const drawn = await where(page, 3);
+  await page.screenshot({ path: path.join(shots, `scroll-${label}.png`) });
+  log({ step: `scroll (${label}): long snippet`, codeOffScreenBefore: before.codeBottom > before.innerHeight, before,
+    placeholderInView, placeholder, drawnTopInView: drawn.topInView, drawn });
+
+  // another snippet scrolls to its own diagram
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.locator('.interactive-run-button').nth(0).click();
+  await page.frameLocator('iframe.runcode-viewer').nth(0).locator('.react-flow__node').first().waitFor({ timeout: 60000 });
+  await page.waitForTimeout(1200);
+  const own0 = await where(page, 0);
+  // already fully visible: pressing Run Code again does not move the page
+  const y0 = await page.evaluate(() => scrollY);
+  const fully = await page.evaluate(() => { const h = document.querySelector('.md-header').getBoundingClientRect().bottom;
+    const c = document.querySelectorAll('.interactive-output-container')[0].getBoundingClientRect(); return c.top >= h && c.bottom <= innerHeight; });
+  await page.locator('.interactive-run-button').nth(0).click();
+  await page.waitForTimeout(1500);
+  const y1 = await page.evaluate(() => scrollY);
+  log({ step: `scroll (${label}): first snippet`, topInView: own0.topInView, own0,
+    againWhenFullyVisible: { fullyVisible: fully, scrollYBefore: Math.round(y0), scrollYAfter: Math.round(y1) } });
+
+  // collapsed by the toggle, then Run Code again from the top of the page: expanded and in view
+  await page.locator('.interactive-toggle-button').nth(3).click();
+  const hidden = await page.locator('.interactive-output').nth(3).evaluate((e) => e.style.display);
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+  await page.locator('.interactive-run-button').nth(3).click();
+  const inView = await waitTopInView(page, 3);
+  await page.waitForTimeout(1500);
+  log({ step: `scroll (${label}): collapsed then Run Code`, displayAfterToggle: hidden,
+    displayNow: await page.locator('.interactive-output').nth(3).evaluate((e) => e.style.display),
+    toggleText: await page.locator('.interactive-toggle-button').nth(3).textContent(), topInView: inView, at: await where(page, 3) });
   await ctx.close();
 }
 await browser.close();

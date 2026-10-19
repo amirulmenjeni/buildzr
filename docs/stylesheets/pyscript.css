@@ -610,7 +610,8 @@ py-script[loading] {
 }
 
 /* SPIKE: the rendered view of a snippet (the real viewer in a frame). */
-.interactive-output:has(.runcode-viewer) { max-height: none; padding: 0; white-space: normal; font-family: inherit; }
+.interactive-output:has(.runcode-viewer), .interactive-output:has(.runcode-placeholder) { max-height: none; padding: 0; white-space: normal; font-family: inherit; }
 .runcode-viewer { display: block; width: 100%; height: min(560px, 75vh); border: 0; border-top: 1px solid var(--md-default-fg-color--lightest); }
+.interactive-output .runcode-placeholder { box-sizing: border-box; height: min(560px, 75vh); }
 .runcode-json { padding: 0.5em 1em; font-size: 0.85em; }
 .runcode-json pre { max-height: 300px; overflow: auto; white-space: pre; }
