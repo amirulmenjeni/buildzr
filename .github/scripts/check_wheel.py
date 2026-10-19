@@ -13,7 +13,8 @@ Every archive must contain the viewer (`index.html` and a JS bundle), the five
 JSON schemas, the modules of `buildzr build` and `buildzr serve` (`cli.py`,
 `build.py`, `serve.py`) and the layout's Node runner with its vendored elkjs
 bundle. The wheel version
-must equal the version in `buildzr/__about__.py`. Stdlib only.
+must equal the version in `buildzr/__about__.py`. The agent skill (`skills/`) ships in
+the sdist, whose tests read it, and never in the wheel. Stdlib only.
 """
 
 import re
@@ -36,6 +37,7 @@ REQUIRED = [
     f'{SITE}/schema/{name}.schema.json'
     for name in ('build', 'config', 'index', 'levels', 'model', 'scene')
 ]
+SKILL = 'skills/buildzr/SKILL.md'
 ASSET_JS = re.compile(rf'^{SITE}/static/assets/[^/]+\.js$')
 
 
@@ -66,6 +68,8 @@ def check_wheel(path: Path, expected: str) -> List[str]:
     with zipfile.ZipFile(path) as z:
         names = z.namelist()
         result = problems('wheel', names)
+        if any(n.startswith('skills/') for n in names):
+            result.append('wheel: contains skills/; the agent skill belongs in the sdist only')
         metadata = [n for n in names if re.fullmatch(r'[^/]+\.dist-info/METADATA', n)]
         if len(metadata) != 1:
             return result + ['wheel: expected exactly one .dist-info/METADATA']
@@ -82,7 +86,11 @@ def check_sdist(path: Path) -> List[str]:
     with tarfile.open(path) as t:
         names = t.getnames()
     # Members are prefixed by the `buildzr-X.Y.Z/` folder.
-    return problems('sdist', names, prefix=names[0].split('/')[0] + '/' if names else '')
+    prefix = names[0].split('/')[0] + '/' if names else ''
+    result = problems('sdist', names, prefix=prefix)
+    if prefix + SKILL not in names:
+        result.append(f'sdist: missing {SKILL}')
+    return result
 
 
 def pick(target: Path, pattern: str, label: str, errors: List[str]) -> Optional[Path]:
@@ -120,7 +128,7 @@ def main(argv: List[str]) -> int:
     if errors:
         print(f'FAILED: {len(errors)} problem(s) found in the built package.', file=sys.stderr)
         return 1
-    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas, layout and command modules.')
+    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas, layout and command modules' + (', and the sdist the agent skill.' if with_sdist else '.'))
     return 0
 
 
