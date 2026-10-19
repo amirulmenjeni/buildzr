@@ -20,6 +20,7 @@ export interface NodeData extends Record<string, unknown> {
   frameBadge: string | null; // "3 containers" on collapsed frames
   matchBadge: string | null; // "2 matches"
   selected: boolean;
+  under: string[]; // fills of the expanded frames this node is drawn inside, outermost first (theme.ts: what is behind its label)
 }
 export interface EdgeData extends Record<string, unknown> {
   e: SceneEdge;
@@ -143,6 +144,12 @@ export function compose(inp: ComposeInput): Composed {
     return lit;
   };
 
+  const under: string[][] = [[]];
+  for (let i = 1; i < levels.length; i++) {
+    const fn = levels[i - 1].scene.nodes.find((n) => n.id === levels[i].frameId);
+    under.push([...under[i - 1], ...(fn ? [fn.style.fill] : [])]);
+  }
+
   levels.forEach((l, li) => {
     const sc = l.scene;
     const lit = litIn(sc);
@@ -196,7 +203,7 @@ export function compose(inp: ComposeInput): Composed {
           owner, lit: isLit, hit: !!match?.set.has(n.id), expanded, focused: n.id === focusId,
           nameCap: n.frame && Number.isFinite(capPx(n, l.K)) ? capPx(n, l.K) / l.K : null, frameBadge: fb,
           matchBadge: nm > 0 ? plural(nm, 'match').replace('matchs', 'matches') : null,
-          selected: selection === n.id,
+          selected: selection === n.id, under: under[li],
         },
       });
     }

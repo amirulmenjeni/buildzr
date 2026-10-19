@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { SETTINGS, type SettingDef, type SettingId } from './settings';
+import { SETTINGS, type SettingDef, type SettingId, type SettingValue } from './settings';
 import { useStore } from './store';
 
 function Control({ def }: { def: SettingDef }): ReactNode {
@@ -11,10 +11,25 @@ function Control({ def }: { def: SettingDef }): ReactNode {
     case 'boolean':
       return (
         <div className="setting">
-          <input id={id} type="checkbox" role="switch" checked={value} aria-describedby={`${id}-d`} data-setting={def.id} onChange={(e) => set(sid, e.target.checked)} />
+          <input id={id} type="checkbox" role="switch" checked={value === true} aria-describedby={`${id}-d`} data-setting={def.id} onChange={(e) => set(sid, e.target.checked)} />
           <label htmlFor={id}>{def.label}</label>
           <p id={`${id}-d`} className="setting-desc">{def.description}</p>
         </div>
+      );
+    case 'choice':
+      return (
+        <fieldset className="setting choice" aria-describedby={`${id}-d`} data-setting={def.id}>
+          <legend>{def.label}</legend>
+          <div className="segmented">
+            {def.options.map((o) => (
+              <label key={o.value} className={value === o.value ? 'on' : undefined}>
+                <input type="radio" name={id} value={o.value} checked={value === o.value} onChange={() => set(sid, o.value as SettingValue)} />
+                {o.label}
+              </label>
+            ))}
+          </div>
+          <p id={`${id}-d`} className="setting-desc">{def.description}</p>
+        </fieldset>
       );
   }
 }

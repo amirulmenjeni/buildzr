@@ -53,7 +53,7 @@ export default async function settings(browser, srv, F, name) {
     t.eq((await activeInfo(p)).set, 'zoomExpand', 'focus moves to the toggle when the panel opens');
     await toggle(p).click();
     t.eq(await setting(p), true, 'toggle on');
-    t.eq(JSON.parse(await stored(p)), { zoomExpand: true }, 'stored in localStorage');
+    t.eq(JSON.parse(await stored(p)), { zoomExpand: true, theme: 'system' }, 'stored in localStorage');
     await p.keyboard.press('Escape');
     t.eq(await panel(p).count(), 0, 'Esc closes the panel');
     t.eq((await activeInfo(p)).cls.includes('gear'), true, 'Esc returns focus to the gear');

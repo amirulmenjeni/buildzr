@@ -1,6 +1,8 @@
 import { BaseEdge, EdgeLabelRenderer, useStore, type EdgeProps } from '@xyflow/react';
 import type { FlowEdge } from './compose';
 import { labelMode } from './nodes';
+import { useStore as useViewer } from './store';
+import { edgeColors } from './theme';
 import { childFade, fitZoom, phoneLayout, reducedMotion } from './zoomfx';
 
 /** Orthogonal polyline with rounded corners (absolute points). */
@@ -19,18 +21,14 @@ export function pathFor(pts: [number, number][], r = 6): string {
   return d + ` L${last[0]},${last[1]}`;
 }
 
-const lum = (hex: string): number => {
-  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-};
-/** Label text must reach 4.5:1 on the white label box; fall back to a dark grey when the style colour is too light. */
-const readable = (hex: string): string => ((1.05) / (lum(hex) + 0.05) >= 4.5 ? hex : '#4a4f57');
 
 export function ElkEdge({ id, data }: EdgeProps<FlowEdge>) {
   const d = data!;
   const e = d.e;
   const s = e.style;
-  const color = s.stroke;
+  const theme = useViewer((st) => st.theme);
+  const ec = edgeColors(s.stroke, s.color, theme); // line 3:1 against the canvas, label text 4.5:1 against its box
+  const color = ec.stroke;
   const mEnd = (s.arrow === 'end' || s.arrow === 'both') && !d.noEnd;
   const mStart = (s.arrow === 'start' || s.arrow === 'both') && !d.noStart;
   const mid = `m-${id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
@@ -53,7 +51,7 @@ export function ElkEdge({ id, data }: EdgeProps<FlowEdge>) {
         <EdgeLabelRenderer>
           <div className="edge-label" aria-hidden="true" data-edge={e.id}
                style={{ position: 'absolute', transform: `translate(${d.labelPos[0]}px,${d.labelPos[1]}px)`, width: e.label.w * d.K, height: e.label.h * d.K,
-                        color: readable(s.color ?? color), textAlign: 'center', opacity: d.opacity * kids, zIndex: 2000, transformOrigin: '0 0' }}>
+                        color: ec.label, textAlign: 'center', opacity: d.opacity * kids, zIndex: 2000, transformOrigin: '0 0' }}>
             <div style={{ transform: d.K === 1 ? undefined : `scale(${d.K})`, transformOrigin: '0 0', width: e.label.w }}>
               {e.label.lines.map((l, i) => (l.tier !== 0 && !tiers.includes(String(l.tier)) ? null : (
                 <div key={i} style={{ fontSize: l.size ?? s.fontSize ?? 12, fontWeight: l.weight === 'bold' ? 700 : 400, whiteSpace: 'pre', lineHeight: 1.25 }}>{l.text}</div>
