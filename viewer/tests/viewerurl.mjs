@@ -11,6 +11,7 @@ import { newPage, settle, T, ROOT, STATIC } from './lib.mjs';
 
 const REPO = path.resolve(ROOT, '..');
 const DRAWN = new Set(['Person', 'SoftwareSystem', 'Container', 'Component']);
+const DEPLOYMENT = new Set(['DeploymentNode', 'InfrastructureNode', 'ContainerInstance', 'SoftwareSystemInstance']);
 
 const freePort = () => new Promise((resolve, reject) => {
   const s = net.createServer();
@@ -36,6 +37,7 @@ function pick(els, byId) {
     add(els.find((e) => e.type === type && e.children.length === 0));
   }
   for (let i = 0; chosen.length < 5 && i < els.length; i++) add(els[Math.floor((i * els.length) / 5) % els.length]);
+  for (const e of els) add(e); // a small model: the spread above can pick the same element twice
   return chosen.slice(0, 5).map((id) => byId.get(id));
 }
 
@@ -77,6 +79,20 @@ export default async function viewerurl(browser, srv, F, name) {
       t.eq(await p.locator(`[data-id="${e.id}"][data-selected="true"]`).count(), 1, `${e.id}: its box on the canvas is selected`);
       if (expanded) t.eq(await p.locator(`[data-id="${expanded}"][data-expanded="true"]`).count(), 1, `${e.id}: ${expanded} is expanded`);
       else t.eq(await p.locator('[data-expanded="true"]').count(), 0, `${e.id}: the landscape is shown`);
+      await p.context().close();
+    }
+    // Deployment elements: the link opens the first deployment view that shows the element, with it selected.
+    const deployed = F.model.elements.filter((e) => DEPLOYMENT.has(e.type) && e.views.length > 0);
+    for (const e of [deployed.find((x) => x.type === 'DeploymentNode'), deployed.find((x) => x.instanceOf)].filter(Boolean)) {
+      const ans = await (await fetch(`${base}/api/v1/element?id=${encodeURIComponent(e.id)}`)).json();
+      const link = ans.element.viewerUrl;
+      t.eq(link, `/site/#/v/${e.views[0]}?sel=${e.id}`, `${e.id}: the link opens its deployment view`);
+      const p = await newPage(browser, errors);
+      await p.goto(new URL(link, base).href);
+      await settle(p);
+      t.eq(await p.evaluate(() => location.hash), `#/v/${e.views[0]}?sel=${e.id}`, `${e.id}: the viewer keeps the link's state`);
+      t.eq(await p.locator(`[data-selected-id="${e.id}"]`).count(), 1, `${e.id}: the inspector shows it`);
+      t.eq(await p.locator(`[data-id="${e.id}"][data-selected="true"]`).count(), 1, `${e.id}: its box on the canvas is selected`);
       await p.context().close();
     }
   } finally {

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { isInternalTag, relationsOf, typeLabel, type ModelIndex, type RelRow } from './model';
+import { isDeployment, isInternalTag, relationsOf, typeLabel, type ModelIndex, type RelRow } from './model';
 import { useStore } from './store';
 
 function RelList({ title, rows, m, kind }: { title: string; rows: RelRow[]; m: ModelIndex; kind: 'outgoing' | 'incoming' }) {
@@ -34,6 +34,7 @@ export function Inspector() {
   const expand = useStore((s) => s.expand);
   const openView = useStore((s) => s.openView);
   const showInModel = useStore((s) => s.showInModel);
+  const environments = useStore((s) => s.model?.deployment.environments);
 
   const el = selection ? m.byId.get(selection) : undefined;
   const edge = useMemo(() => {
@@ -54,11 +55,14 @@ export function Inspector() {
           <p className="type">{typeLabel(el.type)}{el.technology ? ` · ${el.technology}` : ''}</p>
           <div className="actions">
             {m.expandable.has(el.id) && path !== el.id && <button data-action="open" onClick={() => expand(el.id)}>Open</button>}
-            {view && <button data-action="show-in-model" onClick={showInModel}>Show in model</button>}
+            {view && (!isDeployment(el) || el.instanceOf) && <button data-action="show-in-model" onClick={showInModel}>Show in model</button>}
           </div>
           {el.description && <p className="description">{el.description}</p>}
           <dl>
             <dt>Path</dt><dd><code>{el.id}</code></dd>
+            {el.environment && (<><dt>Environment</dt><dd data-field="environment">{environments?.find((e) => e.key === el.environment)?.name ?? el.environment}</dd></>)}
+            {el.instances && (<><dt>Instances</dt><dd data-field="instances">{el.instances}</dd></>)}
+            {el.instanceOf && (<><dt>Instance of</dt><dd data-field="instance-of"><button className="link" onClick={() => select(el.instanceOf!, { reveal: true })}>{m.byId.get(el.instanceOf)?.name ?? el.instanceOf}</button></dd></>)}
             {el.group && (<><dt>Group</dt><dd>{el.group}</dd></>)}
             {el.url && (<><dt>URL</dt><dd><a href={el.url} target="_blank" rel="noreferrer noopener">{el.url}</a></dd></>)}
           </dl>
@@ -66,6 +70,13 @@ export function Inspector() {
           {Object.keys(el.properties).length > 0 && (
             <section data-section="properties"><h3>Properties</h3>
               <dl>{Object.entries(el.properties).map(([k, v]) => (<span key={k}><dt>{k}</dt><dd>{v}</dd></span>))}</dl>
+            </section>
+          )}
+          {el.healthChecks && el.healthChecks.length > 0 && (
+            <section data-section="health-checks"><h3>Health checks</h3>
+              <ul>{el.healthChecks.map((h, i) => (
+                <li key={i}>{h.name} <code>{h.url}</code>{h.interval !== null ? ` every ${h.interval} s` : ''}{h.timeout !== null ? `, timeout ${h.timeout} ms` : ''}</li>
+              ))}</ul>
             </section>
           )}
           <label className="toggle">

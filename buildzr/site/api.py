@@ -19,7 +19,7 @@ import threading
 from typing import Any, Iterator, Optional
 from urllib.parse import parse_qs, quote, urlencode
 
-from buildzr.site.model import DRAWN_TYPES, ModelIndex
+from buildzr.site.model import DEPLOYMENT_TYPES, DRAWN_TYPES, ModelIndex
 
 Json = dict[str, Any]
 
@@ -35,7 +35,7 @@ PARAMS: dict[str, tuple[str, ...]] = {
     "neighbours": ("id", "direction", "depth", "type", "limit"),
     "path": ("from", "to", "maxHops", "limit"),
     "relationships": ("from", "to", "edge", "tag", "limit", "cursor"),
-    "views": ("scope",),
+    "views": ("scope", "environment"),
     "view": ("key",),
 }
 REPEATABLE = {"tag"}
@@ -50,7 +50,7 @@ HOPS_DEFAULT, HOPS_MAX = 6, 8
 Q_MAX = 200
 ID_MAX = 500
 ANSWER_BUDGET = 900_000  # bytes of items in one answer; the 1 MB cap leaves room for the envelope
-TYPES = ("Person", "SoftwareSystem", "Container", "Component", "Element")
+TYPES = ("Person", "SoftwareSystem", "Container", "Component", "Element") + DEPLOYMENT_TYPES
 DIRECTIONS = ("out", "in", "both")
 MAX_QUERY_FIELDS = 40
 
@@ -227,6 +227,7 @@ class Api:
             for t in e["tags"]:
                 self.by_tag.setdefault(t.casefold(), []).append(e["id"])
         self.views = {v["key"]: v for v in model["views"]}
+        self.environments: list[Json] = (model.get("deployment") or {}).get("environments") or []
         self.text: dict[str, tuple[str, str, str, str, str]] = {}
         for e in model["elements"]:
             self.text[e["id"]] = (
@@ -246,6 +247,10 @@ class Api:
         if not self.links_to_viewer:
             return None
         e = self.el[path]
+        if e["type"] in DEPLOYMENT_TYPES:  # drawn only in deployment views: the first one that shows it
+            if not e["views"]:
+                return None
+            return f"{self.base}#/v/{quote(e['views'][0], safe='/')}?sel={quote(path, safe='/')}"
         if e["type"] not in DRAWN_TYPES:
             return None
         if e["children"]:
@@ -384,11 +389,15 @@ class Api:
             counts={"elements": len(self.model["elements"]), "relationships": len(self.model["relationships"]),
                     "views": len(self.model["views"]), "byType": dict(sorted(by_type.items()))},
             tags=tags, topLevel=[e["id"] for e in self.model["elements"] if e["parent"] is None],
+            environments=[{"key": e["key"], "name": e["name"], "nodes": e["nodes"], "views": e["views"]}
+                          for e in self.environments],
             viewerUrl=self.workspace_url(), publicUrlConfigured=self.public_url is not None,
             howToAsk=(f"Element ids are slug paths such as {sample!r}; give them in query parameters. "
                       "Relationships are the explicit ones in the model. A relationship of a descendant counts for "
                       "its ancestors, so an arrow between two systems is the union of the relationships between "
-                      "their contents. Lists are paged: follow 'next' while 'truncated' is true."),
+                      "their contents. Deployment nodes, infrastructure nodes and instances are elements too, with "
+                      "ids under deploy/<environment>/ (see environments); an instance names its container or "
+                      "system in instanceOf. Lists are paged: follow 'next' while 'truncated' is true."),
             endpoints={
                 "element": f"{b}element?id={{id}}",
                 "search": f"{b}elements{{?q,type,tag,within,limit,cursor}}",
@@ -396,7 +405,7 @@ class Api:
                 "neighbours": f"{b}neighbours?id={{id}}{{&direction,depth,type,limit}}",
                 "path": f"{b}path?from={{from}}&to={{to}}{{&maxHops,limit}}",
                 "relationships": f"{b}relationships{{?from,to,edge,tag,limit,cursor}}",
-                "views": f"{b}views{{?scope}}",
+                "views": f"{b}views{{?scope,environment}}",
                 "view": f"{b}view?key={{key}}",
             },
             limits={"elements": {"default": LIMITS["elements"][0], "max": LIMITS["elements"][1]},
@@ -420,6 +429,9 @@ class Api:
               "relationships": {"own": {"in": len(self.in_own[path]), "out": len(self.out_own[path])},
                                 "withDescendants": {"in": crossing_in, "out": crossing_out}},
               "viewerUrl": self.viewer_url(path)}
+        for k in ("environment", "instanceOf", "instances", "healthChecks"):
+            if k in e:
+                el[k] = e[k]
         return self.envelope(element=el)
 
     def elements(self, q: Query) -> Json:
@@ -652,12 +664,19 @@ class Api:
 
     def views_answer(self, q: Query) -> Json:
         scope = self._find("scope", q.get("scope") or "") if q.get("scope") else None
-        items = [self._view_summary(v) for v in self.model["views"] if scope is None or v["scope"] == scope]
+        env = q.get("environment")
+        if env is not None and env not in {e["key"] for e in self.environments}:
+            keys = [e["key"] for e in self.environments]
+            raise _bad(f"no environment {env!r}; environments: {', '.join(keys) or 'none'}", parameter="environment",
+                       allowed=keys)
+        items = [self._view_summary(v) for v in self.model["views"]
+                 if (scope is None or v["scope"] == scope) and (env is None or v.get("environment") == env)]
         return self.envelope(items=items, next=None, truncated=False)
 
     def _view_summary(self, v: Json) -> Json:
         return {"key": v["key"], "viewKey": v["viewKey"], "kind": v["kind"], "title": v["title"],
-                "description": v["description"], "scope": v["scope"], "viewerUrl": self.view_url(v["key"])}
+                "description": v["description"], "scope": v["scope"], "environment": v.get("environment"),
+                "viewerUrl": self.view_url(v["key"])}
 
     def view(self, q: Query) -> Json:
         key = q.require("key")
@@ -691,6 +710,9 @@ class Api:
             lines.append(f"> {str(o['description'])[:300]}")
         if o["viewerUrl"]:
             lines.append(f"> Viewer for people: {o['viewerUrl']}")
+        if o["environments"]:
+            envs = ", ".join(f"{str(e['name'])[:60]} (`{e['key']}`)" for e in o["environments"][:10])
+            lines.append(f"> Deployment environments: {envs}. Their elements have ids under `deploy/<key>/`.")
         lines += ["", "Start with the orientation document, then ask:", "", f"- [Orientation]({b}): counts, tags, top level, limits"]
         names = {"element": "One element", "search": "Search elements", "tree": "Element tree",
                  "neighbours": "Neighbours", "path": "Shortest chains", "relationships": "Relationships",

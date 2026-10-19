@@ -301,8 +301,11 @@ def test_q15_what_is_this_arrow(small: Client, small_built: Path) -> None:
 def test_example_answers(example: Client, example_built: Path) -> None:
     m = model_of(example_built)
     doc = example.ok("/api/v1/")
-    assert doc["counts"]["elements"] == 13 and doc["counts"]["relationships"] == 6 and doc["counts"]["views"] == 1
-    assert doc["topLevel"] == ["customer", "administrator", "e-commerce-system", "payment-provider"]
+    assert doc["counts"]["elements"] == 25 and doc["counts"]["relationships"] == 8 and doc["counts"]["views"] == 2
+    assert doc["topLevel"] == ["customer", "administrator", "e-commerce-system", "payment-provider",
+                               "deploy/production/aws"]
+    assert doc["environments"] == [{"key": "production", "name": "Production", "nodes": ["deploy/production/aws"],
+                                    "views": ["deployment-view-production-ecommerce"]}]
     assert doc["modelHash"] == m["modelHash"]
     # q2/q3: what is the system made of; what does the web app depend on through others
     t = example.ok("/api/v1/tree?id=e-commerce-system&depth=2")["items"][0]
@@ -334,7 +337,8 @@ def test_example_answers(example: Client, example_built: Path) -> None:
     assert example.ok("/api/v1/element?id=e-commerce-system/order-service")["element"]["viewerUrl"] == \
         "/#/m/e-commerce-system/order-service?sel=e-commerce-system/order-service"
     # q7/q12/q14
-    assert ids(example.ok("/api/v1/elements?q=mongo")["items"]) == ["e-commerce-system/database"]
+    assert ids(example.ok("/api/v1/elements?q=mongo")["items"]) == [  # the container first, then where it runs
+        "e-commerce-system/database", "deploy/production/aws/documentdb", "deploy/production/aws/documentdb/database"]
     assert example.ok("/api/v1/elements?tag=NoSuchTag")["items"] == []
     v = example.ok("/api/v1/view?key=system-context-view-ecommerce")["view"]
     assert v["scope"] == "e-commerce-system" and "customer" in ids(v["elements"])
@@ -440,25 +444,25 @@ def test_path_is_shortest_on_a_branching_graph() -> None:
 
 def test_paging_covers_everything_once_and_in_order(example: Client) -> None:
     everything = example.ok("/api/v1/elements?limit=200")
-    assert everything["total"] == 13 and everything["truncated"] is False and everything["next"] is None
+    assert everything["total"] == 25 and everything["truncated"] is False and everything["next"] is None
     seen: list[str] = []
     url: Optional[str] = "/api/v1/elements?limit=4"
     pages = 0
     while url:
         page = example.ok(url)
-        assert len(page["items"]) <= 4 and page["total"] == 13
+        assert len(page["items"]) <= 4 and page["total"] == 25
         seen += ids(page["items"])
         assert page["truncated"] is (page["next"] is not None)
         url = page["next"]
         pages += 1
-    assert pages == 4 and seen == ids(everything["items"])
+    assert pages == 7 and seen == ids(everything["items"])
     rel_pages: list[str] = []
     url = "/api/v1/relationships?limit=4"
     while url:
         page = example.ok(url)
         rel_pages += ids(page["items"])
         url = page["next"]
-    assert rel_pages == sorted(rel_pages) and len(rel_pages) == 6
+    assert rel_pages == sorted(rel_pages) and len(rel_pages) == 8
 
 
 def test_cursor_is_bound_to_the_model_and_opaque(example: Client, small: Client) -> None:
@@ -880,7 +884,11 @@ def test_viewer_urls_follow_the_grammar_for_every_element(which: str, small_buil
     by_id = {e["id"]: e for e in model["elements"]}
     for e in model["elements"]:
         kind, path, sel = parse_hash(api.viewer_url(e["id"]) or "")
-        assert kind == "m" and sel == e["id"] and quote(e["id"], safe="/") == e["id"]
+        assert sel == e["id"] and quote(e["id"], safe="/") == e["id"]
+        if e["type"] in ("DeploymentNode", "InfrastructureNode", "ContainerInstance", "SoftwareSystemInstance"):
+            assert kind == "v" and path == e["views"][0]  # opens the first deployment view that shows it
+            continue
+        assert kind == "m"
         if e["children"]:
             assert path == e["id"]  # opens expanded
         else:

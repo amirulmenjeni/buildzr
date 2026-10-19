@@ -18,7 +18,8 @@ SKILLS = os.path.join(ROOT, "skills")
 
 #: The pages whose examples are tested: the Publishing section in its order, then the Getting Started pages.
 PAGES = ["serve-workspaces.md", "cli.md", "config.md", "publishing-recipes.md", "hosting.md", "ui-settings.md",
-         "viewer-hash-routes.md", "model-api.md", "getting-started/quick-start.md", "getting-started/ai-agents.md"]
+         "viewer-hash-routes.md", "model-api.md", "getting-started/quick-start.md", "getting-started/ai-agents.md",
+         "user-guide/deployment.md"]
 
 FENCE = re.compile(r"^(\s*)```([\w+-]*)(?:\s+\w[^`]*)?\s*$")  # attributes such as hl_lines="2-4" may follow
 DIRECTIVE = re.compile(r"^<!--\s*doctest:\s*(\w+)\s*(.*?)\s*-->\s*$")

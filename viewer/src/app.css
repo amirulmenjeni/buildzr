@@ -62,7 +62,10 @@ button { font: inherit; }
 .setting label { font-weight: 700; }
 .setting-desc { grid-column: 1 / -1; margin: 2px 0 0; font-size: 12px; color: var(--muted); }
 
-.crumbs ol { display: flex; gap: 4px; align-items: center; }
+/* The breadcrumbs take the room the title and the toolbar leave: a longer path never makes the toolbar wrap,
+   so the header, and with it the canvas, keeps its height when a box expands. A long path scrolls sideways. */
+.top .crumbs { flex: 1 1 0; min-width: 120px; overflow-x: auto; scrollbar-width: none; }
+.crumbs ol { display: flex; gap: 4px; align-items: center; white-space: nowrap; }
 .crumbs li + li::before { content: '›'; margin-right: 4px; color: var(--muted); }
 .crumbs button { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 2px 4px; }
 .crumbs [aria-current='page'] { color: var(--fg); font-weight: 700; }
@@ -98,6 +101,8 @@ button { font: inherit; }
 .c4el .badge { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); font-size: 12px; background: rgba(255,255,255,.85); color: #1b1f24; border-radius: 9px; padding: 1px 8px; white-space: nowrap; }
 .c4el .badge.matches { bottom: auto; top: 4px; right: 6px; left: auto; transform: none; background: #e8590c; color: #fff; font-weight: 700; }
 .c4el.expanded .badge.count { display: none; }
+.badge.instances { position: absolute; top: 6px; right: 8px; font-size: 13px; font-weight: 700; color: #1b1f24; background: rgba(255,255,255,.85); border: 1px solid #888; border-radius: 9px; padding: 0 7px; white-space: nowrap; }
+.c4el .badge.instances { bottom: auto; left: auto; transform: none; }
 .c4el > div:first-child * { pointer-events: none; }
 .c4el > div:first-child svg { pointer-events: auto; }
 .edge-label { background: rgba(255,255,255,.85); pointer-events: none; }

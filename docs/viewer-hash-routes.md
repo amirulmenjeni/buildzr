@@ -13,8 +13,8 @@ Links in the forms on this page keep working in later versions of buildzr.
 | **viewer** | The web page inside a built workspace that draws the diagrams. |
 | **hash** | The part of an address after `#`. The viewer keeps its navigation state there. |
 | **landscape** | The first diagram the viewer shows, like a [System Landscape diagram](https://c4model.com/#SystemLandscapeDiagram) of the C4 model: every person and software system of the model. Groups draw a boundary around some of them; they do not hide any. |
-| **element path** | The id of an element: lower-case names joined by `/`, for example `billing/api`. It is the same id as in the Model API. |
-| **authored view** | A view that the authors of the model defined, such as a system context view. |
+| **element path** | The id of an element: lower-case names joined by `/`, for example `billing/api`. It is the same id as in the Model API. The ids of deployment elements start with `deploy/<environment>/`, for example `deploy/production/aws/ecs-cluster`. |
+| **authored view** | A view that the authors of the model defined, such as a system context view or a [deployment view](user-guide/deployment.md). |
 | **arrow id** | The id of an arrow that the viewer draws, such as `billing/web->billing/api`. |
 
 ## How the viewer uses the hash
@@ -51,6 +51,7 @@ Examples:
 #/m/billing?sel=billing/api
 #/m/billing/api?sel=billing/api/payments&q=pay&tags=PCI,Database&mode=and
 #/v/billing-containers?sel=crm
+#/v/production?sel=deploy/production/aws/ecs-cluster
 #/m/billing?sel=billing/web-%3Ebilling/api
 ```
 
@@ -85,6 +86,7 @@ As a result, Back steps out one level at a time. For example, after you expand `
 
 - `#/m/<path>` with a path that is not in the model: the viewer walks up the path until it finds an existing element, or reaches the landscape. It expands that element, replaces the hash with its path and shows a notice, for example "`billing/old-api` not found; showing `billing`".
 - A path to an element without children (a leaf, such as a component): the viewer expands the parent and selects the element. `#/m/billing/api/payments` is rewritten to `#/m/billing/api?sel=billing/api/payments`.
+- A path to a deployment element: deployment elements are drawn in deployment views only, so the viewer opens the first deployment view that shows the element and selects it. `#/m/deploy/production/aws` is rewritten to `#/v/production?sel=deploy/production/aws`. When no view shows the element, the viewer opens `#/m` with a notice.
 - `#/v/<key>` with an unknown view key: the viewer opens `#/m` and shows a notice.
 - `sel=` that names nothing in the current canvas or model: the viewer drops it without a notice.
-- Element types the viewer does not draw, for example `DeploymentNode`: the viewer ignores them everywhere, also in `sel=`.
+- Element types the viewer does not know (a type a later version of buildzr may add): the viewer ignores them everywhere, also in `sel=`.

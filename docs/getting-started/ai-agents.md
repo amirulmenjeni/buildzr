@@ -42,7 +42,7 @@ npx skills add ../buildzr --skill buildzr --agent claude-code -y
 With the skill installed, the agent:
 
 - installs buildzr and checks its version with `buildzr --version`;
-- writes model files in `workspaces/`: people, software systems, containers, components, relationships, groups, styles, and system landscape, system context, container, component, dynamic and deployment views. Built workspaces do not show deployment views yet, so the agent hands those over as Structurizr JSON;
+- writes model files in `workspaces/`: people, software systems, containers, components, relationships, groups, styles, and system landscape, system context, container, component, dynamic and deployment views;
 - runs `buildzr build`, reads the errors of a broken workspace, fixes the model file and builds again until the build passes;
 - starts `buildzr serve` and gives you the address of the viewer, or a link to one view or one element;
 - answers questions about a served workspace from its [Model API](../model-api.md), such as "what depends on the database?", instead of reading the Python.
@@ -57,7 +57,7 @@ payment provider. Produce a system context view, a container view and a deployme
 view, and build it.
 ```
 
-Expect the agent to create `workspaces/<name>.py`, run `buildzr build` until it prints a `built .buildzr/build/<name> (...)` line and exits with code 0, and tell you how to open the result with `buildzr serve`. The viewer shows the system context view and the container view. For the deployment view, the agent also writes `workspace.json`, which you can open in [Structurizr Lite](https://docs.structurizr.com/lite), and tells you that the viewer does not show it. If a build fails, the agent sees the same `BROKEN` block as you do (see [When a workspace is broken](../serve-workspaces.md#8-when-a-workspace-is-broken)) and fixes the file.
+Expect the agent to create `workspaces/<name>.py`, run `buildzr build` until it prints a `built .buildzr/build/<name> (...)` line and exits with code 0, and tell you how to open the result with `buildzr serve`. The viewer shows all three views; the deployment view draws the servers or cloud services as nested boxes with the containers that run on them. If a build fails, the agent sees the same `BROKEN` block as you do (see [When a workspace is broken](../serve-workspaces.md#8-when-a-workspace-is-broken)) and fixes the file.
 
 ## Next steps
 

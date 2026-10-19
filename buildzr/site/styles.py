@@ -18,6 +18,7 @@ Json = dict[str, Any]
 TYPE_TEXT = {
     "Person": "Person", "SoftwareSystem": "Software System", "Container": "Container",
     "Component": "Component", "Group": "Group",
+    "DeploymentNode": "Deployment Node", "InfrastructureNode": "Infrastructure Node",
 }
 TYPE_TAG = TYPE_TEXT
 
@@ -28,7 +29,11 @@ DEFAULTS = {
     "Container": ("#438dd5", "#ffffff", "Box"),
     "Component": ("#85bbf0", "#000000", "Box"),
     "Group": ("#ffffff", "#444444", "Box"),
+    "DeploymentNode": ("#ffffff", "#000000", "Box"),
+    "InfrastructureNode": ("#ffffff", "#000000", "Box"),
 }
+#: Boundaries drawn with a solid border (groups and view boundaries are dashed).
+SOLID_BOUNDARIES = ("DeploymentNode",)
 SHAPES = {"Box", "RoundedBox", "Person", "Cylinder", "Pipe", "Folder", "Hexagon", "Circle", "Ellipse",
           "Component", "WebBrowser", "MobileDevicePortrait", "MobileDeviceLandscape", "Robot", "Diamond"}
 
@@ -127,6 +132,10 @@ class Styles:
                 fg = bstroke if contrast(bstroke, fill) >= 4.5 else (
                     "#000000" if contrast("#000000", fill) >= contrast("#ffffff", fill) else "#ffffff")
             style = {"fill": fill, "color": fg, "fontSize": rnd(fs), "dash": [6, 4], "stroke": bstroke}
+            if type_ in SOLID_BOUNDARIES and border == "dotted":
+                style["dash"] = [2, 3]
+            elif type_ in SOLID_BOUNDARIES and border != "dashed":
+                del style["dash"]
             shape = "Box"
         else:
             style = {"fill": fill, "stroke": stroke or darken(fill), "color": fg, "fontSize": rnd(fs)}

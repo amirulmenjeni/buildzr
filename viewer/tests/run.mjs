@@ -1,5 +1,5 @@
 // Acceptance tests (stage 2 and 3). Usage, inside the devcontainer with the viewer built:
-//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|viewerurl|workspaces|broken] [--shots]
+//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|viewerurl|workspaces|broken|deployment] [--shots]
 // A data dir holds index.json, model.json and scene/ (e.g. tests/site/fixtures/small).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -18,6 +18,7 @@ for (let i = 0; i < args.length; i++) {
 if (!dataDirs.length) dataDirs.push(path.resolve(ROOT, '../tests/site/fixtures/small'));
 
 const KNOWN = new Set(['Person', 'SoftwareSystem', 'Container', 'Component']);
+const DEPLOYMENT = new Set(['DeploymentNode', 'InfrastructureNode', 'ContainerInstance', 'SoftwareSystemInstance']);
 const loadJson = (dir, f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
 const results = [];
 
@@ -30,7 +31,9 @@ function facts(dir) {
   const parentOf = (id) => byId.get(id).parent ?? '';
   const inSubtree = (x, root) => x === root || x.startsWith(root + '/');
   const expandable = els.filter((e) => ('e/' + e.id) in index.scenes && e.children.length > 0).map((e) => e.id);
-  return { index, model, els, byId, parentOf, inSubtree, expandable, rels: model.relationships.filter((r) => byId.has(r.source) && byId.has(r.destination)) };
+  // search and the filter also find deployment elements (drawn in deployment views only), in model order
+  const searchEls = model.elements.filter((e) => KNOWN.has(e.type) || DEPLOYMENT.has(e.type));
+  return { index, model, els, searchEls, byId, parentOf, inSubtree, expandable, rels: model.relationships.filter((r) => byId.has(r.source) && byId.has(r.destination)) };
 }
 
 const nodeSel = (id) => `.react-flow__node[data-id="${id}"]`;
@@ -198,9 +201,11 @@ async function stage2(browser, srv, F, name) {
     // clicking a canvas edge selects it
     await p.evaluate(() => { location.hash = '#/m'; });
     await settle(p);
-    const ed = await p.locator('.react-flow__edge').first();
-    await ed.locator('path.react-flow__edge-interaction').first().dispatchEvent('click');
-    t.ok((await p.locator('[data-selected-edge]').count()) === 1, 'canvas edge click selects the edge');
+    if (await p.locator('.react-flow__edge').count()) {
+      const ed = await p.locator('.react-flow__edge').first();
+      await ed.locator('path.react-flow__edge-interaction').first().dispatchEvent('click');
+      t.ok((await p.locator('[data-selected-edge]').count()) === 1, 'canvas edge click selects the edge');
+    } else t.note('no edge on the landscape: the edge click is not checked');
     await p.context().close();
   }
 
@@ -323,7 +328,7 @@ async function stage2(browser, srv, F, name) {
   {
     const p = await newPage(browser, errors);
     await open(p, srv.url, '#/m');
-    const v = F.model.views[F.model.views.length - 1];
+    const v = F.model.views.filter((x) => x.kind !== 'deployment').at(-1); // deployment views: tests/deployment.mjs
     await act(p, () => p.locator(`.views [data-view="${v.key}"]`).click());
     t.eq(await hashOf(p), `#/v/${v.key}`, 'opening a view');
     const sc = loadJson(srv.dir, F.index.scenes[v.scene].file);
@@ -339,30 +344,32 @@ async function stage2(browser, srv, F, name) {
     await p.context().close();
   }
 
-  // 7. a fake DeploymentNode loads and is ignored
+  // 7. element types the viewer does not know load and are ignored; so is a deployment element in the wrong place
   {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'viewer-dn-'));
     fs.cpSync(srv.dir, tmp, { recursive: true });
     const model = loadJson(tmp, F.index.model.file);
-    const base = { modelId: '900', description: 'fake', technology: null, tags: ['Element', 'Deployment Node'], properties: {}, url: null, group: null, views: [] };
-    model.elements.push({ ...base, id: 'live', type: 'DeploymentNode', parent: null, children: ['live/node-1'], name: 'Live' });
-    model.elements.push({ ...base, id: 'live/node-1', type: 'InfrastructureNode', parent: 'live', children: [], name: 'Node 1' });
+    const base = { modelId: '900', description: 'fake', technology: null, tags: ['Element', 'Future Node'], properties: {}, url: null, group: null, views: [] };
+    model.elements.push({ ...base, id: 'live', type: 'FutureNode', parent: null, children: ['live/node-1'], name: 'Live' });
+    model.elements.push({ ...base, id: 'live/node-1', type: 'InfrastructureNode', parent: 'live', children: [], name: 'Node 1', environment: 'live' });
     const first = model.elements.find((e) => e.type === 'SoftwareSystem');
-    first.children.push('first/odd');
-    model.elements.push({ ...base, id: first.id + '/odd', type: 'DeploymentNode', parent: first.id, children: [], name: 'Odd child' });
+    first.children.push(first.id + '/odd', first.id + '/odd-node');
+    model.elements.push({ ...base, id: first.id + '/odd', type: 'FutureNode', parent: first.id, children: [], name: 'Odd child' });
+    model.elements.push({ ...base, id: first.id + '/odd-node', type: 'DeploymentNode', parent: first.id, children: [], name: 'Odd node', environment: 'live', instances: '1' });
     model.relationships.push({ id: 'live->' + first.id, modelId: '901', source: 'live', destination: first.id, description: 'x', technology: null, tags: [], properties: {} });
     fs.writeFileSync(path.join(tmp, F.index.model.file), JSON.stringify(model));
     const s2 = await serve(tmp);
     const errs = [];
     const p = await newPage(browser, errs);
     await open(p, s2.url, `#/m/${first.id}?sel=live`);
-    t.eq(await p.locator('[role=treeitem][data-id="live"]').count(), 0, 'DeploymentNode not in the tree');
+    t.eq(await p.locator('[role=treeitem][data-id="live"]').count(), 0, 'an unknown type is not in the tree');
     t.eq(await p.locator(`[role=treeitem][data-id="${first.id}/odd"]`).count(), 0, 'unknown child not in the tree');
+    t.eq(await p.locator(`[role=treeitem][data-id="${first.id}/odd-node"]`).count(), 0, 'a deployment node under a system is not in the tree');
     t.eq(await p.locator('[data-selected-id]').count(), 0, 'sel= naming an unknown type is dropped');
     t.ok(!(await hashOf(p)).includes('sel=live'), 'sel=live dropped from the hash');
     await p.locator(`[role=treeitem][data-id="${first.id}"] > .row`).click();
     t.eq(await p.locator('[data-section=incoming] .n').getAttribute('data-count'), String(F.rels.filter((r) => r.destination === first.id).length), 'relationship from the unknown element is ignored');
-    t.eq(errs, [], 'no console errors with a DeploymentNode');
+    t.eq(errs, [], 'no console errors with unknown types');
     t.eq(await p.locator('[role=treeitem]').count() > 0, true, 'tree rendered');
     s2.close(); fs.rmSync(tmp, { recursive: true, force: true });
     await p.context().close();
@@ -422,7 +429,7 @@ async function stage3(browser, srv, F, name) {
     const A = await snapshot(p);
     for (const [step, qs] of steps()) {
       const fq = new URLSearchParams(qs);
-      const want = F.els.filter((e) => matchesQ(e, fq.get('q') ?? '', (fq.get('tags') ?? '').split(',').filter(Boolean), fq.get('mode') === 'and' ? 'and' : 'or')).map((e) => e.id);
+      const want = F.searchEls.filter((e) => matchesQ(e, fq.get('q') ?? '', (fq.get('tags') ?? '').split(',').filter(Boolean), fq.get('mode') === 'and' ? 'and' : 'or')).map((e) => e.id);
       await p.evaluate((h) => { location.hash = h; }, `${base}?${qs}`);
       await p.waitForFunction((h) => location.hash.includes('q=') || location.hash.includes('tags='), null);
       await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -436,7 +443,8 @@ async function stage3(browser, srv, F, name) {
       const treeState = await p.locator('[role=treeitem]').evaluateAll((l) => l.map((x) => ({ id: x.dataset.id, dim: x.querySelector(':scope > .row').classList.contains('dimmed'), exp: x.getAttribute('aria-expanded') })));
       const wrong = treeState.filter((r) => r.dim === want.includes(r.id));
       t.ok(wrong.length === 0, `${base}/${step}: tree dimmed class wrong for ${wrong.map((r) => r.id)}`);
-      const needOpen = new Set(want.flatMap((id) => { const a = id.split('/'); return a.slice(0, -1).map((_, i) => a.slice(0, i + 1).join('/')); }));
+      // the tree holds the static model only: deployment matches open no row
+      const needOpen = new Set(want.filter((id) => F.byId.has(id)).flatMap((id) => { const a = id.split('/'); return a.slice(0, -1).map((_, i) => a.slice(0, i + 1).join('/')); }));
       const notOpen = [...needOpen].filter((id) => !treeState.find((r) => r.id === id && r.exp === 'true'));
       t.ok(notOpen.length === 0, `${base}/${step}: ancestors not expanded: ${notOpen}`);
       t.eq(await p.locator('[role=treeitem]').count() >= F.els.filter((e) => !F.els.some(() => false)).length - 0 || true, true, 'tree keeps rows');
@@ -470,7 +478,7 @@ async function stage3(browser, srv, F, name) {
     const p = await newPage(browser, errors);
     await open(p, srv.url, `#/m?q=${encodeURIComponent(q)}`);
     const input = p.locator('input[type=search]');
-    const list = qList.map((e) => e.id);
+    const list = F.searchEls.filter((e) => matchesQ(e, q, [], 'or')).map((e) => e.id);
     await input.focus();
     const seen = [];
     for (let i = 0; i < list.length; i++) {
@@ -485,7 +493,9 @@ async function stage3(browser, srv, F, name) {
     // canvas expanded to the match: its node is drawn and marked
     const last = list[list.length - 1];
     const hp = (await hashOf(p)).split('?')[0];
-    t.eq(hp, '#/m' + (F.parentOf(last) ? '/' + F.parentOf(last) : ''), 'canvas expanded to the match');
+    const lastEl = F.model.elements.find((e) => e.id === last);
+    if (DEPLOYMENT.has(lastEl.type)) t.eq(hp, `#/v/${lastEl.views[0]}`, 'a deployment match opens its deployment view');
+    else t.eq(hp, '#/m' + (F.parentOf(last) ? '/' + F.parentOf(last) : ''), 'canvas expanded to the match');
     t.eq(await p.locator(nodeSel(last) + ' [data-selected=true]').count(), 1, 'selected match is on the canvas');
     await p.locator('button[aria-label="Previous match"]').click(); await p.waitForTimeout(150);
     t.eq(new URLSearchParams((await hashOf(p)).split('?')[1]).get('sel'), list[list.length - 2] ?? list[0], 'previous button');
@@ -560,6 +570,7 @@ for (const dir of dataDirs) {
   if (!only || only === 'workspaces') { const t = await (await import('./workspaces.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'broken') { const t = await (await import('./broken.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'settings') { const t = await (await import('./settings.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
+  if (!only || only === 'deployment') { const t = await (await import('./deployment.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (shots) await import('./shots.mjs').then((m) => m.default(browser, srv, F, name));
   srv.close();
 }

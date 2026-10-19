@@ -30,6 +30,9 @@ import jsonschema  # type: ignore[import-untyped]
 
 from buildzr.site.canonical import INDEX_SCHEMA, MODEL_SCHEMA, SCENE_SCHEMA, dumps, model_hash
 
+DEPLOYMENT_TYPES = ("DeploymentNode", "InfrastructureNode", "ContainerInstance", "SoftwareSystemInstance")
+INSTANCE_OF = {"ContainerInstance": "Container", "SoftwareSystemInstance": "SoftwareSystem"}
+
 SCHEMA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "schema")
 EPS = 0.5  # containment / border tolerance, px
 PORT_EPS = 1.5  # port continuity tolerance, px (design I, stage 1)
@@ -213,10 +216,14 @@ def check_model(model: Json, rep: Report, where: str = "model.json") -> None:
     if model["modelHash"] != model_hash(model):
         rep.err(where, f"modelHash {model['modelHash']} != computed {model_hash(model)}")
     seen: dict[str, Json] = {}
+    envs = {env["key"]: env for env in model["deployment"]["environments"]}
+    if len(envs) != len(model["deployment"]["environments"]):
+        rep.err(where, "duplicate environment key")
     for e in model["elements"]:
         if e["id"] in seen:
             rep.err(where, f"duplicate element id {e['id']}")
         p = e["parent"]
+        deployed = e["type"] in DEPLOYMENT_TYPES
         if p is not None:
             if p not in seen:
                 rep.err(where, f"element {e['id']}: parent {p} missing or after child (pre-order)")
@@ -224,9 +231,30 @@ def check_model(model: Json, rep: Report, where: str = "model.json") -> None:
                 rep.err(where, f"element {e['id']} not in children of {p}")
             if not e["id"].startswith(p + "/"):
                 rep.err(where, f"element {e['id']}: path does not extend parent path {p}")
+        elif deployed:
+            if e["type"] != "DeploymentNode" or e["id"].count("/") != 2:
+                rep.err(where, f"element {e['id']}: a top-level deployment element must be a DeploymentNode "
+                               "with the id deploy/<environment>/<name>")
         elif "/" in e["id"]:
             rep.err(where, f"root element {e['id']} has a nested path")
+        if deployed:
+            _check_deployment_element(e, seen, envs, rep, where)
+        else:
+            if e["id"].split("/")[0] == "deploy":
+                rep.err(where, f"element {e['id']}: only deployment elements use the root 'deploy'")
+            for k in ("environment", "instanceOf", "instances", "healthChecks"):
+                if k in e:
+                    rep.err(where, f"element {e['id']}: {k} is only for deployment elements")
         seen[e["id"]] = e
+    for env in envs.values():
+        if env["id"] != f"deploy/{env['key']}":
+            rep.err(where, f"environment {env['key']}: id {env['id']} != deploy/{env['key']}")
+        for n in env["nodes"]:
+            if n not in seen or seen[n]["parent"] is not None or seen[n].get("environment") != env["key"]:
+                rep.err(where, f"environment {env['key']}: node {n} is not one of its top-level deployment nodes")
+        tops = [e["id"] for e in model["elements"] if e["parent"] is None and e.get("environment") == env["key"]]
+        if tops != env["nodes"]:
+            rep.err(where, f"environment {env['key']}: nodes {env['nodes']} != its top-level nodes {tops}")
     for e in model["elements"]:
         for c in e["children"]:
             if c not in seen or seen[c]["parent"] != e["id"]:
@@ -234,6 +262,29 @@ def check_model(model: Json, rep: Report, where: str = "model.json") -> None:
     views = {v["key"] for v in model["views"]}
     if len(views) != len(model["views"]):
         rep.err(where, "duplicate view key")
+    for v in model["views"]:
+        if (v["kind"] == "deployment") != ("environment" in v):
+            rep.err(where, f"view {v['key']}: environment is required on deployment views and only there")
+        elif v["kind"] == "deployment":
+            env = envs.get(v["environment"])
+            if env is None:
+                rep.err(where, f"view {v['key']}: unknown environment {v['environment']}")
+            elif v["key"] not in env["views"]:
+                rep.err(where, f"view {v['key']}: not in the views of environment {v['environment']}")
+    for env in envs.values():
+        for k in env["views"]:
+            if not any(v["key"] == k and v.get("environment") == env["key"] for v in model["views"]):
+                rep.err(where, f"environment {env['key']}: view {k} is not one of its deployment views")
+    kinds = {v["key"]: v for v in model["views"]}
+    for e in model["elements"]:
+        for k in e["views"]:
+            v = kinds.get(k)
+            if v is None:
+                continue
+            if (v["kind"] == "deployment") != (e["type"] in DEPLOYMENT_TYPES):
+                rep.err(where, f"element {e['id']}: a {e['type']} cannot be in the {v['kind']} view {k}")
+            elif v["kind"] == "deployment" and e.get("environment") != v.get("environment"):
+                rep.err(where, f"element {e['id']}: in view {k} of another environment")
     for e in model["elements"]:
         for v in e["views"]:
             if v not in views:
@@ -249,6 +300,28 @@ def check_model(model: Json, rep: Report, where: str = "model.json") -> None:
                 rep.err(where, f"relationship {r['id']}: {end} {r[end]} not an element")
     rep.metrics.setdefault("model", {}).update(
         elements=len(model["elements"]), relationships=len(ids), views=len(views))
+
+
+def _check_deployment_element(e: Json, seen: dict[str, Json], envs: dict[str, Json], rep: Report, where: str) -> None:
+    """Rules of one deployment element; ``seen`` holds the elements before it (parents and instanceOf targets)."""
+    env = e.get("environment")
+    if env not in envs:
+        rep.err(where, f"element {e['id']}: unknown environment {env!r}")
+    elif not e["id"].startswith(envs[env]["id"] + "/"):
+        rep.err(where, f"element {e['id']}: id does not start with {envs[env]['id']}/")
+    p = e["parent"]
+    if p is not None and p in seen and (seen[p]["type"] != "DeploymentNode" or seen[p].get("environment") != env):
+        rep.err(where, f"element {e['id']}: parent {p} is not a deployment node of environment {env}")
+    if e["type"] != "DeploymentNode" and e["children"]:
+        rep.err(where, f"element {e['id']}: a {e['type']} has no children")
+    if ("instances" in e) != (e["type"] == "DeploymentNode"):
+        rep.err(where, f"element {e['id']}: instances is required on deployment nodes and only there")
+    want = INSTANCE_OF.get(e["type"])
+    if want is None:
+        if "instanceOf" in e or "healthChecks" in e:
+            rep.err(where, f"element {e['id']}: instanceOf and healthChecks are only for instances")
+    elif e.get("instanceOf") not in seen or seen[e["instanceOf"]]["type"] != want:
+        rep.err(where, f"element {e['id']}: instanceOf {e.get('instanceOf')!r} is not a {want}")
 
 
 # --- one scene -----------------------------------------------------------------
@@ -303,6 +376,8 @@ def check_scene(scene: Json, rep: Report, mi: Optional[ModelIndex] = None,
         last_sibling[p] = nid
         if "frame" in n and n["role"] != "element":
             rep.err(where, f"node {nid}: only element nodes carry a frame")
+        if "instances" in n and n["type"] != "DeploymentNode":
+            rep.err(where, f"node {nid}: only deployment nodes carry instances")
         if "frame" in n and kind == "view":
             rep.err(where, f"node {nid}: authored views have no frames")
         by_id[nid] = n
@@ -390,6 +465,27 @@ def check_scene(scene: Json, rep: Report, mi: Optional[ModelIndex] = None,
                     rep.err(ew, f"rels {e['rels']} != rollup {expected}")
     m["edges"] = len(scene["edges"])
 
+    if mi is not None and kind == "view":
+        mv = next((v for v in mi.model["views"] if v["key"] == scene["level"]["scope"]), None)
+        if mv is None:
+            rep.err(where, f"scope {scene['level']['scope']} is not a view of the model")
+        elif mv["kind"] == "deployment":
+            for n in scene["nodes"]:
+                el = mi.el.get(n["id"])
+                if el is None or el["type"] not in DEPLOYMENT_TYPES or el.get("environment") != mv["environment"]:
+                    rep.err(where, f"node {n['id']}: not a deployment element of environment {mv['environment']}")
+                elif n["type"] != el["type"]:
+                    rep.err(where, f"node {n['id']}: type {n['type']} != model type {el['type']}")
+                elif n.get("instances", "1") != el.get("instances", "1"):
+                    rep.err(where, f"node {n['id']}: instances {n.get('instances', '1')} != model {el.get('instances', '1')}")
+            members = {e["id"] for e in mi.model["elements"] if mv["key"] in e["views"]}
+            drawn_ids = {n["id"] for n in scene["nodes"]}
+            if members != drawn_ids:
+                rep.err(where, f"nodes {sorted(members ^ drawn_ids)[:10]} differ from the elements of view {mv['key']}")
+        else:
+            for n in scene["nodes"]:
+                if n["type"] in DEPLOYMENT_TYPES:
+                    rep.err(where, f"node {n['id']}: a {n['type']} in the {mv['kind']} view {mv['key']}")
     if mi is not None and kind in ("landscape", "element"):
         if kind == "landscape":
             expect = set(mi.roots)

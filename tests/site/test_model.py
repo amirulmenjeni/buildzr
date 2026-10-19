@@ -41,7 +41,7 @@ def workspaces_of(rel_path: str, tmp: str) -> Iterator[Any]:
 
 
 def structurizr_explicit(ws: Any) -> int:
-    """Relationships in the Structurizr JSON without ``linkedRelationshipId`` between model elements."""
+    """Relationships in the Structurizr JSON without ``linkedRelationshipId`` between model elements (deployment ones too)."""
     j = json.loads(ws.to_json())
     n = 0
     m = j["model"]
@@ -52,6 +52,14 @@ def structurizr_explicit(ws: Any) -> int:
         for c in s.get("containers", []):
             holders.append(c)
             holders.extend(c.get("components", []))
+    def deployed(node: Any) -> None:
+        holders.append(node)
+        for c in node.get("children", []):
+            deployed(c)
+        for k in ("infrastructureNodes", "softwareSystemInstances", "containerInstances"):
+            holders.extend(node.get(k, []))
+    for d in m.get("deploymentNodes", []):
+        deployed(d)
     for h in holders:
         n += sum(1 for r in h.get("relationships", []) if not r.get("linkedRelationshipId"))
     return n

@@ -12,7 +12,7 @@ Serve a workspace; `buildzr serve` builds it first. Here, the model file is `exa
 
 ```text
 $ buildzr serve examples/buildzr_models_example.py
-built .buildzr/build/microservices-example (13 elements, 6 relationships, 1 view; modelHash sha256:ea077dc27381…)
+built .buildzr/build/microservices-example (25 elements, 8 relationships, 2 views; modelHash sha256:1e2b294431af…)
 Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
   http://127.0.0.1:8000/microservices-example/
 Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
@@ -26,7 +26,8 @@ The examples on this page are real answers from that workspace. They show the de
 
 | Word | Meaning |
 |---|---|
-| **element** | A person, a software system, a container (an application or data store inside a system) or a component (a part inside a container). |
+| **element** | A person, a software system, a container (an application or data store inside a system) or a component (a part inside a container). Deployment elements are elements too (see the next row). |
+| **deployment element** | A deployment node (a server, cluster, region...), an infrastructure node (a load balancer, DNS...), or a container or software system instance (that container or system running on a node). Its id starts with `deploy/<environment>/`, for example `deploy/production/aws/ecs-cluster/web-app`. |
 | **id** | The element's path of lower-case names, joined by `/`: `e-commerce-system/web-app` is the Web App inside the E-Commerce System. Two siblings with the same name get `-2`, `-3`. Ids are given in query parameters: `?id=e-commerce-system/web-app`. |
 | **relationship** | An explicit "A uses B" statement written in the model, with a description and sometimes a technology. Its id is `<source id>-><destination id>`, plus `:<description>` when two relationships connect the same pair. |
 | **rollup** | An arrow between two big boxes stands for every relationship between what is inside them. This API follows the same rule as the viewer: a relationship of a descendant counts for its ancestors. |
@@ -46,7 +47,7 @@ GET /microservices-example/api/v1/
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
   "name": "microservices-example",
   "description": null,
   "status": "ok",
@@ -55,12 +56,15 @@ GET /microservices-example/api/v1/
     "k": 4
   },
   "counts": {
-    "elements": 13,
-    "relationships": 6,
-    "views": 1,
+    "elements": 25,
+    "relationships": 8,
+    "views": 2,
     "byType": {
       "Component": 4,
       "Container": 5,
+      "ContainerInstance": 5,
+      "DeploymentNode": 6,
+      "InfrastructureNode": 1,
       "Person": 2,
       "SoftwareSystem": 2
     }
@@ -68,7 +72,10 @@ GET /microservices-example/api/v1/
   "tags": [
     "Component",
     "Container",
+    "Container Instance",
+    "Deployment Node",
     "Element",
+    "Infrastructure Node",
     "Person",
     "Software System"
   ],
@@ -76,11 +83,24 @@ GET /microservices-example/api/v1/
     "customer",
     "administrator",
     "e-commerce-system",
-    "payment-provider"
+    "payment-provider",
+    "deploy/production/aws"
+  ],
+  "environments": [
+    {
+      "key": "production",
+      "name": "Production",
+      "nodes": [
+        "deploy/production/aws"
+      ],
+      "views": [
+        "deployment-view-production-ecommerce"
+      ]
+    }
   ],
   "viewerUrl": "/microservices-example/",
   "publicUrlConfigured": false,
-  "howToAsk": "Element ids are slug paths such as 'e-commerce-system/web-app'; give them in query parameters. Relationships are the explicit ones in the model. A relationship of a descendant counts for its ancestors, so an arrow between two systems is the union of the relationships between their contents. Lists are paged: follow 'next' while 'truncated' is true.",
+  "howToAsk": "Element ids are slug paths such as 'e-commerce-system/web-app'; give them in query parameters. Relationships are the explicit ones in the model. A relationship of a descendant counts for its ancestors, so an arrow between two systems is the union of the relationships between their contents. Deployment nodes, infrastructure nodes and instances are elements too, with ids under deploy/<environment>/ (see environments); an instance names its container or system in instanceOf. Lists are paged: follow 'next' while 'truncated' is true.",
   "endpoints": {
     "element": "/microservices-example/api/v1/element?id={id}",
     "search": "/microservices-example/api/v1/elements{?q,type,tag,within,limit,cursor}",
@@ -88,7 +108,7 @@ GET /microservices-example/api/v1/
     "neighbours": "/microservices-example/api/v1/neighbours?id={id}{&direction,depth,type,limit}",
     "path": "/microservices-example/api/v1/path?from={from}&to={to}{&maxHops,limit}",
     "relationships": "/microservices-example/api/v1/relationships{?from,to,edge,tag,limit,cursor}",
-    "views": "/microservices-example/api/v1/views{?scope}",
+    "views": "/microservices-example/api/v1/views{?scope,environment}",
     "view": "/microservices-example/api/v1/view?key={key}"
   },
   "limits": {
@@ -120,7 +140,8 @@ GET /microservices-example/api/v1/
 }
 ```
 
-- `counts`, `tags` and `topLevel` describe the model; `topLevel` lists the ids to start from.
+- `counts`, `tags` and `topLevel` describe the model; `topLevel` lists the ids to start from, the top-level deployment nodes included.
+- `environments` lists the deployment environments: `key` (used in deployment element ids and in `views?environment=`), `name`, the top-level deployment `nodes` and the deployment `views`.
 - `endpoints` are URL templates: replace the `{...}` parts. Parameters after `?` or `&` inside braces are optional.
 - `limits` are the largest values each parameter accepts (see [Limits](#limits-and-paging)).
 - `viewerUrl` is the address of the viewer. It is `null` when the workspace has no viewer (no `index.html`), and `notes` says so.
@@ -140,7 +161,7 @@ All of them are `GET` requests below `/<name>/api/v1/`, where `<name>` is the na
 | `neighbours` | `id` (required), `direction` (`out`, `in` or `both`, default `both`), `depth` (1 to 4, default 1), `type`, `limit` (1 to 1000, default 200) | The relationships that leave (or enter) the element **or any of its descendants**, each with the element at the other end and the hop number. Depth 2 and more continue from those elements the same way. `type` filters the elements at the other end. |
 | `path` | `from`, `to` (required), `maxHops` (1 to 8, default 6), `limit` (1 to 5 chains, default 3) | The shortest chains of explicit relationships from `from` (or something inside it) to `to` (or something inside it). All chains have the same, shortest length. `hops` is `null` when there is none within `maxHops`. |
 | `relationships` | `from` and/or `to` (ids; each includes what is inside), or `edge` (an arrow id from the viewer, such as `a->b`), `tag` (repeatable), `limit` (1 to 200, default 50), `cursor` | Explicit relationships. With both `from` and `to` this is exactly the rollup the viewer draws for the arrow between the two. |
-| `views` | `scope` (an id) | The authored views: `key`, `kind`, `title`, `description`, `scope`, `viewerUrl`. |
+| `views` | `scope` (an id), `environment` (an environment key) | The authored views: `key`, `kind`, `title`, `description`, `scope`, `environment` (deployment views; `null` for the others), `viewerUrl`. |
 | `view` | `key` (required) | One view with the elements it shows and the ids of the relationships drawn in it. |
 
 Unknown parameters are errors, so a typo does not silently give the wrong answer. A parameter that is not repeatable cannot be given twice.
@@ -158,7 +179,7 @@ The orientation document lists the same endpoints as URL templates. This table i
 | `neighbours` | `/<name>/api/v1/neighbours?id={id}{&direction,depth,type,limit}` | `id` | `direction`, `depth`, `type`, `limit` | 200 / 1000 |
 | `path` | `/<name>/api/v1/path?from={from}&to={to}{&maxHops,limit}` | `from`, `to` | `maxHops`, `limit` | 3 / 5 |
 | `relationships` | `/<name>/api/v1/relationships{?from,to,edge,tag,limit,cursor}` | none | `from`, `to`, `edge`, `tag`, `limit`, `cursor` | 50 / 200 |
-| `views` | `/<name>/api/v1/views{?scope}` | none | `scope` | none |
+| `views` | `/<name>/api/v1/views{?scope,environment}` | none | `scope`, `environment` | none |
 | `view` | `/<name>/api/v1/view?key={key}` | `key` | none | none |
 <!-- END generated: endpoints -->
 
@@ -171,7 +192,7 @@ GET /microservices-example/api/v1/element?id=e-commerce-system/web-app
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
   "element": {
     "id": "e-commerce-system/web-app",
     "modelId": "4",
@@ -216,8 +237,8 @@ GET /microservices-example/api/v1/elements?q=mongo
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
-  "total": 1,
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
+  "total": 3,
   "items": [
     {
       "id": "e-commerce-system/database",
@@ -232,6 +253,35 @@ GET /microservices-example/api/v1/elements?q=mongo
       ],
       "childCount": 0,
       "viewerUrl": "/microservices-example/#/m/e-commerce-system?sel=e-commerce-system/database",
+      "matched": "technology"
+    },
+    {
+      "id": "deploy/production/aws/documentdb",
+      "name": "DocumentDB",
+      "type": "DeploymentNode",
+      "parent": "deploy/production/aws",
+      "description": null,
+      "technology": "MongoDB-compatible",
+      "tags": [
+        "Element",
+        "Deployment Node"
+      ],
+      "childCount": 1,
+      "viewerUrl": "/microservices-example/#/v/deployment-view-production-ecommerce?sel=deploy/production/aws/documentdb",
+      "matched": "technology"
+    },
+    {
+      "id": "deploy/production/aws/documentdb/database",
+      "name": "Database",
+      "type": "ContainerInstance",
+      "parent": "deploy/production/aws/documentdb",
+      "description": null,
+      "technology": "MongoDB",
+      "tags": [
+        "Container Instance"
+      ],
+      "childCount": 0,
+      "viewerUrl": "/microservices-example/#/v/deployment-view-production-ecommerce?sel=deploy/production/aws/documentdb/database",
       "matched": "technology"
     }
   ],
@@ -251,7 +301,7 @@ GET /microservices-example/api/v1/tree?id=e-commerce-system&depth=2&limit=7
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
   "id": "e-commerce-system",
   "depth": 2,
   "items": [
@@ -330,7 +380,7 @@ GET /microservices-example/api/v1/neighbours?id=e-commerce-system/web-app&direct
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
   "id": "e-commerce-system/web-app",
   "direction": "out",
   "depth": 2,
@@ -398,7 +448,7 @@ GET /microservices-example/api/v1/path?from=e-commerce-system/web-app&to=e-comme
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
   "from": "e-commerce-system/web-app",
   "to": "e-commerce-system/inventory-service",
   "maxHops": 6,
@@ -435,7 +485,7 @@ GET /microservices-example/api/v1/relationships?from=administrator&to=e-commerce
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
   "from": "administrator",
   "to": "e-commerce-system",
   "edge": null,
@@ -467,7 +517,7 @@ GET /microservices-example/api/v1/views
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
   "items": [
     {
       "key": "system-context-view-ecommerce",
@@ -476,7 +526,18 @@ GET /microservices-example/api/v1/views
       "title": "System Context of E-Commerce App",
       "description": "System Context of E-Commerce App",
       "scope": "e-commerce-system",
+      "environment": null,
       "viewerUrl": "/microservices-example/#/v/system-context-view-ecommerce"
+    },
+    {
+      "key": "deployment-view-production-ecommerce",
+      "viewKey": "deployment-view-production-ecommerce",
+      "kind": "deployment",
+      "title": "deployment-view-production-ecommerce",
+      "description": null,
+      "scope": null,
+      "environment": "production",
+      "viewerUrl": "/microservices-example/#/v/deployment-view-production-ecommerce"
     }
   ],
   "next": null,
@@ -491,7 +552,7 @@ GET /microservices-example/api/v1/view?key=system-context-view-ecommerce
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
   "view": {
     "key": "system-context-view-ecommerce",
     "viewKey": "system-context-view-ecommerce",
@@ -499,6 +560,7 @@ GET /microservices-example/api/v1/view?key=system-context-view-ecommerce
     "title": "System Context of E-Commerce App",
     "description": "System Context of E-Commerce App",
     "scope": "e-commerce-system",
+    "environment": null,
     "viewerUrl": "/microservices-example/#/v/system-context-view-ecommerce",
     "elements": [
       {
@@ -541,6 +603,63 @@ GET /microservices-example/api/v1/view?key=system-context-view-ecommerce
 
 `relationships` in `view` is `null` when the view's drawing cannot be read.
 
+### Deployment elements
+
+Deployment nodes, infrastructure nodes and instances answer every element endpoint: `elements?type=DeploymentNode` (or `InfrastructureNode`, `ContainerInstance`, `SoftwareSystemInstance`), `tree?id=deploy/production/aws`, `neighbours`, `relationships`. The `element` answer of a deployment element has these fields as well:
+
+- `environment`: the key of its environment;
+- `instanceOf`: for an instance, the id of the container or software system; the instance has its name, description and technology;
+- `instances`: for a deployment node, how many instances it has, a number (`"2"`) or a range (`"0..N"`);
+- `healthChecks`: for an instance, when the model has health checks.
+
+Its `viewerUrl` opens the first deployment view that shows it, with the element selected; it is `null` when no view shows it.
+
+```http
+GET /microservices-example/api/v1/element?id=deploy/production/aws/ecs-cluster/web-app
+```
+
+```json
+{
+  "apiVersion": "1",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
+  "element": {
+    "id": "deploy/production/aws/ecs-cluster/web-app",
+    "modelId": "28",
+    "type": "ContainerInstance",
+    "parent": "deploy/production/aws/ecs-cluster",
+    "children": [],
+    "name": "Web App",
+    "description": null,
+    "technology": "React",
+    "tags": [
+      "Container Instance"
+    ],
+    "properties": {},
+    "url": null,
+    "group": null,
+    "views": [
+      "deployment-view-production-ecommerce"
+    ],
+    "childCount": 0,
+    "relationships": {
+      "own": {
+        "in": 0,
+        "out": 0
+      },
+      "withDescendants": {
+        "in": 0,
+        "out": 0
+      }
+    },
+    "viewerUrl": "/microservices-example/#/v/deployment-view-production-ecommerce?sel=deploy/production/aws/ecs-cluster/web-app",
+    "environment": "production",
+    "instanceOf": "e-commerce-system/web-app"
+  }
+}
+```
+
+The relationships of an instance are the ones written on it, such as a load balancer that forwards requests to it. The relationships it gets from its container (buildzr copies them to the instances) are not repeated: an arrow between two instances in a deployment view stands for the container relationship, and `view` lists that relationship's id.
+
 ## Common questions and the request that answers each
 
 | # | Question | Call |
@@ -560,15 +679,16 @@ GET /microservices-example/api/v1/view?key=system-context-view-ecommerce
 | 13 | What does this element do, what is it built with, who owns it? | `GET api/v1/element?id=e-commerce-system/order-service` (`description`, `technology`, `properties`) |
 | 14 | Which authored views exist, and what does one show? | `GET api/v1/views`, then `GET api/v1/view?key=system-context-view-ecommerce` |
 | 15 | What is this arrow I was linked to (`sel=a->b`)? | `GET api/v1/relationships?edge=customer-%3Ee-commerce-system` |
+| 16 | Where does the order service run in production? | `GET api/v1/elements?q=order%20service&type=ContainerInstance` (field `parent`), then `GET api/v1/views?environment=production` |
 
 Question 10 in practice: send the `ETag` you got last time.
 
 ```http
 GET /microservices-example/api/v1/
-If-None-Match: "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35"
+If-None-Match: "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6"
 
 HTTP/1.0 304 Not Modified
-ETag: "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35"
+ETag: "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6"
 Cache-Control: no-cache
 ```
 
@@ -642,7 +762,7 @@ Content-Type: application/problem+json
     "e-commerce-system/order-service"
   ],
   "nearest": "e-commerce-system",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35"
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6"
 }
 ```
 
@@ -688,5 +808,5 @@ A data-only workspace (built with `viewer: false` or `--no-viewer`) has no viewe
 
 - It never writes. Other methods get `405`, and `buildzr serve` does not create or change files.
 - It reads only the model data file and the scene files that `data/index.json` of the workspace names, and only inside the `data/` folder of the workspace. If a name in `index.json` points elsewhere, the model becomes unavailable; the file is not read.
-- Deployment nodes and the drawing's geometry are not in the answers. Neither is a comparison between two builds.
+- The drawing's geometry is not in the answers. Neither is a comparison between two builds.
 - Version: all paths are below `api/v1/`. New fields may appear in answers without a version change; a change that removes or renames something would arrive as `api/v2/`.

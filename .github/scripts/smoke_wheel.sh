@@ -113,6 +113,15 @@ for name in a b; do
 done
 get "http://127.0.0.1:$PORT/a/api/v1/" "$WORK/api.json"
 grep -q '"name":"a"' "$WORK/api.json" || fail "/a/api/v1/ is not the orientation document of workspace a"
+# The example has a deployment view: it is built (its scene is in data/index.json) and the API lists it.
+grep -q '"v/deployment-view-production-ecommerce"' .buildzr/build/a/data/index.json \
+  || fail "buildzr build wrote no scene for the deployment view of workspace a"
+get "http://127.0.0.1:$PORT/a/api/v1/views?environment=production" "$WORK/deployment-views.json"
+python -I -c 'import json, sys; items = json.load(open(sys.argv[1]))["items"]; sys.exit([(v["key"], v["kind"]) for v in items] != [("deployment-view-production-ecommerce", "deployment")])' \
+  "$WORK/deployment-views.json" || fail "/a/api/v1/views?environment=production does not list the deployment view"
+get "http://127.0.0.1:$PORT/a/api/v1/element?id=deploy/production/aws/ecs-cluster/web-app" "$WORK/instance.json"
+grep -q '"instanceOf":"e-commerce-system/web-app"' "$WORK/instance.json" \
+  || fail "/a/api/v1/element does not answer for the container instance deploy/production/aws/ecs-cluster/web-app"
 get "http://127.0.0.1:$PORT/_buildzr/v1/workspaces" "$WORK/list.json"
 python -I -c 'import json, sys; names = [w["name"] for w in json.load(open(sys.argv[1]))["workspaces"]]; sys.exit(names != ["a", "b"])' \
   "$WORK/list.json" || fail "/_buildzr/v1/workspaces does not list a and b"

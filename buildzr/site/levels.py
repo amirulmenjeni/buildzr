@@ -1,7 +1,8 @@
 """Build the level graphs (``buildzr.levels/2``): the model-to-layout hand-over.
 
 One level per scene to lay out: ``landscape``, ``e/<path>`` for every element
-with children and ``v/<key>`` for every authored view. A level has nodes with
+with children (people, systems, containers) and ``v/<key>`` for every authored view,
+deployment views included (deployment nodes nest as boundaries). A level has nodes with
 resolved style and unwrapped label lines, rolled-up edges with the explicit
 relationships they stand for, and (element levels) ports, one per edge of the
 parent level that touches the scope. See ``schema/levels.schema.json``.
@@ -12,13 +13,18 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from buildzr.site.canonical import rnd
-from buildzr.site.model import DRAWN_TYPES, ModelIndex, VIEW_KINDS, slug, workspace_json
+from buildzr.site.model import DEPLOYMENT_TYPES, DRAWN_TYPES, ModelIndex, VIEW_KINDS, all_relationships, slug, \
+    workspace_json
 from buildzr.site.styles import TYPE_TEXT, Styles
 
 Json = dict[str, Any]
 
 LEVELS_SCHEMA = "buildzr.levels/2"
 TIER_RATIO = 0.75  # tier 1 and 2 text size relative to the node font size (16 -> 12)
+
+#: Type text of a deployment element's label; an instance reads like the element it is an instance of.
+DEPLOYMENT_TEXT = {"DeploymentNode": "Deployment Node", "InfrastructureNode": "Infrastructure Node",
+                   "ContainerInstance": "Container", "SoftwareSystemInstance": "Software System"}
 
 
 class _Builder:
@@ -28,17 +34,7 @@ class _Builder:
         self.idx = ModelIndex(model)
         self.styles = Styles(ws, text_color)
         self._anc: dict[str, list[str]] = {}
-        self.raw_rels: dict[str, Json] = {}  # Structurizr id -> relationship (implied ones too)
-        m = ws.get("model", {})
-        holders: list[Json] = list(m.get("people", []))
-        for s in m.get("softwareSystems", []):
-            holders.append(s)
-            for c in s.get("containers", []):
-                holders.append(c)
-                holders.extend(c.get("components", []))
-        for h in holders:
-            for r in h.get("relationships", []):
-                self.raw_rels[str(r["id"])] = r
+        self.raw_rels: dict[str, Json] = all_relationships(ws)  # Structurizr id -> relationship (implied ones too)
 
     # --- nodes ---------------------------------------------------------------------
 
@@ -50,18 +46,26 @@ class _Builder:
     def lines(self, el: Json, role: str, fs: float) -> list[Json]:
         small = rnd(fs * TIER_RATIO)
         tech = f": {el['technology']}" if el["technology"] else ""
+        kind = DEPLOYMENT_TEXT.get(el["type"]) or TYPE_TEXT.get(el["type"], el["type"])
         out: list[Json] = [{"text": el["name"], "tier": 0, "weight": "bold"},
-                           {"text": f"[{TYPE_TEXT.get(el['type'], el['type'])}{tech}]", "tier": 1, "size": small}]
+                           {"text": f"[{kind}{tech}]", "tier": 1, "size": small}]
         if el["description"] and role == "element":
             out.append({"text": el["description"], "tier": 2, "size": small})
         return out
 
     def node(self, path: str, role: str, parent: Optional[str], with_children: bool) -> Json:
         el = self.idx.el[path]
-        style, shape = self.styles.node(el["type"], el["tags"], role)
+        style_type, style_tags = el["type"], el["tags"]
+        if el.get("instanceOf"):  # an instance is styled like its element, plus its own tags
+            of = self.idx.el[el["instanceOf"]]
+            style_type = of["type"]
+            style_tags = of["tags"] + [t for t in el["tags"] if t not in of["tags"]]
+        style, shape = self.styles.node(style_type, style_tags, role)
         n: Json = {"id": path, "modelId": el["modelId"], "role": role, "type": el["type"], "parent": parent,
                    "name": el["name"], "tags": el["tags"], "shape": shape, "style": style,
                    "lines": self.lines(el, role, float(style["fontSize"]))}
+        if el.get("instances", "1") != "1":
+            n["instances"] = el["instances"]
         if with_children and el["children"]:
             n["children"] = len(el["children"])
             n["childType"] = self.idx.el[el["children"][0]]["type"]
@@ -202,11 +206,16 @@ class _Builder:
 
     def view_level(self, mv: Json, sv: Json) -> Json:
         idx = self.idx
+        drawn = DEPLOYMENT_TYPES if mv["kind"] == "deployment" else DRAWN_TYPES
         members = [e["id"] for e in self.model["elements"]
-                   if mv["key"] in e["views"] and e["type"] in DRAWN_TYPES]
+                   if mv["key"] in e["views"] and e["type"] in drawn]
         scope = mv["scope"]
         parent_of: dict[str, Optional[str]] = {m: None for m in members}
-        if scope is not None and mv["kind"] in ("container", "component", "dynamic"):
+        if mv["kind"] == "deployment":  # every member is drawn inside its deployment node
+            for m in members:
+                p = idx.el[m]["parent"]
+                parent_of[m] = p if p in parent_of else None
+        elif scope is not None and mv["kind"] in ("container", "component", "dynamic"):
             kids = [m for m in members if idx.el[m]["parent"] == scope]
             if kids:
                 for m in kids:
@@ -257,7 +266,7 @@ def build_levels(workspace: Any, model: Json, text_color: str = "wcag") -> Json:
     levels.append(landscape)
     by_key: dict[str, Json] = {"landscape": landscape}
     for el in model["elements"]:
-        if not el["children"]:
+        if not el["children"] or el["type"] not in DRAWN_TYPES:
             continue
         parent = el["parent"]
         parent_key = f"e/{parent}" if parent else "landscape"

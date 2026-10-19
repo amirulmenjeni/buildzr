@@ -88,12 +88,24 @@ def test_every_python_example_builds(block: Block, tmp_path: Path, monkeypatch: 
     built = list((tmp_path / ".buildzr" / "build").iterdir())
     assert len(built) == 1 and (built[0] / "index.html").is_file(), built
     with open(glob.glob(str(built[0] / "data" / "model.*.json"))[0], encoding="utf-8") as f:
-        built_views = {v["viewKey"] for v in json.load(f)["views"]}
+        model_views = json.load(f)["views"]
+    built_views = {v["viewKey"] for v in model_views}
     written = authored_views(block)
-    deployment = written.pop("deploymentViews", set())
-    assert not built_views & deployment, ("buildzr now builds deployment views: update the deployment notes of "
-                                          "skills/buildzr (SKILL.md, references/dsl.md) and docs/getting-started/ai-agents.md")
-    assert built_views == set().union(*written.values()), "every view but the deployment views is built"
+    assert built_views == set().union(*written.values()), "every view of the example is built, deployment views too"
+    with open(built[0] / "data" / "index.json", encoding="utf-8") as f:
+        scenes = json.load(f)["scenes"]
+    for v in model_views:
+        if v["viewKey"] not in written.get("deploymentViews", set()):
+            continue
+        assert v["kind"] == "deployment" and v["scene"] in scenes, v
+        with open(built[0] / "data" / scenes[v["scene"]]["file"], encoding="utf-8") as f:
+            drawn = {n["type"] for n in json.load(f)["nodes"]}
+        assert "DeploymentNode" in drawn, f"deployment view {v['viewKey']} draws no deployment node: {drawn}"
+
+
+def test_an_example_has_a_deployment_view() -> None:
+    """The skill shows a deployment view that builds (the test above checks that it is drawn)."""
+    assert any("deploymentViews" in authored_views(b) for b in python_blocks())
 
 
 def authored_views(block: Block) -> dict[str, set[str]]:

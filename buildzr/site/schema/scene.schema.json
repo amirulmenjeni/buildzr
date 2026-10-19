@@ -105,8 +105,8 @@
       "properties": {
         "id": { "type": "string", "description": "Element path for role=element (same as model.json id). Boundary ids are 'group:<slug path>' or the element path of the boundary element." },
         "modelId": { "type": "string" },
-        "role": { "enum": ["element", "boundary"], "description": "boundary = enclosing box (group, or the scoped system/container in an authored view) with children and a corner label." },
-        "type": { "type": "string", "description": "Person, SoftwareSystem, Container, Component, Group, ... Renderers ignore types they do not know." },
+        "role": { "enum": ["element", "boundary"], "description": "boundary = enclosing box (group, the scoped system/container in an authored view, or a deployment node with something drawn inside it) with children and a corner label." },
+        "type": { "type": "string", "description": "Person, SoftwareSystem, Container, Component, Group; in deployment views DeploymentNode, InfrastructureNode, ContainerInstance, SoftwareSystemInstance. Renderers ignore types they do not know." },
         "parent": { "type": ["string", "null"], "description": "Enclosing boundary node id in THIS scene, or null." },
         "x": { "$ref": "#/$defs/num" },
         "y": { "$ref": "#/$defs/num" },
@@ -140,6 +140,7 @@
         },
         "tags": { "type": "array", "items": { "type": "string" } },
         "name": { "type": "string" },
+        "instances": { "type": "string", "minLength": 1, "description": "Deployment nodes only: the number of instances (e.g. '3' or '0..N') when it is not '1'; drawn as a badge." },
         "frame": { "$ref": "#/$defs/frame", "description": "Present on nodes whose inside is a child scene (expandable). Only in landscape and element scenes." }
       }
     },

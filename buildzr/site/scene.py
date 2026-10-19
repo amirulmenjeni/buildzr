@@ -60,6 +60,8 @@ def emit_scene(level: Json, placed: Placed, model_hash: str) -> Json:
         }
         if "modelId" in n:
             d["modelId"] = n["modelId"]
+        if "instances" in n:
+            d["instances"] = n["instances"]
         if frame:
             d["frame"] = {"scene": "e/" + n["id"], "scale": placed.scales[n["id"]], "children": n["children"]}
             if "childType" in n:
