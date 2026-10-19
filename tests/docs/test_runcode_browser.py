@@ -80,6 +80,13 @@ def test_diagrams_follow_the_docs_theme(smoke: list[Json]) -> None:
     assert theme["scheme"] == "slate" and theme["frameThemes"] and set(theme["frameThemes"]) == {"dark"}, theme
 
 
+def test_open_in_a_new_tab(smoke: list[Json]) -> None:
+    tab = check(smoke, "new tab")[0]
+    assert tab["button"] == 1 and "new browser tab" in tab["label"], tab
+    assert "handoff=" in tab["url"] and "embed=1" not in tab["url"] and tab["nodes"] >= 1, tab
+    assert tab["openerGoneMessage"] and "Go back to that page" in tab["openerGoneMessage"], tab
+
+
 def test_no_page_errors(smoke: list[Json]) -> None:
     assert check(smoke, "page errors")[0]["errors"] == []
 

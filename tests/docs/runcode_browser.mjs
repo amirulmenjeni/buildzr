@@ -158,6 +158,24 @@ async function smoke(browser, base, pagePath) {
     log({ check: 'block', ...r, errorLineText, where: await where(page, i) });
   }
 
+  // "Open in a new tab" (the viewer's button, embed contract section 5): the full viewer with the docs page's data
+  const button = page.frameLocator('.runcode-frame').first().locator('[data-testid="open-new-tab"]');
+  const newTab = { button: await button.count(), label: await button.getAttribute('title').catch(() => null) };
+  if (newTab.button) {
+    const [tab] = await Promise.all([ctx.waitForEvent('page'), button.click()]);
+    await tab.locator('.react-flow__node').first().waitFor({ timeout: 30000 });
+    Object.assign(newTab, { url: tab.url().replace(/^.*viewer\//, ''), nodes: await tab.locator('.react-flow__node').count() });
+    await tab.close();
+    // a tab whose opener page is gone says what to do
+    const orphan = await ctx.newPage();
+    await orphan.goto(base + 'runcode/viewer/index.html?handoff=0123456789abcdef0123456789abcdef#/m');
+    const alert = orphan.getByText('Go back to that page', { exact: false });
+    await alert.first().waitFor({ timeout: 15000 }).catch(() => {});
+    newTab.openerGoneMessage = (await alert.count()) ? await alert.first().innerText() : null;
+    await orphan.close();
+  }
+  log({ check: 'new tab', ...newTab });
+
   // the docs palette toggle: every diagram follows
   await page.locator('label[for^="__palette"]').first().click();
   await page.waitForTimeout(500);
