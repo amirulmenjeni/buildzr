@@ -101,7 +101,37 @@
   padding: 0.4em 0;
 }
 .runcode-extras-row > details { flex: 1; min-width: 0; }
-.runcode-extras summary { cursor: pointer; padding: 0.35em 0; font-weight: 600; }
+/* A plain disclosure, not mkdocs-material's collapsible admonition (no icon, no coloured box). */
+.md-typeset .runcode-extras details {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  font-size: inherit;
+}
+.md-typeset .runcode-extras summary {
+  margin: 0;
+  padding: 0.35em 0;
+  border: 0;
+  background: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+.md-typeset .runcode-extras summary::before {
+  content: "▸";
+  position: static;
+  display: inline-block;
+  width: 1em;
+  height: auto;
+  background: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+  color: inherit;
+}
+.md-typeset .runcode-extras details[open] > summary::before { content: "▾"; }
+.md-typeset .runcode-extras summary::after { display: none; }
 .runcode-extras pre { margin: 0.4em 0; max-height: 24em; overflow: auto; }
 .runcode-printed { padding-bottom: 0.4em; }
 
