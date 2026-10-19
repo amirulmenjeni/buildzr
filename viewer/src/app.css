@@ -11,7 +11,29 @@
   --label-bg: rgba(255,255,255,.85); --backdrop: rgba(0,0,0,.35); --shadow: rgba(0,0,0,.18); --grip: #7d8590;
   --broken-bg: #b00020; --broken-fg: #fff; --broken-err-bg: #fdecee; --broken-err-fg: #1b1f24; --attrib-bg: rgba(255,255,255,.9); --attrib-fg: #4a5360;
 }
+:root[data-theme=dark] {
+  color-scheme: dark;
+  --bg: #0f1115; --fg: #e6e9ed; --muted: #a3abb6; --line: #343a44; --accent: #6cb0f5; --accent-fg: #0f1115; --panel: #181b21;
+  --surface: #20242b; --control-line: #7d8590; --canvas: #15181d; --sel-bg: #1d3550; --match-bg: #4a2a12; --hit: #ff8a3d; --hit-bg: #c2410c; --hit-fg: #fff;
+  --focus: #ffb54d; --notice-bg: #3d3412; --badge-bg: rgba(21,24,29,.88); --badge-fg: #e6e9ed; --badge-line: #8a929c;
+  --label-bg: rgba(21,24,29,.85); --backdrop: rgba(0,0,0,.6); --shadow: rgba(0,0,0,.5); --grip: #7d8590;
+  --broken-bg: #b00020; --broken-fg: #fff; --broken-err-bg: #3a1418; --broken-err-fg: #f3d7da; --attrib-bg: rgba(21,24,29,.9); --attrib-fg: #a3abb6;
+}
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; font-family: Inter, sans-serif; font-size: 14px; color: var(--fg); background: var(--bg); }
+button { font: inherit; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.fatal { padding: 24px; }
 
+.app { display: grid; height: 100%; grid-template-columns: 280px minmax(0, 1fr) 320px; grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-areas: 'banner banner banner' 'top top top' 'notice notice notice' 'left center right'; }
+.top { grid-area: top; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 6px 12px; border-bottom: 1px solid var(--line); }
+.top h1 { font-size: 15px; margin: 0; }
+.notice { grid-area: notice; background: var(--notice-bg); padding: 6px 12px; border-bottom: 1px solid var(--line); }
+.left { grid-area: left; display: flex; flex-direction: column; overflow: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 4px 0; }
+.center { grid-area: center; position: relative; min-width: 0; min-height: 0; }
+.inspector { grid-area: right; overflow: auto; border-left: 1px solid var(--line); background: var(--panel); padding: 8px 14px; }
+.canvas { position: absolute; inset: 0; }
 
 /* ---- a broken workspace (build.json status "broken"): white on dark red, 7.4:1 */
 .broken-area { grid-area: banner; }

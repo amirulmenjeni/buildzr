@@ -158,6 +158,7 @@ function Flow() {
   const select = useStore((s) => s.select);
   const expand = useStore((s) => s.expand);
   const collapse = useStore((s) => s.collapse);
+  const theme = useStore((s) => s.theme);
   const phoneNow = usePhone();
   const match = useMemo(() => computeMatches(m, filter), [m, filter]);
   const composed = useMemo(() => compose({ m, scenes, path, view, selection, match }), [m, scenes, path, view, selection, match]);
@@ -180,7 +181,7 @@ function Flow() {
     }}>
       <ReactFlow<FlowNode, FlowEdge> nodes={composed.nodes} edges={composed.edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
         nodesDraggable={false} nodesConnectable={false} elementsSelectable minZoom={0.01} maxZoom={Math.max(2, 2 / composed.minScale)}
-        defaultViewport={{ x: 0, y: 0, zoom: 1 }} onlyRenderVisibleElements={false}
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }} onlyRenderVisibleElements={false} colorMode={theme}
         onNodeClick={onNodeClick} onEdgeClick={onEdgeClick}
         onPaneClick={() => select(null)} deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null}>
         {!phoneNow && <Controls showInteractive={false} />}
