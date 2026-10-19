@@ -83,7 +83,7 @@ The lock file `uv.lock` makes the dependencies of local development and of CI th
 To check your installation, import `buildzr`:
 
 ```python
-# norun
+# no-run: checks the buildzr of your own environment
 from buildzr.dsl import Workspace, SoftwareSystem, Person
 print("buildzr installed successfully!")
 ```
@@ -91,7 +91,7 @@ print("buildzr installed successfully!")
 Or print the installed version:
 
 ```python
-# norun
+# no-run: checks the buildzr of your own environment
 from importlib.metadata import version
 print(version("buildzr"))
 ```

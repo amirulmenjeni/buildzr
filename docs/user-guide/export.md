@@ -13,7 +13,7 @@ PlantUML as `.puml` source, SVG, or PNG.
 | `'png'`      | One `.png` file per view (plus `.puml`) |
 
 ```python
-# norun
+# no-run: needs Java for the PlantUML export, and the workspace w of your model
 w.save()                                   # ./<workspace_name>.json
 w.save(format='json', path='out/arch.json', pretty=True)
 w.save(format='plantuml', path='diagrams/')
@@ -27,7 +27,7 @@ value raises `ValueError` for every format. To get the
 content in memory instead of on disk (for example in a Jupyter notebook):
 
 ```python
-# norun
+# no-run: needs Java for the PlantUML export, and the workspace w of your model
 json_str = w.to_json()        # str
 puml = w.to_plantuml()        # Dict[view_key, puml_source]
 svg = w.to_svg()              # Dict[view_key, svg_source]; accepts layout=...
@@ -77,7 +77,7 @@ Pass `layout='smetana'` to use PlantUML's built-in Java port of Graphviz
 instead of the `dot` executable:
 
 ```python
-# norun
+# no-run: needs Java for the PlantUML export, and the workspace w of your model
 w.save(format='svg', path='diagrams/', layout='smetana')
 svg = w.to_svg(layout='smetana')
 ```
@@ -101,7 +101,7 @@ is also written into the generated `.puml` files, so they match the images.
 - `format='plantuml'` and `to_plantuml()` never need Graphviz.
 
 ```python
-# norun
+# no-run: needs Java for the PlantUML export, and the workspace w of your model
 from buildzr.sinks.plantuml_sink import PlantUmlRenderError
 
 try:

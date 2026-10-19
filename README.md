@@ -26,6 +26,7 @@ The `buildzr build` command needs Node.js 18 or newer on the machine that builds
 ## Quick Example
 
 ```python
+# no-run: needs Java for the PlantUML and SVG export
 from buildzr.dsl import (
     Workspace,
     SoftwareSystem,
