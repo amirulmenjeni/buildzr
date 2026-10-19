@@ -350,11 +350,11 @@ def export_model(workspace: Any) -> Json:
 
 def _ends(ws: Json, rv: Json) -> tuple[str, str]:
     """Source and destination Structurizr ids of a relationship view entry."""
-    rel = _all_relationships(ws).get(str(rv.get("id")))
+    rel = all_relationships(ws).get(str(rv.get("id")))
     return (str(rel["sourceId"]), str(rel["destinationId"])) if rel else ("", "")
 
 
-def _all_relationships(ws: Json) -> dict[str, Json]:
+def all_relationships(ws: Json) -> dict[str, Json]:
     """Every relationship of the model (static and deployment elements) by Structurizr id."""
     out: dict[str, Json] = {}
     for raw in _structurizr_relationship_holders(ws):

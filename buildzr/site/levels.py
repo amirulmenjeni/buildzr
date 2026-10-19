@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from buildzr.site.canonical import rnd
-from buildzr.site.model import DEPLOYMENT_TYPES, DRAWN_TYPES, ModelIndex, VIEW_KINDS, _all_relationships, slug, \
+from buildzr.site.model import DEPLOYMENT_TYPES, DRAWN_TYPES, ModelIndex, VIEW_KINDS, all_relationships, slug, \
     workspace_json
 from buildzr.site.styles import TYPE_TEXT, Styles
 
@@ -34,7 +34,7 @@ class _Builder:
         self.idx = ModelIndex(model)
         self.styles = Styles(ws, text_color)
         self._anc: dict[str, list[str]] = {}
-        self.raw_rels: dict[str, Json] = _all_relationships(ws)  # Structurizr id -> relationship (implied ones too)
+        self.raw_rels: dict[str, Json] = all_relationships(ws)  # Structurizr id -> relationship (implied ones too)
 
     # --- nodes ---------------------------------------------------------------------
 
