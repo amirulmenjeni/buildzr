@@ -308,6 +308,8 @@ Notice that the descriptions in the dynamic view can be different from the stati
 
     If no model relationship matches the specified technology, a `ValueError` is raised.
 
+    A step without a technology matches a model relationship whatever its technology. If more than one relationship connects the two elements, the step uses the one with the same description. If the remaining relationships have different technologies, a `ValueError` lists them: add the technology to the step to pick one.
+
 ### Example
 
 ```python
@@ -328,8 +330,8 @@ with Workspace('Online Book Store') as w:
         database = Container('Database')
 
     # Define static relationships (the "can do" relationships)
-    customer >> "Browses and makes purchases using" >> webapp
-    webapp >> "Reads from and writes to" >> database
+    customer >> ("Browses and makes purchases using", "HTTPS") >> webapp
+    webapp >> ("Reads from and writes to", "SQL") >> database
 
     # Static container view showing the structure
     ContainerView(
