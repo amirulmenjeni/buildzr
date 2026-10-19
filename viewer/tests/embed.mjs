@@ -1,5 +1,5 @@
 // Embed mode in a real parent page: the postMessage protocol, the origin rule, the closed inspector, the theme message,
-// two frames side by side, frame widths 360-1200 px.
+// two frames side by side, frame widths 360-1200 px, and "Open in a new tab" (the handoff, a reload, a closed opener).
 // Run: node tests/run.mjs --only embed --data <dir>
 import fs from 'node:fs';
 import path from 'node:path';
@@ -168,6 +168,65 @@ export default async function embed(browser, srv, F, name) {
     t.eq(await B.evaluate(() => document.querySelector('.sheet-wrap')?.dataset.sheet), 'closed', 'narrow frame: expanding does not open the sheet');
   }
 
+  // ---- Open in a new tab: visible and labelled at every width, reachable by keyboard
+  for (const w of [360, 480, 768, 1024, 1200]) {
+    await p.evaluate((w) => { document.getElementById('a').style.width = w + 'px'; }, w);
+    await p.waitForTimeout(150);
+    const b = A.locator('[data-testid=open-new-tab]');
+    t.ok(await b.isVisible(), `frame ${w} px: Open in a new tab is visible`);
+    const bb = await b.boundingBox();
+    t.ok(bb.x + bb.width <= w + 1, `frame ${w} px: the button is inside the frame`);
+    if (w <= 520) t.ok(bb.width >= 44 && bb.height >= 44, `frame ${w} px: the button is a 44 px touch target (${bb.width}x${bb.height})`);
+    t.eq(await overflow(A), 0, `frame ${w} px: no horizontal overflow with the button`);
+  }
+  const nb = A.locator('[data-testid=open-new-tab]');
+  t.eq(await nb.evaluate((b) => b.textContent.trim()), 'Open in a new tab', 'button label');
+  t.ok(((await nb.getAttribute('title')) ?? '').length > 10, 'button tooltip');
+  await A.locator('.menu').focus();
+  let reached = false;
+  for (let i = 0; i < 40 && !reached; i++) {
+    await p.keyboard.press('Tab');
+    reached = await A.evaluate(() => document.activeElement?.dataset.testid === 'open-new-tab');
+  }
+  t.ok(reached, 'Tab reaches Open in a new tab');
+  // the new tab gets the data from the frame
+  await A.evaluate(() => { window.__viewer.ready = false; });
+  if (top) { await p.evaluate((r) => document.getElementById('a').contentWindow.postMessage({ type: 'buildzr:route', route: r }, location.origin), '#/m/' + top); await readyIn(A); }
+  const hashA = await A.evaluate(() => location.hash);
+  const [tab] = await Promise.all([ctx.waitForEvent('page'), nb.click()]);
+  tab.on('pageerror', (e) => errors.push('tab pageerror: ' + e.message));
+  await readyIn(tab);
+  const tu = new URL(tab.url());
+  t.ok(/^[0-9a-f]{32}$/.test(tu.searchParams.get('handoff') ?? '') && !tu.searchParams.has('embed'), `new tab url: ${tu.search}`);
+  t.eq(tu.hash, hashA, 'new tab opens on the frame\'s route');
+  t.eq(await tab.evaluate(() => window.__viewer.embed), false, 'new tab: full viewer, not embedded');
+  t.eq(await tab.title(), 'Example a', 'new tab: title from the parent page');
+  t.ok(await tab.locator('nav.left').isVisible(), 'new tab: the model tree is there');
+  t.eq((await msgsOf(p, 'buildzr:open', 'a')).length, 1, 'parent informed: buildzr:open');
+  // reload works from the tab's own storage, even after the parent page is gone
+  const id = tu.searchParams.get('handoff');
+  t.ok(await tab.evaluate((id) => !!sessionStorage.getItem('buildzr-ui:handoff:' + id), id), 'new tab keeps the data for a reload');
+  // a new run in the frame: the old id is unknown; a tab without its own copy is told so
+  await p.evaluate(() => document.getElementById('a').contentWindow.postMessage({ type: 'buildzr:load', files: window.FILES }, location.origin));
+  await tab.evaluate((id) => sessionStorage.removeItem('buildzr-ui:handoff:' + id), id);
+  await tab.reload();
+  await tab.locator('[data-testid=handoff-gone]').waitFor({ timeout: 8000 });
+  t.ok(true, 'stale id (the frame re-ran): the tab says the diagram is no longer available');
+  // a fresh tab, then the parent page closes: a reload still works from session storage
+  await readyIn(A);
+  const [tab2] = await Promise.all([ctx.waitForEvent('page'), A.locator('[data-testid=open-new-tab]').click()]);
+  await readyIn(tab2);
+  await p.close();
+  await tab2.reload();
+  await readyIn(tab2);
+  t.eq(await tab2.evaluate(() => document.querySelectorAll('.react-flow__node').length) > 0, true, 'after the opener closed, a reload of the tab still draws (session storage)');
+  // an id with no opener at all: the clear message, at once
+  const lone = await ctx.newPage();
+  const t0 = Date.now();
+  await lone.goto(s1.url + 'index.html?handoff=' + 'b'.repeat(32));
+  await lone.locator('[data-testid=handoff-gone]').waitFor({ timeout: 8000 });
+  t.ok(Date.now() - t0 < 3000, `no opener: the message shows at once (${Date.now() - t0} ms)`);
+  t.ok(((await lone.locator('[data-testid=handoff-gone]').textContent()) ?? '').includes('Open in a new tab'), 'the message says what to do');
   await ctx.close();
 
   // ---- another origin frames the viewer: no ready message reaches it, its load is ignored
@@ -189,7 +248,7 @@ export default async function embed(browser, srv, F, name) {
     s2.close();
   }
 
-  // ---- data=server: the frame reads data/ itself
+  // ---- data=server: the frame reads data/ itself; the button opens the plain viewer
   {
     const c3 = await browser.newContext({ viewport: { width: 1000, height: 700 }, reducedMotion: 'reduce' });
     const q = await c3.newPage();
@@ -198,14 +257,19 @@ export default async function embed(browser, srv, F, name) {
     const fs_ = await frameOf(q, 's');
     await readyIn(fs_);
     t.eq(await fs_.evaluate(() => document.querySelectorAll('.react-flow__node').length), landscape.nodes.length, 'data=server: draws from data/');
+    const [tab3] = await Promise.all([c3.waitForEvent('page'), fs_.locator('[data-testid=open-new-tab]').click()]);
+    await readyIn(tab3);
+    t.eq(new URL(tab3.url()).search, '', 'data=server: the new tab is the plain viewer');
+    t.eq(await tab3.evaluate(() => window.opener), null, 'data=server: opened without an opener');
     await c3.close();
   }
 
-  // ---- standalone is unchanged: the inspector column is there
+  // ---- standalone is unchanged: no embed button, the inspector column is there, history entries are pushed
   {
     const q = await newPage(browser, errors);
     await q.goto(s1.url + '#/m');
     await readyIn(q);
+    t.eq(await q.locator('[data-testid=open-new-tab]').count(), 0, 'standalone: no Open in a new tab');
     t.eq(await q.locator('aside.inspector').count(), 1, 'standalone: inspector column');
     t.eq(await q.evaluate(() => window.__viewer.embed), false, 'standalone: embed off');
     await q.context().close();

@@ -175,7 +175,10 @@ button { font: inherit; }
 }
 
 /* ---- embed mode (?embed=1): one compact header row, the navigation is a drawer, the inspector shows on selection */
-.menu:focus-visible, .searchbtn:focus-visible, .inspector-close:focus-visible { outline: 2px solid #f90; outline-offset: 1px; }
+.gone { max-width: 640px; }
+.gone h1 { font-size: 18px; }
+.newtab { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; color: var(--fg); border-radius: 6px; padding: 4px 10px; cursor: pointer; white-space: nowrap; }
+.newtab:focus-visible, .menu:focus-visible, .searchbtn:focus-visible, .inspector-close:focus-visible { outline: 2px solid #f90; outline-offset: 1px; }
 .app.embed:not(.phone) { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'banner' 'top' 'notice' 'center'; }
 .app.embed.insp-open:not(.phone) { grid-template-columns: minmax(0, 1fr) min(320px, 40%); grid-template-areas: 'banner banner' 'top top' 'notice notice' 'center right'; }
 .app.embed .top { flex-wrap: wrap; gap: 4px 8px; padding: 4px 8px; }
@@ -195,6 +198,7 @@ button { font: inherit; }
 .inspector-close { position: absolute; z-index: 2; top: 4px; right: 6px; width: 32px; height: 32px; border: 0; background: none; color: var(--fg); font-size: 20px; cursor: pointer; }
 .app.embed:not(.phone) .sheet-wrap { display: block; grid-area: right; position: relative; min-height: 0; overflow: auto; border-left: 1px solid var(--line); background: var(--panel); }
 .app.embed:not(.phone) .sheet-wrap .inspector { border-left: 0; overflow: visible; padding-right: 40px; }
+@media (max-width: 520px) { .newtab-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } .newtab { min-width: 44px; min-height: 44px; justify-content: center; } }
 @media (max-width: 767px) { .app.embed .top h1 { display: none; } }
 
 @media (prefers-reduced-motion: reduce) {

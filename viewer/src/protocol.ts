@@ -12,24 +12,32 @@ export interface Mode {
   embed: boolean;
   data: 'message' | 'server'; // embed only: data by `buildzr:load`, or fetched from data/ like the standalone viewer
   theme: ThemeChoice | null; // embed only: the theme the parent asked for in the URL
+  handoff: string | null; // a new tab opened by "Open in a new tab": the id to ask the opener for
 }
+
+const HANDOFF_ID = /^[0-9a-f]{32}$/;
 
 /** Read the mode from the search part of the URL (the hash is the route and is not looked at). */
 export function parseMode(search: string): Mode {
   const q = new URLSearchParams(search);
   const embed = q.get('embed') === '1';
   const t = q.get('theme');
+  const h = q.get('handoff');
   return {
     embed,
     data: embed && q.get('data') === 'server' ? 'server' : 'message',
     theme: embed && isTheme(t) ? t : null,
+    handoff: !embed && h && HANDOFF_ID.test(h) ? h : null,
   };
 }
 
 export type InMsg =
   | { type: 'buildzr:load'; files: Files; build: BuildInfo | null; route: string | null; title: string | null }
   | { type: 'buildzr:theme'; theme: ThemeChoice }
-  | { type: 'buildzr:route'; route: string };
+  | { type: 'buildzr:route'; route: string }
+  | { type: 'buildzr:handoff-request'; id: string }
+  | { type: 'buildzr:handoff'; id: string; files: Files; build: BuildInfo | null; title: string | null }
+  | { type: 'buildzr:handoff-missing'; id: string };
 
 const isObj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
 const isRoute = (v: unknown): v is string => typeof v === 'string' && v.length <= 4096 && (v === '' || v.startsWith('#'));
@@ -60,6 +68,14 @@ export function parseMessage(d: unknown): InMsg | null {
       return isTheme(d.theme) ? { type: d.type, theme: d.theme } : null;
     case 'buildzr:route':
       return isRoute(d.route) ? { type: d.type, route: d.route } : null;
+    case 'buildzr:handoff-request':
+    case 'buildzr:handoff-missing':
+      return typeof d.id === 'string' && HANDOFF_ID.test(d.id) ? { type: d.type, id: d.id } : null;
+    case 'buildzr:handoff': {
+      const f = files(d.files), b = build(d.build), title = optStr(d.title);
+      if (typeof d.id !== 'string' || !HANDOFF_ID.test(d.id) || !f || b === undefined || title === undefined) return null;
+      return { type: d.type, id: d.id, files: f, build: b, title };
+    }
     default:
       return null;
   }
@@ -69,3 +85,9 @@ export function parseMessage(d: unknown): InMsg | null {
 export const trusted = (e: { origin: string; source: unknown }, from: unknown, origin: string): boolean =>
   from !== null && from !== undefined && e.source === from && e.origin === origin && origin !== 'null';
 
+/** 32 hex characters from the platform's random source (crypto.randomUUID needs a secure context; this does not). */
+export function newId(): string {
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  return [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
+}

@@ -5,7 +5,7 @@ import { Inspector } from './Inspector';
 import { SettingsButton } from './SettingsPanel';
 import { Breadcrumbs, Toolbar } from './Toolbar';
 import { Tree, ViewsList } from './Tree';
-import { installEmbed } from './embed';
+import { canOpenInNewTab, installEmbed, openInNewTab } from './embed';
 import { installRouter, MODE, useStore } from './store';
 import { usePhone } from './usePhone';
 import oflUrl from './fonts/OFL.txt?url';
@@ -35,7 +35,7 @@ export function App() {
   useEffect(() => {
     installRouter();
     installEmbed();
-    if (!embed || MODE.data === 'server') void useStore.getState().init();
+    if ((!embed || MODE.data === 'server') && !MODE.handoff) void useStore.getState().init();
   }, [embed]);
   useEffect(() => {
     if (!drawerMode || !drawer) return;
@@ -50,6 +50,12 @@ export function App() {
     return () => removeEventListener('keydown', f);
   }, [embed, inspectorOpen, drawer, closeInspector]);
 
+  if (status === 'gone') return (
+    <div role="alert" className="fatal gone" data-testid="handoff-gone">
+      <h1>This diagram is no longer available</h1>
+      <p>The page that opened this model was closed or reloaded, so its diagram is no longer available. Go back to that page and press Open in a new tab again.</p>
+    </div>
+  );
   if (status === 'broken' && build) return <BrokenScreen build={build} />;
   if (status === 'error') return <div role="alert" className="fatal">Could not load the model: {error}</div>;
   if (!m || !model) return <div className="fatal" role="status">Loading…</div>;
@@ -66,6 +72,14 @@ export function App() {
         <h1>{model.workspace.name}</h1>
         <Breadcrumbs />
         {drawerMode && <button className="searchbtn" aria-label="Search and filter" aria-expanded={searchOpen} onClick={() => setUi({ searchOpen: !searchOpen })}>⌕</button>}
+        {embed && canOpenInNewTab() && (
+          <button className="newtab" data-testid="open-new-tab" title="Open this diagram in the full viewer, in a new browser tab" onClick={openInNewTab}>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+              <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+            </svg>
+            <span className="newtab-text">Open in a new tab</span>
+          </button>
+        )}
         {(!drawerMode || searchOpen) && <Toolbar />}
       </header>
       {notice && <div role="status" className="notice" data-testid="notice">{notice} <button onClick={dismiss} aria-label="Dismiss">×</button></div>}

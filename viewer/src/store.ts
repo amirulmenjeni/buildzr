@@ -7,7 +7,7 @@ import { loadSettings, saveSettings, type SettingId, type SettingValues } from '
 import { resolveTheme, type Theme } from './theme';
 import type { BuildInfo, IndexJson, ModelJson, Scene } from './types';
 
-/** How this page was opened (the search part of the URL): standalone or embedded in a frame. */
+/** How this page was opened (the search part of the URL): standalone, embedded in a frame, or a new tab handed data. */
 export const MODE = parseMode(location.search);
 const DARK = '(prefers-color-scheme: dark)';
 const prefersDark = (): boolean => typeof matchMedia === 'function' && matchMedia(DARK).matches;
@@ -15,7 +15,7 @@ const prefersDark = (): boolean => typeof matchMedia === 'function' && matchMedi
 export interface CameraRequest { seq: number; kind: 'path' | 'node' | 'zoom'; id: string | null }
 
 export interface State {
-  status: 'loading' | 'ready' | 'error' | 'broken'; // broken: build.json says so and there is no data to draw
+  status: 'loading' | 'ready' | 'error' | 'broken' | 'gone'; // broken: build.json says so and there is no data to draw; gone: a new tab whose data is no longer available
   error: string | null;
   build: BuildInfo | null; // build.json, read first
   index: IndexJson | null;
@@ -42,7 +42,7 @@ export interface State {
   themeOverride: ThemeChoice | null; // embed: the theme the parent page asked for (not stored)
   theme: Theme; // resolved: the override; 'system' follows prefers-color-scheme
   inspectorOpen: boolean; // embed: the inspector shows only after an explicit selection
-  title: string | null; // embed: the title the parent page gave
+  title: string | null; // embed / new tab: the title the parent page gave
   // actions
   init(): Promise<void>;
   applyRoute(r: Route): void;
@@ -65,6 +65,7 @@ export interface State {
   syncTheme(): void;
   closeInspector(): void;
   load(files: Files, build: BuildInfo | null, route: string | null, title: string | null): Promise<void>;
+  setGone(): void;
   setUi(p: Partial<Pick<State, 'drawer' | 'drawerTab' | 'sheet' | 'searchOpen'>>): void;
 }
 
@@ -168,7 +169,7 @@ export const useStore = create<State>()((set, get) => {
       }
     },
 
-    /** Data from an embedding page (embed.ts): replaces the model and starts again from the route. */
+    /** Data from an embedding page or an opener (embed.ts): replaces the model and starts again from the route. */
     async load(files, build, route, title) {
       generation++;
       loading.clear();
@@ -178,6 +179,7 @@ export const useStore = create<State>()((set, get) => {
         filter: emptyFilter, notice: null, treeOpen: {}, drawer: false, sheet: 'peek', searchOpen: false, inspectorOpen: false, title });
       await get().init();
     },
+    setGone() { generation++; set({ status: 'gone' }); },
 
     /** Hash (load, back/forward, manual edit) -> state, with the fallbacks of docs/viewer-hash-routes.md. */
     applyRoute(r) {
