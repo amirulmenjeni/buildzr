@@ -88,10 +88,6 @@ def doc_pages() -> list[str]:
 NO_RUN = re.compile(r"^#\s*no-?run\b:?\s*(.*)$")
 
 RUN_CODE_JS = os.path.join(DOCS, "javascripts", "interactive-code.js")
-_JS_IMPORTS = re.compile(r"const imports = `(from buildzr\.dsl import \(.*?\)\n)\n`;", re.S)
-_HAS_WORKSPACE = re.compile(r"with\s+Workspace\s*\([^)]*\)\s+as\s+\w+\s*:", re.I)
-_HAS_IMPORTS = re.compile(r"from\s+buildzr\.dsl\s+import", re.I)
-_HAS_SAVE = re.compile(r"\.save\s*\(", re.I)
 
 
 def no_run(text: str) -> Optional[str]:
@@ -101,32 +97,14 @@ def no_run(text: str) -> Optional[str]:
     return m.group(1).strip() if m else None
 
 
-def run_code_imports() -> str:
-    """The imports that Run Code adds to a snippet that has none, read from ``interactive-code.js``."""
-    with open(RUN_CODE_JS, encoding="utf-8") as f:
-        m = _JS_IMPORTS.search(f.read())
-    assert m, f"{RUN_CODE_JS}: the imports of the Run Code wrapping are not found"
-    return m.group(1) + "\n"
-
-
 def run_code_source(text: str) -> tuple[str, int]:
-    """The program that the Run Code button runs for a snippet (``runCodeInBrowser`` of ``interactive-code.js``),
-    and the number of lines it adds before the snippet's first line.
+    """The program that the Run Code button runs for a snippet (``wrap_snippet`` of ``buildzr.site.browser``), and
+    the number of lines it adds before the snippet's first line: a snippet without ``with Workspace(...) as w:``
+    runs inside one, and a snippet that imports nothing from ``buildzr.dsl`` gets ``from buildzr.dsl import *``."""
+    from buildzr.site.browser import wrap_snippet
 
-    A snippet without ``with Workspace(...) as w:`` runs inside one, with the imports; a snippet with one gets the
-    imports when it has none and a ``w.save(path='workspace.json')`` when it saves nothing. Run Code then shows
-    ``workspace.json``."""
-    code = text.rstrip("\n")
-    imports = run_code_imports()
-    added = imports.count("\n")
-    if not _HAS_WORKSPACE.search(code):
-        body = "\n".join("    " + line for line in code.split("\n"))
-        return imports + f"with Workspace('w') as w:\n{body}\n    w.save(path='workspace.json')", added + 1
-    out, added = (code, 0) if _HAS_IMPORTS.search(code) else (imports + code, added)
-    if not _HAS_SAVE.search(code):
-        m = re.search(r"with\s+Workspace\s*\([^)]*\)\s+as\s+(\w+)\s*:", code, re.I)
-        out += f"\n{m.group(1) if m else 'w'}.save(path='workspace.json')"
-    return out, added
+    wrapped = wrap_snippet(text.rstrip("\n"))
+    return wrapped.code, wrapped.offset
 
 
 # --- building -----------------------------------------------------------------------------------------------

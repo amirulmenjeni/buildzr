@@ -251,7 +251,7 @@ Two comments control the button:
 
 | Comment | Where | Effect |
 |---|---|---|
-| `# no-run` | First line of the block | No Run Code button. Use it for code that cannot run in a browser, such as an export to PlantUML or code that reads a file. The line is hidden. |
+| `# no-run: <reason>` | First line of the block | No Run Code button. Use it for code that cannot run in a browser, such as an export to PlantUML or code that reads a file, and give the reason (`tests/docs/test_snippets.py` checks it). The line is hidden. |
 | `# focus: <element id>` | Any line | The viewer opens on this element, selected. The id is the viewer's id, such as `shop/database`. The line is hidden and not copied. |
 | `# focus: view:<key>` | Any line | The viewer opens on the view with this key. |
 

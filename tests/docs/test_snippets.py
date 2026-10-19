@@ -1,8 +1,8 @@
 """Every python block of the docs runs as its Run Code button runs it, unless it opts out with a reason.
 
 Every page of the docs folder is read (and ``README.md``, whose parts make the home page). A python block runs the way
-``docs/javascripts/interactive-code.js`` runs it in the browser (``blocks.run_code_source``): wrapped in a workspace
-when it has none, with the imports when it has none, and saved as ``workspace.json``, which Run Code shows. A block
+``docs/javascripts/interactive-code.js`` runs it in the browser (``run_code`` of ``buildzr.site.browser``): wrapped in a
+workspace when it has none, with the imports when it has none, and the last workspace it creates is drawn. A block
 whose first line is ``# no-run: <reason>`` gets no Run Code button; it must still compile, and the reasons are
 printed by ``test_opt_outs_name_a_reason``. The pages of ``WRONG_ON_PURPOSE`` show a typo and the error it gives;
 their blocks with the typo must fail with that error.
@@ -13,13 +13,13 @@ from __future__ import annotations
 import json
 import os
 import re
-import traceback
 from pathlib import Path
 
 import pytest
 
+from buildzr.site.browser import SnippetError, run_code
 from tests.docs.blocks import (DOCS, ROOT, RUN_CODE_JS, Block, build_and_check_views, doc_pages, extract_blocks,
-                               no_run, run_code_imports, run_code_source)
+                               no_run, run_code_source)
 
 #: Fences that the docs build would not give a Run Code button, so they would escape this test.
 OTHER_PYTHON = {"py", "python3", "pycon"}
@@ -50,33 +50,20 @@ RUNNABLE = [(b, n) for b, n in BLOCKS if no_run(b.text) is None]
 OPTED_OUT = [(b, n) for b, n in BLOCKS if no_run(b.text) is not None]
 
 
-def page_line(block: Block, added: int, lineno: int) -> int:
-    """The page line of line ``lineno`` of the program that Run Code made of ``block``."""
-    return block.line + lineno - added
-
-
 @pytest.mark.parametrize("block,n", RUNNABLE, ids=[b.id for b, _ in RUNNABLE])
 def test_snippet_runs_like_run_code(block: Block, n: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    source, added = run_code_source(block.text)
     monkeypatch.chdir(tmp_path)
     where = f"{block.page}, python block {n} (line {block.line})"
     typo, error = WRONG_ON_PURPOSE.get(block.page, ("", ""))
-    failure = None
     try:
-        exec(compile(source, block.id, "exec"), {"__name__": "__main__"})
-    except Exception as e:
-        if typo and typo in block.text and f"{type(e).__name__}: {e}" == error:
+        workspace, _ = run_code(block.text)
+    except SnippetError as e:
+        if typo and typo in block.text and e.message == error:
             return
-        frames = [f for f in traceback.extract_tb(e.__traceback__) if f.filename == block.id]
-        at = f", page line {page_line(block, added, frames[-1].lineno or 0)}" if frames else ""
-        failure = f"{where}{at}: {type(e).__name__}: {e}"
-    if failure:
-        pytest.fail(failure, pytrace=False)  # outside the except: the page, the block and the error, no traceback
+        at = f", page line {block.line + e.line}" if e.line else ""
+        pytest.fail(f"{where}{at}: {e.message}", pytrace=False)  # the page, the block and the error, no traceback
     assert not (typo and typo in block.text), f"{where}: the typo on purpose no longer fails with {error}"
-    saved = tmp_path / "workspace.json"
-    assert saved.is_file(), f"{where}: Run Code finds no workspace.json"
-    with open(saved, encoding="utf-8") as f:
-        assert isinstance(json.load(f), dict), f"{where}: workspace.json is not a workspace"
+    assert isinstance(json.loads(workspace.to_json()), dict), f"{where}: the workspace has no Structurizr JSON"
 
 
 VIEWS_TO_BUILD = re.compile(r"\b(?:DeploymentView|DynamicView)\(")
@@ -138,14 +125,10 @@ def test_python_blocks_are_fenced_as_python(page: str, root: str) -> None:
     assert not other, other
 
 
-def test_the_wrapping_is_the_one_of_run_code() -> None:
-    """``run_code_source`` copies the rules of ``interactive-code.js``; this fails when the script changes them."""
+def test_the_no_run_rule_is_the_one_of_run_code() -> None:
+    """``blocks.no_run`` reads the first line as ``interactive-code.js`` does, and the page hands the block to
+    ``run_snippet``, which wraps it with the ``wrap_snippet`` that ``run_code_source`` uses."""
     with open(RUN_CODE_JS, encoding="utf-8") as f:
-        js = f.read()
-    for rule in (r"/with\s+Workspace\s*\([^)]*\)\s+as\s+\w+\s*:/i", r"/from\s+buildzr\.dsl\s+import/i",
-                 r"/\.save\s*\(/i", "codeToRun = imports + `with Workspace('w') as w:",
-                 ".map(line => '    ' + line).join('\\n')}\n    w.save(path='workspace.json')`;",
-                 "code.startsWith('# no-run') || code.startsWith('# norun')",
-                 "pyodide.FS.readFile('workspace.json'"):
-        assert rule in js, f"interactive-code.js changed: {rule!r}; update tests/docs/blocks.run_code_source"
-    assert "Workspace," in run_code_imports()
+        assert r"const NO_RUN = /^\s*#\s*no-?run\b/;" in f.read(), "interactive-code.js changed its no-run rule"
+    with open(os.path.join(DOCS, "javascripts", "runcode-engine.js"), encoding="utf-8") as f:
+        assert "pyimport('buildzr.site.browser').run_snippet" in f.read()
