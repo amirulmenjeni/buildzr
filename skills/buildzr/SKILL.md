@@ -52,7 +52,7 @@ The essentials:
 
 For components, groups, dynamic views, deployment views, themes and every argument, read [references/dsl.md](references/dsl.md). It has three complete examples to start from.
 
-Deployment nodes and deployment views are not part of a built workspace yet: `buildzr build` drops them without a warning, and neither the viewer nor the Model API shows them. When the user asks for a deployment view, write it anyway, tell the user it will not appear in the viewer, and give it as Structurizr JSON: add `w.save(path='workspace.json')` as the last line of the `with` block and run `python workspaces/<name>.py` (`uvx --from buildzr python workspaces/<name>.py` without an install). The file opens in Structurizr Lite. `buildzr build` ignores the `save`.
+Deployment views build like the other views: the viewer lists them and draws the deployment nodes as nested boxes, and the Model API answers about deployment nodes and instances (ids under `deploy/<environment>/`).
 
 Check: the file compiles (`python -m py_compile workspaces/<name>.py`).
 
@@ -73,7 +73,7 @@ Run `buildzr build` in the folder that holds `workspaces/`.
   The step is `model` (the Python raised: fix the line it names), `layout` or `check` (a bug in buildzr: report it with the errors). The same errors are in `.buildzr/build/<name>/build.json`: `"status": "broken"`, `"stage"`, `"errors"`. Read that file when the terminal output is cut off.
 - A line `buildzr: error: …` without a BROKEN block is a problem of the machine or the command (Node missing, a bad `buildzr.yaml`, exit code 2 for usage errors): fix what it names.
 
-Fix the model file and run `buildzr build` again. Check: exit code 0, no `BROKEN` and no `skipped` line, and the `built` line counts every view you wrote except the deployment views.
+Fix the model file and run `buildzr build` again. Check: exit code 0, no `BROKEN` and no `skipped` line, and the `built` line counts every view you wrote.
 
 ## 4. Serve the workspaces and give the link
 

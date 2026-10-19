@@ -44,7 +44,7 @@ Every block on this page is a complete model file. Save one as `workspaces/<name
 | `ContainerView(software_system_selector=system, key=..., description=...)` | the containers of one system | `software_system_selector` |
 | `ComponentView(container_selector=container, key=..., description=...)` | the components of one container | `container_selector` |
 | `DynamicView(key=..., description=..., scope=system_or_container_or_None, steps=[a >> "Does" >> b, ...])` | an ordered flow | `steps`, each one matching an existing relationship |
-| `DeploymentView(environment=env, key=..., software_system_selector=system, description=...)` | what runs where in one environment; only in the Structurizr JSON, not in a built workspace | `environment` (the `DeploymentEnvironment` object, not its name) |
+| `DeploymentView(environment=env, key=..., software_system_selector=system, description=...)` | what runs where in one environment: nodes as nested boxes, with the instances inside | `environment` (the `DeploymentEnvironment` object, not its name) |
 
 - `key` is lower case with `-`: it becomes the link `/<workspace>/#/v/<key>`. Keys must be unique in a workspace.
 - Optional on every view: `auto_layout='tb'` (`'bt'`, `'lr'`, `'rl'`), `title=`, `include_elements=[...]`, `exclude_elements=[...]`, `include_relationships=[...]`, `exclude_relationships=[...]`.
@@ -157,7 +157,7 @@ with Workspace('Book Store') as w:
 
 ## Example 3: a deployment view
 
-`buildzr build` builds this file, but the built workspace has only the container view: deployment nodes and deployment views are not in built workspaces yet, so the viewer and the Model API do not show them. To hand over the deployment view, add `w.save(path='workspace.json')` as the last line of the `with` block and run the file with Python; `workspace.json` then has `views.deploymentViews`.
+`buildzr build` builds both views. In the viewer, the deployment view draws AWS, eu-west-1, ECS Cluster and RDS as nested boxes, the instances inside them, and `×2` on the ECS Cluster. A deployment node holds something only when an instance or an infrastructure node is inside it: the view leaves out a node with nothing in it. Each deployment element gets an id under `deploy/<environment>/`, for example `deploy/production/aws/eu-west-1/ecs-cluster/api`; link to it with `#/v/production?sel=<id>`.
 
 ```python
 from buildzr.dsl import (
