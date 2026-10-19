@@ -10,6 +10,7 @@ edit_uri: edit/master/docs/
 theme:
   name: material
   custom_dir: overrides
+  language: custom
   palette:
     # Light mode
     - media: "(prefers-color-scheme: light)"
@@ -57,6 +58,9 @@ markdown_extensions:
       permalink: true
   - attr_list
   - smarty
+
+hooks:
+  - scripts/mkdocs_hooks.py
 
 plugins:
   - search
@@ -110,8 +114,7 @@ extra:
       link: https://github.com/amirulmenjeni/buildzr
 
 extra_javascript:
-  - https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.js
   - javascripts/interactive-code.js
 
 extra_css:
-  - stylesheets/pyscript.css
+  - stylesheets/runcode.css

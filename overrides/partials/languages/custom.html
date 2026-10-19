@@ -1,0 +1,6 @@
+<!-- English, with labels that say what they act on: the copy button of a code block copies that code. -->
+{% import "partials/languages/en.html" as language %}
+{% macro t(key) %}{{ {
+  "clipboard.copy": "Copy this code",
+  "clipboard.copied": "Code copied to clipboard",
+}[key] or language.t(key) }}{% endmacro %}
