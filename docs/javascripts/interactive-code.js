@@ -1,303 +1,385 @@
-// Global Pyodide instance
-let pyodideInstance = null;
-let pyodideLoading = false;
+// Run Code: a button on every Python code block of the docs. Pressing it runs the code in the reader's browser
+// (Pyodide, see runcode-engine.js) and draws its workspace in the buildzr viewer, embedded in an iframe under the
+// code. Nothing is downloaded before the first press.
+//
+// For authors:
+//   - `# no-run` (or `# norun`) as the first line: no button; the line is hidden.
+//   - `# focus: <element id>` or `# focus: view:<key>` anywhere: where the viewer opens; the line is hidden (it is
+//     neither shown nor copied). Without it: a deployment or dynamic view the code defines, else the landscape with
+//     the last-created element that has children expanded, else the whole landscape (buildzr/site/browser.py).
+// The viewer's embed mode (?embed=1, messages buildzr:*) is described in the viewer docs.
+(function () {
+  'use strict';
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('[Interactive Code] Script loaded');
+  const script = document.currentScript;
+  // docs/runcode/ (scripts/build_docs_assets.py) and this folder, found from this script's URL: works at any depth.
+  const RUNCODE = new URL('../runcode/', script ? script.src : location.href).href;
+  const ENGINE = new URL('runcode-engine.js', script ? script.src : location.href).href;
+  const NO_RUN = /^\s*#\s*no-?run\b/;
+  const FOCUS = /^[ \t]*#[ \t]*focus:/;
+  const READY_TIMEOUT_MS = 20000;
 
-    // Add interactive buttons to Python code blocks
-    // MkDocs Material uses: <div class="language-python highlight"><pre><code>...
-    const codeBlocks = document.querySelectorAll('.language-python.highlight pre code, pre code.language-python');
+  // Test hook: timings and the thread the engine runs on. Set window.__runcodeForceMainThread before the first press
+  // to measure the main-thread path.
+  const stats = (window.__runcode = { thread: null, setupMs: null, runs: [] });
+  const blocks = [];
+  let engine = null; // Promise<{run(code) -> Promise<result>}>
 
-    console.log('[Interactive Code] Found', codeBlocks.length, 'Python code blocks');
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.language-python.highlight > pre > code, div.highlight > pre > code.language-python')
+      .forEach((code) => setUp(code));
+  });
 
-    codeBlocks.forEach((codeBlock, index) => {
-        const pre = codeBlock.parentElement;
-        const container = pre.parentElement;
+  // --- the code block -------------------------------------------------------------------------------------
 
-        // Check if this code block should be interactive
-        const shouldBeInteractive = checkIfInteractive(pre, container);
+  function lineSpans(code) {
+    const spans = code.querySelectorAll(':scope > span[id^="__span"]');
+    return spans.length ? Array.from(spans) : null;
+  }
 
-        console.log('[Interactive Code] Block', index, 'interactive?', shouldBeInteractive);
-
-        if (shouldBeInteractive) {
-            makeInteractive(pre, codeBlock, index);
-            console.log('[Interactive Code] Made block', index, 'interactive');
-        }
-    });
-
-    console.log('[Interactive Code] Initialization complete');
-});
-
-function checkIfInteractive(pre, container) {
-    // Get the code content
-    const codeBlock = pre.querySelector('code');
-    if (!codeBlock) return false;
-
-    const code = codeBlock.textContent.trim();
-
-    // Check if code starts with # no-run or # norun comment
-    if (code.startsWith('# no-run') || code.startsWith('# norun')) {
-        // Hide the first line with CSS instead of removing it
-        // This preserves syntax highlighting
-        const firstLine = codeBlock.querySelector('.linenumber:first-child')?.parentElement ||
-                         codeBlock.firstChild;
-
-        if (firstLine && firstLine.nodeType === Node.ELEMENT_NODE) {
-            firstLine.style.display = 'none';
-        } else {
-            // Fallback: wrap first line in a hidden span
-            const lines = codeBlock.innerHTML.split('\n');
-            if (lines.length > 0) {
-                lines[0] = '<span style="display: none;">' + lines[0] + '</span>';
-                codeBlock.innerHTML = lines.join('\n');
-            }
-        }
-
-        return false;
+  function setUp(code) {
+    const source = code.textContent;
+    const spans = lineSpans(code);
+    const lines = source.split('\n');
+    if (NO_RUN.test(lines.find((l) => l.trim()) || '')) {
+      if (spans) spans.find((s) => s.textContent.trim()).classList.add('runcode-hidden-line');
+      return;
     }
+    // Hidden lines (1-based): not displayed, and not copied (the copy button copies what is displayed).
+    const hidden = [];
+    lines.forEach((l, i) => { if (FOCUS.test(l)) hidden.push(i + 1); });
+    if (hidden.length && !spans) return; // cannot hide the line without line spans: no button rather than a wrong page
+    for (const n of hidden) spans[n - 1].classList.add('runcode-hidden-line');
 
-    // SPIKE: a '# focus: ...' line says where the viewer opens; readers do not need it.
-    for (const span of codeBlock.querySelectorAll('span[id^="__span"]')) {
-        if (/^\s*#\s*focus:/.test(span.textContent)) span.style.display = 'none';
+    const highlight = code.closest('.highlight');
+    const n = blocks.length;
+    const b = { n, source, hidden, spans, highlight, frame: null, frameReady: false, pending: null, busy: false };
+    blocks.push(b);
+    b.title = 'Diagram of the example' + (nearestHeading(highlight) ? ': ' + nearestHeading(highlight) : '');
+
+    const wrapper = (b.wrapper = el('div', 'runcode'));
+    const bar = el('div', 'runcode-bar');
+    b.run = el('button', 'runcode-run', '▶ Run Code');
+    b.run.type = 'button';
+    b.run.title = 'Run this code in your browser and draw its diagram below';
+    b.run.addEventListener('click', () => runBlock(b));
+    bar.append(b.run);
+
+    b.output = el('section', 'runcode-output');
+    b.output.hidden = true;
+    b.output.tabIndex = -1;
+    b.output.setAttribute('aria-label', b.title);
+    const head = el('div', 'runcode-head');
+    b.status = el('p', 'runcode-status');
+    b.status.setAttribute('role', 'status');
+    b.toggle = el('button', 'runcode-toggle', 'Hide diagram');
+    b.toggle.type = 'button';
+    b.toggle.setAttribute('aria-expanded', 'true');
+    b.toggle.setAttribute('aria-controls', `runcode-body-${n}`);
+    b.toggle.addEventListener('click', () => expand(b, b.body.hidden));
+    head.append(el('span', 'runcode-label', 'Diagram'), b.status, b.toggle);
+    b.body = el('div', 'runcode-body');
+    b.body.id = `runcode-body-${n}`;
+    b.view = el('div', 'runcode-view');
+    b.extras = el('div', 'runcode-extras');
+    b.body.append(b.view, b.extras);
+    b.output.append(head, b.body);
+
+    highlight.parentNode.insertBefore(wrapper, highlight);
+    wrapper.append(bar, highlight, b.output);
+  }
+
+  function nearestHeading(node) {
+    for (let n = node; n && n !== document.body; n = n.parentElement) {
+      for (let p = n.previousElementSibling; p; p = p.previousElementSibling) {
+        if (/^H[1-6]$/.test(p.tagName)) return p.textContent.replace(/¶$/, '').trim();
+      }
     }
-    // Make all other Python code blocks interactive
-    return true;
-}
+    return '';
+  }
 
-function makeInteractive(pre, codeBlock, index) {
-    const code = codeBlock.textContent;
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
 
-    // Create wrapper div
-    const wrapper = document.createElement('div');
-    wrapper.className = 'interactive-code-wrapper';
+  function expand(b, open) {
+    b.body.hidden = !open;
+    b.toggle.textContent = open ? 'Hide diagram' : 'Show diagram';
+    b.toggle.setAttribute('aria-expanded', String(open));
+  }
 
-    // Create button container
-    const buttonContainer = document.createElement('div');
-    buttonContainer.className = 'interactive-code-buttons';
+  function say(b, text) {
+    b.status.textContent = text;
+  }
 
-    // Create RUN button (in-browser execution)
-    const runButton = document.createElement('button');
-    runButton.className = 'interactive-run-button';
-    runButton.innerHTML = '▶ Run Code';
-    runButton.onclick = () => runCodeInBrowser(code, index, runButton);
+  // data-state of the wrapper: running, drawn, nothing (ran, nothing to draw) or error; data-error-line: the line.
+  function state(b, value, line) {
+    b.wrapper.dataset.state = value;
+    if (line) b.wrapper.dataset.errorLine = String(line);
+    else delete b.wrapper.dataset.errorLine;
+  }
 
-    buttonContainer.appendChild(runButton);
+  // --- running ------------------------------------------------------------------------------------------
 
-    // Create output area container
-    const outputContainer = document.createElement('div');
-    outputContainer.className = 'interactive-output-container';
-    outputContainer.id = `output-container-${index}`;
-    outputContainer.style.display = 'none';
-
-    // Create output header with toggle button and copy button
-    const outputHeader = document.createElement('div');
-    outputHeader.className = 'interactive-output-header';
-
-    const headerTitle = document.createElement('span');
-    headerTitle.innerHTML = '📊 Diagram';
-    headerTitle.style.fontWeight = '600';
-
-    const buttonGroup = document.createElement('div');
-    buttonGroup.style.display = 'flex';
-    buttonGroup.style.gap = '0.5em';
-
-    const copyButton = document.createElement('button');
-    copyButton.className = 'interactive-copy-output-button';
-    copyButton.innerHTML = '📋 Copy';
-    copyButton.onclick = () => copyOutput(index, copyButton);
-
-    const toggleButton = document.createElement('button');
-    toggleButton.className = 'interactive-toggle-button';
-    toggleButton.innerHTML = '▼ Hide';
-    toggleButton.onclick = () => toggleOutput(index, toggleButton);
-
-    buttonGroup.appendChild(copyButton);
-    buttonGroup.appendChild(toggleButton);
-
-    outputHeader.appendChild(headerTitle);
-    outputHeader.appendChild(buttonGroup);
-
-    // Create output area (JSON)
-    const outputArea = document.createElement('div');
-    outputArea.className = 'interactive-output';
-    outputArea.id = `output-${index}`;
-
-    outputContainer.appendChild(outputHeader);
-    outputContainer.appendChild(outputArea);
-
-    // Insert before the pre element
-    pre.parentNode.insertBefore(wrapper, pre);
-    wrapper.appendChild(buttonContainer);
-    wrapper.appendChild(pre);
-    wrapper.appendChild(outputContainer);
-}
-
-// SPIKE: everything Run Code needs is loaded on the first click, never with the page.
-const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.28.3/full/';
-// docs/runcode/ (staged by spike/runcode/stage_docs.sh), found from this script's own URL so it works at any depth.
-const RUNCODE_BASE = new URL('../runcode/', document.currentScript ? document.currentScript.src : location.href).href;
-
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = resolve;
-        s.onerror = () => reject(new Error('could not load ' + src));
-        document.head.appendChild(s);
-    });
-}
-
-async function initPyodide() {
-    if (!pyodideLoading) {
-        pyodideLoading = (async () => {
-            const t0 = performance.now();
-            await loadScript(PYODIDE_URL + 'pyodide.js');
-            const [pyodide, manifest] = await Promise.all([
-                loadPyodide({ indexURL: PYODIDE_URL }),
-                fetch(RUNCODE_BASE + 'manifest.json').then((r) => r.json()),
-                loadScript(RUNCODE_BASE + 'elk.bundled.js').then(() => loadScript(RUNCODE_BASE + 'elk_sync.js')),
-                loadScript(RUNCODE_BASE + 'wrap.js'),
-            ]);
-            const [wheels, buildPy, elkSync] = await Promise.all([
-                Promise.all(manifest.wheels.map((w) => fetch(RUNCODE_BASE + 'wheels/' + w).then((r) => r.arrayBuffer()))),
-                fetch(RUNCODE_BASE + 'browser_build.py').then((r) => r.text()),
-                makeElkSync(window.ELK),
-                pyodide.loadPackage(['typing-extensions'], { messageCallback: () => {} }),
-            ]);
-            for (const w of wheels) pyodide.unpackArchive(new Uint8Array(w), 'wheel');
-            window.elkLayoutSync = elkSync;
-            pyodide.FS.mkdirTree('/rc');
-            pyodide.FS.writeFile('/rc/browser_build.py', buildPy);
-            pyodide.runPython("import sys; sys.path.insert(0, '/rc'); import browser_build");
-            window.__runcodeTimings = { setup_ms: Math.round(performance.now() - t0) };
-            pyodideInstance = pyodide;
-            return pyodide;
-        })();
-        pyodideLoading.catch(() => { pyodideLoading = null; });
+  async function runBlock(b) {
+    if (b.busy) return;
+    b.busy = true;
+    const first = !engine;
+    b.run.disabled = true;
+    b.run.textContent = '⏳ Running…';
+    b.output.hidden = false;
+    b.output.setAttribute('aria-busy', 'true');
+    expand(b, true);
+    clearErrorLine(b);
+    state(b, 'running');
+    if (!b.frame) {
+      // As tall as the diagram will be: the page does not grow under the reader when the diagram arrives.
+      b.view.replaceChildren(el('div', 'runcode-placeholder', ''));
     }
-    return pyodideLoading;
-}
-
-const isDark = () => document.body.getAttribute('data-md-color-scheme') === 'slate';
-const frames = new Set();
-// The docs palette toggle changes body[data-md-color-scheme]; every viewer follows.
-new MutationObserver(() => {
-    for (const f of frames) f.contentWindow && f.contentWindow.postMessage({ type: 'runcode-theme', dark: isDark() }, '*');
-}).observe(document.body, { attributes: true, attributeFilter: ['data-md-color-scheme'] });
-
-function showViewer(outputArea, result, index) {
-    const frame = document.createElement('iframe');
-    frame.className = 'runcode-viewer';
-    frame.title = 'Diagram of the code above (interactive viewer)';
-    frame.src = RUNCODE_BASE + 'viewer/index.html' + result.focus.route;
-    const onMessage = (e) => {
-        if (e.source !== frame.contentWindow || !e.data || e.data.type !== 'runcode-ready') return;
-        frame.contentWindow.postMessage({ type: 'runcode-data', files: result.files, dark: isDark() }, '*');
-    };
-    addEventListener('message', onMessage);
-    frames.add(frame);
-    const json = document.createElement('details');
-    json.className = 'runcode-json';
-    json.innerHTML = '<summary>Structurizr JSON</summary><pre></pre>';
-    json.querySelector('pre').textContent = result.workspace_json;
-    outputArea.replaceChildren(frame, json);
-}
-
-function copyOutput(index, button) {
-    const outputArea = document.getElementById(`output-${index}`);
-
-    // Extract just the text content from the pre element
-    const preElement = outputArea.querySelector('pre');
-    if (!preElement) {
-        console.error('No output to copy');
-        return;
-    }
-
-    const textToCopy = preElement.textContent;
-
-    // Copy to clipboard
-    navigator.clipboard.writeText(textToCopy).then(() => {
-        // Show success feedback
-        const originalText = button.innerHTML;
-        button.innerHTML = '✓ Copied!';
-        button.style.backgroundColor = '#4caf50';
-
-        setTimeout(() => {
-            button.innerHTML = originalText;
-            button.style.backgroundColor = '';
-        }, 2000);
-    }).catch(err => {
-        console.error('Failed to copy:', err);
-        const originalText = button.innerHTML;
-        button.innerHTML = '✗ Failed';
-
-        setTimeout(() => {
-            button.innerHTML = originalText;
-        }, 2000);
-    });
-}
-
-function toggleOutput(index, button) {
-    const outputArea = document.getElementById(`output-${index}`);
-
-    if (outputArea.style.display !== 'none') {
-        outputArea.style.display = 'none';
-        button.innerHTML = '▶ Show';
-    } else {
-        outputArea.style.display = 'block';
-        button.innerHTML = '▼ Hide';
-    }
-}
-
-
-async function runCodeInBrowser(code, index, button) {
-    const outputContainer = document.getElementById(`output-container-${index}`);
-    const outputArea = document.getElementById(`output-${index}`);
-    outputContainer.style.display = 'block';
-    outputArea.style.display = 'block'; // expands it if the toggle had collapsed it
-    const toggle = outputContainer.querySelector('.interactive-toggle-button');
-    if (toggle) toggle.innerHTML = '▼ Hide';
-    // The placeholder takes the frame's height, so the page does not grow under the reader when the frame arrives.
-    outputArea.innerHTML = '<div class="loading runcode-placeholder" role="status">⏳ Loading Python and the viewer (the first time takes a few seconds)…</div>';
-    scrollToDiagram(outputContainer, false); // the reader sees the loading state at once
-    const originalText = button.innerHTML;
-    button.disabled = true;
-    button.innerHTML = '⏳ Running…';
+    say(b, first ? 'Loading Python and the viewer. The first run downloads about 6 MB and takes a few seconds…'
+      : 'Running the code…');
+    scrollToDiagram(b.output, false);
+    const t0 = performance.now();
     try {
-        const pyodide = await initPyodide();
-        const t0 = performance.now();
-        const run = pyodide.globals.get('browser_build').run_snippet;
-        const result = JSON.parse(run(wrapSnippet(code), '/rc/out/' + index));
-        run.destroy();
-        window.__runcodeTimings[index] = { run_ms: Math.round(performance.now() - t0), ms: result.ms, focus: result.focus };
-        showViewer(outputArea, result, index);
-        scrollToDiagram(outputContainer, true);
-    } catch (error) {
-        const msg = String(error.message || error).split('\n').filter((l) => l.trim()).slice(-3).join('\n');
-        outputArea.innerHTML = `<div class="output-error" role="alert"><strong>Error:</strong>\n${escapeHtml(msg)}</div>`;
+      const result = await (await getEngine()).run(b.source);
+      stats.runs.push({ block: b.n, ms: Math.round(performance.now() - t0), first });
+      if (!result.ok) showError(b, result.error);
+      else if (!result.drawn) showNothing(b, result);
+      else await showDiagram(b, result);
+    } catch (err) {
+      engine = null; // the next press tries again
+      showError(b, { message: String((err && err.message) || err), line: null, source: '', setup: true });
     } finally {
-        button.disabled = false;
-        button.innerHTML = originalText;
+      b.busy = false;
+      b.run.disabled = false;
+      b.run.textContent = '▶ Run Code';
+      b.output.removeAttribute('aria-busy');
     }
-}
+  }
 
-// SPIKE: bring the diagram of a snippet into view, its top just below the sticky header of mkdocs-material.
-// Nothing happens when it is already fully visible; with `onlyIfMoved`, only when its top has left the view
-// (the frame replacing the loading line can push it down, or the reader scrolled away while Python loaded).
-function scrollToDiagram(container, onlyIfMoved) {
+  function getEngine() {
+    if (!engine) {
+      engine = (window.__runcodeForceMainThread || typeof Worker === 'undefined') ? mainThreadEngine() : workerEngine()
+        .catch((err) => (err && err.workerBroken ? mainThreadEngine() : Promise.reject(err)));
+      engine.catch(() => {});
+    }
+    return engine;
+  }
+
+  function workerEngine() {
+    return new Promise((resolve, reject) => {
+      let worker;
+      try {
+        worker = new Worker(ENGINE);
+      } catch (err) {
+        reject(Object.assign(new Error(String(err)), { workerBroken: true }));
+        return;
+      }
+      const waiting = new Map();
+      let id = 0;
+      worker.onerror = (e) => { // the script did not even start (blocked by a policy, a syntax the browser lacks)
+        e.preventDefault();
+        reject(Object.assign(new Error(e.message || 'the worker failed'), { workerBroken: true }));
+      };
+      worker.onmessage = (e) => {
+        const m = e.data || {};
+        if (m.type === 'started') {
+          stats.thread = 'worker';
+          stats.setupMs = m.ms;
+          resolve({ run: (code) => new Promise((done) => { waiting.set(++id, done); worker.postMessage({ type: 'run', id, code }); }) });
+        } else if (m.type === 'start-failed') {
+          worker.terminate();
+          reject(new Error(m.message));
+        } else if (m.type === 'result' && waiting.has(m.id)) {
+          waiting.get(m.id)(m.result);
+          waiting.delete(m.id);
+        }
+      };
+      worker.postMessage({ type: 'start', base: RUNCODE });
+    });
+  }
+
+  async function mainThreadEngine() {
+    if (!window.RunCodeEngine) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = ENGINE;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('could not load ' + ENGINE));
+        document.head.appendChild(s);
+      });
+    }
+    const eng = await window.RunCodeEngine.start(RUNCODE);
+    stats.thread = 'main';
+    stats.setupMs = eng.ms;
+    return { run: async (code) => eng.run(code) };
+  }
+
+  // --- showing the result -------------------------------------------------------------------------------
+
+  const isDark = () => document.body.getAttribute('data-md-color-scheme') === 'slate';
+
+  function showDiagram(b, result) {
+    return new Promise((resolve) => {
+      b.pending = { result, resolve };
+      if (!b.frame) {
+        b.frame = el('iframe', 'runcode-frame');
+        b.frame.title = b.title + ' (interactive viewer)';
+        b.frame.src = RUNCODE + 'viewer/index.html?embed=1&theme=' + (isDark() ? 'dark' : 'light') + result.focus.route;
+        b.frameReady = false;
+        b.timer = setTimeout(() => viewerFailed(b, 'The viewer did not start.'), READY_TIMEOUT_MS);
+        b.view.replaceChildren(b.frame);
+      } else if (b.frameReady) {
+        post(b, { type: 'buildzr:load', files: result.files, route: result.focus.route, title: b.title });
+      }
+      showExtras(b, result);
+    });
+  }
+
+  function post(b, message) {
+    b.frame.contentWindow.postMessage(message, location.origin);
+  }
+
+  addEventListener('message', (e) => {
+    if (e.origin !== location.origin || !e.data || typeof e.data.type !== 'string') return;
+    const b = blocks.find((x) => x.frame && x.frame.contentWindow === e.source);
+    if (!b) return;
+    if (e.data.type === 'buildzr:ready') {
+      b.frameReady = true;
+      clearTimeout(b.timer);
+      if (b.pending) post(b, { type: 'buildzr:load', files: b.pending.result.files, route: b.pending.result.focus.route, title: b.title });
+    } else if (e.data.type === 'buildzr:loaded' && b.pending) {
+      const { resolve } = b.pending;
+      b.pending = null;
+      if (e.data.status === 'error') {
+        viewerFailed(b, 'The viewer could not show this model: ' + (e.data.error || 'unknown error'));
+      } else {
+        say(b, 'Diagram ready.');
+        state(b, 'drawn');
+        scrollToDiagram(b.output, true);
+        b.output.focus({ preventScroll: true });
+      }
+      resolve();
+    }
+  });
+
+  function viewerFailed(b, message) {
+    if (b.frame) b.frame.remove();
+    b.frame = null;
+    b.view.replaceChildren(errorBox(message));
+    say(b, message);
+    state(b, 'error');
+    if (b.pending) { b.pending.resolve(); b.pending = null; }
+  }
+
+  // The docs' light/dark toggle: every diagram follows.
+  new MutationObserver(() => {
+    for (const b of blocks) if (b.frame && b.frameReady) post(b, { type: 'buildzr:theme', theme: isDark() ? 'dark' : 'light' });
+  }).observe(document.body, { attributes: true, attributeFilter: ['data-md-color-scheme'] });
+
+  function showExtras(b, result) {
+    const json = el('details', 'runcode-json');
+    json.append(el('summary', '', 'Show model JSON'));
+    const pre = el('pre');
+    pre.append(el('code', '', result.workspaceJson));
+    json.append(pre);
+    const copy = el('button', 'runcode-copy-json', 'Copy model JSON');
+    copy.type = 'button';
+    copy.title = 'Copy the Structurizr JSON of this model to the clipboard';
+    copy.addEventListener('click', () => copyJson(b, copy, result.workspaceJson));
+    const row = el('div', 'runcode-extras-row');
+    row.append(json, copy);
+    b.extras.replaceChildren(row);
+    if (result.stdout) {
+      const printed = el('details', 'runcode-printed');
+      printed.append(el('summary', '', 'Show printed output'));
+      const out = el('pre');
+      out.append(el('code', '', result.stdout));
+      printed.append(out);
+      b.extras.append(printed);
+    }
+  }
+
+  async function copyJson(b, button, text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = 'Copied!';
+      say(b, 'Model JSON copied to the clipboard.');
+    } catch (err) {
+      button.textContent = 'Copy failed';
+      say(b, 'Could not copy. Open "Show model JSON" and select the text instead.');
+    }
+    setTimeout(() => { button.textContent = 'Copy model JSON'; }, 2000);
+  }
+
+  function showNothing(b, result) {
+    if (b.frame) b.frame.remove();
+    b.frame = null;
+    b.view.replaceChildren(el('p', 'runcode-note', 'The code ran, but its model has nothing to draw (no people, software systems, containers or components).'));
+    say(b, 'The code ran; nothing to draw.');
+    state(b, 'nothing');
+    showExtras(b, result);
+  }
+
+  // --- errors -------------------------------------------------------------------------------------------
+
+  // The line the reader sees: the hidden lines above it are not counted.
+  function shownLine(b, line) {
+    if (!line) return null;
+    if (b.hidden.includes(line)) return { hiddenMarker: true };
+    return { n: line - b.hidden.filter((h) => h < line).length, span: b.spans ? b.spans[line - 1] : null };
+  }
+
+  function showError(b, error) {
+    if (b.frame) b.frame.remove();
+    b.frame = null;
+    b.extras.replaceChildren();
+    const where = shownLine(b, error.line);
+    let lead;
+    if (error.setup) lead = 'Run Code could not start.';
+    else if (!where) lead = 'The code failed.';
+    else if (where.hiddenMarker) lead = 'The hidden "# focus:" line of this example is wrong.';
+    else lead = `Error on line ${where.n} of the code above.`;
+    const box = errorBox(lead, error.message, where && where.n && error.source ? error.source : '');
+    if (error.setup) box.append(el('p', '', 'Check your connection (Python is loaded from cdn.jsdelivr.net) and press Run Code again.'));
+    b.view.replaceChildren(box);
+    if (where && where.span) where.span.classList.add('runcode-error-line');
+    say(b, lead);
+    state(b, 'error', where && where.n);
+  }
+
+  function errorBox(lead, message, source) {
+    const box = el('div', 'runcode-error');
+    box.setAttribute('role', 'alert');
+    box.append(el('p', 'runcode-error-lead', lead));
+    if (message) box.append(el('p', 'runcode-error-message', message));
+    if (source) {
+      const pre = el('pre');
+      pre.append(el('code', '', source));
+      box.append(pre);
+    }
+    return box;
+  }
+
+  function clearErrorLine(b) {
+    if (b.spans) for (const s of b.spans) s.classList.remove('runcode-error-line');
+  }
+
+  // --- scrolling ----------------------------------------------------------------------------------------
+
+  // Bring the diagram area into view, its top just below the sticky header. Nothing happens when it is already
+  // fully visible; with `onlyIfMoved`, only when its top has left the view.
+  function scrollToDiagram(target, onlyIfMoved) {
     const header = document.querySelector('.md-header');
     const headerBottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
-    const r = container.getBoundingClientRect();
+    const r = target.getBoundingClientRect();
     const fullyVisible = r.top >= headerBottom && r.bottom <= window.innerHeight;
     const topVisible = r.top >= headerBottom && r.top < window.innerHeight;
     if (fullyVisible || (onlyIfMoved && topVisible)) return;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.scrollTo({ top: window.scrollY + r.top - headerBottom - 8, behavior: reduce ? 'auto' : 'smooth' });
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+  }
+})();

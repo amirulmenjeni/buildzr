@@ -10,6 +10,7 @@ edit_uri: edit/master/docs/
 theme:
   name: material
   custom_dir: overrides
+  language: custom
   palette:
     # Light mode
     - media: "(prefers-color-scheme: light)"
@@ -117,4 +118,4 @@ extra_javascript:
   - javascripts/interactive-code.js
 
 extra_css:
-  - stylesheets/pyscript.css
+  - stylesheets/runcode.css

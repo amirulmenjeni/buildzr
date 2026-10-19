@@ -1,0 +1,119 @@
+/* Run Code (docs/javascripts/interactive-code.js): the button above a Python code block and the diagram under it.
+   Colours come from mkdocs-material's variables, so light and dark follow the docs palette. */
+.runcode {
+  --runcode-frame-h: min(560px, 80vh);
+  margin: 1em 0;
+}
+.runcode > .highlight { margin: 0; }
+.runcode-bar {
+  display: flex;
+  gap: 0.5em;
+  padding: 0.4em 0.5em;
+  background: var(--md-code-bg-color);
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem 0.2rem 0 0;
+}
+.runcode-run,
+.runcode-toggle,
+.runcode-copy-json {
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35em 0.9em;
+  border-radius: 0.2rem;
+  cursor: pointer;
+}
+.runcode-run {
+  color: var(--md-primary-bg-color);
+  background: var(--md-primary-fg-color);
+  border: 1px solid var(--md-primary-fg-color);
+}
+.runcode-run:hover:not(:disabled) { background: var(--md-primary-fg-color--dark); }
+.runcode-run:disabled { opacity: 0.7; cursor: progress; }
+.runcode-toggle,
+.runcode-copy-json {
+  color: var(--md-default-fg-color);
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lighter);
+}
+.runcode-toggle:hover,
+.runcode-copy-json:hover { border-color: var(--md-accent-fg-color); }
+.runcode button:focus-visible,
+.runcode summary:focus-visible,
+.runcode-output:focus-visible {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+}
+
+/* The `# focus:` comment and the `# no-run` line: neither shown nor copied (the copy button copies what is shown). */
+.highlight .runcode-hidden-line { display: none; }
+.runcode-error-line {
+  display: inline-block;
+  min-width: 100%;
+  background: color-mix(in srgb, #c62828 14%, transparent);
+  box-shadow: inset 3px 0 0 #c62828;
+}
+
+.runcode-output {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-top: 0;
+  border-radius: 0 0 0.2rem 0.2rem;
+}
+.runcode-output[hidden] { display: none; }
+.runcode-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em 0.75em;
+  padding: 0.4em 0.6em;
+  background: var(--md-code-bg-color);
+  font-size: 0.75rem;
+}
+.runcode-label { font-weight: 700; }
+.runcode-status {
+  flex: 1;
+  min-width: 12em;
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+}
+.runcode-frame,
+.runcode-placeholder {
+  display: block;
+  width: 100%;
+  height: var(--runcode-frame-h);
+  border: 0;
+}
+.runcode-placeholder {
+  background:
+    linear-gradient(90deg, transparent, var(--md-default-fg-color--lightest), transparent) 0 0 / 40% 100% no-repeat,
+    var(--md-code-bg-color);
+  animation: runcode-shimmer 1.6s linear infinite;
+}
+@keyframes runcode-shimmer { from { background-position: -40% 0, 0 0; } to { background-position: 140% 0, 0 0; } }
+@media (prefers-reduced-motion: reduce) { .runcode-placeholder { animation: none; } }
+
+.runcode-extras { padding: 0 0.6em; font-size: 0.75rem; border-top: 1px solid var(--md-default-fg-color--lightest); }
+.runcode-extras:empty { display: none; }
+.runcode-extras-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75em;
+  padding: 0.4em 0;
+}
+.runcode-extras-row > details { flex: 1; min-width: 0; }
+.runcode-extras summary { cursor: pointer; padding: 0.35em 0; font-weight: 600; }
+.runcode-extras pre { margin: 0.4em 0; max-height: 24em; overflow: auto; }
+.runcode-printed { padding-bottom: 0.4em; }
+
+.runcode-error {
+  margin: 0;
+  padding: 0.6em 0.9em;
+  border-left: 4px solid #c62828;
+  background: color-mix(in srgb, #c62828 8%, var(--md-default-bg-color));
+  font-size: 0.8rem;
+}
+.runcode-error p { margin: 0.2em 0; }
+.runcode-error-lead { font-weight: 700; }
+.runcode-error-message { font-family: var(--md-code-font-family); white-space: pre-wrap; overflow-wrap: anywhere; }
+.runcode-error pre { margin: 0.4em 0 0; }
+.runcode-note { margin: 0; padding: 0.8em; font-size: 0.8rem; }
