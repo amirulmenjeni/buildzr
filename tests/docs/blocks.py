@@ -3,6 +3,8 @@ build that uses the stub layout when the real one cannot run."""
 
 from __future__ import annotations
 
+import glob
+import json
 import os
 import re
 import shutil
@@ -73,6 +75,60 @@ def extract_blocks(page: str, root: str = DOCS) -> list[Block]:
     return blocks
 
 
+def doc_pages() -> list[str]:
+    """Every page of the docs folder, relative to it, in a fixed order."""
+    found = [os.path.relpath(os.path.join(d, f), DOCS) for d, _, files in os.walk(DOCS) for f in files
+             if f.endswith(".md")]
+    return sorted(p.replace(os.sep, "/") for p in found)
+
+
+# --- Run Code ---------------------------------------------------------------------------------------------
+
+#: The first line of a python block that gets no Run Code button; the reason follows the colon.
+NO_RUN = re.compile(r"^#\s*no-?run\b:?\s*(.*)$")
+
+RUN_CODE_JS = os.path.join(DOCS, "javascripts", "interactive-code.js")
+_JS_IMPORTS = re.compile(r"const imports = `(from buildzr\.dsl import \(.*?\)\n)\n`;", re.S)
+_HAS_WORKSPACE = re.compile(r"with\s+Workspace\s*\([^)]*\)\s+as\s+\w+\s*:", re.I)
+_HAS_IMPORTS = re.compile(r"from\s+buildzr\.dsl\s+import", re.I)
+_HAS_SAVE = re.compile(r"\.save\s*\(", re.I)
+
+
+def no_run(text: str) -> Optional[str]:
+    """The reason of a ``# no-run: reason`` first line (``""`` when the reason is missing), ``None`` when the block
+    runs. Run Code reads the same line (``interactive-code.js``)."""
+    m = NO_RUN.match(text.strip().split("\n", 1)[0])
+    return m.group(1).strip() if m else None
+
+
+def run_code_imports() -> str:
+    """The imports that Run Code adds to a snippet that has none, read from ``interactive-code.js``."""
+    with open(RUN_CODE_JS, encoding="utf-8") as f:
+        m = _JS_IMPORTS.search(f.read())
+    assert m, f"{RUN_CODE_JS}: the imports of the Run Code wrapping are not found"
+    return m.group(1) + "\n"
+
+
+def run_code_source(text: str) -> tuple[str, int]:
+    """The program that the Run Code button runs for a snippet (``runCodeInBrowser`` of ``interactive-code.js``),
+    and the number of lines it adds before the snippet's first line.
+
+    A snippet without ``with Workspace(...) as w:`` runs inside one, with the imports; a snippet with one gets the
+    imports when it has none and a ``w.save(path='workspace.json')`` when it saves nothing. Run Code then shows
+    ``workspace.json``."""
+    code = text.rstrip("\n")
+    imports = run_code_imports()
+    added = imports.count("\n")
+    if not _HAS_WORKSPACE.search(code):
+        body = "\n".join("    " + line for line in code.split("\n"))
+        return imports + f"with Workspace('w') as w:\n{body}\n    w.save(path='workspace.json')", added + 1
+    out, added = (code, 0) if _HAS_IMPORTS.search(code) else (imports + code, added)
+    if not _HAS_SAVE.search(code):
+        m = re.search(r"with\s+Workspace\s*\([^)]*\)\s+as\s+(\w+)\s*:", code, re.I)
+        out += f"\n{m.group(1) if m else 'w'}.save(path='workspace.json')"
+    return out, added
+
+
 # --- building -----------------------------------------------------------------------------------------------
 
 
@@ -103,6 +159,55 @@ def stub_layout_unless_real(monkeypatch: pytest.MonkeyPatch, static_dir: Path) -
     monkeypatch.setattr(cli, "build_all", stub_build_all)
     monkeypatch.setattr(cli, "_node_problem", lambda: None)
     monkeypatch.setattr(build_mod, "check_workspace", lambda data_dir: [])  # the stub's scenes fit no page model
+
+
+def authored_views(source: str, name: str) -> dict[str, set[str]]:
+    """The view keys of the one workspace that ``source`` makes, by Structurizr view list. Runs ``source`` in the
+    current folder."""
+    from buildzr.dsl import Workspace
+
+    scope: dict[str, object] = {"__name__": "__main__"}
+    exec(compile(source, name, "exec"), scope)
+    [w] = [v for v in scope.values() if isinstance(v, Workspace)]
+    views = json.loads(w.to_json()).get("views", {})
+    return {key: {v["key"] for v in items} for key, items in views.items() if isinstance(items, list) and items}
+
+
+def build_and_check_views(source: str, name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                          tmp_path_factory: pytest.TempPathFactory) -> dict[str, set[str]]:
+    """Build ``source`` with ``buildzr build`` as the only model file of a project in ``tmp_path``. Every view of
+    the workspace is built and, with the real layout, a deployment view draws deployment nodes and a dynamic view
+    its steps (the stub layout's scenes are fixtures). Returns the view keys by Structurizr view list."""
+    import buildzr.site.cli as cli
+
+    stub_layout_unless_real(monkeypatch, tmp_path_factory.mktemp("static"))
+    (tmp_path / ".git").mkdir()  # so that the config search stops here
+    (tmp_path / "workspaces").mkdir()
+    (tmp_path / "workspaces" / "model.py").write_text(source, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    written = authored_views(source, name)
+    assert cli.main(["build"]) == 0
+    built = list((tmp_path / ".buildzr" / "build").iterdir())
+    assert len(built) == 1 and (built[0] / "index.html").is_file(), built
+    with open(glob.glob(str(built[0] / "data" / "model.*.json"))[0], encoding="utf-8") as f:
+        model_views = json.load(f)["views"]
+    built_views = {v["viewKey"] for v in model_views}
+    assert built_views == set().union(*written.values()), "every view is built, deployment and dynamic views too"
+    if not real_layout():
+        return written
+    with open(built[0] / "data" / "index.json", encoding="utf-8") as f:
+        scenes = json.load(f)["scenes"]
+    for v in model_views:
+        if v["viewKey"] in written.get("deploymentViews", set()) | written.get("dynamicViews", set()):
+            assert v["kind"] in ("deployment", "dynamic") and v["scene"] in scenes, v
+            with open(built[0] / "data" / scenes[v["scene"]]["file"], encoding="utf-8") as f:
+                scene = json.load(f)
+            if v["kind"] == "deployment":
+                drawn = {n["type"] for n in scene["nodes"]}
+                assert "DeploymentNode" in drawn, f"deployment view {v['viewKey']} draws no deployment node: {drawn}"
+            else:
+                assert scene["edges"], f"dynamic view {v['viewKey']} draws no step"
+    return written
 
 
 # --- output normalising -------------------------------------------------------------------------------------

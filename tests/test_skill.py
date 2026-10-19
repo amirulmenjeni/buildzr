@@ -3,8 +3,6 @@ and every Python example in it builds."""
 
 from __future__ import annotations
 
-import glob
-import json
 import os
 import re
 from pathlib import Path
@@ -12,9 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-import buildzr.site.cli as cli
-from buildzr.dsl import Workspace
-from tests.docs.blocks import SKILLS, Block, extract_blocks, stub_layout_unless_real
+from tests.docs.blocks import SKILLS, Block, authored_views, build_and_check_views, extract_blocks
 
 SKILL = os.path.join(SKILLS, "buildzr")
 MAX_CHARS = 10_000
@@ -79,39 +75,9 @@ def test_the_dsl_reference_has_three_complete_examples() -> None:
 @pytest.mark.parametrize("block", python_blocks(), ids=lambda b: b.id)
 def test_every_python_example_builds(block: Block, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                      tmp_path_factory: pytest.TempPathFactory) -> None:
-    stub_layout_unless_real(monkeypatch, tmp_path_factory.mktemp("static"))
-    (tmp_path / ".git").mkdir()  # so that the config search stops here
-    (tmp_path / "workspaces").mkdir()
-    (tmp_path / "workspaces" / "model.py").write_text(block.text, encoding="utf-8")
-    monkeypatch.chdir(tmp_path)
-    assert cli.main(["build"]) == 0
-    built = list((tmp_path / ".buildzr" / "build").iterdir())
-    assert len(built) == 1 and (built[0] / "index.html").is_file(), built
-    with open(glob.glob(str(built[0] / "data" / "model.*.json"))[0], encoding="utf-8") as f:
-        model_views = json.load(f)["views"]
-    built_views = {v["viewKey"] for v in model_views}
-    written = authored_views(block)
-    assert built_views == set().union(*written.values()), "every view of the example is built, deployment views too"
-    with open(built[0] / "data" / "index.json", encoding="utf-8") as f:
-        scenes = json.load(f)["scenes"]
-    for v in model_views:
-        if v["viewKey"] not in written.get("deploymentViews", set()):
-            continue
-        assert v["kind"] == "deployment" and v["scene"] in scenes, v
-        with open(built[0] / "data" / scenes[v["scene"]]["file"], encoding="utf-8") as f:
-            drawn = {n["type"] for n in json.load(f)["nodes"]}
-        assert "DeploymentNode" in drawn, f"deployment view {v['viewKey']} draws no deployment node: {drawn}"
+    build_and_check_views(block.text, block.id, tmp_path, monkeypatch, tmp_path_factory)
 
 
 def test_an_example_has_a_deployment_view() -> None:
     """The skill shows a deployment view that builds (the test above checks that it is drawn)."""
-    assert any("deploymentViews" in authored_views(b) for b in python_blocks())
-
-
-def authored_views(block: Block) -> dict[str, set[str]]:
-    """The view keys of the example's workspace, by Structurizr view list."""
-    scope: dict[str, object] = {}
-    exec(compile(block.text, block.id, "exec"), scope)
-    [w] = [v for v in scope.values() if isinstance(v, Workspace)]
-    views = json.loads(w.to_json())["views"]
-    return {name: {v["key"] for v in items} for name, items in views.items() if isinstance(items, list) and items}
+    assert any("deploymentViews" in authored_views(b.text, b.id) for b in python_blocks())
