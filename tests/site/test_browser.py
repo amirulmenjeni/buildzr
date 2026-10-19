@@ -10,6 +10,7 @@ import glob
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -201,6 +202,9 @@ def _normal_build(code: str, folder: Path, runner: ElkRunner) -> dict[str, str]:
 def test_browser_build_equals_normal_build_for_every_docs_snippet(
         runners: tuple[ElkRunner, ElkRunner], tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     normal_runner, sync_runner = runners
+    # As in the browser, no jpype: a snippet that exports to PlantUML fails in both builds. (Starting the JVM in
+    # this process would also make later tests that recurse deeply crash.)
+    monkeypatch.setitem(sys.modules, "jpype", None)
     identical: list[str] = []
     different: list[str] = []
     only_one_fails: list[str] = []
