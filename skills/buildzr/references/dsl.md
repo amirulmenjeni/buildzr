@@ -48,7 +48,7 @@ Every block on this page is a complete model file. Save one as `workspaces/<name
 
 - `key` is lower case with `-`: it becomes the link `/<workspace>/#/v/<key>`. Keys must be unique in a workspace.
 - Optional on every view: `auto_layout='tb'` (`'bt'`, `'lr'`, `'rl'`), `title=`, `include_elements=[...]`, `exclude_elements=[...]`, `include_relationships=[...]`, `exclude_relationships=[...]`.
-- A dynamic step names a relationship that already exists; its description can differ. When the relationship has a technology, repeat it in the step (`webapp >> ("Charges the card through", "HTTPS") >> payments`): a step without the technology does not match it. A step that matches no relationship raises `ValueError: No existing relationship found between ...`.
+- A dynamic step names a relationship that already exists; its description can differ. A step without a technology matches the relationship whatever its technology. Only when two relationships with different technologies join the same two elements, add the technology to pick one (`webapp >> ("Charges the card through", "HTTPS") >> payments`); without it, a `ValueError` lists both. A step that matches no relationship raises `ValueError: No existing relationship found between ...`.
 
 ## Styles and themes
 
@@ -145,8 +145,8 @@ with Workspace('Book Store') as w:
         scope=store,
         steps=[
             customer >> "Submits the order to" >> webapp,
-            webapp >> ("Charges the card through", "HTTPS") >> payments,
-            webapp >> ("Saves the order in", "SQL") >> database,
+            webapp >> "Charges the card through" >> payments,
+            webapp >> "Saves the order in" >> database,
         ],
         auto_layout='lr',
     )

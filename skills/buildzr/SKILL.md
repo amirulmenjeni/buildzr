@@ -11,7 +11,7 @@ buildzr describes software architecture in Python with the C4 model. A **model f
 
 Install with `pip install buildzr`, `uv add buildzr`, or run without installing as `uvx buildzr build`. Node.js 18 or newer must be on the PATH for the layout step. Read [references/install.md](references/install.md) to pick the form and for the version note.
 
-Check: `buildzr serve --help` (with `uv run` or `uvx` in front, if you use those) exits with code 0, and `node --version` prints v18 or newer.
+Check: `buildzr --version` (with `uv run` or `uvx` in front, if you use those) prints `buildzr 1.0.0` or newer and exits with code 0, and `node --version` prints v18 or newer. `command not found` means a 0.0.x release, which has no `buildzr` command: install again.
 
 ## 2. Write the model file
 

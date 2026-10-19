@@ -22,17 +22,11 @@ You need Python 3.10 or newer, and Node.js 18 or newer for the layout step of `b
 `buildzr build` and `buildzr serve` need buildzr 1.0 or newer: the 0.0.x releases install no `buildzr` command at all. Run, with the prefix you picked above (`uv run`, nothing, or `uvx`):
 
 ```bash
-buildzr serve --help
+buildzr --version
 ```
 
-It must print `usage: buildzr serve [-h] [--no-build] [--rebuild] ...` and exit with code 0. Any of these means that the installed buildzr is 0.0.x or missing; install it again as above:
+It must print `buildzr` and the installed version, 1.0.0 or newer (a pre-release such as `buildzr 1.0.0rc1` counts), and exit with code 0. Any of these means that the installed buildzr is 0.0.x or missing; install it again as above:
 
 - `buildzr: command not found` (pip),
 - ``error: Failed to spawn: `buildzr` `` (`uv run`),
 - ``Package `buildzr` does not provide any executables.`` (`uvx`).
-
-To see the installed version:
-
-```bash
-python -c "from importlib.metadata import version; print(version('buildzr'))"
-```
