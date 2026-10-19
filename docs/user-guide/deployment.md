@@ -16,7 +16,6 @@ Save this as `workspaces/shop.py`:
 
 <!-- doctest: file workspaces/shop.py -->
 ```python
-# norun
 from buildzr.dsl import (
     Workspace, Person, SoftwareSystem, Container,
     DeploymentEnvironment, DeploymentNode, InfrastructureNode, ContainerInstance,

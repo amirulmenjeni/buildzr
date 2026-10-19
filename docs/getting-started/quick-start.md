@@ -40,7 +40,7 @@ The **model file** is a Python file that describes your architecture. Create a f
 
 <!-- doctest: file workspaces/hello.py -->
 ```python
-# norun
+# no-run: a step; the complete example at the end of the page runs
 from buildzr.dsl import (
     Workspace,
     SoftwareSystem,
@@ -61,7 +61,7 @@ Replace `pass` with a person, a software system, and a relationship between them
 
 <!-- doctest: file workspaces/hello.py -->
 ```python hl_lines="11-17"
-# norun
+# no-run: a step; the complete example at the end of the page runs
 from buildzr.dsl import (
     Workspace,
     SoftwareSystem,
@@ -88,7 +88,7 @@ Add a style that draws the user with the `Person` shape:
 
 <!-- doctest: file workspaces/hello.py -->
 ```python hl_lines="19-22"
-# norun
+# no-run: a step; the complete example at the end of the page runs
 from buildzr.dsl import (
     Workspace,
     SoftwareSystem,
@@ -118,7 +118,7 @@ A **view** is a diagram that you choose to draw. Add a system context view of th
 
 <!-- doctest: file workspaces/hello.py -->
 ```python hl_lines="24-29"
-# norun
+# no-run: a step; the complete example at the end of the page runs
 from buildzr.dsl import (
     Workspace,
     SoftwareSystem,

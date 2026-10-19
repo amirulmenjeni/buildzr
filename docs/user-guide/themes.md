@@ -9,7 +9,7 @@ Structurizr themes work via tag-based styling --- elements need specific tags li
 `buildzr` solves this with IDE-discoverable theme constants:
 
 ```python
-from buildzr.dsl import Workspace, Container, StyleElements
+from buildzr.dsl import Workspace, SoftwareSystem, Container, StyleElements
 from buildzr.themes import AWS
 
 with Workspace('My System') as w:
@@ -82,8 +82,8 @@ You can also list all elements programmatically:
 from buildzr.themes import AWS
 
 # Get all available theme elements
-for name, element in AWS.all_elements():
-    print(f"{name}: {element.tag}")
+for element in AWS.all_elements():
+    print(element.tag)
 ```
 
 ## Theme Versions
@@ -93,6 +93,7 @@ Cloud providers update their icon sets over time. `buildzr` includes multiple ve
 ### AWS Versions
 
 ```python
+# no-run: a fragment; container and region are elements of your model
 from buildzr.themes import AWS, AWS_2023_01_31, AWS_2022_04_30, AWS_2020_04_30
 
 # AWS is an alias for the latest version (AWS_2023_01_31)
@@ -124,6 +125,7 @@ from buildzr.themes import KUBERNETES, KUBERNETES_V0_3
 ### Oracle Cloud Versions
 
 ```python
+# no-run: a fragment; db and api are elements of your model
 from buildzr.themes import ORACLE_CLOUD, ORACLE_CLOUD_2023_04_01, ORACLE_CLOUD_2021_04_30, ORACLE_CLOUD_2020_04_30
 
 # ORACLE_CLOUD is an alias for the latest version (ORACLE_CLOUD_2023_04_01)
@@ -136,7 +138,8 @@ StyleElements(on=[api], **ORACLE_CLOUD.API_GATEWAY)
 By default, theme icons reference URLs on Structurizr's CDN. For offline or self-contained workspaces, use `as_inline()` to embed icons as base64:
 
 ```python
-from buildzr.dsl import Workspace, Container, StyleElements
+# no-run: as_inline() fetches the icons from the network
+from buildzr.dsl import Workspace, SoftwareSystem, Container, StyleElements
 from buildzr.themes import AWS
 
 with Workspace('Offline Workspace') as w:
@@ -157,7 +160,7 @@ Themes work great with deployment views:
 ```python
 from buildzr.dsl import (
     Workspace, SoftwareSystem, Container,
-    DeploymentEnvironment, DeploymentNode, InfrastructureNode,
+    DeploymentEnvironment, DeploymentNode, InfrastructureNode, ContainerInstance,
     DeploymentView, StyleElements
 )
 from buildzr.themes import AWS, AWS_2020_04_30
@@ -167,13 +170,13 @@ with Workspace('AWS Deployment') as w:
         web = Container('Web App', technology='Spring Boot')
         db = Container('Database', technology='MySQL')
 
-    with DeploymentEnvironment('Production'):
+    with DeploymentEnvironment('Production') as production:
         with DeploymentNode('Amazon Web Services') as aws:
             with DeploymentNode('us-east-1') as region:
                 with DeploymentNode('EC2') as ec2:
-                    ec2.add(web)
+                    ContainerInstance(web)
                 with DeploymentNode('RDS') as rds:
-                    rds.add(db)
+                    ContainerInstance(db)
                 elb = InfrastructureNode('Load Balancer', technology='ELB')
 
     # Style deployment nodes with AWS icons
@@ -183,7 +186,8 @@ with Workspace('AWS Deployment') as w:
     StyleElements(on=[rds], **AWS.RDS)
     StyleElements(on=[elb], **AWS.ELASTIC_LOAD_BALANCING)
 
-    DeploymentView(app, 'Production', key='deployment', description='Production deployment')
+    DeploymentView(environment=production, key='deployment', software_system_selector=app,
+                   description='Production deployment')
 ```
 
 ## PlantUML Export with Icons
@@ -191,6 +195,7 @@ with Workspace('AWS Deployment') as w:
 When exporting to PlantUML, icons are automatically included as sprites:
 
 ```python
+# no-run: needs Java for the PlantUML export, and the workspace w of your model
 # Export to PlantUML with icons
 puml_dict = w.to_plantuml()
 
@@ -209,7 +214,7 @@ The generated PlantUML will include `AddElementTag()` directives with sprite def
 Theme styles can be combined with custom styling:
 
 ```python
-from buildzr.dsl import Workspace, Container, StyleElements
+from buildzr.dsl import Workspace, SoftwareSystem, Container, StyleElements
 from buildzr.themes import AWS
 
 with Workspace('Custom + Theme') as w:

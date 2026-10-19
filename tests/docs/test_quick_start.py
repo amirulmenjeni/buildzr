@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 import buildzr.site.cli as cli
-from tests.docs.blocks import Block, extract_blocks, stub_layout_unless_real
+from tests.docs.blocks import Block, extract_blocks, no_run, stub_layout_unless_real
 
 PAGE = "getting-started/quick-start.md"
 
@@ -33,9 +33,9 @@ def test_every_step_runs(block: Block, tmp_path: Path) -> None:
 
 def test_the_last_step_is_the_complete_example() -> None:
     *steps, complete = model_blocks()
-    last = steps[-1].text.split("\n", 1)[1] if steps[-1].text.startswith("# norun\n") else steps[-1].text
+    last = steps[-1].text.split("\n", 1)[1] if no_run(steps[-1].text) is not None else steps[-1].text
     assert last == complete.text
-    assert not complete.text.startswith("# norun"), "the complete example keeps its Run Code button"
+    assert no_run(complete.text) is None, "the complete example keeps its Run Code button"
 
 
 def test_the_complete_example_builds_a_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,

@@ -177,7 +177,7 @@ with Workspace('w') as w:
 You can also use dictionary-style access:
 
 ```python
-# norun
+# no-run: a fragment; w is the workspace of the example above
 w['web_application_user'] >> w['payment_system']
 ```
 
@@ -188,7 +188,6 @@ This is particularly useful when you need to reference elements defined in one p
 Once you've defined your architecture, export it to JSON for visualization in tools like [Structurizr](https://structurizr.com):
 
 ```python
-# norun
 with Workspace('My Architecture') as w:
     # ... define your architecture ...
 
@@ -204,7 +203,7 @@ The JSON file can be uploaded to Structurizr's web interface or used with other 
 You may also export to PlantUML (requires `pip install buildzr[export-plantuml]` and Java 11+):
 
 ```python
-# norun
+# no-run: needs Java for the PlantUML export
 with Workspace('My Architecture') as w:
     # ... define your architecture ...
 
@@ -220,6 +219,7 @@ You can extend an existing `workspace.json` file to build upon its elements. Thi
 Use the `extend` parameter to load a parent workspace:
 
 ```python
+# no-run: reads parent_workspace.json, a file of yours
 from buildzr.dsl import Workspace, SoftwareSystem, Container
 
 # Extend from a local file
@@ -236,9 +236,9 @@ with Workspace('Extended Workspace', extend='parent_workspace.json') as w:
 You can also extend from a URL:
 
 ```python
-# norun
+# no-run: reads a workspace from the network
 with Workspace('Extended', extend='https://example.com/workspace.json') as w:
-    # ...
+    ...
 ```
 
 ### Accessing Parent Elements
@@ -246,7 +246,7 @@ with Workspace('Extended', extend='https://example.com/workspace.json') as w:
 Parent elements are accessible through typed accessor methods on the workspace. Element names are normalized to lowercase with underscores replacing spaces:
 
 ```python
-# norun
+# no-run: reads parent.json, a file of yours
 with Workspace('Child', extend='parent.json') as w:
     # Access software systems
     system = w.software_system().my_system  # "My System" -> my_system
@@ -266,7 +266,7 @@ with Workspace('Child', extend='parent.json') as w:
 You can add new containers to parent software systems or new components to parent containers using context managers:
 
 ```python
-# norun
+# no-run: reads parent.json, a file of yours
 with Workspace('Extended', extend='parent.json') as w:
     # Get a software system from the parent
     parent_system = w.software_system().existing_system
@@ -288,7 +288,7 @@ with Workspace('Extended', extend='parent.json') as w:
 You can create relationships between new elements and parent elements, or between parent elements themselves:
 
 ```python
-# norun
+# no-run: reads parent.json, a file of yours
 with Workspace('Extended', extend='parent.json') as w:
     system_a = w.software_system().system_a
     system_b = w.software_system().system_b
@@ -313,7 +313,7 @@ When extending a workspace, `buildzr` automatically ensures that new elements re
 When you export the workspace with `save()`, the output contains both parent and child elements merged together:
 
 ```python
-# norun
+# no-run: reads parent.json, a file of yours
 with Workspace('Extended', extend='parent.json') as w:
     # Add new elements...
     SoftwareSystem('New System')

@@ -162,7 +162,7 @@ As you may know, not all relationships are legal.
 For example, if you try to create a relationship between a `Person` and an `DeploymentNode` (ew!), Mypy will complain:
 
 ```python
-# norun
+# no-run: wrong on purpose: Mypy rejects this relationship
 with Workspace('w') as w:
     user = Person('user')
     region = DeploymentNode('region')
