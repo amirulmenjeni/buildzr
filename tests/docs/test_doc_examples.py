@@ -36,16 +36,16 @@ import pytest
 
 import buildzr.site.build as build_mod
 import buildzr.site.cli as cli
-from buildzr.site.build import STATIC_DIR, build_workspace
+from buildzr.site.build import build_workspace
 from buildzr.site.config import ConfigError, load_config
 from buildzr.site.serve import make_server
-from tests.docs.blocks import PAGES, ROOT, Block, compare_json, extract_blocks, same_lines
+from tests.docs.blocks import (PAGES, ROOT, Block, compare_json, extract_blocks, real_layout, same_lines,
+                               stub_layout_unless_real)
 from tests.site.stub_layout import stub_layout
 from tests.site.test_cli import make_static
 
 EXAMPLE_PY = os.path.join(ROOT, "examples", "buildzr_models_example.py")
-HAS_NODE = bool(shutil.which("node") or os.environ.get("BUILDZR_NODE"))
-REAL = HAS_NODE and os.path.isfile(os.path.join(STATIC_DIR, "index.html")) and not os.environ.get("BUILDZR_DOCTEST_STUB")
+REAL = real_layout()
 EXAMPLE_NAME = "microservices-example"  # the folder of the example in a build output: its workspace name
 MAX_OPT_OUTS = 8
 
@@ -158,17 +158,7 @@ def parse_steps(text: str) -> list[tuple[str, list[str], Optional[int]]]:
 
 @pytest.fixture
 def layout(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory) -> None:
-    if REAL:
-        return
-    static = make_static(tmp_path_factory.mktemp("static"))
-    real = cli.build_all
-
-    def stub_build_all(path: str, out: str, *a: Any, **kw: Any) -> Any:
-        return real(path, out, *a, **{**kw, "layout_fn": stub_layout, "static_dir": str(static)})
-
-    monkeypatch.setattr(cli, "build_all", stub_build_all)
-    monkeypatch.setattr(cli, "_node_problem", lambda: None)
-    monkeypatch.setattr(build_mod, "check_workspace", lambda data_dir: [])  # the stub's scenes fit no page model
+    stub_layout_unless_real(monkeypatch, tmp_path_factory.mktemp("static"))
 
 
 # --- servers for the API examples -----------------------------------------------------------------------

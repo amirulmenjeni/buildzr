@@ -1,18 +1,24 @@
-"""Helpers of the doc tests: fenced code blocks of a page, the directives before them, and output normalising."""
+"""Helpers of the doc tests: fenced code blocks of a page, the directives before them, output normalising, and a
+build that uses the stub layout when the real one cannot run."""
 
 from __future__ import annotations
 
 import os
 import re
+import shutil
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Optional
+
+import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOCS = os.path.join(ROOT, "docs")
+SKILLS = os.path.join(ROOT, "skills")
 
-#: The pages whose examples are tested: the Publishing section in its order, then the Quick Start.
+#: The pages whose examples are tested: the Publishing section in its order, then the Getting Started pages.
 PAGES = ["serve-workspaces.md", "cli.md", "config.md", "publishing-recipes.md", "hosting.md", "ui-settings.md",
-         "viewer-hash-routes.md", "model-api.md", "getting-started/quick-start.md"]
+         "viewer-hash-routes.md", "model-api.md", "getting-started/quick-start.md", "getting-started/ai-agents.md"]
 
 FENCE = re.compile(r"^(\s*)```([\w+-]*)(?:\s+\w[^`]*)?\s*$")  # attributes such as hl_lines="2-4" may follow
 DIRECTIVE = re.compile(r"^<!--\s*doctest:\s*(\w+)\s*(.*?)\s*-->\s*$")
@@ -33,8 +39,9 @@ class Block:
         return f"{self.page}:{self.line}"
 
 
-def extract_blocks(page: str) -> list[Block]:
-    with open(os.path.join(DOCS, page), encoding="utf-8") as f:
+def extract_blocks(page: str, root: str = DOCS) -> list[Block]:
+    """The fenced blocks of ``page``, a path relative to ``root`` (the docs folder, or the skills folder)."""
+    with open(os.path.join(root, page), encoding="utf-8") as f:
         lines = f.read().split("\n")
     blocks: list[Block] = []
     i = 0
@@ -63,6 +70,38 @@ def extract_blocks(page: str) -> list[Block]:
         blocks.append(Block(page, i + 1, lang, "\n".join(body) + "\n", directive))
         i = j + 1
     return blocks
+
+
+# --- building -----------------------------------------------------------------------------------------------
+
+
+def real_layout() -> bool:
+    """Whether builds can use the real layout: Node and the built viewer are there, and no test forces the stub."""
+    from buildzr.site.build import STATIC_DIR
+
+    return bool(shutil.which("node") or os.environ.get("BUILDZR_NODE")) and os.path.isfile(
+        os.path.join(STATIC_DIR, "index.html")) and not os.environ.get("BUILDZR_DOCTEST_STUB")
+
+
+def stub_layout_unless_real(monkeypatch: pytest.MonkeyPatch, static_dir: Path) -> None:
+    """Without the real layout, make ``buildzr.site.cli`` build with the stub layout and a stand-in viewer in
+    ``static_dir`` (an empty folder), and skip the checks that the stub's scenes cannot pass."""
+    if real_layout():
+        return
+    import buildzr.site.build as build_mod
+    import buildzr.site.cli as cli
+    from tests.site.stub_layout import stub_layout
+    from tests.site.test_cli import make_static
+
+    static = make_static(static_dir)
+    real = cli.build_all
+
+    def stub_build_all(path: str, out: str, *a: Any, **kw: Any) -> Any:
+        return real(path, out, *a, **{**kw, "layout_fn": stub_layout, "static_dir": str(static)})
+
+    monkeypatch.setattr(cli, "build_all", stub_build_all)
+    monkeypatch.setattr(cli, "_node_problem", lambda: None)
+    monkeypatch.setattr(build_mod, "check_workspace", lambda data_dir: [])  # the stub's scenes fit no page model
 
 
 # --- output normalising -------------------------------------------------------------------------------------

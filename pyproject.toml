@@ -75,6 +75,8 @@ include = [
     "CONTRIBUTING.md",
     "tests",
     "buildzr",
+    # The agent skill: the tests in the sdist read it. The wheel ships only `buildzr`.
+    "/skills",
 ]
 exclude = [
     "examples",

@@ -111,15 +111,28 @@ class TestCheckWheel(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn('expected exactly one buildzr-*.whl', result.stdout)
 
+    def test_wheel_with_skill(self) -> None:
+        make_wheel(self.tmp, VIEWER + OTHER + [check_wheel.SKILL])
+        result = run(str(self.tmp))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('wheel: contains skills/', result.stdout)
+
     def test_sdist(self) -> None:
         make_wheel(self.tmp, VIEWER + OTHER)
-        make_sdist(self.tmp, VIEWER + OTHER)
+        make_sdist(self.tmp, VIEWER + OTHER + [check_wheel.SKILL])
         result = run(str(self.tmp), '--sdist')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_sdist_without_skill(self) -> None:
+        make_wheel(self.tmp, VIEWER + OTHER)
+        make_sdist(self.tmp, VIEWER + OTHER)
+        result = run(str(self.tmp), '--sdist')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn(f'sdist: missing {check_wheel.SKILL}', result.stdout)
+
     def test_sdist_without_viewer(self) -> None:
         make_wheel(self.tmp, VIEWER + OTHER)
-        make_sdist(self.tmp, OTHER)
+        make_sdist(self.tmp, OTHER + [check_wheel.SKILL])
         result = run(str(self.tmp), '--sdist')
         self.assertEqual(result.returncode, 1)
         self.assertIn('sdist: missing buildzr/site/static/index.html', result.stdout)

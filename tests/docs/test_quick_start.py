@@ -2,24 +2,16 @@
 
 from __future__ import annotations
 
-import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 import buildzr.site.cli as cli
-from buildzr.site.build import STATIC_DIR
-from tests.docs.blocks import Block, extract_blocks
-from tests.site.stub_layout import stub_layout
-from tests.site.test_cli import make_static
+from tests.docs.blocks import Block, extract_blocks, stub_layout_unless_real
 
 PAGE = "getting-started/quick-start.md"
-REAL = bool(shutil.which("node") or os.environ.get("BUILDZR_NODE")) and os.path.isfile(
-    os.path.join(STATIC_DIR, "index.html")) and not os.environ.get("BUILDZR_DOCTEST_STUB")
 
 
 def model_blocks() -> list[Block]:
@@ -48,15 +40,7 @@ def test_the_last_step_is_the_complete_example() -> None:
 
 def test_the_complete_example_builds_a_workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                                  tmp_path_factory: pytest.TempPathFactory) -> None:
-    if not REAL:  # without Node, lay out with the stub, as the other doc tests do
-        static = make_static(tmp_path_factory.mktemp("static"))
-        real = cli.build_all
-
-        def stub_build_all(path: str, out: str, *a: Any, **kw: Any) -> Any:
-            return real(path, out, *a, **{**kw, "layout_fn": stub_layout, "static_dir": str(static)})
-
-        monkeypatch.setattr(cli, "build_all", stub_build_all)
-        monkeypatch.setattr("buildzr.site.build.check_workspace", lambda data_dir: [])  # the stub fits no page model
+    stub_layout_unless_real(monkeypatch, tmp_path_factory.mktemp("static"))
     (tmp_path / ".git").mkdir()  # so that the config search stops here
     (tmp_path / "workspaces").mkdir()
     (tmp_path / "workspaces" / "hello.py").write_text(model_blocks()[-1].text, encoding="utf-8")
