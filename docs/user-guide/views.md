@@ -199,11 +199,13 @@ with Workspace('w') as w:
 
 Time to get physical! The `DeploymentView` shows where your containers actually *run* --- which cloud provider, which region, which servers, which Docker containers on which Kubernetes clusters in which data centers. For this reason, `DeploymentNode`s can be nested indefinitely. This is the bridge between your beautiful logical architecture and the messy reality of infrastructure. DevOps engineers live here.
 
+`buildzr build` builds deployment views like the other views, and the viewer draws the deployment nodes as nested boxes around what runs on them. [Deployment Views](deployment.md) shows a complete example in the viewer.
+
 ```python
 # norun
 DeploymentView(
     software_system_selector=my_system,
-    environment='Production',
+    environment=prod,  # the DeploymentEnvironment object
     key='deployment',
     description='Production Deployment',
     auto_layout='tb'

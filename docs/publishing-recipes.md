@@ -55,8 +55,8 @@ GET /microservices-example/api/v1/elements?q=mongo
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
-  "total": 1,
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
+  "total": 3,
   "items": [
     {
       "id": "e-commerce-system/database",
@@ -68,6 +68,35 @@ GET /microservices-example/api/v1/elements?q=mongo
       "tags": [
         "Element",
         "Container"
+      ],
+      "childCount": 0,
+      "viewerUrl": null,
+      "matched": "technology"
+    },
+    {
+      "id": "deploy/production/aws/documentdb",
+      "name": "DocumentDB",
+      "type": "DeploymentNode",
+      "parent": "deploy/production/aws",
+      "description": null,
+      "technology": "MongoDB-compatible",
+      "tags": [
+        "Element",
+        "Deployment Node"
+      ],
+      "childCount": 1,
+      "viewerUrl": null,
+      "matched": "technology"
+    },
+    {
+      "id": "deploy/production/aws/documentdb/database",
+      "name": "Database",
+      "type": "ContainerInstance",
+      "parent": "deploy/production/aws/documentdb",
+      "description": null,
+      "technology": "MongoDB",
+      "tags": [
+        "Container Instance"
       ],
       "childCount": 0,
       "viewerUrl": null,
@@ -145,7 +174,7 @@ GET /microservices-example/api/v1/elements?q=repository
 ```json
 {
   "apiVersion": "1",
-  "modelHash": "sha256:ea077dc2738151741a441db445e54dc1195406615dc8eae81fb65f740d059e35",
+  "modelHash": "sha256:1e2b294431af70f6e5e43dbc369f543289ebdcc373d65f9b4fdeb4fcb3c53df6",
   "total": 1,
   "items": [
     {

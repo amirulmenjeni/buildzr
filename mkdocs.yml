@@ -84,6 +84,7 @@ nav:
     - Models: user-guide/models.md
     - Relationships: user-guide/relationships.md
     - Views: user-guide/views.md
+    - Deployment Views: user-guide/deployment.md
     - Styles: user-guide/styles.md
     - Themes: user-guide/themes.md
     - Export: user-guide/export.md
