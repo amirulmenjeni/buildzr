@@ -213,6 +213,15 @@ uv sync --all-extras --locked
 
 The documentation tests build the examples of the pages with the real layout when Node.js 18 or newer is on `PATH` and the viewer is built (`(cd viewer && npm ci && npm run build)`). Without them, the tests lay the examples out with a stand-in that draws nothing real; the commands, their output and the Model API answers are still checked.
 
+The documentation build also needs the files of the **Run Code** button (see [Python examples and Run Code](#python-examples-and-run-code)). Build them once, and again after you change the viewer or the Python of `buildzr`; this needs Node.js 22:
+
+```bash
+(cd viewer && npm ci)
+uv run python scripts/build_docs_assets.py
+```
+
+The script builds the viewer and writes everything into `docs/runcode/`, which Git ignores. Without that folder, `mkdocs build` and `mkdocs serve` stop with a message that names this command.
+
 ### Preview and check your changes
 
 `uv run mkdocs serve` serves the site at http://127.0.0.1:8000 and reloads it when you save a file.
@@ -227,6 +236,28 @@ uv run pytest tests/docs
 ### Add a page
 
 Create a Markdown file under `docs/` and add it to the `nav` section of `mkdocs.yml`. A page that is not in `nav` does not appear in the menu.
+
+### Python examples and Run Code
+
+Every `python` code block of the documentation gets a **Run Code** button. When a reader presses it, the browser downloads Python (Pyodide, about 6 MB from cdn.jsdelivr.net, once) and a small build of `buildzr`, runs the example, and draws its workspace in the buildzr viewer under the code. The diagram is built with the same steps as `buildzr build`, so it looks the same as in `buildzr serve`. Nothing is downloaded until the first press.
+
+Write each example so that it runs on its own:
+
+- An example may be a fragment. Run Code adds `from buildzr.dsl import *` when the example imports nothing from `buildzr.dsl`, and puts an example without `with Workspace(...) as w:` inside one.
+- The diagram shows the last `Workspace` the example creates.
+- An error shows the line number as the page shows it, with the message.
+
+Two comments control the button:
+
+| Comment | Where | Effect |
+|---|---|---|
+| `# no-run` | First line of the block | No Run Code button. Use it for code that cannot run in a browser, such as an export to PlantUML or code that reads a file. The line is hidden. |
+| `# focus: <element id>` | Any line | The viewer opens on this element, selected. The id is the viewer's id, such as `shop/database`. The line is hidden and not copied. |
+| `# focus: view:<key>` | Any line | The viewer opens on the view with this key. |
+
+Without `# focus:`, the viewer opens on a deployment or dynamic view that the example defines; otherwise on the landscape, with the last element created that has children expanded; otherwise on the whole landscape. Add `# focus:` only when a page is about one element that this rule does not pick.
+
+To check the examples of a page in a real browser, use `run_page_blocks` of `tests/docs/browser.py` in a test; `tests/docs/test_runcode_browser.py` shows how. These tests need Node.js, the Chromium of the viewer tests (`(cd viewer && npx playwright install chromium)`), the built Run Code files and a connection to cdn.jsdelivr.net; without them they are skipped.
 
 ## Submitting Changes
 

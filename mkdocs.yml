@@ -104,7 +104,6 @@ nav:
     - DSL: api/dsl.md
     - Models: api/models.md
     - Model API: model-api.md
-  - Spike - Run Code: spike-run-code.md
   - Development:
     - Contributing: contributing.md
     - Roadmap: roadmap.md
