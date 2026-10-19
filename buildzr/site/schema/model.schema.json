@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://buildzr.dev/schema/model/2",
   "title": "buildzr model export (buildzr.model/2)",
-  "description": "The model the viewer is about: every element with its containment, explicit relationships only, and authored views. Written by buildzr/site/model.py as canonical JSON (sort_keys, compact separators, UTF-8, trailing newline). Design note v4, section C. Readers MUST ignore element 'type' values they do not know (deployment types arrive later).",
+  "description": "The model the viewer is about: every element with its containment (the static model, then the deployment elements), explicit relationships only, authored views and deployment environments. Written by buildzr/site/model.py as canonical JSON (sort_keys, compact separators, UTF-8, trailing newline). Design note v4, section C. Readers MUST ignore element 'type' values they do not know.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "modelHash", "workspace", "elements", "relationships", "views", "deployment"],
@@ -23,12 +23,12 @@
     },
     "elements": {
       "type": "array",
-      "description": "Pre-order depth-first over the containment tree (every parent before its children). Roots in model order: people first, then software systems; children in model order.",
+      "description": "Pre-order depth-first over the containment tree (every parent before its children). Roots in model order: people first, then software systems; children in model order. Then the deployment elements, pre-order, in Structurizr's order (deployment nodes; a node's children: child nodes, infrastructure nodes, software system instances, container instances).",
       "items": { "$ref": "#/$defs/element" }
     },
     "relationships": {
       "type": "array",
-      "description": "Explicit relationships only: none that buildzr implied (Structurizr linkedRelationshipId). Sorted by id.",
+      "description": "Explicit relationships only: none that buildzr implied (Structurizr linkedRelationshipId), so no instance relationship copied from a container relationship. Sorted by id.",
       "items": { "$ref": "#/$defs/relationship" }
     },
     "views": {
@@ -41,7 +41,7 @@
       "additionalProperties": false,
       "required": ["environments"],
       "properties": {
-        "environments": { "type": "array", "maxItems": 0, "description": "Empty in v4; reserved for deployment (design C)." }
+        "environments": { "type": "array", "items": { "$ref": "#/$defs/environment" }, "description": "Deployment environments in model order: those of the deployment nodes, then those only named by a deployment view." }
       }
     }
   },
@@ -50,7 +50,7 @@
     "path": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$",
-      "description": "Slug path: parent path + '/' + slug(name). slug = lower-case, runs of characters outside [a-z0-9] become '-', trimmed of '-'; empty -> 'element'. On collision among siblings (or among roots) the 2nd, 3rd ... in model order get '-2', '-3' ..."
+      "description": "Slug path: parent path + '/' + slug(name). slug = lower-case, runs of characters outside [a-z0-9] become '-', trimmed of '-'; empty -> 'element'. On collision among siblings (or among roots) the 2nd, 3rd ... in model order get '-2', '-3' ... The root slug 'deploy' is reserved: deployment elements are 'deploy/<environment key>/<node>/...' (an instance takes the name of the element it is an instance of), and a static root that would be 'deploy' is 'deploy-2'."
     },
     "properties": {
       "type": "object",
@@ -65,10 +65,10 @@
         "modelId": { "type": "string", "description": "Structurizr numeric id as exported today (not stable across edits)." },
         "type": {
           "type": "string",
-          "description": "v4 writes Person, SoftwareSystem, Container, Component. Later: DeploymentNode, InfrastructureNode, ContainerInstance, SoftwareSystemInstance. Readers ignore unknown types.",
+          "description": "Person, SoftwareSystem, Container, Component, Element (custom elements, never drawn), DeploymentNode, InfrastructureNode, ContainerInstance, SoftwareSystemInstance. Readers ignore unknown types.",
           "minLength": 1
         },
-        "parent": { "oneOf": [{ "$ref": "#/$defs/path" }, { "type": "null" }] },
+        "parent": { "oneOf": [{ "$ref": "#/$defs/path" }, { "type": "null" }], "description": "null for roots, including top-level deployment nodes." },
         "children": { "type": "array", "items": { "$ref": "#/$defs/path" }, "description": "Child ids in model order." },
         "name": { "type": "string" },
         "description": { "type": ["string", "null"] },
@@ -78,7 +78,24 @@
         "url": { "type": ["string", "null"] },
         "group": { "type": ["string", "null"], "description": "Group name, nested groups joined by '/' as Structurizr writes them." },
         "views": { "type": "array", "items": { "type": "string" }, "description": "Keys of the authored views this element appears in, in workspace view order." },
-        "instanceOf": { "$ref": "#/$defs/path", "description": "Reserved for deployment instances." }
+        "instanceOf": { "$ref": "#/$defs/path", "description": "Instances only: the Container (ContainerInstance) or SoftwareSystem (SoftwareSystemInstance) this is an instance of. name, description and technology are that element's." },
+        "environment": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Deployment elements only: the key of their environment." },
+        "instances": { "type": "string", "minLength": 1, "description": "Deployment nodes only: the number of instances, a number ('3') or a range ('0..N')." },
+        "healthChecks": {
+          "type": "array",
+          "description": "Instances only, when the Structurizr JSON has health checks.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "url", "interval", "timeout"],
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" },
+              "interval": { "type": ["integer", "null"], "description": "Seconds." },
+              "timeout": { "type": ["integer", "null"], "description": "Milliseconds." }
+            }
+          }
+        }
       }
     },
     "relationship": {
@@ -100,6 +117,18 @@
         "properties": { "$ref": "#/$defs/properties" }
       }
     },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "id", "nodes", "views"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "slug(name), '-2' on collision." },
+        "name": { "type": "string", "description": "The environment name as written in the model, e.g. 'Production'." },
+        "id": { "type": "string", "pattern": "^deploy/[a-z0-9][a-z0-9-]*$", "description": "'deploy/<key>': the prefix of the ids of its deployment elements." },
+        "nodes": { "type": "array", "items": { "$ref": "#/$defs/path" }, "description": "Ids of its top-level deployment nodes, in model order." },
+        "views": { "type": "array", "items": { "type": "string" }, "description": "Keys of its deployment views, in workspace order." }
+      }
+    },
     "view": {
       "type": "object",
       "additionalProperties": false,
@@ -114,7 +143,8 @@
         "kind": { "enum": ["systemLandscape", "systemContext", "container", "component", "dynamic", "deployment", "filtered", "custom"] },
         "title": { "type": "string" },
         "description": { "type": ["string", "null"] },
-        "scope": { "oneOf": [{ "$ref": "#/$defs/path" }, { "type": "null" }], "description": "Scoped element path; null for landscape/deployment views." },
+        "scope": { "oneOf": [{ "$ref": "#/$defs/path" }, { "type": "null" }], "description": "Scoped element path; null for landscape views and for deployment views of every software system." },
+        "environment": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Deployment views only: the key of the environment they show." },
         "scene": { "type": "string", "pattern": "^v/[a-z0-9][a-z0-9-]*$", "description": "Scene key 'v/<key>' (see index.json)." }
       }
     }
