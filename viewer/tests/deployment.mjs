@@ -2,10 +2,23 @@
 // Data sets without a deployment view skip this. Run: node tests/run.mjs --only deployment --data <dir>
 import fs from 'node:fs';
 import path from 'node:path';
-import { newPage, open, act, hashOf, mouseClick, T } from './lib.mjs';
+import { newPage, open, act, hashOf, T } from './lib.mjs';
 
 const DEPLOYMENT = new Set(['DeploymentNode', 'InfrastructureNode', 'ContainerInstance', 'SoftwareSystemInstance']);
 const node = (id) => `.react-flow__node[data-id="${id}"]`;
+
+/** Click a box; a deployment node full of children is clicked in its label strip (bottom-left), where nothing covers it. */
+async function clickBox(p, id) {
+  const pt = await p.evaluate((id) => {
+    const el = document.querySelector(`.react-flow__node[data-id="${CSS.escape(id)}"]`);
+    const r = el.getBoundingClientRect();
+    const pts = [];
+    for (const fy of [0.5, 0.985, 0.97, 0.95, 0.9, 0.15, 0.03]) for (const fx of [0.5, 0.02, 0.05, 0.1, 0.2, 0.95]) pts.push([r.x + r.width * fx, r.y + r.height * fy]);
+    return pts.find(([x, y]) => { const top = document.elementFromPoint(x, y); return top && top.closest('.react-flow__node') === el; }) ?? null;
+  }, id);
+  if (!pt) throw new Error(`no free point on node ${id}`);
+  await p.mouse.click(pt[0], pt[1]);
+}
 
 export default async function deployment(browser, srv, F, name) {
   const t = new T(`deployment:${name}`);
@@ -43,7 +56,7 @@ export default async function deployment(browser, srv, F, name) {
 
   // 2. a click on a deployment node selects it: hash, inspector with its environment and instance count
   if (boundary) {
-    await mouseClick(p, boundary.id);
+    await clickBox(p, boundary.id);
     await p.waitForTimeout(50);
     t.eq(await hashOf(p), `#/v/${v.key}?sel=${boundary.id}`, 'clicking a deployment node selects it');
     t.eq(await p.locator(`[data-selected-id="${boundary.id}"]`).count(), 1, 'the inspector shows the node');
@@ -56,7 +69,7 @@ export default async function deployment(browser, srv, F, name) {
   // 3. an instance: "Instance of" and "Show in model" go to its container or system
   if (inst) {
     const of = byId.get(inst.id).instanceOf;
-    await mouseClick(p, inst.id);
+    await clickBox(p, inst.id);
     await p.waitForTimeout(50);
     t.eq(await p.locator(`[data-selected-id="${inst.id}"] [data-field=instance-of]`).textContent(), byId.get(of).name, 'the inspector names what it is an instance of');
     await act(p, () => p.locator('[data-action=show-in-model]').click());
@@ -99,7 +112,7 @@ export default async function deployment(browser, srv, F, name) {
   t.eq(await ph.locator('.react-flow__node').count(), sc.nodes.length, 'phone: the view is drawn');
   const sel = inst ?? boundary;
   if (sel) {
-    await mouseClick(ph, sel.id);
+    await clickBox(ph, sel.id);
     await ph.waitForTimeout(100);
     t.eq(await ph.locator('[data-sheet]').getAttribute('data-sheet'), 'peek', 'phone: a tap opens the inspector sheet');
     t.eq(await ph.locator(`[data-selected-id="${sel.id}"]`).count(), 1, 'phone: the sheet shows the element');
