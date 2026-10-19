@@ -76,6 +76,13 @@ mkdir run && cd run   # the working folder holds no checkout files
 python -I -c 'import buildzr, sys; print(buildzr.__file__); sys.exit(0 if "'"$WORK"'/venv" in buildzr.__file__ else 1)' \
   || fail "buildzr is not imported from the fresh venv"
 
+step "buildzr --version"
+WHEEL_VERSION="$(basename "$WHEEL" | cut -d- -f2)"
+version_line="$(buildzr --version)" || fail "buildzr --version exited with $?"
+echo "$version_line"
+[[ "$version_line" = "buildzr $WHEEL_VERSION" ]] \
+  || fail "buildzr --version printed '$version_line', expected 'buildzr $WHEEL_VERSION'"
+
 # example NAME: the bundled example as a workspace called NAME
 example() {
   sed "s/Workspace('microservices-example'/Workspace('$1'/" "$REPO/examples/buildzr_models_example.py"

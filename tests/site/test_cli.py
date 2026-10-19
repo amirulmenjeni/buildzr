@@ -410,6 +410,32 @@ def test_help_exits_0(capsys: pytest.CaptureFixture[str]) -> None:
     assert "--no-viewer" in capsys.readouterr().out
 
 
+def test_version_prints_the_installed_version(capsys: pytest.CaptureFixture[str]) -> None:
+    from importlib.metadata import version
+
+    from packaging.version import Version
+
+    from buildzr.__about__ import VERSION
+
+    assert main(["--version"]) == 0
+    out = capsys.readouterr().out
+    assert out == f"buildzr {version('buildzr')}\n"
+    assert Version(out.split()[1]) == Version(VERSION)
+
+
+def test_version_is_in_the_help(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--help"]) == 0
+    assert "--version" in capsys.readouterr().out
+
+
+def test_version_of_the_installed_command() -> None:
+    from importlib.metadata import version
+
+    r = subprocess.run([sys.executable, "-m", "buildzr.site.cli", "--version"],
+                       capture_output=True, text=True, cwd=ROOT)
+    assert (r.returncode, r.stdout, r.stderr) == (0, f"buildzr {version('buildzr')}\n", "")
+
+
 def test_deploy_is_gone(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["deploy"]) == 2
     assert "invalid choice: 'deploy'" in capsys.readouterr().err

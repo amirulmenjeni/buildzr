@@ -29,6 +29,17 @@ from buildzr.site.config import (
 from buildzr.site.serve import Catalog, holds_built_workspaces, serve
 
 
+def _version() -> str:
+    """The installed version from the package metadata, as in the wheel name; ``__about__`` without an install."""
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("buildzr")
+    except PackageNotFoundError:
+        from buildzr.__about__ import VERSION
+        return VERSION
+
+
 class _Parser(argparse.ArgumentParser):
     def error(self, message: str) -> NoReturn:
         self.print_usage(sys.stderr)
@@ -61,6 +72,8 @@ def _add_build_args(p: argparse.ArgumentParser) -> None:
 
 def _parser() -> argparse.ArgumentParser:
     ap = _Parser(prog="buildzr", description="Build and serve buildzr workspaces.")
+    ap.add_argument("--version", action="version", version=f"buildzr {_version()}",
+                    help="show the installed buildzr version and exit")
     sub = ap.add_subparsers(dest="cmd", required=True, parser_class=_Parser)
     b = sub.add_parser("build", help="build every workspace of the workspaces folder")
     _add_build_args(b)
@@ -427,7 +440,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     try:
         try:
             args = ap.parse_args(list(argv) if argv is not None else None)
-        except SystemExit as e:  # --help (0)
+        except SystemExit as e:  # --help and --version (0)
             return int(e.code or 0)
         if args.cmd == "build":
             return _cmd_build(args)

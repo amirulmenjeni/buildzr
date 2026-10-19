@@ -77,6 +77,21 @@ Each setting comes from the first of these that has it:
 
 The tables below list every option. `buildzr COMMAND --help` prints the same list.
 
+### `buildzr --version`
+
+```text
+buildzr --version
+```
+
+`--version` prints the installed version of buildzr, as `buildzr <version>`, and exits with code 0. Run it to check which version a machine or a CI job uses:
+
+```console
+$ buildzr --version
+buildzr 1.0.0
+```
+
+The version in the output above is an example. `buildzr --help` lists `--version` next to the two subcommands.
+
 ### `buildzr build`
 
 ```text
