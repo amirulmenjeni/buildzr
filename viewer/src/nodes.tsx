@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { FlowNode } from './compose';
 import type { LabelLine, SceneNode } from './types';
 import { measureEm } from './textwidth';
+import { useStore as useViewer } from './store';
+import { nodeColors, type NodeColors } from './theme';
 import { childFade, fitFade, fitZoom, labelFade, NAME_FIT, NAME_FLOOR_PX, phoneLayout, reducedMotion } from './zoomfx';
 
 const MIN_TIER_PX = 6; // tiers whose effective size is below this are hidden
@@ -72,10 +74,10 @@ export function Lines({ lines, base, K, zoomKey, align, color, maxTier = 2, name
   );
 }
 
-function Shape({ n, expanded }: { n: SceneNode; expanded: boolean }) {
+function Shape({ n, expanded, c }: { n: SceneNode; expanded: boolean; c: NodeColors }) {
   const { w, h, shape, style: s } = n;
   const sw = s.strokeWidth ?? 1;
-  const common = { fill: s.fill, stroke: s.stroke, strokeWidth: sw, fillOpacity: expanded ? 0.12 : 1, strokeDasharray: expanded ? '8 5' : undefined };
+  const common = { fill: c.fill, stroke: c.stroke, strokeWidth: sw, fillOpacity: c.fillOpacity, strokeDasharray: expanded ? '8 5' : undefined };
   const i = sw / 2;
   let body: ReactNode;
   if (shape === 'Cylinder') {
@@ -83,7 +85,7 @@ function Shape({ n, expanded }: { n: SceneNode; expanded: boolean }) {
     body = (
       <>
         <path d={`M${i},${ry} A${w / 2 - i},${ry} 0 0 1 ${w - i},${ry} V${h - ry} A${w / 2 - i},${ry} 0 0 1 ${i},${h - ry} Z`} {...common} />
-        <path d={`M${i},${ry} A${w / 2 - i},${ry} 0 0 0 ${w - i},${ry}`} fill="none" stroke={s.stroke} strokeWidth={sw} />
+        <path d={`M${i},${ry} A${w / 2 - i},${ry} 0 0 0 ${w - i},${ry}`} fill="none" stroke={c.stroke} strokeWidth={sw} />
       </>
     );
   } else if (shape === 'Person') {
@@ -126,7 +128,9 @@ function Box({ d, boundary }: { d: FlowNode['data']; boundary: boolean }) {
   const leftAligned = boundary || a === 'top-left' || a === 'bottom-left';
   const nameFade = useStore((s) => (d.expanded ? 1 : nameFit(n.label.lines, n.style.fontSize, d.K, d.nameCap, n.w, leftAligned ? 8 : 0, s.transform[2])));
   const personPad = n.shape === 'Person' ? Math.min(n.w, n.h) * 0.34 : 0;
-  const color = d.expanded ? n.style.stroke : n.style.color;
+  const theme = useViewer((s) => s.theme);
+  const c = nodeColors(n.style, boundary, d.expanded, theme, d.under);
+  const color = c.color;
   const cls = [boundary ? 'c4b' : 'c4el', d.hit ? 'hit' : '', d.selected ? 'sel' : '', d.expanded ? 'expanded' : '', d.matchBadge ? 'has-match' : ''].filter(Boolean).join(' ');
   const inner: CSSProperties = { position: 'absolute', left: 0, top: 0, width: n.w, height: n.h, transformOrigin: '0 0', transform: d.K === 1 ? undefined : `scale(${d.K})`, overflow: 'hidden' };
   const label = <Lines lines={n.label.lines} base={n.style.fontSize} K={d.K} zoomKey={zoomKey} align={boundary ? 'left' : 'center'} color={color}
@@ -136,8 +140,8 @@ function Box({ d, boundary }: { d: FlowNode['data']; boundary: boolean }) {
          style={{ width: n.w * d.K, height: n.h * d.K, opacity: d.opacity }}>
       <div className="fx" style={{ ...inner, overflow: 'visible', opacity: kidsOpacity === 1 ? undefined : kidsOpacity }}>
         {boundary ? (
-          <div className="boundary-box" style={{ position: 'absolute', inset: 0, background: n.style.fill, border: `${n.style.strokeWidth ?? 1}px ${n.style.dash ? 'dashed' : 'solid'} ${n.style.stroke}` }} />
-        ) : <Shape n={n} expanded={d.expanded} />}
+          <div className="boundary-box" style={{ position: 'absolute', inset: 0, background: c.fill, border: `${n.style.strokeWidth ?? 1}px ${n.style.dash ? 'dashed' : 'solid'} ${c.stroke}` }} />
+        ) : <Shape n={n} expanded={d.expanded} c={c} />}
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
           {boundary || a === 'top-left' || a === 'bottom-left' ? (
             <div style={{ position: 'absolute', left: 8, [a === 'bottom-left' ? 'bottom' : 'top']: 6 }}>{label}</div>
