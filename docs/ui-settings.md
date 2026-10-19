@@ -1,6 +1,6 @@
 # Viewer settings
 
-The viewer is the web page inside a built workspace that draws your diagrams. Its settings panel holds options that change how the canvas behaves. You can also [embed the viewer](#embed-the-viewer-in-another-page) in another page.
+The viewer is the web page inside a built workspace that draws your diagrams. Its settings panel holds options that change how the canvas behaves and how the viewer looks. You can also [embed the viewer](#embed-the-viewer-in-another-page) in another page.
 
 Each reader's browser keeps that reader's settings. Settings are not part of the workspace, `buildzr.yaml` does not set them, and a [viewer link](viewer-hash-routes.md) does not carry them. Two people who open the same link can therefore see it with different settings.
 
@@ -14,11 +14,30 @@ To close the panel, press `Esc` or click anywhere outside it. After `Esc`, the f
 
 | Setting | Id | Default | What it does |
 |---|---|---|---|
+| Theme | `theme` | System | Light or dark. System follows the light or dark setting of your device, and changes when the device changes. See [Themes](#themes). |
 | Zoom in to expand | `zoomExpand` | off | Zooming in on a collapsed frame (a box that contains other boxes) expands it, the same as clicking it. This adds one history entry, so Back returns. The frame expands when the centre of the canvas is inside it and the zoom is at least 90% of the zoom at which the frame fits the canvas. The viewer starts loading the inner diagram at 60%. Zooming out always collapses, whatever this setting is. |
+
+## Themes
+
+The viewer has a light and a dark theme. Pick one under **Theme** in the settings panel: **System**, **Light** or **Dark**. System is the default and follows your device.
+
+![The viewer in the light theme: the Order Service container expanded inside the E-Commerce System, showing its two components, Order Controller and Order Repository, in the E-Commerce Platform group, with an arrow down to the Database. The model tree is on the left, the inspector on the right.](images/viewer/theme-light.png)
+
+*The light theme: the Order Service expanded inside the E-Commerce System.*
+
+![The same view in the dark theme: dark panels and canvas, the component boxes keep their light blue fill and black text, and the frame name Order Service is drawn in a lighter blue so it stays readable on the dark canvas.](images/viewer/theme-dark.png)
+
+*The dark theme, the same view. The boxes keep the model's colours; the frame name is lightened.*
+
+Both themes keep the colours of your model. Element boxes keep their fill and their text colour, including the colours your styles set. Where a colour would be hard to read on the page, the viewer lightens it in the dark theme and darkens it in the light theme: the names of expanded frames, the outlines of boxes, the arrows and their labels. Text keeps a contrast of at least 4.5:1 and the edges of boxes and controls at least 3:1, as WCAG AA asks.
+
+The theme is applied before the page is drawn, so the viewer never flashes the other theme while it loads. A page that [embeds the viewer](#embed-the-viewer-in-another-page) chooses the theme of its frame with `theme=` or the `buildzr:theme` message.
+
+The theme only changes the viewer. Exported PlantUML, PNG and SVG files are not affected.
 
 ## How the browser keeps the settings
 
-The viewer stores the settings in the browser's `localStorage`, under the key `buildzr-ui:settings`, as one JSON object, for example `{"zoomExpand":true}`. When the viewer loads, it ignores unknown keys and values of the wrong type, and uses the default instead. If the browser blocks storage, the settings still work until the page is closed.
+The viewer stores the settings in the browser's `localStorage`, under the key `buildzr-ui:settings`, as one JSON object, for example `{"zoomExpand":true,"theme":"dark"}`. When the viewer loads, it ignores unknown keys and values of the wrong type, and uses the default instead. If the browser blocks storage, the settings still work until the page is closed.
 
 Tests and scripts can read the current values from `window.__viewer.settings`.
 
@@ -37,7 +56,7 @@ const on = useStore((s) => s.settings.myOption);   // in a component
 useStore.getState().settings.myOption;             // anywhere else
 ```
 
-A new kind of control, such as a choice or a number, needs two changes: a new `type` in `settings.ts` (its definition, and its validation in `parseSettings`), and a matching `case` in `Control` in `viewer/src/SettingsPanel.tsx`.
+Two kinds of setting exist: `boolean` (a switch) and `choice` (a row of options, such as the theme). A new kind of control, such as a number, needs two changes: a new `type` in `settings.ts` (its definition, and its validation in `parseSettings`), and a matching `case` in `Control` in `viewer/src/SettingsPanel.tsx`.
 
 ## Embed the viewer in another page
 
