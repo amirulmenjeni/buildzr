@@ -266,6 +266,10 @@ jobs:
         npm ci
         npm run build
 
+    - name: Viewer unit tests
+      working-directory: viewer
+      run: npm run test:unit
+
     - name: Build package
       run: |
         uv build
