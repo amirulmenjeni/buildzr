@@ -3,23 +3,33 @@
 // persistence all follow from it; read the value with `useStore((s) => s.settings.<id>)`.
 
 export interface BooleanSetting { id: string; label: string; description: string; type: 'boolean'; default: boolean }
-export type SettingDef = BooleanSetting;
+export interface ChoiceSetting { id: string; label: string; description: string; type: 'choice'; options: readonly { value: string; label: string }[]; default: string }
+export type SettingDef = BooleanSetting | ChoiceSetting;
 
 export const SETTINGS = [
   {
     id: 'zoomExpand', type: 'boolean', default: false, label: 'Zoom in to expand',
     description: 'Zooming in on a collapsed frame expands it, like clicking it.',
   },
+  {
+    id: 'theme', type: 'choice', default: 'system', label: 'Theme',
+    options: [{ value: 'system', label: 'System' }, { value: 'light', label: 'Light' }, { value: 'dark', label: 'Dark' }],
+    description: 'System follows the light or dark setting of your device.',
+  },
 ] as const satisfies readonly SettingDef[];
 
-export type SettingId = (typeof SETTINGS)[number]['id'];
-export type SettingValues = { [K in SettingId]: boolean };
+type Def = (typeof SETTINGS)[number];
+export type SettingId = Def['id'];
+type ValueOf<D> = D extends { type: 'choice'; options: readonly { value: infer V }[] } ? V : boolean;
+export type SettingValues = { [D in Def as D['id']]: ValueOf<D> };
+export type SettingValue = SettingValues[SettingId];
 
 export const SETTINGS_KEY = 'buildzr-ui:settings';
 
 export const defaults = (): SettingValues => Object.fromEntries(SETTINGS.map((d) => [d.id, d.default])) as SettingValues;
 
-const valid = (d: SettingDef, v: unknown): boolean => d.type === 'boolean' && typeof v === 'boolean';
+const valid = (d: SettingDef, v: unknown): boolean =>
+  d.type === 'boolean' ? typeof v === 'boolean' : typeof v === 'string' && d.options.some((o) => o.value === v);
 
 /** Defaults overlaid with whatever stored value is present and of the right type. Unknown keys and bad values are ignored. */
 export function parseSettings(raw: string | null): SettingValues {

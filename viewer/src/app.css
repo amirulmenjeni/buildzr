@@ -2,7 +2,7 @@
 @font-face { font-family: 'Inter'; font-weight: 700; font-style: normal; font-display: swap; src: url('./fonts/inter-latin-700-normal.woff2') format('woff2'); }
 
 /* ---- theme tokens: every colour of the page chrome. The canvas colours of the model are in theme.ts (CANVAS, LABEL_BG
-   match --canvas and --label-bg). Text 4.5:1, UI parts 3:1 (WCAG AA). */
+   match --canvas and --label-bg). Contrast is tested in tests/theme.mjs: text 4.5:1, UI parts 3:1 (WCAG AA). */
 :root, :root[data-theme=light] {
   color-scheme: light;
   --bg: #fff; --fg: #1b1f24; --muted: #5b6470; --line: #d5d9de; --accent: #1168bd; --accent-fg: #fff; --panel: #f6f8fa;
@@ -162,6 +162,7 @@ button { font: inherit; }
   .setting { grid-template-columns: 44px 1fr; column-gap: 8px; }
   .setting input { width: 44px; height: 44px; }
   .setting label { min-height: 44px; display: flex; align-items: center; }
+  .segmented label { min-height: 44px; }
   .setting-desc { grid-column: 1 / -1; }
   .tree .row { min-height: 44px; }
   .twisty { width: 28px; text-align: center; }
@@ -199,6 +200,16 @@ button { font: inherit; }
   --xy-controls-box-shadow: 0 0 2px 1px var(--shadow); }
 .react-flow__controls-button svg { fill: currentColor; }
 .react-flow__controls-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* ---- settings: a choice is a row of segmented radio buttons */
+.setting.choice { border: 0; margin: 10px 0 0; padding: 0; display: block; }
+.setting.choice legend { font-weight: 700; padding: 0; margin-bottom: 4px; }
+.segmented { display: flex; border: 1px solid var(--control-line); border-radius: 6px; overflow: hidden; }
+.segmented label { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 30px; cursor: pointer; font-weight: 400; position: relative; }
+.segmented label + label { border-left: 1px solid var(--control-line); }
+.segmented label.on { background: var(--accent); color: var(--accent-fg); font-weight: 700; }
+.segmented input { position: absolute; opacity: 0; inset: 0; margin: 0; width: 100%; height: 100%; cursor: pointer; }
+.segmented label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: -3px; }
 
 /* ---- embed mode (?embed=1): one compact header row, the navigation is a drawer, the inspector shows on selection */
 .gone { max-width: 640px; }

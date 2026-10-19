@@ -3,7 +3,7 @@ import { hasNoData, loadBuild, loadIndex, loadModel, loadScene, memory, setSourc
 import { parseMode, type Files, type ThemeChoice } from './protocol';
 import { ancestors, chainOf, computeMatches, indexModel, isDeployment, typeLabel, type MatchInfo, type ModelIndex } from './model';
 import { buildHash, emptyFilter, parseHash, type Filter, type Route } from './route';
-import { loadSettings, saveSettings, type SettingId, type SettingValues } from './settings';
+import { loadSettings, saveSettings, type SettingId, type SettingValue, type SettingValues } from './settings';
 import { resolveTheme, type Theme } from './theme';
 import type { BuildInfo, IndexJson, ModelJson, Scene } from './types';
 
@@ -40,7 +40,7 @@ export interface State {
   camera: CameraRequest;
   settings: SettingValues; // persisted in localStorage (settings.ts)
   themeOverride: ThemeChoice | null; // embed: the theme the parent page asked for (not stored)
-  theme: Theme; // resolved: the override; 'system' follows prefers-color-scheme
+  theme: Theme; // resolved: override, else the setting; 'system' follows prefers-color-scheme
   inspectorOpen: boolean; // embed: the inspector shows only after an explicit selection
   title: string | null; // embed / new tab: the title the parent page gave
   // actions
@@ -60,7 +60,7 @@ export interface State {
   toggleTree(id: string, open?: boolean): void;
   setRolled(v: boolean): void;
   dismissNotice(): void;
-  setSetting(id: SettingId, value: boolean): void;
+  setSetting(id: SettingId, value: SettingValue): void;
   setThemeOverride(t: ThemeChoice | null): void;
   syncTheme(): void;
   closeInspector(): void;
@@ -147,7 +147,7 @@ export const useStore = create<State>()((set, get) => {
     status: 'loading', error: null, build: null, index: null, model: null, m: null, scenes: {},
     path: '', view: null, selection: null, filter: emptyFilter,
     notice: null, announce: '', treeOpen: {}, rolled: false, drawer: false, drawerTab: 'model', sheet: 'peek', searchOpen: false, camera: { seq: 0, kind: 'path', id: null }, settings: initial,
-    themeOverride: MODE.theme, theme: resolveTheme(MODE.theme ?? 'system', prefersDark()), inspectorOpen: false, title: null,
+    themeOverride: MODE.theme, theme: resolveTheme(MODE.theme ?? initial.theme, prefersDark()), inspectorOpen: false, title: null,
 
     async init() {
       const gen = generation;
@@ -336,13 +336,14 @@ export const useStore = create<State>()((set, get) => {
     dismissNotice() { set({ notice: null }); },
     setSetting(id, value) {
       const settings = { ...get().settings, [id]: value };
-      set({ settings });
+      set({ settings, ...(id === 'theme' ? { themeOverride: null } : {}) }); // the reader's own choice wins over the page's
       saveSettings(settings);
+      get().syncTheme();
     },
     setThemeOverride(t) { set({ themeOverride: t }); get().syncTheme(); },
     syncTheme() {
       const s = get();
-      const theme = resolveTheme(s.themeOverride ?? 'system', prefersDark());
+      const theme = resolveTheme(s.themeOverride ?? s.settings.theme, prefersDark());
       if (theme !== s.theme) set({ theme });
     },
     closeInspector() { commit({ selection: null, inspectorOpen: false }, false); },
