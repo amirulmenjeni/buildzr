@@ -57,6 +57,10 @@ function checkIfInteractive(pre, container) {
         return false;
     }
 
+    // SPIKE: a '# focus: ...' line says where the viewer opens; readers do not need it.
+    for (const span of codeBlock.querySelectorAll('span[id^="__span"]')) {
+        if (/^\s*#\s*focus:/.test(span.textContent)) span.style.display = 'none';
+    }
     // Make all other Python code blocks interactive
     return true;
 }
@@ -91,7 +95,7 @@ function makeInteractive(pre, codeBlock, index) {
     outputHeader.className = 'interactive-output-header';
 
     const headerTitle = document.createElement('span');
-    headerTitle.innerHTML = '📄 Output';
+    headerTitle.innerHTML = '📊 Diagram';
     headerTitle.style.fontWeight = '600';
 
     const buttonGroup = document.createElement('div');
@@ -129,32 +133,75 @@ function makeInteractive(pre, codeBlock, index) {
     wrapper.appendChild(outputContainer);
 }
 
+// SPIKE: everything Run Code needs is loaded on the first click, never with the page.
+const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.28.3/full/';
+// docs/runcode/ (staged by spike/runcode/stage_docs.sh), found from this script's own URL so it works at any depth.
+const RUNCODE_BASE = new URL('../runcode/', document.currentScript ? document.currentScript.src : location.href).href;
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('could not load ' + src));
+        document.head.appendChild(s);
+    });
+}
+
 async function initPyodide() {
-    if (pyodideInstance) {
-        return pyodideInstance;
+    if (!pyodideLoading) {
+        pyodideLoading = (async () => {
+            const t0 = performance.now();
+            await loadScript(PYODIDE_URL + 'pyodide.js');
+            const [pyodide, manifest] = await Promise.all([
+                loadPyodide({ indexURL: PYODIDE_URL }),
+                fetch(RUNCODE_BASE + 'manifest.json').then((r) => r.json()),
+                loadScript(RUNCODE_BASE + 'elk.bundled.js').then(() => loadScript(RUNCODE_BASE + 'elk_sync.js')),
+                loadScript(RUNCODE_BASE + 'wrap.js'),
+            ]);
+            const [wheels, buildPy, elkSync] = await Promise.all([
+                Promise.all(manifest.wheels.map((w) => fetch(RUNCODE_BASE + 'wheels/' + w).then((r) => r.arrayBuffer()))),
+                fetch(RUNCODE_BASE + 'browser_build.py').then((r) => r.text()),
+                makeElkSync(window.ELK),
+                pyodide.loadPackage(['typing-extensions'], { messageCallback: () => {} }),
+            ]);
+            for (const w of wheels) pyodide.unpackArchive(new Uint8Array(w), 'wheel');
+            window.elkLayoutSync = elkSync;
+            pyodide.FS.mkdirTree('/rc');
+            pyodide.FS.writeFile('/rc/browser_build.py', buildPy);
+            pyodide.runPython("import sys; sys.path.insert(0, '/rc'); import browser_build");
+            window.__runcodeTimings = { setup_ms: Math.round(performance.now() - t0) };
+            pyodideInstance = pyodide;
+            return pyodide;
+        })();
+        pyodideLoading.catch(() => { pyodideLoading = null; });
     }
+    return pyodideLoading;
+}
 
-    if (pyodideLoading) {
-        // Wait for existing load to complete
-        while (pyodideLoading) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        return pyodideInstance;
-    }
+const isDark = () => document.body.getAttribute('data-md-color-scheme') === 'slate';
+const frames = new Set();
+// The docs palette toggle changes body[data-md-color-scheme]; every viewer follows.
+new MutationObserver(() => {
+    for (const f of frames) f.contentWindow && f.contentWindow.postMessage({ type: 'runcode-theme', dark: isDark() }, '*');
+}).observe(document.body, { attributes: true, attributeFilter: ['data-md-color-scheme'] });
 
-    pyodideLoading = true;
-
-    try {
-        // loadPyodide is provided by the CDN script in mkdocs.yml
-        pyodideInstance = await loadPyodide({
-            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.28.3/full/"
-        });
-        pyodideLoading = false;
-        return pyodideInstance;
-    } catch (error) {
-        pyodideLoading = false;
-        throw error;
-    }
+function showViewer(outputArea, result, index) {
+    const frame = document.createElement('iframe');
+    frame.className = 'runcode-viewer';
+    frame.title = 'Diagram of the code above (interactive viewer)';
+    frame.src = RUNCODE_BASE + 'viewer/index.html' + result.focus.route;
+    const onMessage = (e) => {
+        if (e.source !== frame.contentWindow || !e.data || e.data.type !== 'runcode-ready') return;
+        frame.contentWindow.postMessage({ type: 'runcode-data', files: result.files, dark: isDark() }, '*');
+    };
+    addEventListener('message', onMessage);
+    frames.add(frame);
+    const json = document.createElement('details');
+    json.className = 'runcode-json';
+    json.innerHTML = '<summary>Structurizr JSON</summary><pre></pre>';
+    json.querySelector('pre').textContent = result.workspace_json;
+    outputArea.replaceChildren(frame, json);
 }
 
 function copyOutput(index, button) {
@@ -205,119 +252,25 @@ function toggleOutput(index, button) {
 
 
 async function runCodeInBrowser(code, index, button) {
-
-    console.log('[Interactive Code] Running code in browser for block', index);
-
     const outputContainer = document.getElementById(`output-container-${index}`);
     const outputArea = document.getElementById(`output-${index}`);
-
-    // Show output container and area
     outputContainer.style.display = 'block';
     outputArea.style.display = 'block';
-    outputArea.innerHTML = '<div class="loading">⏳ Loading Python environment (first time may take 10-30 seconds)...</div>';
-
-    // Disable button
+    outputArea.innerHTML = '<div class="loading" role="status">⏳ Loading Python and the viewer (the first time takes a few seconds)…</div>';
     const originalText = button.innerHTML;
     button.disabled = true;
-    button.innerHTML = '⏳ Loading...';
-
+    button.innerHTML = '⏳ Running…';
     try {
-        // Load Pyodide
         const pyodide = await initPyodide();
-
-        console.log('[Interactive Code] Pyodide loaded');
-
-        outputArea.innerHTML = '<div class="loading">📦 Installing buildzr package...</div>';
-
-        // Try to install buildzr from PyPI
-        try {
-            await pyodide.loadPackage('micropip');
-            const micropip = pyodide.pyimport('micropip');
-            await micropip.install('buildzr');
-            await micropip.install('typing-extensions')
-            outputArea.innerHTML = '<div class="loading">✓ Package installed. Running code...</div>';
-        } catch (installError) {
-            outputArea.innerHTML = '<div class="loading">⚠️ Could not install buildzr. Running code anyway...</div>';
-            await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        // Check if code already has Workspace context
-        const hasWorkspaceContext = /with\s+Workspace\s*\([^)]*\)\s+as\s+\w+\s*:/i.test(code);
-
-        // Check if code already has imports
-        const hasImports = /from\s+buildzr\.dsl\s+import/i.test(code);
-
-        // Prepare imports
-        const imports = `from buildzr.dsl import (
-    Workspace,
-    SoftwareSystem,
-    Person,
-    Container,
-    Component,
-    desc,
-    Group,
-    DeploymentEnvironment,
-    DeploymentNode,
-    InfrastructureNode,
-    SoftwareSystemInstance,
-    ContainerInstance,
-    DeploymentGroup,
-    SystemLandscapeView,
-    SystemContextView,
-    ContainerView,
-)
-
-`;
-
-        let codeToRun = code;
-        if (!hasWorkspaceContext) {
-            // Wrap code with Workspace context and imports
-            codeToRun = imports + `with Workspace('w') as w:
-${code.split('\n').map(line => '    ' + line).join('\n')}
-    w.save(path='workspace.json')`;
-        } else {
-            // Has Workspace context - prepend imports if missing and ensure save is called
-            const hasSave = /\.save\s*\(/i.test(code);
-
-            if (!hasImports) {
-                codeToRun = imports + code;
-            }
-
-            if (!hasSave) {
-                // Extract workspace variable name from "with Workspace(...) as var_name:"
-                const workspaceVarMatch = code.match(/with\s+Workspace\s*\([^)]*\)\s+as\s+(\w+)\s*:/i);
-                const workspaceVar = workspaceVarMatch ? workspaceVarMatch[1] : 'w';
-                codeToRun = codeToRun + `\n${workspaceVar}.save(path='workspace.json')`;
-            }
-        }
-
-        console.log('[Interactive Code] Code to run:\n', codeToRun);
-
-        // Run the user's code
-        try {
-            await pyodide.runPythonAsync(codeToRun);
-
-            let output = '';
-
-            // Always try to read from workspace.json
-            try {
-                const jsonContent = pyodide.FS.readFile('workspace.json', { encoding: 'utf8' });
-                // Pretty-format the JSON output
-                const prettyJson = JSON.stringify(JSON.parse(jsonContent), null, 2);
-                output = `<div class="output-stdout"><strong>Output (workspace.json):</strong>\n<pre>${escapeHtml(prettyJson)}</pre></div>`;
-            } catch (fsError) {
-                // workspace.json not found - throw error
-                output = `<div class="output-error"><strong>Error:</strong>\nNo workspace.json file found.</div>`;
-            }
-
-            outputArea.innerHTML = output;
-
-        } catch (execError) {
-            outputArea.innerHTML = `<div class="output-error"><strong>Error:</strong>\n${escapeHtml(execError.message)}</div>`;
-        }
-
+        const t0 = performance.now();
+        const run = pyodide.globals.get('browser_build').run_snippet;
+        const result = JSON.parse(run(wrapSnippet(code), '/rc/out/' + index));
+        run.destroy();
+        window.__runcodeTimings[index] = { run_ms: Math.round(performance.now() - t0), ms: result.ms, focus: result.focus };
+        showViewer(outputArea, result, index);
     } catch (error) {
-        outputArea.innerHTML = `<div class="output-error"><strong>Failed to load Python:</strong>\n${escapeHtml(error.message)}</div>`;
+        const msg = String(error.message || error).split('\n').filter((l) => l.trim()).slice(-3).join('\n');
+        outputArea.innerHTML = `<div class="output-error" role="alert"><strong>Error:</strong>\n${escapeHtml(msg)}</div>`;
     } finally {
         button.disabled = false;
         button.innerHTML = originalText;

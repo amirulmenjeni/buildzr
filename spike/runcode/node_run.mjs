@@ -47,5 +47,5 @@ for (const s of snippets) {
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, text);
   }
-  console.log(JSON.stringify({ snippet: name, wall_ms: wall, ms: res.ms, scenes: res.scenes, views: res.views }));
+  console.log(JSON.stringify({ snippet: name, wall_ms: wall, ms: res.ms, focus: res.focus, scenes: res.scenes, views: res.views }));
 }

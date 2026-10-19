@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import time
 from typing import Any
@@ -19,7 +20,7 @@ from buildzr.dsl import Workspace
 from buildzr.dsl.factory import GenerateId
 from buildzr.site.layout.passes import Layouter
 from buildzr.site.levels import build_levels
-from buildzr.site.model import export_model
+from buildzr.site.model import DRAWN_TYPES, export_model
 from buildzr.site.scene import write_workspace
 
 Json = dict[str, Any]
@@ -44,6 +45,43 @@ class JsElkRunner:
             out[name] = r["graph"]
         self.calls += len(out)
         return out
+
+
+FOCUS = re.compile(r"^\s*#\s*focus:\s*(\S+)\s*$", re.M)
+#: View kinds the model canvas cannot show: a snippet that defines one of these is about that view.
+OWN_CANVAS = ("deployment", "dynamic")
+
+
+def focus_for(code: str, model: Json) -> Json:
+    """Where the viewer opens for a snippet: ``{"route": "#/...", "why": ...}``.
+
+    1. ``# focus: <element id>`` (the viewer's id, e.g. ``shop/api``) or ``# focus: view:<key>``: that.
+    2. The snippet defines a deployment or dynamic view: the first such view (the model canvas cannot show it).
+    3. Otherwise the model canvas, with the last-created element that has children expanded (its ancestors too).
+    4. Nothing has children: the whole landscape.
+    """
+    ids = {e["id"] for e in model["elements"]}
+    m = FOCUS.search(code)
+    if m:
+        target = m.group(1)
+        if target.startswith("view:"):
+            key = target[5:]
+            if key not in {v["key"] for v in model["views"]}:
+                raise ValueError(f"# focus: no view {key!r}")
+            return {"route": "#/v/" + key, "why": "marker"}
+        if target not in ids:
+            raise ValueError(f"# focus: no element {target!r}; ids: {sorted(ids)}")
+        el = next(e for e in model["elements"] if e["id"] == target)
+        path = target if el["children"] else (el["parent"] or "")
+        return {"route": f"#/m/{path}?sel={target}" if path else f"#/m?sel={target}", "why": "marker"}
+    own = [v for v in model["views"] if v["kind"] in OWN_CANVAS]
+    if own:
+        return {"route": "#/v/" + own[0]["key"], "why": f"{own[0]['kind']} view"}
+    drawn = [e for e in model["elements"] if e["type"] in DRAWN_TYPES and e["children"]]
+    if drawn:
+        last = max(drawn, key=lambda e: int(e["modelId"]) if str(e["modelId"]).isdigit() else -1)
+        return {"route": "#/m/" + last["id"], "why": "last element with children"}
+    return {"route": "#/m", "why": "landscape"}
 
 
 def run_snippet(code: str, out_dir: str = "/rc/out", k: float = 4.0) -> str:
@@ -86,6 +124,8 @@ def run_snippet(code: str, out_dir: str = "/rc/out", k: float = 4.0) -> str:
     return json.dumps({
         "files": files,
         "index": index,
+        "focus": focus_for(code, model),
+        "workspace_json": ws.to_json(),
         "elements": [{"id": e["id"], "type": e["type"], "name": e["name"]} for e in model["elements"]],
         "views": [{"key": v["key"], "kind": v["kind"]} for v in model["views"]],
         "scenes": {key: len(lay.placed[key].nodes) for key in lay.placed},

@@ -100,6 +100,7 @@ nav:
     - DSL: api/dsl.md
     - Models: api/models.md
     - Model API: model-api.md
+  - Spike - Run Code: spike-run-code.md
   - Development:
     - Contributing: contributing.md
     - Roadmap: roadmap.md
@@ -110,7 +111,6 @@ extra:
       link: https://github.com/amirulmenjeni/buildzr
 
 extra_javascript:
-  - https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.js
   - javascripts/interactive-code.js
 
 extra_css:

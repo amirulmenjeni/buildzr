@@ -31,3 +31,4 @@ viewer/.shots/
 viewer/test-results/
 viewer/playwright-report/
 .v4out/
+docs/runcode/
