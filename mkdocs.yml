@@ -58,6 +58,9 @@ markdown_extensions:
   - attr_list
   - smarty
 
+hooks:
+  - scripts/mkdocs_hooks.py
+
 plugins:
   - search
   - mkdocstrings:
