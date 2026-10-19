@@ -31,7 +31,8 @@ def check_levels(model: Json, levels: Json) -> list[str]:
     mi = ModelIndex(model)
     by_key = {lv["key"]: lv for lv in levels["levels"]}
     keys = [lv["key"] for lv in levels["levels"]]
-    want = ["landscape"] + [f"e/{e['id']}" for e in model["elements"] if e["children"]] \
+    deployment = ("DeploymentNode", "InfrastructureNode", "ContainerInstance", "SoftwareSystemInstance")
+    want = ["landscape"] + [f"e/{e['id']}" for e in model["elements"] if e["children"] and e["type"] not in deployment] \
         + [v["scene"] for v in model["views"]]
     if keys != want:
         errs.append(f"level keys {keys} != {want}")

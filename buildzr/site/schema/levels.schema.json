@@ -79,6 +79,7 @@
                 }
               },
               "children": { "type": "integer", "minimum": 1, "description": "Present iff the element has children at the next level (becomes frame.children; frame.scene = 'e/<id>')." },
+              "instances": { "type": "string", "minLength": 1, "description": "Deployment nodes whose instance count is not '1' (the scene node's 'instances')." },
               "childType": { "type": "string" }
             }
           }
