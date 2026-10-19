@@ -1,10 +1,10 @@
 // Acceptance tests (stage 2 and 3). Usage, inside the devcontainer with the viewer built:
-//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|viewerurl|workspaces|broken|deployment|embed] [--shots]
+//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|viewerurl|workspaces|broken|deployment|embed|theme] [--shots]
 // A data dir holds index.json, model.json and scene/ (e.g. tests/site/fixtures/small).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { serve, launch, newPage, open, settle, act, snapshot, hashOf, mouseClick, mouseDbl, T, ROOT } from './lib.mjs';
+import { serve, launch, newPage, open, settle, act, snapshot, hashOf, mouseClick, mouseDbl, T, ROOT, deviceTheme } from './lib.mjs';
 
 const args = process.argv.slice(2);
 const dataDirs = [];
@@ -14,7 +14,9 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === '--data') dataDirs.push(path.resolve(args[++i]));
   else if (args[i] === '--only') only = args[++i];
   else if (args[i] === '--shots') shots = true;
+  else if (args[i] === '--theme') process.env.VIEWER_THEME = args[++i]; // light (default) or dark: the whole matrix in that theme
 }
+const THEME = deviceTheme();
 if (!dataDirs.length) dataDirs.push(path.resolve(ROOT, '../tests/site/fixtures/small'));
 
 const KNOWN = new Set(['Person', 'SoftwareSystem', 'Container', 'Component']);
@@ -559,7 +561,15 @@ for (const dir of dataDirs) {
   const F = facts(dir);
   const srv = await serve(dir);
   srv.dir = dir;
-  console.log(`== ${name}: ${F.els.length} elements, ${F.expandable.length} expandable (${F.expandable.join(', ')})`);
+  { // the matrix really runs in the theme asked for
+    const p = await newPage(browser, []);
+    await open(p, srv.url, '#/m');
+    const th = await p.evaluate(() => document.documentElement.dataset.theme);
+    if (th !== THEME) { console.log(`  FAIL theme: the viewer is ${th}, the matrix asked for ${THEME}`); fails++; }
+    checks++;
+    await p.context().close();
+  }
+  console.log(`== ${name} (${THEME} theme): ${F.els.length} elements, ${F.expandable.length} expandable (${F.expandable.join(', ')})`);
   if (!only || only === 'stage2') { const t = await stage2(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'stage3') { const t = await stage3(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'stage4') { const t = await (await import('./stage4.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
@@ -571,6 +581,7 @@ for (const dir of dataDirs) {
   if (!only || only === 'broken') { const t = await (await import('./broken.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'settings') { const t = await (await import('./settings.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'deployment') { const t = await (await import('./deployment.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
+  if (!only || only === 'theme') { const t = await (await import('./theme.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'embed') { const t = await (await import('./embed.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (shots) await import('./shots.mjs').then((m) => m.default(browser, srv, F, name));
   srv.close();

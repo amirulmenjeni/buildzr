@@ -36,6 +36,8 @@ export async function serve(dataDir, base = '/', files = {}) {
 }
 
 export const launch = () => chromium.launch();
+/** The device theme the tests run with (run.mjs --theme sets VIEWER_THEME). */
+export const deviceTheme = () => (process.env.VIEWER_THEME === 'dark' ? 'dark' : 'light');
 
 export class T {
   constructor(name) { this.name = name; this.fails = 0; this.checks = 0; this.notes = []; }
@@ -45,7 +47,8 @@ export class T {
 }
 
 export async function newPage(browser, errors, opts = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, reducedMotion: 'reduce', ...opts });
+  // VIEWER_THEME (run.mjs --theme): the device's light/dark setting; the viewer's default (System) follows it
+  const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, reducedMotion: 'reduce', colorScheme: deviceTheme(), ...opts });
   const p = await ctx.newPage();
   p.on('pageerror', (e) => errors.push('pageerror: ' + e.message));
   p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`console.${m.type()}: ${m.text()}`); });
