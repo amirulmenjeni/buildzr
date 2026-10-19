@@ -1,9 +1,16 @@
 import { create } from 'zustand';
-import { hasNoData, loadBuild, loadIndex, loadModel, loadScene } from './data';
+import { hasNoData, loadBuild, loadIndex, loadModel, loadScene, memory, setSource } from './data';
+import { parseMode, type Files, type ThemeChoice } from './protocol';
 import { ancestors, chainOf, computeMatches, indexModel, isDeployment, typeLabel, type MatchInfo, type ModelIndex } from './model';
 import { buildHash, emptyFilter, parseHash, type Filter, type Route } from './route';
 import { loadSettings, saveSettings, type SettingId, type SettingValues } from './settings';
+import { resolveTheme, type Theme } from './theme';
 import type { BuildInfo, IndexJson, ModelJson, Scene } from './types';
+
+/** How this page was opened (the search part of the URL): standalone or embedded in a frame. */
+export const MODE = parseMode(location.search);
+const DARK = '(prefers-color-scheme: dark)';
+const prefersDark = (): boolean => typeof matchMedia === 'function' && matchMedia(DARK).matches;
 
 export interface CameraRequest { seq: number; kind: 'path' | 'node' | 'zoom'; id: string | null }
 
@@ -32,6 +39,10 @@ export interface State {
   searchOpen: boolean;
   camera: CameraRequest;
   settings: SettingValues; // persisted in localStorage (settings.ts)
+  themeOverride: ThemeChoice | null; // embed: the theme the parent page asked for (not stored)
+  theme: Theme; // resolved: the override; 'system' follows prefers-color-scheme
+  inspectorOpen: boolean; // embed: the inspector shows only after an explicit selection
+  title: string | null; // embed: the title the parent page gave
   // actions
   init(): Promise<void>;
   applyRoute(r: Route): void;
@@ -50,6 +61,10 @@ export interface State {
   setRolled(v: boolean): void;
   dismissNotice(): void;
   setSetting(id: SettingId, value: boolean): void;
+  setThemeOverride(t: ThemeChoice | null): void;
+  syncTheme(): void;
+  closeInspector(): void;
+  load(files: Files, build: BuildInfo | null, route: string | null, title: string | null): Promise<void>;
   setUi(p: Partial<Pick<State, 'drawer' | 'drawerTab' | 'sheet' | 'searchOpen'>>): void;
 }
 
@@ -72,9 +87,10 @@ export const useStore = create<State>()((set, get) => {
     for (const key of sceneKeysFor(s)) {
       if (s.scenes[key] || loading.has(key)) continue;
       loading.add(key);
+      const gen = generation;
       loadScene(s.index, key)
-        .then((sc) => set((cur) => ({ scenes: { ...cur.scenes, [key]: sc } })))
-        .catch((e: unknown) => set({ status: 'error', error: String(e) }))
+        .then((sc) => { if (gen === generation) set((cur) => ({ scenes: { ...cur.scenes, [key]: sc } })); })
+        .catch((e: unknown) => { if (gen === generation) set({ status: 'error', error: String(e) }); })
         .finally(() => loading.delete(key));
     }
   };
@@ -84,8 +100,9 @@ export const useStore = create<State>()((set, get) => {
     const s = get();
     if (!s.index || s.scenes[key] || loading.has(key) || !(key in s.index.scenes)) return;
     loading.add(key);
+    const gen = generation;
     loadScene(s.index, key)
-      .then((sc) => set((cur) => ({ scenes: { ...cur.scenes, [key]: sc } })))
+      .then((sc) => { if (gen === generation) set((cur) => ({ scenes: { ...cur.scenes, [key]: sc } })); })
       .catch(() => undefined)
       .finally(() => loading.delete(key));
   };
@@ -101,7 +118,7 @@ export const useStore = create<State>()((set, get) => {
     const s = get();
     const h = buildHash({ view: s.view, path: s.path, sel: s.selection, filter: s.filter });
     if (h === location.hash) return;
-    if (push) history.pushState(null, '', h);
+    if (push && !MODE.embed) history.pushState(null, '', h); // embedded: never step the parent page's history
     else history.replaceState(null, '', h);
   };
 
@@ -122,26 +139,44 @@ export const useStore = create<State>()((set, get) => {
     return `Expanded ${e.name}, ${kids} ${t ? typeLabel(t).toLowerCase() : 'element'}${kids === 1 ? '' : 's'}`;
   };
 
+  let generation = 0; // bumped by every load: scenes of an older model are dropped when they arrive
+  const initial = loadSettings();
+
   return {
     status: 'loading', error: null, build: null, index: null, model: null, m: null, scenes: {},
     path: '', view: null, selection: null, filter: emptyFilter,
-    notice: null, announce: '', treeOpen: {}, rolled: false, drawer: false, drawerTab: 'model', sheet: 'peek', searchOpen: false, camera: { seq: 0, kind: 'path', id: null }, settings: loadSettings(),
+    notice: null, announce: '', treeOpen: {}, rolled: false, drawer: false, drawerTab: 'model', sheet: 'peek', searchOpen: false, camera: { seq: 0, kind: 'path', id: null }, settings: initial,
+    themeOverride: MODE.theme, theme: resolveTheme(MODE.theme ?? 'system', prefersDark()), inspectorOpen: false, title: null,
 
     async init() {
+      const gen = generation;
       try {
         const build = await loadBuild();
+        if (gen !== generation) return;
         set({ build });
         if (hasNoData(build)) { set({ status: 'broken' }); return; }
         const index = await loadIndex();
         const model = await loadModel(index);
+        if (gen !== generation) return;
         const m = indexModel(model, index);
         set({ index, model, m, status: 'ready' });
         get().applyRoute(parseHash(location.hash));
         const fixed = buildHash({ view: get().view, path: get().path, sel: get().selection, filter: get().filter });
         if (fixed !== location.hash) history.replaceState(null, '', fixed);
       } catch (e) {
-        set({ status: 'error', error: String(e) });
+        if (gen === generation) set({ status: 'error', error: String(e) });
       }
+    },
+
+    /** Data from an embedding page (embed.ts): replaces the model and starts again from the route. */
+    async load(files, build, route, title) {
+      generation++;
+      loading.clear();
+      setSource(memory(files, build));
+      if (route !== null) history.replaceState(null, '', route || '#/m');
+      set({ status: 'loading', error: null, build: null, index: null, model: null, m: null, scenes: {}, path: '', view: null, selection: null,
+        filter: emptyFilter, notice: null, treeOpen: {}, drawer: false, sheet: 'peek', searchOpen: false, inspectorOpen: false, title });
+      await get().init();
     },
 
     /** Hash (load, back/forward, manual edit) -> state, with the fallbacks of docs/viewer-hash-routes.md. */
@@ -243,7 +278,8 @@ export const useStore = create<State>()((set, get) => {
     select(id, opts = {}) {
       const s = get();
       const m = s.m!;
-      if (id === null) { commit({ selection: null }, false); return; }
+      if (id === null) { commit({ selection: null, inspectorOpen: false }, false); return; }
+      set({ inspectorOpen: true }); // an explicit selection: the embed shows the inspector
       const el = m.byId.get(id);
       if (!el || !opts.reveal) {
         commit({ selection: id, camera: opts.zoom && el ? cam('zoom', id) : s.camera, treeOpen: openAncestors([el ? id : null]), sheet: 'peek' }, false);
@@ -301,22 +337,42 @@ export const useStore = create<State>()((set, get) => {
       set({ settings });
       saveSettings(settings);
     },
+    setThemeOverride(t) { set({ themeOverride: t }); get().syncTheme(); },
+    syncTheme() {
+      const s = get();
+      const theme = resolveTheme(s.themeOverride ?? 'system', prefersDark());
+      if (theme !== s.theme) set({ theme });
+    },
+    closeInspector() { commit({ selection: null, inspectorOpen: false }, false); },
     setUi(p) { set(p); },
   };
 });
 
-export function installRouter(): void {
-  const onNav = (): void => {
-    const s = useStore.getState();
-    if (s.status !== 'ready') return;
-    const r = parseHash(location.hash);
-    const cur = buildHash({ view: s.view, path: s.path, sel: s.selection, filter: s.filter });
-    if (buildHash(r) === cur && location.hash === cur) return;
-    s.applyRoute(r);
-    const st = useStore.getState();
-    const fixed = buildHash({ view: st.view, path: st.path, sel: st.selection, filter: st.filter });
-    if (fixed !== location.hash) history.replaceState(null, '', fixed);
+/** Keep <html data-theme> on the resolved theme, and follow the device's light/dark setting. */
+export function installTheme(): void {
+  const apply = (t: Theme): void => {
+    document.documentElement.dataset.theme = t;
+    document.documentElement.style.colorScheme = t;
   };
-  addEventListener('popstate', onNav);
-  addEventListener('hashchange', onNav);
+  apply(useStore.getState().theme);
+  useStore.subscribe((s, prev) => { if (s.theme !== prev.theme) apply(s.theme); });
+  if (typeof matchMedia === 'function') matchMedia(DARK).addEventListener('change', () => useStore.getState().syncTheme());
+}
+
+/** location.hash -> state (back/forward, a manual edit, an embedding page's route message). */
+export function followHash(): void {
+  const s = useStore.getState();
+  if (s.status !== 'ready') return;
+  const r = parseHash(location.hash);
+  const cur = buildHash({ view: s.view, path: s.path, sel: s.selection, filter: s.filter });
+  if (buildHash(r) === cur && location.hash === cur) return;
+  s.applyRoute(r);
+  const st = useStore.getState();
+  const fixed = buildHash({ view: st.view, path: st.path, sel: st.selection, filter: st.filter });
+  if (fixed !== location.hash) history.replaceState(null, '', fixed);
+}
+
+export function installRouter(): void {
+  addEventListener('popstate', followHash);
+  addEventListener('hashchange', followHash);
 }

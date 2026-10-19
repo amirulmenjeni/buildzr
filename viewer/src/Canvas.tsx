@@ -5,7 +5,7 @@ import { ElkEdge } from './edge';
 import { chainOf, computeMatches, type ModelIndex } from './model';
 import { C4Boundary, C4Element } from './nodes';
 import { defaults, type SettingValues } from './settings';
-import { useStore } from './store';
+import { MODE, useStore } from './store';
 import { usePhone } from './usePhone';
 import { EXPAND, fitZoom, shouldCollapse, shouldExpand } from './zoomfx';
 
@@ -21,16 +21,20 @@ declare global {
       ready: boolean;
       cameraDone: number;
       readonly settings: SettingValues; // the current settings (read-only view of the store)
+      readonly embed: boolean; // embed mode (?embed=1)
+      readonly theme: 'light' | 'dark'; // the resolved theme
       autoCollapse: boolean; // test hook: false pauses the zoom-out collapse (tests that restore an old viewport on purpose)
     };
   }
 }
-window.__viewer = { positions: () => ({}), viewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: () => {}, ready: false, cameraDone: 0, autoCollapse: true, settings: defaults() };
+window.__viewer = { positions: () => ({}), viewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: () => {}, ready: false, cameraDone: 0, autoCollapse: true, settings: defaults(), embed: MODE.embed, theme: 'light' };
 Object.defineProperty(window.__viewer, 'settings', { get: () => useStore.getState().settings });
+Object.defineProperty(window.__viewer, 'theme', { get: () => useStore.getState().theme });
 
 const reduced = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches;
 const phone = (): boolean => matchMedia('(max-width: 767px)').matches;
-const isPhone = phone;
+/** A tap selects (the sheet's Open expands) in the phone layout; an embedded frame narrower than 768 px used with a mouse keeps click-to-expand. */
+const isPhone = (): boolean => phone() && !(MODE.embed && matchMedia('(pointer: fine)').matches);
 
 function Camera({ composed }: { composed: Composed }) {
   const rf = useReactFlow();
@@ -169,6 +173,7 @@ function Flow() {
 
   return (
     <div className="canvas" data-testid="canvas" onKeyDown={(ev) => {
+      if (ev.key === 'Escape' && MODE.embed && useStore.getState().inspectorOpen) return; // Esc closes the inspector first (App)
       if (ev.key === 'Escape' && path && !view) { collapse(); return; }
       const nodeEl = (ev.target as HTMLElement).closest<HTMLElement>('.react-flow__node');
       if (ev.key === 'Enter' && nodeEl?.dataset.id) { ev.preventDefault(); expand(nodeEl.dataset.id); }

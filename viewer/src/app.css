@@ -173,3 +173,30 @@ button { font: inherit; }
   .drawer-close { position: absolute; top: 0; right: 0; width: 48px; min-height: 48px; border: 0; background: none; font-size: 22px; z-index: 2; }
   .tabs { padding-right: 48px; }
 }
+
+/* ---- embed mode (?embed=1): one compact header row, the navigation is a drawer, the inspector shows on selection */
+.menu:focus-visible, .searchbtn:focus-visible, .inspector-close:focus-visible { outline: 2px solid #f90; outline-offset: 1px; }
+.app.embed:not(.phone) { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'banner' 'top' 'notice' 'center'; }
+.app.embed.insp-open:not(.phone) { grid-template-columns: minmax(0, 1fr) min(320px, 40%); grid-template-areas: 'banner banner' 'top top' 'notice notice' 'center right'; }
+.app.embed .top { flex-wrap: wrap; gap: 4px 8px; padding: 4px 8px; }
+.app.embed .top h1 { font-size: 14px; max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app.embed:not(.phone) .menu, .app.embed:not(.phone) .searchbtn { min-width: 32px; min-height: 32px; border: 1px solid var(--line); background: #fff; color: var(--fg); border-radius: 6px; font-size: 16px; cursor: pointer; }
+.app.embed .toolbar { width: 100%; margin-left: 0; }
+.app.embed .toolbar input[type=search] { flex: 1 1 200px; }
+.app.embed:not(.phone) .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 40; }
+.app.embed:not(.phone) .left { position: fixed; z-index: 50; top: 0; bottom: 0; left: 0; width: min(86vw, 320px); border-right: 1px solid var(--line);
+  transform: translateX(-100%); visibility: hidden; transition: transform 200ms ease, visibility 0s linear 200ms; }
+.app.embed:not(.phone) .left[data-open=true] { transform: none; visibility: visible; transition: transform 200ms ease; }
+.app.embed:not(.phone) .tabs { display: flex; position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 1; padding-right: 40px; }
+.app.embed:not(.phone) .tabs button { flex: 1; min-height: 40px; border: 0; background: none; color: var(--fg); cursor: pointer; border-bottom: 3px solid transparent; }
+.app.embed:not(.phone) .tabs button[aria-selected=true] { border-bottom-color: var(--accent); font-weight: 700; }
+.app.embed:not(.phone) .drawer-close { position: absolute; top: 0; right: 0; width: 40px; min-height: 40px; border: 0; background: none; color: var(--fg); font-size: 20px; cursor: pointer; z-index: 2; }
+.app.embed:not(.phone) .inspector { position: relative; }
+.inspector-close { position: absolute; z-index: 2; top: 4px; right: 6px; width: 32px; height: 32px; border: 0; background: none; color: var(--fg); font-size: 20px; cursor: pointer; }
+.app.embed:not(.phone) .sheet-wrap { display: block; grid-area: right; position: relative; min-height: 0; overflow: auto; border-left: 1px solid var(--line); background: var(--panel); }
+.app.embed:not(.phone) .sheet-wrap .inspector { border-left: 0; overflow: visible; padding-right: 40px; }
+@media (max-width: 767px) { .app.embed .top h1 { display: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .left, .left[data-open=true], .sheet-wrap { transition: none !important; }
+}

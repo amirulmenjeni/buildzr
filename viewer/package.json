@@ -7,7 +7,8 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
-    "test": "node tests/run.mjs"
+    "test": "node tests/run.mjs",
+    "test:unit": "node --experimental-strip-types --no-warnings tests/protocol.mjs"
   },
   "dependencies": {
     "@xyflow/react": "12.12.0",
