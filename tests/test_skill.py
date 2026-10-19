@@ -103,3 +103,11 @@ def authored_views(block: Block) -> dict[str, set[str]]:
     [w] = [v for v in scope.values() if isinstance(v, Workspace)]
     views = json.loads(w.to_json())["views"]
     return {name: {v["key"] for v in items} for name, items in views.items() if isinstance(items, list) and items}
+
+
+@pytest.mark.parametrize("rel", ["buildzr/SKILL.md", "buildzr/references/install.md"])
+def test_the_version_check_is_the_command(rel: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """The skill checks the install with ``buildzr --version``, which prints ``buildzr <version>``."""
+    assert "buildzr --version" in read(rel)
+    assert cli.main(["--version"]) == 0
+    assert re.fullmatch(r"buildzr \d+\.\d+\.\d+\S*\n", capsys.readouterr().out)

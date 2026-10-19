@@ -41,7 +41,7 @@ npx skills add ../buildzr --skill buildzr --agent claude-code -y
 
 With the skill installed, the agent:
 
-- installs buildzr and checks that its `buildzr` command has `build` and `serve`;
+- installs buildzr and checks its version with `buildzr --version`;
 - writes model files in `workspaces/`: people, software systems, containers, components, relationships, groups, styles, and system landscape, system context, container, component, dynamic and deployment views. Built workspaces do not show deployment views yet, so the agent hands those over as Structurizr JSON;
 - runs `buildzr build`, reads the errors of a broken workspace, fixes the model file and builds again until the build passes;
 - starts `buildzr serve` and gives you the address of the viewer, or a link to one view or one element;
