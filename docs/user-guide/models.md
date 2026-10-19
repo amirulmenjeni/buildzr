@@ -116,7 +116,7 @@ with Workspace('Hardware Architecture') as w:
     sensor >> "sends data to" >> controller
     controller >> "controls" >> actuator
 
-    # Custom elements can ONLY be displayed in CustomView
+    # A CustomView shows the custom elements and their relationships
     CustomView(
         key="hardware-view",
         description="Hardware component interactions",
@@ -329,7 +329,7 @@ However, if we specify the deployment group like we did in the example above, we
 ## Complete Example
 
 !!! note
-    We've added a `SystemContextView` and a `DeploymentView` in the code below, so that the model has diagrams to show. To see them, build and serve the file with `buildzr build` and `buildzr serve`, as the [Quick Start](../getting-started/quick-start.md) shows. The buildzr viewer does not draw deployment views yet; to see the `DeploymentView`, save the workspace as JSON and open it in [Structurizr Lite](https://docs.structurizr.com/lite).
+    We've added a `SystemContextView` and a `DeploymentView` in the code below, so that the model has diagrams to show. To see them, build and serve the file with `buildzr build` and `buildzr serve`, as the [Quick Start](../getting-started/quick-start.md) shows. The viewer draws the deployment view with the AWS regions and nodes as nested boxes around the containers that run on them; [Deployment Views](deployment.md) shows how to read it.
 
     So far, we've only discussed models. With views, we can use (and re-use!) our static and instance models to draw architecture diagrams. See [Views](views.md) for more info.
 
