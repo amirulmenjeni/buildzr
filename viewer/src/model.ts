@@ -1,11 +1,16 @@
 import type { Element, IndexJson, ModelJson, Relationship, ViewDef } from './types';
 import type { Filter } from './route';
 
-/** Element types the viewer draws. Anything else (e.g. a future DeploymentNode) is dropped, with its descendants. */
+/** Element types of the model tree and its scenes. */
 export const KNOWN_TYPES = new Set(['Person', 'SoftwareSystem', 'Container', 'Component']);
+/** Element types drawn in deployment views only: not in the tree, reached through those views, search and links. */
+export const DEPLOYMENT_TYPES = new Set(['DeploymentNode', 'InfrastructureNode', 'ContainerInstance', 'SoftwareSystemInstance']);
+/** Anything else (a type this viewer does not know) is dropped, with its descendants. */
+const indexed = (t: string): boolean => KNOWN_TYPES.has(t) || DEPLOYMENT_TYPES.has(t);
+export const isDeployment = (e: Element | undefined): boolean => !!e && DEPLOYMENT_TYPES.has(e.type);
 
 export interface ModelIndex {
-  elements: Element[]; // known elements, pre-order, as in model.json
+  elements: Element[]; // known and deployment elements, pre-order, as in model.json
   byId: Map<string, Element>;
   rels: Relationship[];
   relById: Map<string, Relationship>;
@@ -24,8 +29,11 @@ export function indexModel(model: ModelJson, index: IndexJson): ModelIndex {
   const byId = new Map<string, Element>();
   const elements: Element[] = [];
   for (const e of model.elements) {
-    if (!KNOWN_TYPES.has(e.type)) continue;
+    if (!indexed(e.type)) continue;
     if (e.parent !== null && !byId.has(e.parent)) continue; // under an unknown element
+    // A deployment element sits under a deployment node or at the top; nothing else nests with deployment elements.
+    if (e.parent !== null && DEPLOYMENT_TYPES.has(e.type) !== DEPLOYMENT_TYPES.has(byId.get(e.parent)!.type)) continue;
+    if (DEPLOYMENT_TYPES.has(e.type) && e.instanceOf !== undefined && !byId.has(e.instanceOf)) continue;
     const el = { ...e, children: [] as string[] };
     byId.set(el.id, el);
     elements.push(el);
@@ -42,7 +50,7 @@ export function indexModel(model: ModelJson, index: IndexJson): ModelIndex {
     views: model.views, viewByKey: new Map(model.views.map((v) => [v.key, v])),
     order: new Map(elements.map((e, i) => [e.id, i])),
     expandable: new Set(elements.filter((e) => e.children.length > 0 && ('e/' + e.id) in index.scenes).map((e) => e.id)),
-    roots: elements.filter((e) => e.parent === null).map((e) => e.id),
+    roots: elements.filter((e) => e.parent === null && KNOWN_TYPES.has(e.type)).map((e) => e.id),
     tags: [...tagSet].sort(),
     own,
   };

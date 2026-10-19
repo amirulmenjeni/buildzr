@@ -106,6 +106,7 @@ const useZoomKey = (lines: LabelLine[], base: number, K: number, allowFloor: boo
 function Badges({ d }: { d: FlowNode['data'] }) {
   return (
     <>
+      {d.n.instances && <span className="badge instances" data-badge="instances" title={`${d.n.instances} instances`}>×{d.n.instances}</span>}
       {d.frameBadge && <span className="badge count" data-badge="count">{d.frameBadge}</span>}
       {d.matchBadge && <span className="badge matches" data-badge="matches">{d.matchBadge}</span>}
     </>

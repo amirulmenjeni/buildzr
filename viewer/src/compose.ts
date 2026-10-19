@@ -2,7 +2,7 @@
 // Pure function of (scenes, path, filter results): nothing here ever lays anything out.
 import type { Edge, Node } from '@xyflow/react';
 import type { MatchInfo, ModelIndex } from './model';
-import { chainOf } from './model';
+import { chainOf, DEPLOYMENT_TYPES } from './model';
 import type { Scene, SceneEdge, SceneNode } from './types';
 
 export const OPACITY = { focus: 1, connected: 0.55, context: 0.25, filtered: 0.15 };
@@ -148,7 +148,11 @@ export function compose(inp: ComposeInput): Composed {
     const lit = litIn(sc);
     const byId = new Map(sc.nodes.map((n) => [n.id, n]));
     // Boundary ids (group:<name>, the scoped element) can repeat in another level's scene: make them unique per scene.
-    const rid = (id: string): string => (byId.get(id)?.role === 'boundary' ? `${sc.key}|${id}` : id);
+    // A deployment node is only ever in its deployment view: it keeps its id, so a click or a link selects it.
+    const rid = (id: string): string => {
+      const b = byId.get(id);
+      return b?.role === 'boundary' && !DEPLOYMENT_TYPES.has(b.type) ? `${sc.key}|${id}` : id;
+    };
     // connected context: nodes in this scene with an edge to the next expanded element
     const focusHere = li < last ? levels[li + 1].frameId : null;
     const connected = new Set<string>();
@@ -210,7 +214,10 @@ export function compose(inp: ComposeInput): Composed {
       l.frameId === null ? p[1] : l.origin[1] + l.K * (p[1] - sc.bounds[1]),
     ];
     for (const e of sc.edges) {
-      const rid = (id: string): string => (sc.nodes.find((n) => n.id === id)?.role === 'boundary' ? `${sc.key}|${id}` : id);
+      const rid = (id: string): string => {
+        const b = sc.nodes.find((n) => n.id === id);
+        return b?.role === 'boundary' && !DEPLOYMENT_TYPES.has(b.type) ? `${sc.key}|${id}` : id;
+      };
       const s = typeof e.source === 'string' ? rid(e.source) : l.frameId;
       const t = typeof e.target === 'string' ? rid(e.target) : l.frameId;
       if (!s || !t || !rects.has(s) || !rects.has(t)) continue;

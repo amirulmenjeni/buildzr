@@ -13,15 +13,19 @@ export interface Element {
   id: string; modelId: string; type: string; parent: string | null; children: string[];
   name: string; description: string | null; technology: string | null; tags: string[];
   properties: Record<string, string>; url: string | null; group: string | null; views: string[];
+  // deployment elements only
+  environment?: string; instanceOf?: string; instances?: string;
+  healthChecks?: { name: string; url: string; interval: number | null; timeout: number | null }[];
 }
+export interface Environment { key: string; name: string; id: string; nodes: string[]; views: string[] }
 export interface Relationship {
   id: string; modelId: string; source: string; destination: string;
   description: string | null; technology: string | null; tags: string[]; properties: Record<string, string>;
 }
-export interface ViewDef { key: string; viewKey?: string; kind: string; title: string; description?: string | null; scope: string | null; scene: string }
+export interface ViewDef { key: string; viewKey?: string; kind: string; title: string; description?: string | null; scope: string | null; scene: string; environment?: string }
 export interface ModelJson {
   schema: 'buildzr.model/2'; modelHash: string; workspace: { name: string; description?: string | null };
-  elements: Element[]; relationships: Relationship[]; views: ViewDef[]; deployment: { environments: unknown[] };
+  elements: Element[]; relationships: Relationship[]; views: ViewDef[]; deployment: { environments: Environment[] };
 }
 
 export interface LabelLine { text: string; tier: 0 | 1 | 2; weight?: 'normal' | 'bold'; size?: number; italic?: boolean }
@@ -31,7 +35,7 @@ export interface SceneNode {
   id: string; modelId?: string; role: 'element' | 'boundary'; type: string; parent: string | null;
   x: number; y: number; w: number; h: number; shape: string; style: NodeStyle;
   label: { lines: LabelLine[]; anchor: 'center' | 'top' | 'bottom-left' | 'top-left' };
-  tags: string[]; name: string; frame?: Frame;
+  tags: string[]; name: string; frame?: Frame; instances?: string;
 }
 export type Endpoint = string | { port: string };
 export interface SceneEdge {
