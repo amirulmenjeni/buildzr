@@ -1,4 +1,4 @@
-"""The wheel ships the built package data (schemas, ELK vendor files, fonts, viewer bundle)."""
+"""The wheel ships the built package data (schemas, ELK vendor files, fonts, viewer bundle, built example)."""
 
 from __future__ import annotations
 
@@ -36,6 +36,9 @@ def test_wheel_contents(tmp_path: Path) -> None:
     assert any(v.endswith("elk.bundled.js") for v in vendor)
     expected |= vendor
     expected |= tree("buildzr/site/static")  # gitignored build output, shipped when present
+    example = tree("buildzr/site/example")  # the built workspace of `buildzr serve --example`
+    assert {"buildzr/site/example/build.json", "buildzr/site/example/data/index.json"} <= example
+    expected |= example | {"buildzr/site/example.py"}
     missing = sorted(expected - names)
     assert missing == []
     assert not [n for n in names if "fixtures" in n or n.startswith("tests/")]

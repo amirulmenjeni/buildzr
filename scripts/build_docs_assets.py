@@ -40,10 +40,10 @@ STATIC = os.path.join(PACKAGE, "site", "static")
 LAYOUT = os.path.join(PACKAGE, "site", "layout")
 #: Pyodide release the page loads from the jsdelivr CDN (keep in step with docs/javascripts/runcode-worker.js).
 PYODIDE_VERSION = "0.28.3"
-#: Parts of the package the browser never uses: the PlantUML jars, the viewer bundle (staged on its own), elkjs
-#: (loaded as JavaScript) and the Node runner.
-DROP = ("buildzr/jars/", "buildzr/site/static/", "buildzr/site/layout/vendor/", "buildzr/site/layout/runner.mjs",
-        "buildzr/site/layout/browser_elk.js")
+#: Parts of the package the browser never uses: the PlantUML jars, the viewer bundle (staged on its own), the built
+#: example of ``buildzr serve --example``, elkjs (loaded as JavaScript) and the Node runner.
+DROP = ("buildzr/jars/", "buildzr/site/static/", "buildzr/site/example/", "buildzr/site/layout/vendor/",
+        "buildzr/site/layout/runner.mjs", "buildzr/site/layout/browser_elk.js")
 KEEP_SUFFIXES = (".py", ".json", ".txt", ".typed")
 #: Pure-Python wheels the slim wheel needs that Pyodide does not ship (typing-extensions it does).
 VENDORED = ("pyhumps",)

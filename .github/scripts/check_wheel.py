@@ -11,8 +11,9 @@ check makes such a build fail before it can be published.
 
 Every archive must contain the viewer (`index.html` and a JS bundle), the five
 JSON schemas, the modules of `buildzr build` and `buildzr serve` (`cli.py`,
-`build.py`, `serve.py`) and the layout's Node runner with its vendored elkjs
-bundle. The wheel version
+`build.py`, `serve.py`), the built example of `buildzr serve --example`
+(`example/build.json`, `example/data/index.json`) and the layout's Node runner
+with its vendored elkjs bundle. The wheel version
 must equal the version in `buildzr/__about__.py`. The agent skill (`skills/`) ships in
 the sdist, whose tests read it, and never in the wheel. Stdlib only.
 """
@@ -33,6 +34,8 @@ REQUIRED = [
     f'{SITE}/serve.py',
     f'{SITE}/layout/runner.mjs',
     f'{SITE}/layout/vendor/elk.bundled.js',
+    f'{SITE}/example/build.json',
+    f'{SITE}/example/data/index.json',
 ] + [
     f'{SITE}/schema/{name}.schema.json'
     for name in ('build', 'config', 'index', 'levels', 'model', 'scene')
@@ -128,7 +131,7 @@ def main(argv: List[str]) -> int:
     if errors:
         print(f'FAILED: {len(errors)} problem(s) found in the built package.', file=sys.stderr)
         return 1
-    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas, layout and command modules' + (', and the sdist the agent skill.' if with_sdist else '.'))
+    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas, example, layout and command modules' + (', and the sdist the agent skill.' if with_sdist else '.'))
     return 0
 
 

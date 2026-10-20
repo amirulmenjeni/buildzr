@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Iterable, NoReturn, Optional
 
@@ -26,6 +28,7 @@ from buildzr.site.config import (
     Config,
     ConfigError,
 )
+from buildzr.site.example import ExampleError, stage as stage_example
 from buildzr.site.serve import Catalog, holds_built_workspaces, serve
 
 
@@ -84,6 +87,10 @@ def _parser() -> argparse.ArgumentParser:
                    help="a workspaces folder or a .py file (built if stale, then the build output is served; it "
                         "replaces workspaces: of buildzr.yaml), or a folder of built workspaces (served as it is) "
                         "(default: workspaces: in buildzr.yaml, a path or a list, else workspaces/)")
+    s.add_argument("--example", action="store_true",
+                   help="serve the bundled example workspace instead of your own: nothing is built or written, and "
+                        "buildzr.yaml is ignored (only --port, --host, --public-url and --cors-origin apply; "
+                        "PATH, --no-build, --rebuild, -c and -v do not)")
     s.add_argument("--no-build", action="store_true", help="serve the build output as it is, without building")
     s.add_argument("--rebuild", action="store_true", help="build every workspace again, even the up-to-date ones")
     s.add_argument("-c", "--config", metavar="FILE", default=None,
@@ -398,7 +405,35 @@ def _serve_settings(args: argparse.Namespace, cfg: Optional[Config]) -> tuple[st
     return host, port, public_url, origins
 
 
+#: The ``serve`` options that have no meaning for ``--example``, which neither builds nor reads a config.
+_EXAMPLE_CONFLICTS = (("path", "PATH"), ("no_build", "--no-build"), ("rebuild", "--rebuild"), ("config", "-c/--config"),
+                      ("verbose", "-v/--verbose"))
+
+
+def _cmd_serve_example(args: argparse.Namespace) -> int:
+    """``serve --example``: the bundled example, copied to a temporary folder that is removed on exit."""
+    for dest, shown in _EXAMPLE_CONFLICTS:
+        if getattr(args, dest):
+            raise _Usage(f"--example serves the bundled example, so it cannot be used with {shown}")
+    host, port, public_url, origins = _serve_settings(args, None)  # no buildzr.yaml: the folder it is run in is ignored
+    with tempfile.TemporaryDirectory(prefix="buildzr-example-") as tmp:
+        try:
+            stage_example(tmp)
+        except ExampleError as e:
+            return _fail(str(e))
+        previous = signal.signal(signal.SIGTERM, signal.default_int_handler)  # stop like Ctrl+C, so tmp is removed
+        try:
+            serve(tmp, host, port, public_url, origins, shown="the bundled example")
+        except OSError as e:
+            return _fail(f"cannot serve on {host}:{port}: {e.strerror or e}")
+        finally:
+            signal.signal(signal.SIGTERM, previous)
+    return 0
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
+    if args.example:
+        return _cmd_serve_example(args)
     cfg = _load_config(args.config)
     host, port, public_url, origins = _serve_settings(args, cfg)
     if args.no_build and args.rebuild:
