@@ -25,6 +25,9 @@ planned:
       - id: deployment-instance-navigation
         title: Jump from elements to deployment instances
         description: Navigate from a software system or container to the deployment instances that run it.
+      - id: browser-demo
+        title: Interactive browser demo
+        description: Edit a buildzr architecture model and explore the rendered viewer side by side, entirely in the browser.
   - target: "1.1"
     items:
       - id: viewer-image-export
