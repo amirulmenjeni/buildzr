@@ -28,6 +28,12 @@ planned:
       - id: browser-demo
         title: Interactive browser demo
         description: Edit a buildzr architecture model and explore the rendered viewer side by side, entirely in the browser.
+      - id: export-cli
+        title: Export command for model files
+        description: Export JSON, PlantUML, SVG and PNG from workspace model files with a public buildzr command, covering every workspace a file creates or one you pick; Workspace.save() is deprecated in its favour.
+      - id: viewer-workspace-switcher
+        title: Switch between workspaces in the viewer
+        description: Pick among the workspaces a model file, a buildzr serve catalog or a Run Code snippet creates, with the selector hidden when there is only one.
   - target: "1.1"
     items:
       - id: viewer-image-export
