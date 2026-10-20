@@ -13,9 +13,9 @@
 
 ![The buildzr viewer showing a system context view, with the User selected and its details in the right panel][viewer-image]
 
-## Start here
+## Try it now
 
-**Try the viewer in one command.** With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed, run:
+With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed (it finds or fetches a compatible Python), run:
 
 ```bash
 uvx buildzr serve --example
@@ -24,11 +24,21 @@ uvx buildzr serve --example
 <!-- DEPENDS ON feature/serve-example (bundled prebuilt example and `serve --example`); do not merge this README before it. -->
 This serves a bundled example workspace and prints its address. Open it to explore the interactive viewer. You do not need a project, a model file or Node.js. If you prefer a browser tab, press **Run Code** on the [complete Quick Start example][try-it]: it runs without installing anything.
 
-**Let your coding agent do it.** Install the buildzr skill, then ask your agent to model your architecture:
+<!-- PRE-RELEASE NOTE: delete this block when buildzr 1.0.0 final is on PyPI. -->
+> **Until 1.0.0 final is out, add a pre-release flag:** `uvx --prerelease allow buildzr serve --example`, `uv add --prerelease allow buildzr`, or `pip install --pre buildzr`.
+<!-- END PRE-RELEASE NOTE -->
+
+## Use buildzr with your coding agent
+
+Let your coding agent model your architecture for you. The buildzr skill teaches it to write model files, build them, fix build errors, serve the viewer and answer questions about your model.
+
+Install the skill in your project:
 
 ```bash
 npx skills add amirulmenjeni/buildzr
 ```
+
+Then ask your agent:
 
 ```text
 Use buildzr to model the architecture of this repository. Read the code, create or update
@@ -36,17 +46,11 @@ the model in workspaces/, add a system context view and a container view, build 
 tell me how to open it with buildzr serve.
 ```
 
-The skill teaches your agent to write model files, build them, fix build errors, serve the viewer and answer questions about your model. See [Use buildzr with AI agents][ai-agents].
-
-**Or set up a project.** The Quick Start below takes you from an empty folder to your own diagram.
-
-<!-- PRE-RELEASE NOTE: delete this block when buildzr 1.0.0 final is on PyPI. -->
-> **Until 1.0.0 final is out, add a pre-release flag:** `uvx --prerelease allow buildzr serve --example`, `uv add --prerelease allow buildzr`, or `pip install --pre buildzr`.
-<!-- END PRE-RELEASE NOTE -->
+The agent builds the model and tells you how to open the viewer. See [Use buildzr with AI agents][ai-agents] for the requirements and what the agent can do.
 
 ## Quick Start
 
-You need:
+To write a model yourself, start a project. You need:
 
 - Python 3.10 or newer.
 - Node.js 18 or newer: when buildzr builds your model, its layout step runs on Node. Check it with `node --version`.
