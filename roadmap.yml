@@ -27,26 +27,26 @@ planned:
         description: Navigate from a software system or container to the deployment instances that run it.
   - target: "1.1"
     items:
-      - id: dynamic-view-animation
-        title: Dynamic view animation
-        description: Step through a dynamic view's interactions one at a time in the viewer.
       - id: viewer-image-export
         title: PNG and SVG export from the viewer
         description: Download the diagram on screen as a PNG or SVG image straight from the viewer.
       - id: serve-watch-mode
         title: Watch mode for buildzr serve
         description: Rebuild and refresh the viewer automatically when a model file changes.
-      - id: viewer-docs-adrs
-        title: Documentation and ADRs in the viewer
-        description: Read a workspace's documentation and architecture decision records next to its diagrams.
       - id: viewer-branding-themes
         title: Branding and themes in the viewer
         description: Apply a workspace's branding and Structurizr themes when the viewer draws its diagrams.
+  - target: Later
+    items:
+      - id: dynamic-view-animation
+        title: Dynamic view animation
+        description: Step through a dynamic view's interactions one at a time in the viewer.
+      - id: viewer-docs-adrs
+        title: Documentation and ADRs in the viewer
+        description: Read a workspace's documentation and architecture decision records next to its diagrams.
       - id: deployment-health-groups
         title: Deployment health checks and groups
         description: Show deployment health checks and deployment groups in the viewer's deployment views.
-  - target: Later
-    items:
       - id: workspace-dependencies
         title: Workspace dependency tracking
         description: Track which workspaces depend on each other so changes can be traced across them.
