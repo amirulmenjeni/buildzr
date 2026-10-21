@@ -74,14 +74,33 @@ class LintCommitsTest(unittest.TestCase):
     def test_valid_commit_passes(self) -> None:
         self.assertEqual(self.check(commit(self.cwd, GOOD), {}), [])
 
-    def test_exemptions_are_exactly_the_three_known_commits(self) -> None:
+    def test_exemptions_are_full_shas_with_a_reason(self) -> None:
+        for sha, reason in lint_commits.EXEMPT_COMMITS.items():
+            self.assertRegex(sha, r'^[0-9a-f]{40}$')
+            self.assertTrue(reason)
+
+    def test_exemptions_are_exactly_the_known_commits(self) -> None:
         self.assertEqual(
-            sorted(lint_commits.EXEMPT_COMMITS),
-            [
-                '06e8d399fcfa9bb8c3bc5160d14df15a82829b7c',
-                '29a3c889269753803bdcff3df7c7d4a1ec57b9f4',
-                '6a158a8af9598590aa834fd396d94d15ec9c350a',
-            ],
+            lint_commits.EXEMPT_COMMITS,
+            {
+                '6a158a8af9598590aa834fd396d94d15ec9c350a': 'header-max-length',
+                '29a3c889269753803bdcff3df7c7d4a1ec57b9f4': 'subject-case',
+                '06e8d399fcfa9bb8c3bc5160d14df15a82829b7c': 'subject-case',
+                '11c9f39156a08e51faa1f0d5f50d6f3e7debd598': 'type-enum',
+                '748e7d8d2be69b3f5eecb8a7a8f499367ffa83ea': 'subject-case,type-enum',
+                'b1e654f0ab273a7eedf45a002a2169f05d82a263': 'type-enum',
+                'c9eb80d75c92bd77072049fb47a9e92422077618': 'subject-case',
+                '726bfca6619b4bd1167a974cb1b124afddb5a92c': 'subject-case',
+                'c32f55dd3b50d2cafdde5b43e23360f9ee71ff17': 'type-enum',
+                '4e15ed0237a710d8db38fc1bf9544045d1d78a74': 'type-enum',
+                'a28e6790dd5e16c241fdfc61b43be1c1b0d04709': 'type-enum',
+                'bfb9d716badad71e56144888665b61f9cec938f9': 'type-enum',
+                '75b42240a3e9cb40c85d700ed2d16c681c919486': 'type-enum',
+                '4f34fe519e332633c1b7beef8b5a6a2866d2086c': 'type-enum',
+                '60c511a5d489dd0ae813a98df4eacb03f91af437': 'type-enum',
+                'c20ebfafe28b897cbd724a3a0e20fa5b612a0106': 'type-enum',
+                'c9bb749639299ea053830faee47fecef18fedaa4': 'type-enum',
+            },
         )
 
 

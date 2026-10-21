@@ -119,13 +119,15 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20 # As in the image of the action this replaces
 
       - name: Test commit lint script
         run: python3 .github/scripts/test_lint_commits.py
 
       # Not wagoid/commitlint-github-action, which cannot exempt commits and
       # lints only the first 100 commits of a pull request.
+      # commitlint 19.8.1 is the last 19.x release, the major the action's
+      # 6.2.1 image used (^19), and supports Node >=18.
       - name: Lint commit messages
         env:
           COMMITLINT: npx --no-install commitlint
