@@ -83,6 +83,12 @@ def run_code(code: str) -> tuple[Any, str]:
     Element ids start at 1 again (the DSL counts them per process). Returns ``(workspace, printed text)``.
     Raises :class:`SnippetError` with the snippet's line when the snippet fails.
     """
+    created, printed = run_workspaces(code)
+    return created[-1], printed
+
+
+def run_workspaces(code: str) -> tuple[list[Any], str]:
+    """Like :func:`run_code`, but returns every ``Workspace`` the snippet created, in creation order."""
     from buildzr.dsl import Workspace
     from buildzr.dsl.factory import GenerateId
 
@@ -120,7 +126,7 @@ def run_code(code: str) -> tuple[Any, str]:
         Workspace.__init__ = orig  # type: ignore[method-assign]
     if not created:
         raise SnippetError("the code created no Workspace, so there is nothing to draw")
-    return created[-1], out.getvalue()
+    return created, out.getvalue()
 
 
 def _user_line(lineno: Optional[int], offset: int, count: int) -> Optional[int]:
@@ -193,18 +199,43 @@ def focus_for(code: str, model: Json) -> Json:
 def build_snippet(code: str, runner: ElkLike, k: float = 4.0) -> Json:
     """Run ``code`` and build what the viewer needs: ``files`` (the ``data/`` folder), ``focus`` (see
     :func:`focus_for`), ``workspaceJson`` (the Structurizr JSON), ``stdout`` and ``drawn`` (boxes over all scenes).
-    Raises :class:`SnippetError`."""
-    workspace, stdout = run_code(code)
-    try:
-        files, model = build_files(workspace, runner, k)
-        workspace_json = workspace.to_json()
-    except Exception as e:  # noqa: BLE001 - the model the reader wrote cannot be drawn
-        raise SnippetError(f"the workspace could not be drawn: {type(e).__name__}: {e}") from None
-    focus = focus_for(code, model)
-    drawn = sum(len(json.loads(text).get("nodes", [])) for path, text in files.items() if path.startswith("scene/"))
+
+    These describe the last workspace the snippet created. When it created more than one, ``workspaces`` also lists
+    all of them (``name``, ``files``, ``focus``, ``workspaceJson``, in creation order) and ``active`` names the last,
+    so the viewer can offer a switcher. Raises :class:`SnippetError`."""
+    created, stdout = run_workspaces(code)
+    built: list[Json] = []
+    seen: set[str] = set()
+    for n, workspace in enumerate(created):
+        try:
+            files, model = build_files(workspace, runner, k)
+            workspace_json = workspace.to_json()
+        except Exception as e:  # noqa: BLE001 - the model the reader wrote cannot be drawn
+            raise SnippetError(f"the workspace could not be drawn: {type(e).__name__}: {e}") from None
+        # The marker names an element of the workspace the page is about: the last one. The others open on a default.
+        focus = focus_for(code if n == len(created) - 1 else "", model)
+        drawn = sum(len(json.loads(text).get("nodes", [])) for path, text in files.items() if path.startswith("scene/"))
+        name = unique_name(str(model["workspace"]["name"]) or "Workspace", seen)
+        built.append({"name": name, "files": files, "focus": focus, "workspaceJson": workspace_json, "drawn": drawn})
     if len(stdout) > MAX_STDOUT:
         stdout = stdout[:MAX_STDOUT] + "\n…"
-    return {"files": files, "focus": focus, "workspaceJson": workspace_json, "stdout": stdout, "drawn": drawn}
+    last = built[-1]
+    result: Json = {"files": last["files"], "focus": last["focus"], "workspaceJson": last["workspaceJson"], "stdout": stdout,
+                    "drawn": sum(b["drawn"] for b in built)}
+    if len(built) > 1:
+        result["workspaces"] = [{k_: b[k_] for k_ in ("name", "files", "focus", "workspaceJson")} for b in built]
+        result["active"] = last["name"]
+    return result
+
+
+def unique_name(name: str, seen: set[str]) -> str:
+    """``name``, or ``name (2)``, ``name (3)``... when two workspaces of a snippet have the same name; remembered in ``seen``."""
+    unique, n = name, 1
+    while unique in seen:
+        n += 1
+        unique = f"{name} ({n})"
+    seen.add(unique)
+    return unique
 
 
 class JsElkRunner:

@@ -65,6 +65,13 @@ button { font: inherit; }
 .views button.on { background: var(--sel-bg); border-left-color: var(--accent); }
 .views button:focus-visible, .link:focus-visible, .chip:focus-visible, .toolbar button:focus-visible, .crumbs button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .left > * { flex: none; }
+/* ---- workspace switcher: a native select in the left panel (and on the broken and error pages) */
+.wsswitch { margin: 6px 12px 4px; }
+.wsswitch .h { display: block; margin: 4px 0; }
+.wsswitch select { width: 100%; max-width: 100%; box-sizing: border-box; min-height: 32px; font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--control-line); border-radius: 6px; padding: 4px 8px; }
+.wsswitch select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fatal .wsswitch, .broken-body .wsswitch { margin: 12px 0; max-width: 360px; }
+@media (max-width: 767px) { .wsswitch select { min-height: 44px; } }
 .legal { font-size: 11px; margin: 12px; color: var(--muted); }
 
 /* settings: gear at the bottom-right of the left panel, popover above it */

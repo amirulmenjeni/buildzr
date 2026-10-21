@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { WorkspaceSwitcher } from './Workspaces';
 import type { BuildInfo } from './types';
 
 // A broken built workspace (build.json status "broken"): the viewer says so, loudly and without a way to hide it.
@@ -38,6 +39,7 @@ export function BrokenScreen({ build }: { build: BuildInfo }) {
         <strong>This workspace is broken: building it failed at the {build.stage ?? 'unknown'} step.</strong>
       </div>
       <div className="broken-body">
+        <WorkspaceSwitcher />
         {build.workspace && <h1>{build.workspace}</h1>}
         {errors.length > 0 && (
           <>

@@ -101,6 +101,8 @@ Click **core**. The viewer of the Core workspace opens at `http://127.0.0.1:8000
 
 *The Core workspace at `/core/`. Every workspace has its own viewer, its own data and its own [Model API](model-api.md), at `/core/api/v1/`.*
 
+You do not have to go back to this page to open another workspace. With more than one workspace, the left panel of every viewer has a **Workspace** selector that lists them all. Pick one and the viewer opens it. A broken workspace is in the list, marked "(broken)", and its page has the selector too, so you can leave it. On a phone, the selector is at the top of the navigation drawer, which you open with the ☰ button. A build output with a single workspace has no selector.
+
 With only one workspace, the page at `/` is not shown: the browser goes straight on to `/<name>/`, as in the Quick Start. The address `/` keeps working when you add a second workspace later, and then shows this list.
 
 ## 4. Change one model and serve again

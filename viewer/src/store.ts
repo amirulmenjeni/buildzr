@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { hasNoData, loadBuild, loadIndex, loadModel, loadScene, memory, setSource } from './data';
-import { parseMode, type Files, type ThemeChoice } from './protocol';
+import { hasNoData, loadBuild, loadCatalogue, loadIndex, loadModel, loadScene, memory, setSource } from './data';
+import { parseMode, type Files, type ThemeChoice, type WorkspaceSet } from './protocol';
 import { ancestors, chainOf, computeMatches, indexModel, isDeployment, typeLabel, type MatchInfo, type ModelIndex } from './model';
 import { buildHash, emptyFilter, parseHash, type Filter, type Route } from './route';
 import { loadSettings, saveSettings, type SettingId, type SettingValue, type SettingValues } from './settings';
@@ -11,6 +11,9 @@ import type { BuildInfo, IndexJson, ModelJson, Scene } from './types';
 export const MODE = parseMode(location.search);
 const DARK = '(prefers-color-scheme: dark)';
 const prefersDark = (): boolean => typeof matchMedia === 'function' && matchMedia(DARK).matches;
+
+/** One entry of the workspace switcher: `href` when it is another page (a served catalogue), else the data is in memory. */
+export interface WorkspaceChoice { id: string; label: string; href: string | null }
 
 export interface CameraRequest { seq: number; kind: 'path' | 'node' | 'zoom'; id: string | null }
 
@@ -43,6 +46,8 @@ export interface State {
   theme: Theme; // resolved: override, else the setting; 'system' follows prefers-color-scheme
   inspectorOpen: boolean; // embed: the inspector shows only after an explicit selection
   title: string | null; // embed / new tab: the title the parent page gave
+  workspaces: WorkspaceChoice[]; // the switcher lists these; it shows only when there are two or more
+  activeWorkspace: string | null; // the id of the one on screen
   // actions
   init(): Promise<void>;
   applyRoute(r: Route): void;
@@ -64,7 +69,8 @@ export interface State {
   setThemeOverride(t: ThemeChoice | null): void;
   syncTheme(): void;
   closeInspector(): void;
-  load(files: Files, build: BuildInfo | null, route: string | null, title: string | null): Promise<void>;
+  load(files: Files, build: BuildInfo | null, route: string | null, title: string | null, group?: WorkspaceSet | null): Promise<void>;
+  switchWorkspace(id: string): void;
   setGone(): void;
   setUi(p: Partial<Pick<State, 'drawer' | 'drawerTab' | 'sheet' | 'searchOpen'>>): void;
 }
@@ -80,6 +86,15 @@ const sceneKeysFor = (s: Pick<State, 'path' | 'view' | 'm'>): string[] => {
 
 export const useStore = create<State>()((set, get) => {
   const loading = new Set<string>();
+
+  /** The workspaces served next to this one (buildzr serve), for the switcher. The page does not wait for them. */
+  const listWorkspaces = async (gen: number, build: BuildInfo | null): Promise<void> => {
+    if (memorySet) return;
+    const catalogue = await loadCatalogue();
+    const here = build?.name ?? null;
+    if (gen !== generation || !here || catalogue.length < 2 || !catalogue.some((c) => c.name === here)) return;
+    set({ workspaces: catalogue.map((c) => ({ id: c.name, label: c.label, href: c.href })), activeWorkspace: here });
+  };
 
   /** Fetch every scene the current path/view needs and is missing. */
   const ensureScenes = (): void => {
@@ -140,6 +155,7 @@ export const useStore = create<State>()((set, get) => {
     return `Expanded ${e.name}, ${kids} ${t ? typeLabel(t).toLowerCase() : 'element'}${kids === 1 ? '' : 's'}`;
   };
 
+  let memorySet: WorkspaceSet | null = null; // the workspaces an embedding page sent in one load
   let generation = 0; // bumped by every load: scenes of an older model are dropped when they arrive
   const initial = loadSettings();
 
@@ -148,6 +164,7 @@ export const useStore = create<State>()((set, get) => {
     path: '', view: null, selection: null, filter: emptyFilter,
     notice: null, announce: '', treeOpen: {}, rolled: false, drawer: false, drawerTab: 'model', sheet: 'peek', searchOpen: false, camera: { seq: 0, kind: 'path', id: null }, settings: initial,
     themeOverride: MODE.theme, theme: resolveTheme(MODE.theme ?? initial.theme, prefersDark()), inspectorOpen: false, title: null,
+    workspaces: [], activeWorkspace: null,
 
     async init() {
       const gen = generation;
@@ -155,6 +172,7 @@ export const useStore = create<State>()((set, get) => {
         const build = await loadBuild();
         if (gen !== generation) return;
         set({ build });
+        void listWorkspaces(gen, build);
         if (hasNoData(build)) { set({ status: 'broken' }); return; }
         const index = await loadIndex();
         const model = await loadModel(index);
@@ -170,14 +188,31 @@ export const useStore = create<State>()((set, get) => {
     },
 
     /** Data from an embedding page or an opener (embed.ts): replaces the model and starts again from the route. */
-    async load(files, build, route, title) {
+    async load(files, build, route, title, group = null) {
       generation++;
       loading.clear();
       setSource(memory(files, build));
+      memorySet = group;
       if (route !== null) history.replaceState(null, '', route || '#/m');
       set({ status: 'loading', error: null, build: null, index: null, model: null, m: null, scenes: {}, path: '', view: null, selection: null,
-        filter: emptyFilter, notice: null, treeOpen: {}, drawer: false, sheet: 'peek', searchOpen: false, inspectorOpen: false, title });
+        filter: emptyFilter, notice: null, treeOpen: {}, drawer: false, sheet: 'peek', searchOpen: false, inspectorOpen: false, title,
+        workspaces: group ? group.workspaces.map((w) => ({ id: w.name, label: w.name, href: null })) : [], activeWorkspace: group?.active ?? null });
       await get().init();
+    },
+    /** The reader picked a workspace: another page (a served catalogue), or other data the embedding page sent. */
+    switchWorkspace(id) {
+      const to = get().workspaces.find((w) => w.id === id);
+      if (!to || id === get().activeWorkspace) return;
+      if (to.href) {
+        const url = new URL(to.href);
+        if (MODE.embed) url.search = location.search; // the frame stays an embed of the same kind
+        location.assign(url.href);
+        return;
+      }
+      const w = memorySet?.workspaces.find((x) => x.name === id);
+      if (!w || !memorySet) return;
+      void get().load(w.files, w.build, w.route ?? '', get().title, { workspaces: memorySet.workspaces, active: id })
+        .then(() => set({ announce: `Opened workspace ${id}` }));
     },
     setGone() { generation++; set({ status: 'gone' }); },
 

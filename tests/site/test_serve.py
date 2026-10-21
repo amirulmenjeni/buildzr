@@ -333,6 +333,31 @@ def test_public_url_is_the_base_of_the_links(built_two: Path) -> None:
         s.close()
 
 
+def test_files_say_where_the_list_of_workspaces_is(server: Server) -> None:
+    """The viewer reads this header of build.json to offer its workspace switcher; a static host sends nothing like it."""
+    want = "../_buildzr/v1/workspaces"
+    for path in ("/big-bank/build.json", "/big-bank/", "/big-bank/index.html", "/a/build.json"):
+        st, h, _ = server.get(path)
+        assert st == 200 and h.get("X-Buildzr-Workspaces") == want, path
+    # the viewer resolves it against the folder of the workspace: the list, whatever prefix a proxy adds
+    from urllib.parse import urljoin
+    assert urljoin("http://h/x/big-bank/", want) == "http://h/x/_buildzr/v1/workspaces"
+    for path in ("/", "/_buildzr/v1/workspaces", "/big-bank/api/v1/", "/nope/build.json"):
+        assert "X-Buildzr-Workspaces" not in server.get(path)[1], path
+
+
+def test_a_single_workspace_server_sends_no_such_header(built_two: Path) -> None:
+    from buildzr.site.serve import make_workspace_server
+    srv = make_workspace_server(str(built_two / "big-bank"), port=0)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{srv.server_address[1]}/build.json") as r:
+            assert r.status == 200 and r.headers.get("X-Buildzr-Workspaces") is None
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+
 def test_the_list_is_read_only_and_cached(server: Server) -> None:
     st, h, _ = server.get("/_buildzr/v1/workspaces")
     req = urllib.request.Request(server.base + "/_buildzr/v1/workspaces", headers={"If-None-Match": h["ETag"]})

@@ -18,7 +18,7 @@ import pytest
 
 from buildzr.dsl.factory import GenerateId
 from buildzr.site.browser import (SnippetError, Wrapped, build_files, build_snippet, focus_for, run_code,
-                                  wrap_snippet)
+                                  run_workspaces, unique_name, wrap_snippet)
 from buildzr.site.export import load_workspaces
 from buildzr.site.layout import elk
 from buildzr.site.layout.elk import ElkEnvironmentError, ElkRunner
@@ -104,6 +104,71 @@ def test_ids_start_again_for_every_snippet() -> None:
 def test_printed_text_is_kept() -> None:
     _, printed = run_code("with Workspace('x') as w:\n    print('hello')\n")
     assert printed == "hello\n"
+
+
+# --- several workspaces in one snippet (the viewer's switcher) ---------------------------------------------
+
+
+TWO = """\
+with Workspace('Shop') as shop:
+    SoftwareSystem('Store')
+with Workspace('Billing') as billing:
+    SoftwareSystem('Ledger')
+"""
+
+
+def test_every_workspace_of_a_snippet_is_run() -> None:
+    created, _ = run_workspaces(TWO)
+    assert len(created) == 2
+    last, _ = run_code(TWO)
+    assert export_model(last)["workspace"]["name"] == "Billing"  # run_code is still "the last one"
+    assert len(run_workspaces("with Workspace('x') as w:\n    Person('P')\n")[0]) == 1
+
+
+@pytest.mark.parametrize("names, want", [
+    (["Shop", "Billing"], ["Shop", "Billing"]),
+    (["w", "w", "w"], ["w", "w (2)", "w (3)"]),
+    (["a", "a (2)", "a"], ["a", "a (2)", "a (3)"]),
+])
+def test_workspaces_of_a_snippet_get_distinct_names(names: list[str], want: list[str]) -> None:
+    seen: set[str] = set()
+    assert [unique_name(n, seen) for n in names] == want
+
+
+@needs_node
+def test_a_snippet_with_several_workspaces_builds_all_and_opens_the_last(runners: tuple[ElkRunner, ElkRunner]) -> None:
+    result = build_snippet(TWO, runners[1])
+    assert [w["name"] for w in result["workspaces"]] == ["Shop", "Billing"] and result["active"] == "Billing"
+    for w in result["workspaces"]:
+        assert set(w) == {"name", "files", "focus", "workspaceJson"} and "index.json" in w["files"]
+    shop, billing = result["workspaces"]
+    assert shop["files"] != billing["files"] and '"Shop"' in shop["workspaceJson"]
+    # the keys of a one-workspace snippet are those of the last: the page that ignores "workspaces" works as before
+    assert result["files"] == billing["files"] and result["workspaceJson"] == billing["workspaceJson"]
+    assert result["focus"] == billing["focus"] and result["drawn"] > 0
+
+
+@needs_node
+def test_one_workspace_adds_no_list_and_a_marker_names_the_last(runners: tuple[ElkRunner, ElkRunner]) -> None:
+    single = build_snippet(SHOP, runners[1])
+    assert "workspaces" not in single and "active" not in single
+    # "# focus:" is about the workspace the page shows; the others open on their defaults and cannot fail on it
+    result = build_snippet(TWO + "# focus: ledger\n", runners[1])
+    assert result["focus"]["route"] == "#/m?sel=ledger"
+    assert result["workspaces"][0]["focus"]["why"] in ("landscape", "last element with children")
+
+
+def test_a_workspace_that_cannot_be_drawn_stops_the_snippet() -> None:
+    with pytest.raises(SnippetError, match="could not be drawn: RuntimeError: elk exploded"):
+        build_snippet(TWO, _FailingRunner())
+
+
+class _FailingRunner:
+    total_ms = 0.0
+    calls = 0
+
+    def layout(self, graphs: Json) -> Json:
+        raise RuntimeError("elk exploded")
 
 
 # --- focus -------------------------------------------------------------------------------------------------

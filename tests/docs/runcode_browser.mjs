@@ -156,6 +156,7 @@ async function smoke(browser, base, pagePath) {
     const r = await runBlock(page, i);
     const errorLineText = r.errorLine ? await page.locator('.runcode').nth(i).locator('.runcode-error-line').innerText().catch(() => null) : null;
     log({ check: 'block', ...r, errorLineText, where: await where(page, i) });
+    if (r.state === 'drawn') log({ check: 'switcher', block: i, ...(await switcher(page, i)) });
   }
 
   // "Open in a new tab" (the viewer's button, embed contract section 5): the full viewer with the docs page's data
@@ -186,6 +187,28 @@ async function smoke(browser, base, pagePath) {
   log({ check: 'theme', scheme: await page.evaluate(() => document.body.dataset.mdColorScheme), frameThemes: themes });
   log({ check: 'page errors', errors });
   await ctx.close();
+}
+
+/** The workspace switcher of block `i`'s viewer, if it has one: its options, then pick the first other one and read what changed. */
+async function switcher(page, i) {
+  const frame = page.frameLocator('.runcode-frame').nth(await frameIndex(page, i));
+  await frame.locator('.menu').click();
+  const select = frame.getByLabel('Workspace');
+  const found = await select.count();
+  if (!found) return { found: 0 };
+  const options = await select.locator('option').allTextContents();
+  const shown = await select.inputValue();
+  const wrapper = page.locator('.runcode').nth(i);
+  const jsonName = () => wrapper.locator('.runcode-json code').evaluate((c) => JSON.parse(c.textContent).name);
+  const before = { title: await frame.locator('header.top h1').textContent(), json: await jsonName() };
+  const other = options.find((o) => o !== shown);
+  await select.selectOption(other);
+  await frame.locator('header.top h1').filter({ hasNotText: before.title }).waitFor({ state: 'attached', timeout: 30000 }); // the h1 is hidden in a narrow frame
+  await frame.locator('.react-flow__node').first().waitFor({ timeout: 30000 });
+  await page.waitForFunction(([i, name]) => JSON.parse(document.querySelectorAll('.runcode')[i].querySelector('.runcode-json code').textContent).name === name,
+    [i, other], { timeout: 10000 });
+  return { found, options, shown, before, after: { title: await frame.locator('header.top h1').textContent(), json: await jsonName(),
+    nodes: await frame.locator('.react-flow__node').count() } };
 }
 
 async function measure(browser, base, pagePath, mainThread) {

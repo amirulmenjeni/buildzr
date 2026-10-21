@@ -36,6 +36,18 @@ with Workspace('w') as w:
     user >> 'uses' >> sytem
 ```
 
+## Two workspaces
+
+```python
+from buildzr.dsl import Workspace, SoftwareSystem
+
+with Workspace('Shop') as shop:
+    SoftwareSystem('Store')
+
+with Workspace('Billing') as billing:
+    SoftwareSystem('Ledger')
+```
+
 ## Not runnable
 
 ```python
