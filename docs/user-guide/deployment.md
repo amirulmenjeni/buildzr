@@ -91,7 +91,18 @@ Click a box to select it. The inspector on the right shows what the model says a
 
 The model tree on the left lists the people, software systems, containers and components only. To reach a deployment element, open its deployment view or search for it.
 
-## 4. Link to a deployment element
+## 4. Find where a container runs
+
+Select a software system or a container in the model, and the inspector lists **Deployed on**: one line for each deployment instance of it, grouped by environment. Each line is the path of deployment nodes the instance sits in, with the number of copies of the innermost node when it is more than one (`AWS › eu-west-1 › ECS Cluster ×3`).
+
+- With one instance, the inspector has a **Show deployment** button. It opens the deployment view that draws the instance and selects the instance.
+- With several, the button reads **Deployments (3)** and moves you to the list. Pick a line to open its view. When the view you are in already draws the instance, the viewer stays in it.
+- With none, the list says "Not deployed in any environment." and there is no button.
+- An instance that no deployment view draws is listed, but it is not a link: its line says "(in no deployment view)". This happens when the environment has no `DeploymentView`, or when the view's `software_system_selector` leaves the instance out.
+
+The list only appears when the workspace has at least one `DeploymentEnvironment`. Back returns to the container, and the **Instance of** link in the inspector of an instance goes the other way. In an embedded viewer the same list works, and the history of the host page is not changed. On a phone, the button sits in the first lines of the sheet, and every line is at least 44 px high.
+
+## 5. Link to a deployment element
 
 Every deployment element has an id that starts with `deploy/` and the environment: the ECS Cluster is `deploy/production/aws/eu-west-1/ecs-cluster`, and the API instance on it is `deploy/production/aws/eu-west-1/ecs-cluster/api`. An instance takes the name of its container.
 
@@ -103,7 +114,7 @@ http://127.0.0.1:8000/shop-deployment/#/v/production?sel=deploy/production/aws/e
 
 The link `#/m/<id>` of a deployment element also works: it opens the first deployment view that shows the element. See [Viewer links](../viewer-hash-routes.md) for every form of link.
 
-## 5. On a phone
+## 6. On a phone
 
 On a screen narrower than 768 px, the view fills the screen. Tap a box to select it; the inspector opens as a sheet at the bottom:
 
@@ -111,7 +122,7 @@ On a screen narrower than 768 px, the view fills the screen. Tap a box to select
 
 *The same view on a phone, 390 px wide, with the ECS Cluster selected.*
 
-## 6. Ask the Model API
+## 7. Ask the Model API
 
 The [Model API](../model-api.md) answers questions about deployment elements too. For example, this request lists the container instances and where they run (`parent`):
 
