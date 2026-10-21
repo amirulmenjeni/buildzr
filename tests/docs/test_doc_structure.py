@@ -33,7 +33,7 @@ def parser_options(command: str) -> tuple[set[str], set[str]]:
     return found, first
 
 
-@pytest.mark.parametrize("command", ["build", "serve"])
+@pytest.mark.parametrize("command", ["build", "export", "serve"])
 def test_cli_page_lists_exactly_the_options_of_the_parser(command: str) -> None:
     with open(os.path.join(DOCS, "cli.md"), encoding="utf-8") as f:
         text = f.read()

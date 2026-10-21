@@ -1,4 +1,5 @@
 import json
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 import buildzr
@@ -526,6 +527,13 @@ class Workspace(DslWorkspaceElement):
         """
         Save workspace to file(s) in the specified format.
 
+        .. deprecated::
+            Use the ``buildzr export`` command instead, which writes every
+            workspace of a model file in JSON, PlantUML, SVG and PNG. This
+            method keeps working and emits a :class:`DeprecationWarning`.
+            To get the content in memory, use :meth:`to_json`,
+            :meth:`to_plantuml` and :meth:`to_svg`.
+
         Args:
             format: Output format. One of:
                 - 'json': Single JSON file (default)
@@ -563,6 +571,23 @@ class Workspace(DslWorkspaceElement):
             >>> w.save(format='svg')  # Saves to ./
             >>> w.save(format='svg', path='out/', layout='smetana')  # No Graphviz
         """
+        warnings.warn(
+            "Workspace.save() is deprecated and will be removed in a future "
+            "release; use the `buildzr export` command instead "
+            "(see https://buildzr.dev/user-guide/export/)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._save(format, path, pretty, layout)
+
+    def _save(
+        self,
+        format: SaveFormat = 'json',
+        path: Optional[Union[str, Path]] = None,
+        pretty: bool = False,
+        layout: PlantUmlLayout = 'dot',
+    ) -> Union[str, List[str]]:
+        """What :meth:`save` does, without the deprecation warning; ``buildzr export`` uses it."""
         if layout not in ('dot', 'smetana'):
             raise ValueError(
                 f"Unsupported layout: {layout!r}. Use one of: 'dot', 'smetana'"
