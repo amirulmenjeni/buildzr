@@ -82,6 +82,7 @@ nav:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quick-start.md
     - Use buildzr with AI agents: getting-started/ai-agents.md
+    - Try it in your browser: demo.md
   - User Guide:
     - Core Concepts: user-guide/core-concepts.md
     - Workspace: user-guide/workspace.md
@@ -115,8 +116,11 @@ extra:
       link: https://github.com/amirulmenjeni/buildzr
 
 extra_javascript:
+  - javascripts/runcode-client.js
   - javascripts/interactive-code.js
+  - javascripts/demo.js
 
 extra_css:
   - stylesheets/runcode.css
+  - stylesheets/demo.css
   - stylesheets/roadmap.css
