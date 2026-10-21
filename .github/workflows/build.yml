@@ -115,7 +115,26 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: wagoid/commitlint-github-action@v6
+          fetch-depth: 0 # Get every commit of the pull request
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Test commit lint script
+        run: python3 .github/scripts/test_lint_commits.py
+
+      # Not wagoid/commitlint-github-action, which cannot exempt commits and
+      # lints only the first 100 commits of a pull request.
+      - name: Lint commit messages
+        env:
+          COMMITLINT: npx --no-install commitlint
+          BASE: ${{ github.event.pull_request.base.sha || format('{0}^', github.sha) }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          npm install --no-save --no-package-lock \
+            @commitlint/cli@19.8.1 @commitlint/config-conventional@19.8.1
+          python3 .github/scripts/lint_commits.py "$BASE" "$HEAD"
 
   tests:
     runs-on: ubuntu-latest
