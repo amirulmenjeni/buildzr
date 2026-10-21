@@ -43,4 +43,4 @@ with Workspace('w') as w:
         description="Web App Container View",
     )
 
-    w.save(path='workspace.json')
+    # Write the JSON with: buildzr export examples/system_context_and_container_view.py

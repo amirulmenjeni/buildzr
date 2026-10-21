@@ -121,8 +121,6 @@ with Workspace('Hardware Architecture') as w:
         key="hardware-view",
         description="Hardware component interactions",
     )
-
-    w.save(path='workspace.json')
 ```
 
 Custom elements can have relationships with C4 elements (Person, SoftwareSystem, Container, Component) and can be displayed in **any** view type --- including `SystemLandscapeView`, `SystemContextView`, and `CustomView`.
@@ -456,8 +454,6 @@ with Workspace(
     StyleElements(on=[wa], background='#ffffff')
     StyleElements(on=[user], shape='Person')
     StyleElements(on=[db], shape='Cylinder')
-
-    w.save(path='workspace.json', pretty=True)
 ```
 
 ## See Also

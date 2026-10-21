@@ -82,7 +82,7 @@ View models for different diagram types:
 
 ### Exporting to JSON
 
-The models are dataclasses, so they have no JSON method of their own. Use `buildzr.encoders.JsonEncoder`, the encoder that `Workspace.save()` of the DSL uses: it leaves out the fields that are `None`.
+The models are dataclasses, so they have no JSON method of their own. Use `buildzr.encoders.JsonEncoder`, the encoder that the DSL's `to_json()` and `buildzr export` use: it leaves out the fields that are `None`.
 
 ```python
 import json
