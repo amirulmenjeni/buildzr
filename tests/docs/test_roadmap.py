@@ -183,7 +183,7 @@ def test_nav_style_and_readme_wire_the_roadmap_in() -> None:
                    "stylesheets/roadmap.css"):
         assert needle in config
     with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as f:
-        assert "(https://buildzr.dev/roadmap/)" in f.read()
+        assert "[roadmap]: https://buildzr.dev/roadmap/" in f.read()
     with open(os.path.join(DOCS, "structurizr-compatibility.md"), encoding="utf-8") as f:
         text = f.read()
     assert "Compatibility is not the roadmap" in text and "roadmap.md" in text

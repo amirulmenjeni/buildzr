@@ -61,7 +61,9 @@ def test_every_label_is_defined_for_the_readme_and_for_the_home_page() -> None:
         if target.startswith("http"):  # GitHub pages have no page in docs/
             assert target == readme[k] and "github.com/amirulmenjeni/buildzr" in target, k
         else:
-            assert os.path.isfile(os.path.join(DOCS, target.split("#")[0])), f"{k}: docs/{target} does not exist"
+            page = target.split("#")[0]
+            # roadmap.md is generated from roadmap.yml by the mkdocs hook: there is no such file in docs/
+            assert page == "roadmap.md" or os.path.isfile(os.path.join(DOCS, page)), f"{k}: docs/{target} does not exist"
 
 
 # --- the Quick Start of the README --------------------------------------------------------------------------

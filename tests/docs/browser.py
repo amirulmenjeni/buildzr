@@ -69,6 +69,7 @@ def build_docs(out: Path, extra_pages: Optional[dict[str, str]] = None) -> Path:
     """``mkdocs build --strict`` of a copy of the docs (plus ``extra_pages``: name -> markdown) into ``out/site``."""
     docs = out / "docs"
     shutil.copytree(DOCS, docs)
+    shutil.copy(os.path.join(ROOT, "roadmap.yml"), out / "roadmap.yml")  # the hooks read it next to the docs folder
     for name, text in (extra_pages or {}).items():
         (docs / name).write_text(text, encoding="utf-8")
     with open(os.path.join(ROOT, "mkdocs.yml"), encoding="utf-8") as f:
