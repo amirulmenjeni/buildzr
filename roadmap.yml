@@ -34,6 +34,9 @@ planned:
       - id: viewer-workspace-switcher
         title: Switch between workspaces in the viewer
         description: Pick among the workspaces a model file, a buildzr serve catalog or a Run Code snippet creates, with the selector hidden when there is only one.
+      - id: viewer-fonts-notices
+        title: Bundled viewer font and third-party notices
+        description: The self-contained viewer bundles Inter regular and bold as its default font and adds a local About view and a THIRD_PARTY_NOTICES.txt file preserving dependency licence and copyright notices.
   - target: "1.1"
     items:
       - id: viewer-image-export
@@ -44,7 +47,7 @@ planned:
         description: Rebuild and refresh the viewer automatically when a model file changes.
       - id: viewer-branding-themes
         title: Branding and themes in the viewer
-        description: Apply a workspace's branding and Structurizr themes when the viewer draws its diagrams.
+        description: Apply a workspace's branding and Structurizr themes when the viewer draws its diagrams, with custom typography from licensed bundled fonts or system font stacks; diagram fonts are build-time inputs as their metrics affect layout.
   - target: Later
     items:
       - id: dynamic-view-animation
