@@ -28,6 +28,7 @@ jobs:
             src:
               - 'buildzr/**'
               - 'tests/**'
+              - 'viewer/**'
               - 'pyproject.toml'
               - 'uv.lock'
               - '.python-version'
@@ -194,6 +195,20 @@ jobs:
 
     - name: Validate optional dependencies
       run: uv run --python ${{ matrix.python-version }} python -c "import IPython, datamodel_code_generator, jpype, mkdocs, mypy, yq"
+
+    # The viewer is gitignored build output (buildzr/site/static/). The tests of
+    # `buildzr build` and the documentation examples need it, and the real
+    # layout needs Node.
+    - name: Set up Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+
+    - name: Build viewer
+      working-directory: viewer
+      run: |
+        npm ci
+        npm run build
 
     - name: Run tests
       run: uv run --python ${{ matrix.python-version }} pytest --mypy tests

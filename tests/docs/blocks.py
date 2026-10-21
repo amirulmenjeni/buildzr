@@ -196,6 +196,8 @@ _RULES: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"(?<![\w:/.])/[\w.@+\-/]+"), "<PATH>"),
     (re.compile(r"(?<=[\d\]]):\d{2,5}\b"), ":PORT"),
     (re.compile(r"\b\d+ ms\b"), "N ms"),
+    # Python 3.12 and newer print a suggestion after a NameError traceback; 3.10 and 3.11 do not.
+    (re.compile(r"(NameError: name '[^']*' is not defined)\. Did you mean: '[^']*'\?\s*$"), r"\1"),
 ]
 
 
