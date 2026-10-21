@@ -24,15 +24,18 @@ VIEWER = [
     'buildzr/site/static/index.html',
     'buildzr/site/static/assets/index-abc.js',
     'buildzr/site/static/assets/index-abc.css',
+    'buildzr/site/static/assets/THIRD_PARTY_NOTICES-abc.txt',
 ]
 OTHER = [path for path in check_wheel.REQUIRED if '/static/' not in path] + ['buildzr/__init__.py']
 
 
-def make_wheel(folder: Path, files: Iterable[str], version: str = VERSION) -> Path:
+def make_wheel(folder: Path, files: Iterable[str], version: str = VERSION, notices: bool = True) -> Path:
     path = folder / f'buildzr-{version}-py3-none-any.whl'
     with zipfile.ZipFile(path, 'w') as z:
         for name in files:
             z.writestr(name, '')
+        if notices:
+            z.writestr(f'buildzr-{version}.dist-info/licenses/{check_wheel.NOTICES}', '')
         z.writestr(
             f'buildzr-{version}.dist-info/METADATA',
             f'Metadata-Version: 2.4\nName: buildzr\nVersion: {version}\n',
@@ -40,11 +43,11 @@ def make_wheel(folder: Path, files: Iterable[str], version: str = VERSION) -> Pa
     return path
 
 
-def make_sdist(folder: Path, files: Iterable[str]) -> Path:
+def make_sdist(folder: Path, files: Iterable[str], notices: bool = True) -> Path:
     path = folder / f'buildzr-{VERSION}.tar.gz'
     src = folder / 'sdist-src'
     with tarfile.open(path, 'w:gz') as t:
-        for name in files:
+        for name in [*files, *([check_wheel.NOTICES] if notices else [])]:
             file = src / f'buildzr-{VERSION}' / name
             file.parent.mkdir(parents=True, exist_ok=True)
             file.write_text('')
@@ -103,6 +106,18 @@ class TestCheckWheel(unittest.TestCase):
         self.assertIn('wheel: missing buildzr/site/example/build.json', result.stdout)
         self.assertIn('wheel: missing buildzr/site/example/data/index.json', result.stdout)
 
+    def test_wheel_without_viewer_notices(self) -> None:
+        make_wheel(self.tmp, [f for f in VIEWER if 'THIRD_PARTY_NOTICES' not in f] + OTHER)
+        result = run(str(self.tmp))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("wheel: missing the viewer's third-party notices", result.stdout)
+
+    def test_wheel_without_notices_in_licenses(self) -> None:
+        make_wheel(self.tmp, VIEWER + OTHER, notices=False)
+        result = run(str(self.tmp))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('wheel: missing THIRD_PARTY_NOTICES.txt in .dist-info/licenses/', result.stdout)
+
     def test_wrong_version(self) -> None:
         make_wheel(self.tmp, VIEWER + OTHER, version='9.9.9')
         result = run(str(self.tmp))
@@ -136,6 +151,13 @@ class TestCheckWheel(unittest.TestCase):
         result = run(str(self.tmp), '--sdist')
         self.assertEqual(result.returncode, 1)
         self.assertIn(f'sdist: missing {check_wheel.SKILL}', result.stdout)
+
+    def test_sdist_without_notices(self) -> None:
+        make_wheel(self.tmp, VIEWER + OTHER)
+        make_sdist(self.tmp, VIEWER + OTHER + [check_wheel.SKILL], notices=False)
+        result = run(str(self.tmp), '--sdist')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('sdist: missing THIRD_PARTY_NOTICES.txt at the root', result.stdout)
 
     def test_sdist_without_viewer(self) -> None:
         make_wheel(self.tmp, VIEWER + OTHER)

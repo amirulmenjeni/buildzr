@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BrokenBanner, BrokenScreen } from './Broken';
+import { AboutButton } from './About';
 import { Canvas } from './Canvas';
 import { Inspector } from './Inspector';
 import { SettingsButton } from './SettingsPanel';
@@ -9,7 +10,6 @@ import { WorkspaceSwitcher } from './Workspaces';
 import { canOpenInNewTab, installEmbed, openInNewTab } from './embed';
 import { installRouter, MODE, useStore } from './store';
 import { usePhone } from './usePhone';
-import oflUrl from './fonts/OFL.txt?url';
 
 export function App() {
   const status = useStore((s) => s.status);
@@ -96,8 +96,7 @@ export function App() {
         <WorkspaceSwitcher />
         {(!drawerMode || drawerTab === 'model') && (<><h2 className="h">Model</h2><Tree /></>)}
         {(!drawerMode || drawerTab === 'views') && (<><h2 className="h">Views</h2><ViewsList m={m} /></>)}
-        <p className="legal"><a href={oflUrl} target="_blank" rel="noreferrer">Inter font licence (OFL-1.1)</a></p>
-        <SettingsButton />
+        <SettingsButton extra={<AboutButton />} />
       </nav>
       <main className="center"><Canvas /></main>
       {(phone || sideOpen) && (

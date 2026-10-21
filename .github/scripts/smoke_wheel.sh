@@ -111,6 +111,18 @@ for name in a b; do
   get "http://127.0.0.1:$PORT/$name/" "$WORK/$name.html"
   grep -q 'id="root"' "$WORK/$name.html" || fail "/$name/ has no viewer root element (id=\"root\")"
 done
+# The viewer of a built workspace carries its font and the third-party notices its About view shows, all local.
+notices=(.buildzr/build/a/assets/THIRD_PARTY_NOTICES-*.txt)
+[[ -f "${notices[0]}" ]] || fail "buildzr build wrote no THIRD_PARTY_NOTICES-*.txt next to the viewer of workspace a"
+get "http://127.0.0.1:$PORT/a/assets/$(basename "${notices[0]}")" "$WORK/notices.txt"
+grep -q 'SIL OPEN FONT LICENSE Version 1.1' "$WORK/notices.txt" || fail "the viewer's notices lack the Inter font licence"
+for weight in 400 700; do
+  fonts=(.buildzr/build/a/assets/fonts/inter-latin-$weight-normal-*.woff2)
+  [[ -f "${fonts[0]}" ]] || fail "buildzr build wrote no Inter $weight font for workspace a"
+  get "http://127.0.0.1:$PORT/a/assets/fonts/$(basename "${fonts[0]}")" "$WORK/inter-$weight.woff2"
+done
+python -I -c 'import importlib.metadata as m, sys; sys.exit(0 if m.distribution("buildzr").read_text("licenses/THIRD_PARTY_NOTICES.txt") else 1)' \
+  || fail "the installed wheel has no THIRD_PARTY_NOTICES.txt in its dist-info"
 get "http://127.0.0.1:$PORT/a/api/v1/" "$WORK/api.json"
 grep -q '"name":"a"' "$WORK/api.json" || fail "/a/api/v1/ is not the orientation document of workspace a"
 # The example has a deployment view: it is built (its scene is in data/index.json) and the API lists it.

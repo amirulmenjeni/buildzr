@@ -23,17 +23,18 @@ function devData(): Plugin {
 
 export default defineConfig({
   base: './',
+  server: { fs: { allow: ['..'] } }, // the About view imports THIRD_PARTY_NOTICES.txt from the repository root
   plugins: [react(), devData()],
   build: {
     outDir: '../buildzr/site/static',
     emptyOutDir: true,
     sourcemap: false,
-    // Fonts and their licence text land together under assets/fonts/.
+    // The fonts land under assets/fonts/; the third-party notices (a .txt) next to the other assets.
     rollupOptions: {
       output: {
         assetFileNames: (info) => {
           const n = info.names?.[0] ?? '';
-          return /\.(woff2|txt)$/.test(n) ? 'assets/fonts/[name]-[hash][extname]' : 'assets/[name]-[hash][extname]';
+          return /\.woff2$/.test(n) ? 'assets/fonts/[name]-[hash][extname]' : 'assets/[name]-[hash][extname]';
         },
       },
     },

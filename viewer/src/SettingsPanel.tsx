@@ -34,8 +34,8 @@ function Control({ def }: { def: SettingDef }): ReactNode {
   }
 }
 
-/** The gear button (bottom-right of the left panel) and its popover. */
-export function SettingsButton() {
+/** The gear button (bottom-right of the left panel) and its popover; `extra` sits at the bottom-left of the same row. */
+export function SettingsButton({ extra }: { extra?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const gear = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -56,6 +56,7 @@ export function SettingsButton() {
   const close = (): void => { setOpen(false); gear.current?.focus(); };
   return (
     <div className="left-foot">
+      {extra}
       {open && (
         <div ref={panel} id={panelId} className="settings-panel" role="dialog" aria-labelledby={title} data-testid="settings-panel"
              onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }}>

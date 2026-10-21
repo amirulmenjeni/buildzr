@@ -13,7 +13,10 @@ Every archive must contain the viewer (`index.html` and a JS bundle), the five
 JSON schemas, the modules of `buildzr build` and `buildzr serve` (`cli.py`,
 `build.py`, `serve.py`), the built example of `buildzr serve --example`
 (`example/build.json`, `example/data/index.json`) and the layout's Node runner
-with its vendored elkjs bundle. The wheel version
+with its vendored elkjs bundle. Both also carry the third-party notices:
+the viewer's copy (`static/assets/THIRD_PARTY_NOTICES-<hash>.txt`, which its About
+view reads) and `THIRD_PARTY_NOTICES.txt` where users find it, in the wheel's
+`.dist-info/licenses/` and at the root of the sdist. The wheel version
 must equal the version in `buildzr/__about__.py`. The agent skill (`skills/`) ships in
 the sdist, whose tests read it, and never in the wheel. Stdlib only.
 """
@@ -41,7 +44,10 @@ REQUIRED = [
     for name in ('build', 'config', 'index', 'levels', 'model', 'scene')
 ]
 SKILL = 'skills/buildzr/SKILL.md'
+NOTICES = 'THIRD_PARTY_NOTICES.txt'
 ASSET_JS = re.compile(rf'^{SITE}/static/assets/[^/]+\.js$')
+ASSET_NOTICES = re.compile(rf'^{SITE}/static/assets/THIRD_PARTY_NOTICES-[^/]+\.txt$')
+WHEEL_NOTICES = re.compile(rf'^[^/]+\.dist-info/licenses/{re.escape(NOTICES)}$')
 
 
 def source_version() -> str:
@@ -59,6 +65,8 @@ def problems(kind: str, names: List[str], prefix: str = '') -> List[str]:
     result = [f'{kind}: missing {path}' for path in REQUIRED if path not in found]
     if not any(ASSET_JS.match(n) for n in names):
         result.append(f'{kind}: missing a JS bundle in {SITE}/static/assets/')
+    if any(p.startswith(f"{SITE}/static/") for p in found) and not any(ASSET_NOTICES.match(n) for n in names):
+        result.append(f'{kind}: missing the viewer\'s third-party notices (static/assets/THIRD_PARTY_NOTICES-*.txt)')
     if not any(p.startswith(f"{SITE}/static/") for p in found):
         result.append(
             f'{kind}: no viewer files at all. Build the viewer first: '
@@ -73,6 +81,8 @@ def check_wheel(path: Path, expected: str) -> List[str]:
         result = problems('wheel', names)
         if any(n.startswith('skills/') for n in names):
             result.append('wheel: contains skills/; the agent skill belongs in the sdist only')
+        if not any(WHEEL_NOTICES.match(n) for n in names):
+            result.append(f'wheel: missing {NOTICES} in .dist-info/licenses/')
         metadata = [n for n in names if re.fullmatch(r'[^/]+\.dist-info/METADATA', n)]
         if len(metadata) != 1:
             return result + ['wheel: expected exactly one .dist-info/METADATA']
@@ -93,6 +103,8 @@ def check_sdist(path: Path) -> List[str]:
     result = problems('sdist', names, prefix=prefix)
     if prefix + SKILL not in names:
         result.append(f'sdist: missing {SKILL}')
+    if prefix + NOTICES not in names:
+        result.append(f'sdist: missing {NOTICES} at the root')
     return result
 
 
@@ -131,7 +143,7 @@ def main(argv: List[str]) -> int:
     if errors:
         print(f'FAILED: {len(errors)} problem(s) found in the built package.', file=sys.stderr)
         return 1
-    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas, example, layout and command modules' + (', and the sdist the agent skill.' if with_sdist else '.'))
+    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas, example, layout, third-party notices and command modules' + (', and the sdist the agent skill.' if with_sdist else '.'))
     return 0
 
 
