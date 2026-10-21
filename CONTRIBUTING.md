@@ -233,6 +233,10 @@ uv run mkdocs build --strict
 uv run pytest tests/docs
 ```
 
+### Edit the roadmap
+
+The [roadmap](https://buildzr.dev/roadmap/) is the data file `roadmap.yml` in the repository root; there is no Markdown to edit. The docs build (`scripts/mkdocs_hooks.py`) validates the file and renders it into the page, and stops with a list of every fault if the file breaks the schema. Move an item between `active`, `planned` and `launched` instead of copying it, and base a `launched` entry on a release tag or merged pull request. The Structurizr feature tables are a separate page, `docs/structurizr-compatibility.md`.
+
 ### Add a page
 
 Create a Markdown file under `docs/` and add it to the `nav` section of `mkdocs.yml`. A page that is not in `nav` does not appear in the menu.

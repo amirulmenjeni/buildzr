@@ -107,6 +107,7 @@ nav:
   - Development:
     - Contributing: contributing.md
     - Roadmap: roadmap.md
+    - Structurizr compatibility: structurizr-compatibility.md
 
 extra:
   social:
@@ -118,3 +119,4 @@ extra_javascript:
 
 extra_css:
   - stylesheets/runcode.css
+  - stylesheets/roadmap.css
