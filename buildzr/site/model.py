@@ -32,8 +32,12 @@ TYPE_TAG = {
     "SoftwareSystemInstance": "Software System Instance",
 }
 
-#: Types the level graphs draw; other types (custom elements) are exported but not drawn.
+#: Types the landscape and element levels draw (the C4 hierarchy).
 DRAWN_TYPES = ("Person", "SoftwareSystem", "Container", "Component")
+
+#: Custom elements: outside the C4 hierarchy, so the landscape and element levels never draw them; any authored
+#: view that lists one (a custom view above all) does.
+CUSTOM_TYPES = ("Element",)
 
 #: Deployment element types; deployment views draw them, the landscape and element levels never do.
 DEPLOYMENT_TYPES = ("DeploymentNode", "InfrastructureNode", "ContainerInstance", "SoftwareSystemInstance")
@@ -52,6 +56,7 @@ VIEW_KINDS = (
     ("componentViews", "component"),
     ("dynamicViews", "dynamic"),
     ("deploymentViews", "deployment"),
+    ("customViews", "custom"),
 )
 
 
@@ -98,7 +103,7 @@ def _structurizr_elements(ws: Json) -> list[tuple[Json, str, Optional[Json]]]:
             out.append((c, "Container", s))
             for k in c.get("components", []):
                 out.append((k, "Component", c))
-    for e in model.get("customElements", []):  # exported as type "Element", never drawn
+    for e in model.get("customElements", []):  # exported as type "Element"; drawn in the views that list them
         out.append((e, "Element", None))
     return out
 
@@ -148,7 +153,7 @@ class BrokenDeployment(ValueError):
 
 
 def _element(raw: Json, typ: str, path: str, parent: Optional[str]) -> Json:
-    return {
+    el: Json = {
         "id": path, "modelId": str(raw["id"]), "type": typ, "parent": parent, "children": [],
         "name": raw.get("name", ""), "description": raw.get("description") or None,
         "technology": raw.get("technology") or None,
@@ -156,6 +161,9 @@ def _element(raw: Json, typ: str, path: str, parent: Optional[str]) -> Json:
         "properties": {str(k): str(v) for k, v in sorted((raw.get("properties") or {}).items())},
         "url": raw.get("url") or None, "group": raw.get("group") or None, "views": [],
     }
+    if typ in CUSTOM_TYPES and raw.get("metadata"):  # what Structurizr prints in brackets under a custom element's name
+        el["metadata"] = str(raw["metadata"])
+    return el
 
 
 def _health_checks(raw: Json) -> list[Json]:

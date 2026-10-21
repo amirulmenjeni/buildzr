@@ -245,6 +245,10 @@ def check_model(model: Json, rep: Report, where: str = "model.json") -> None:
             for k in ("environment", "instanceOf", "instances", "healthChecks"):
                 if k in e:
                     rep.err(where, f"element {e['id']}: {k} is only for deployment elements")
+            if "metadata" in e and e["type"] != "Element":
+                rep.err(where, f"element {e['id']}: metadata is only for custom elements")
+            if e["type"] == "Element" and (p is not None or e["children"]):
+                rep.err(where, f"element {e['id']}: a custom element is a root with no children")
         seen[e["id"]] = e
     for env in envs.values():
         if env["id"] != f"deploy/{env['key']}":

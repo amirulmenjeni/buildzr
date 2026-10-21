@@ -405,7 +405,7 @@ DynamicView(
 The `CustomView` provides a flexible way to create diagrams that mix custom elements (`Element`) with standard C4 elements. It's particularly useful when you're modeling hardware components, business processes, or anything that doesn't fit neatly into the Person/SoftwareSystem/Container/Component hierarchy --- but you still want to show how they relate to your software architecture.
 
 !!! tip "Custom Elements in Any View"
-    Custom elements (`Element`) can be displayed in **any** view type, not just `CustomView`. You can include them in `SystemLandscapeView`, `SystemContextView`, and other views using the `include_elements` parameter. `CustomView` simply provides another canvas where you have full control over what's displayed.
+    Custom elements (`Element`) can be displayed in **any** view type, not just `CustomView`. You can include them in `SystemLandscapeView`, `SystemContextView`, and other views using the `include_elements` parameter. `CustomView` simply provides another canvas where you have full control over what's displayed. The [web viewer](#custom-elements-in-the-web-viewer) draws them in every view that lists them.
 
 !!! note "Schema Note"
     The official Structurizr JSON schema (see [Structurizr](https://structurizr.com)) does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure.
@@ -426,6 +426,7 @@ CustomView(
 from buildzr.dsl import Workspace, Element, CustomView
 
 with Workspace('IoT System') as w:
+    # focus: view:iot-hardware
     # Define custom elements for hardware/non-software components
     gateway = Element("IoT Gateway", metadata="Hardware", description="Central gateway device")
     sensor_a = Element("Temperature Sensor", metadata="Sensor", description="Measures ambient temperature")
@@ -447,6 +448,17 @@ with Workspace('IoT System') as w:
 
     w.save(path='workspace.json')
 ```
+
+### Custom elements in the web viewer
+
+The web viewer of `buildzr serve` and `buildzr build` draws custom views like any other view, and draws a custom element in every view that lists it, beside the C4 elements of that view:
+
+- A custom element shows its name, its `metadata` in brackets (`[Hardware]`) and its description. With no `metadata`, the brackets are left out. Without a style of its own it is a light grey box with black text, as in Structurizr; a `StyleElements` on its tags (or on the tag `Element`) changes it like any other element.
+- The model tree lists the custom elements after the people and systems, as **Custom element**. Choosing one opens the first view that draws it, or keeps the view you are in when that view draws it. An element that no view lists is only selected, and the inspector says it is in no views.
+- The inspector shows the type and the metadata, the relationships (also those to and from C4 elements: following one opens the other element in the model or in a view) and the views the element is in. A custom element has no "Open" and no "Show in model", because the model canvas, the landscape and the levels inside the elements, holds the C4 hierarchy only.
+- Search finds custom elements by name, metadata, description and tags, and the views list names a custom view as `custom`.
+
+A viewer link `#/m/<element id>` for a custom element opens its first view; see [Viewer links](../viewer-hash-routes.md#links-to-elements-or-views-that-do-not-exist).
 
 ### CustomView Parameters
 

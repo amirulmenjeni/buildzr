@@ -26,7 +26,7 @@ This page tracks which [Structurizr DSL](https://docs.structurizr.com/dsl/langua
 | [Container](https://docs.structurizr.com/dsl/language#container) | ✅ | Deployable/runnable unit. Supports name, description, technology, tags, properties |
 | [Component](https://docs.structurizr.com/dsl/language#component) | ✅ | Modular part of a container. Leaf element with no children |
 | [Group](https://docs.structurizr.com/dsl/language#group) | ✅ | Named grouping with configurable separator (default `/`). Supports hierarchical nesting |
-| [Element](https://docs.structurizr.com/dsl/language#element) | ✅ | Custom element type outside the standard C4 hierarchy. Supports name, metadata, description, tags, properties |
+| [Element](https://docs.structurizr.com/dsl/language#element) | ✅ | Custom element type outside the standard C4 hierarchy. Supports name, metadata, description, tags, properties. The web viewer draws it in the views that list it |
 
 ## Deployment Model Elements
 
@@ -64,7 +64,7 @@ This page tracks which [Structurizr DSL](https://docs.structurizr.com/dsl/langua
 | [Deployment View](https://docs.structurizr.com/dsl/language#deploymentview) | ✅ | Nodes and instances per environment. Respects deployment groups |
 | [Dynamic View](https://docs.structurizr.com/dsl/language#dynamicview) | ✅ | Ordered interaction sequences. Supports description override, technology selector |
 | [Filtered View](https://docs.structurizr.com/dsl/language#filteredview) | 🟡 | Model exists but no DSL wrapper. Filters views by tags |
-| [Custom View](https://docs.structurizr.com/dsl/language#customview) | ✅ | Displays custom elements (Element type). Supports include/exclude filters, auto-layout |
+| [Custom View](https://docs.structurizr.com/dsl/language#customview) | ✅ | Displays custom elements (Element type). Supports include/exclude filters, auto-layout. The web viewer draws it |
 | [Image View](https://docs.structurizr.com/dsl/language#image) | 🟡 | Model exists but no DSL wrapper. PlantUML/Mermaid/Kroki integration |
 
 ## View Operations

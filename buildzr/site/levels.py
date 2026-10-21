@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from buildzr.site.canonical import rnd
-from buildzr.site.model import DEPLOYMENT_TYPES, DRAWN_TYPES, ModelIndex, VIEW_KINDS, all_relationships, slug, \
+from buildzr.site.model import CUSTOM_TYPES, DEPLOYMENT_TYPES, DRAWN_TYPES, ModelIndex, VIEW_KINDS, all_relationships, slug, \
     workspace_json
 from buildzr.site.styles import TYPE_TEXT, Styles
 
@@ -45,10 +45,14 @@ class _Builder:
 
     def lines(self, el: Json, role: str, fs: float) -> list[Json]:
         small = rnd(fs * TIER_RATIO)
-        tech = f": {el['technology']}" if el["technology"] else ""
-        kind = DEPLOYMENT_TEXT.get(el["type"]) or TYPE_TEXT.get(el["type"], el["type"])
-        out: list[Json] = [{"text": el["name"], "tier": 0, "weight": "bold"},
-                           {"text": f"[{kind}{tech}]", "tier": 1, "size": small}]
+        out: list[Json] = [{"text": el["name"], "tier": 0, "weight": "bold"}]
+        if el["type"] in CUSTOM_TYPES:  # like Structurizr: the metadata in brackets, nothing when there is none
+            if el.get("metadata"):
+                out.append({"text": f"[{el['metadata']}]", "tier": 1, "size": small})
+        else:
+            tech = f": {el['technology']}" if el["technology"] else ""
+            kind = DEPLOYMENT_TEXT.get(el["type"]) or TYPE_TEXT.get(el["type"], el["type"])
+            out.append({"text": f"[{kind}{tech}]", "tier": 1, "size": small})
         if el["description"] and role == "element":
             out.append({"text": el["description"], "tier": 2, "size": small})
         return out
@@ -206,7 +210,7 @@ class _Builder:
 
     def view_level(self, mv: Json, sv: Json) -> Json:
         idx = self.idx
-        drawn = DEPLOYMENT_TYPES if mv["kind"] == "deployment" else DRAWN_TYPES
+        drawn = DEPLOYMENT_TYPES if mv["kind"] == "deployment" else DRAWN_TYPES + CUSTOM_TYPES
         members = [e["id"] for e in self.model["elements"]
                    if mv["key"] in e["views"] and e["type"] in drawn]
         scope = mv["scope"]

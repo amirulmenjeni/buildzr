@@ -19,7 +19,7 @@ import threading
 from typing import Any, Iterator, Optional
 from urllib.parse import parse_qs, quote, urlencode
 
-from buildzr.site.model import DEPLOYMENT_TYPES, DRAWN_TYPES, ModelIndex
+from buildzr.site.model import CUSTOM_TYPES, DEPLOYMENT_TYPES, DRAWN_TYPES, ModelIndex
 
 Json = dict[str, Any]
 
@@ -247,7 +247,7 @@ class Api:
         if not self.links_to_viewer:
             return None
         e = self.el[path]
-        if e["type"] in DEPLOYMENT_TYPES:  # drawn only in deployment views: the first one that shows it
+        if e["type"] in DEPLOYMENT_TYPES or e["type"] in CUSTOM_TYPES:  # drawn only in views: the first one that shows it
             if not e["views"]:
                 return None
             return f"{self.base}#/v/{quote(e['views'][0], safe='/')}?sel={quote(path, safe='/')}"
@@ -429,6 +429,8 @@ class Api:
               "relationships": {"own": {"in": len(self.in_own[path]), "out": len(self.out_own[path])},
                                 "withDescendants": {"in": crossing_in, "out": crossing_out}},
               "viewerUrl": self.viewer_url(path)}
+        if "metadata" in e:
+            el["metadata"] = e["metadata"]
         for k in ("environment", "instanceOf", "instances", "healthChecks"):
             if k in e:
                 el[k] = e[k]

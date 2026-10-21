@@ -898,10 +898,10 @@ def test_viewer_urls_follow_the_grammar_for_every_element(which: str, small_buil
         assert parse_hash(api.view_url(v["key"]) or "") == ("v", v["key"], None)
 
 
-def test_urls_are_percent_encoded_and_custom_elements_have_none() -> None:
+def test_urls_are_percent_encoded_and_a_custom_element_in_no_view_has_none() -> None:
     model = model_of_small()
     odd = {**model["elements"][0], "id": "café x/y?z#w", "parent": None, "children": []}
-    custom = {**model["elements"][0], "id": "gadget", "type": "Element", "parent": None, "children": []}
+    custom = {**model["elements"][0], "id": "gadget", "type": "Element", "parent": None, "children": [], "views": []}
     model = {**model, "elements": [*model["elements"], odd, custom]}
     api = Api(model, public_url="https://x.example.com")
     assert api.viewer_url("café x/y?z#w") == "https://x.example.com/#/m?sel=caf%C3%A9%20x/y%3Fz%23w"

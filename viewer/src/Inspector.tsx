@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { isDeployment, isInternalTag, relationsOf, typeLabel, type ModelIndex, type RelRow } from './model';
+import { isCustom, isDeployment, isInternalTag, relationsOf, typeLabel, type ModelIndex, type RelRow } from './model';
 import { useStore } from './store';
 
 function RelList({ title, rows, m, kind }: { title: string; rows: RelRow[]; m: ModelIndex; kind: 'outgoing' | 'incoming' }) {
@@ -52,10 +52,10 @@ export function Inspector() {
       {el && rel ? (
         <div data-selected-id={el.id}>
           <h2>{el.name}</h2>
-          <p className="type">{typeLabel(el.type)}{el.technology ? ` · ${el.technology}` : ''}</p>
+          <p className="type" data-field="type">{typeLabel(el.type)}{el.technology ? ` · ${el.technology}` : ''}{el.metadata ? ` · ${el.metadata}` : ''}</p>
           <div className="actions">
             {m.expandable.has(el.id) && path !== el.id && <button data-action="open" onClick={() => expand(el.id)}>Open</button>}
-            {view && (!isDeployment(el) || el.instanceOf) && <button data-action="show-in-model" onClick={showInModel}>Show in model</button>}
+            {view && !isCustom(el) && (!isDeployment(el) || el.instanceOf) && <button data-action="show-in-model" onClick={showInModel}>Show in model</button>}
           </div>
           {el.description && <p className="description">{el.description}</p>}
           <dl>

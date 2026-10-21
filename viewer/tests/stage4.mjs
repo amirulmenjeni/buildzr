@@ -65,7 +65,7 @@ export default async function stage4(browser, srv, F, name) {
     const lv = await p.locator('[role=treeitem]').evaluateAll((l) => l.map((x) => [x.dataset.id, x.getAttribute('aria-level'), x.getAttribute('aria-expanded')]));
     for (const [id, level, exp] of lv) {
       t.eq(level, String(id.split('/').length), `aria-level of ${id}`);
-      t.eq(exp === null, F.byId.get(id).children.length === 0, `aria-expanded only on parents (${id})`);
+      t.eq(exp === null, F.treeById.get(id).children.length === 0, `aria-expanded only on parents (${id})`);
     }
     // ArrowLeft: leaf -> parent; ArrowLeft on an open parent collapses it
     await p.keyboard.press('ArrowLeft');

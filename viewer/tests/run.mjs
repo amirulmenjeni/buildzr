@@ -1,5 +1,5 @@
 // Acceptance tests (stage 2 and 3). Usage, inside the devcontainer with the viewer built:
-//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|viewerurl|workspaces|broken|deployment|embed|switcher|theme] [--shots]
+//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|viewerurl|workspaces|broken|deployment|custom|embed|switcher|theme] [--shots]
 // A data dir holds index.json, model.json and scene/ (e.g. tests/site/fixtures/small).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -21,6 +21,7 @@ if (!dataDirs.length) dataDirs.push(path.resolve(ROOT, '../tests/site/fixtures/s
 
 const KNOWN = new Set(['Person', 'SoftwareSystem', 'Container', 'Component']);
 const DEPLOYMENT = new Set(['DeploymentNode', 'InfrastructureNode', 'ContainerInstance', 'SoftwareSystemInstance']);
+const CUSTOM = new Set(['Element']); // custom elements: in the tree, search and relationships, but never on the model canvas
 const loadJson = (dir, f) => JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
 const results = [];
 
@@ -33,9 +34,11 @@ function facts(dir) {
   const parentOf = (id) => byId.get(id).parent ?? '';
   const inSubtree = (x, root) => x === root || x.startsWith(root + '/');
   const expandable = els.filter((e) => ('e/' + e.id) in index.scenes && e.children.length > 0).map((e) => e.id);
-  // search and the filter also find deployment elements (drawn in deployment views only), in model order
-  const searchEls = model.elements.filter((e) => KNOWN.has(e.type) || DEPLOYMENT.has(e.type));
-  return { index, model, els, searchEls, byId, parentOf, inSubtree, expandable, rels: model.relationships.filter((r) => byId.has(r.source) && byId.has(r.destination)) };
+  // search and the filter also find custom and deployment elements (drawn in views only), in model order
+  const searchEls = model.elements.filter((e) => KNOWN.has(e.type) || CUSTOM.has(e.type) || DEPLOYMENT.has(e.type));
+  const related = new Set(model.elements.filter((e) => KNOWN.has(e.type) || CUSTOM.has(e.type)).map((e) => e.id));
+  const treeById = new Map(model.elements.filter((e) => KNOWN.has(e.type) || CUSTOM.has(e.type)).map((e) => [e.id, e])); // the rows of the tree
+  return { index, model, els, searchEls, byId, treeById, parentOf, inSubtree, expandable, rels: model.relationships.filter((r) => related.has(r.source) && related.has(r.destination)) };
 }
 
 const nodeSel = (id) => `.react-flow__node[data-id="${id}"]`;
@@ -330,7 +333,7 @@ async function stage2(browser, srv, F, name) {
   {
     const p = await newPage(browser, errors);
     await open(p, srv.url, '#/m');
-    const v = F.model.views.filter((x) => x.kind !== 'deployment').at(-1); // deployment views: tests/deployment.mjs
+    const v = F.model.views.filter((x) => x.kind !== 'deployment' && x.kind !== 'custom').at(-1); // deployment views: tests/deployment.mjs; custom views: tests/custom.mjs
     await act(p, () => p.locator(`.views [data-view="${v.key}"]`).click());
     t.eq(await hashOf(p), `#/v/${v.key}`, 'opening a view');
     const sc = loadJson(srv.dir, F.index.scenes[v.scene].file);
@@ -383,7 +386,7 @@ async function stage2(browser, srv, F, name) {
 
 // ------------------------------------------------------------------ stage 3
 const matchesQ = (e, q, tags, mode) => {
-  const hay = [e.name, e.id, e.type, e.technology, e.description, ...e.tags].filter(Boolean).join('\n').toLowerCase();
+  const hay = [e.name, e.id, e.type, e.type === 'Element' ? 'Custom element' : '', e.technology, e.metadata, e.description, ...e.tags].filter(Boolean).join('\n').toLowerCase();
   const qOk = hay.includes(q.toLowerCase().split(/\s+/).filter(Boolean).join(' '));
   const tOk = !tags.length || (mode === 'and' ? tags.every((x) => e.tags.includes(x)) : tags.some((x) => e.tags.includes(x)));
   return qOk && tOk;
@@ -440,7 +443,7 @@ async function stage3(browser, srv, F, name) {
       t.ok(c.compared === Object.keys(A.store).length && Object.keys(B.store).length === Object.keys(A.store).length, `node set changed under ${step}`);
       t.ok(c.storeDiff === 0 && c.domDiff === 0, `${base}/${step}: nodes moved (store ${c.storeDiff}, dom ${c.domDiff})`);
       const dimmedNodes = Object.values(B.opac).filter((o) => o <= 0.15 + 1e-9).length;
-      t.ok(dimmedNodes > 0 || want.length === F.els.length, `${base}/${step}: canvas dims nothing`);
+      t.ok(dimmedNodes > 0 || want.filter((id) => F.byId.has(id)).length === F.els.length, `${base}/${step}: canvas dims nothing`);
       // tree: dimmed iff not matching; ancestors of matches open
       const treeState = await p.locator('[role=treeitem]').evaluateAll((l) => l.map((x) => ({ id: x.dataset.id, dim: x.querySelector(':scope > .row').classList.contains('dimmed'), exp: x.getAttribute('aria-expanded') })));
       const wrong = treeState.filter((r) => r.dim === want.includes(r.id));
@@ -496,7 +499,7 @@ async function stage3(browser, srv, F, name) {
     const last = list[list.length - 1];
     const hp = (await hashOf(p)).split('?')[0];
     const lastEl = F.model.elements.find((e) => e.id === last);
-    if (DEPLOYMENT.has(lastEl.type)) t.eq(hp, `#/v/${lastEl.views[0]}`, 'a deployment match opens its deployment view');
+    if (DEPLOYMENT.has(lastEl.type) || CUSTOM.has(lastEl.type)) t.eq(hp, `#/v/${lastEl.views[0]}`, 'a deployment or custom match opens its view');
     else t.eq(hp, '#/m' + (F.parentOf(last) ? '/' + F.parentOf(last) : ''), 'canvas expanded to the match');
     t.eq(await p.locator(nodeSel(last) + ' [data-selected=true]').count(), 1, 'selected match is on the canvas');
     await p.locator('button[aria-label="Previous match"]').click(); await p.waitForTimeout(150);
@@ -581,6 +584,7 @@ for (const dir of dataDirs) {
   if (!only || only === 'broken') { const t = await (await import('./broken.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'settings') { const t = await (await import('./settings.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'deployment') { const t = await (await import('./deployment.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
+  if (!only || only === 'custom') { const t = await (await import('./custom.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'theme') { const t = await (await import('./theme.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'embed') { const t = await (await import('./embed.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'switcher') { const t = await (await import('./switcher.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
