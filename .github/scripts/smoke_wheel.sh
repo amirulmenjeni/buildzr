@@ -126,6 +126,28 @@ get "http://127.0.0.1:$PORT/_buildzr/v1/workspaces" "$WORK/list.json"
 python -I -c 'import json, sys; names = [w["name"] for w in json.load(open(sys.argv[1]))["workspaces"]]; sys.exit(names != ["a", "b"])' \
   "$WORK/list.json" || fail "/_buildzr/v1/workspaces does not list a and b"
 
+step "buildzr serve --example (from a folder with a broken buildzr.yaml; nothing is written there)"
+mkdir "$WORK/ex" && cd "$WORK/ex"
+printf 'workspaces: [\n' >buildzr.yaml   # not valid YAML: --example must not read it
+EXPORT="$(free_port)"
+buildzr serve --example -p "$EXPORT" >"$WORK/serve-example.log" 2>&1 &
+EXPID=$!
+PIDS+=($EXPID)
+wait_for "http://127.0.0.1:$EXPORT/_buildzr/v1/workspaces" "buildzr serve --example"
+code="$(status "http://127.0.0.1:$EXPORT/")"
+[[ "$code" = 302 ]] || fail "GET / answered $code, expected 302"
+get "http://127.0.0.1:$EXPORT/example/" "$WORK/example.html"
+grep -q 'id="root"' "$WORK/example.html" || fail "/example/ has no viewer root element (id=\"root\")"
+get "http://127.0.0.1:$EXPORT/example/api/v1/" "$WORK/example-api.json"
+grep -q '"name":"example"' "$WORK/example-api.json" || fail "/example/api/v1/ is not the example workspace"
+get "http://127.0.0.1:$EXPORT/example/api/v1/views" "$WORK/example-views.json"
+[[ "$(ls -A "$WORK/ex")" = "buildzr.yaml" ]] || fail "serve --example wrote into the working folder: $(ls -A "$WORK/ex")"
+kill -TERM "$EXPID"
+wait "$EXPID" 2>/dev/null || true
+if curl -sS -o /dev/null --max-time 2 "http://127.0.0.1:$EXPORT/" 2>/dev/null; then fail "serve --example still answers after SIGTERM"; fi
+echo "serve --example stopped on SIGTERM"
+cd "$WORK/run"
+
 step "buildzr build with a broken workspace (exit code 1, shown as broken)"
 printf 'from buildzr.dsl import Workspace\nwith Workspace("broken") as w:\n    raise RuntimeError("smoke: boom")\n' >workspaces/broken.py
 set +e

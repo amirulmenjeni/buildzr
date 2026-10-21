@@ -183,7 +183,7 @@ When you expand such a box in the viewer, its inside is drawn in that room. If t
 ### `buildzr serve`
 
 ```text
-buildzr serve [-h] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOST] [--public-url URL] [--cors-origin ORIGIN] [PATH]
+buildzr serve [-h] [--example] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOST] [--public-url URL] [--cors-origin ORIGIN] [PATH]
 ```
 
 `serve` first builds what is missing or out of date, then serves every built workspace of the build output. It only reads: it answers `GET` and `HEAD` requests, and nothing can change a workspace through it.
@@ -191,6 +191,7 @@ buildzr serve [-h] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOS
 | Option | What it does |
 |---|---|
 | `PATH` | What to serve. A workspaces folder or a model file: `serve` builds its workspaces when they are missing or out of date, then serves the build output. It replaces `workspaces:` of `buildzr.yaml`, as `-w` does for `build`. A folder that already holds built workspaces (it has a `build.json`, or subfolders that have one): `serve` serves it as it is, and builds nothing. Default: `workspaces:` in `buildzr.yaml` (a path or a list), else the folder `workspaces`. |
+| `--example` | Serve the bundled example workspace, an online shop, instead of your own. See [Try the bundled example](#try-the-bundled-example). Cannot be combined with `PATH`, `--no-build`, `--rebuild`, `-c` or `-v`. |
 | `--no-build` | Serve the build output as it is, without building. Node is then not needed. |
 | `--rebuild` | Build every workspace again, also the ones that are up to date. |
 | `-c FILE`, `--config FILE` | The config file. Default: `buildzr.yaml`, searched from the current folder upward. |
@@ -199,6 +200,23 @@ buildzr serve [-h] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOS
 | `--host HOST` | The address to listen on. Default: `serve.host` in `buildzr.yaml`, else `127.0.0.1`: only this machine can connect. To let other machines connect, pass `0.0.0.0`; do this only on purpose. |
 | `--public-url URL` | The address at which readers reach this server (`http://` or `https://`), for example behind a proxy. The [Model API](model-api.md) builds its `viewerUrl` links from it. Default: `serve.public_url` in `buildzr.yaml`, else none. |
 | `--cors-origin ORIGIN` | Let a web page from `ORIGIN` read the Model API from a browser (CORS, Cross-Origin Resource Sharing). Repeat the option for more origins. There is no wildcard. Default: `serve.cors_origins` in `buildzr.yaml`, else none. The option replaces the list of the file; it does not add to it. |
+
+#### Try the bundled example
+
+To see the viewer before you write a model, run:
+
+```bash
+uvx buildzr serve --example
+```
+
+`serve` prints the address of the example, `http://127.0.0.1:8000/example/` by default. It does not open a browser; open the address yourself. The example is an online shop with all six kinds of view (system landscape, system context, container, component, dynamic and deployment), so you can explore the viewer on a realistic diagram.
+
+The example is **hermetic**: it is already built and shipped inside buildzr, so Node is not needed, and `serve` builds nothing.
+
+- It ignores the folder you run it in: `buildzr.yaml` is not read (even a broken one), and your workspaces folder and build output are not touched.
+- It writes nothing into the current folder. The files it serves are copied to a temporary folder, which `serve` removes when you stop it with Ctrl+C or a termination signal (`SIGTERM`).
+- `-p`/`--port`, `--host`, `--public-url` and `--cors-origin` work as usual, with their defaults (not the `serve:` section of any `buildzr.yaml`). The [Model API](model-api.md) of the example is at `/example/api/v1/`.
+- `PATH`, `--no-build`, `--rebuild`, `-c` and `-v` have no meaning for an example that is not built from your files, so `serve` refuses them with exit code 2 instead of ignoring them silently, for example `buildzr: error: --example serves the bundled example, so it cannot be used with PATH`.
 
 #### When a built workspace is out of date
 
@@ -229,9 +247,9 @@ File dates are not used. Code that a model file imports from anywhere else is no
 
 | Code | Meaning |
 |---|---|
-| 0 | Success. `serve` exits with 0 when you stop it with Ctrl+C. |
+| 0 | Success. `serve` exits with 0 when you stop it with Ctrl+C (`serve --example`: also with `SIGTERM`). |
 | 1 | A workspace is broken or could not be built, there was nothing to serve, or the port is in use. |
-| 2 | A usage or config error: an unknown option, a workspaces folder or path that does not exist, or a problem in `buildzr.yaml`. |
+| 2 | A usage or config error: an unknown option, an option that cannot be combined with another (such as `--example` with `PATH`), a workspaces folder or path that does not exist, or a problem in `buildzr.yaml`. |
 
 Error messages from the command start with `buildzr: error: `. Problems in `buildzr.yaml` are listed one per line, as `buildzr.yaml:<line>: <key>: <message>`.
 

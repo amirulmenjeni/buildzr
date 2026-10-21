@@ -96,6 +96,13 @@ class TestCheckWheel(unittest.TestCase):
         self.assertIn('missing buildzr/site/schema/model.schema.json', result.stdout)
         self.assertIn('missing buildzr/site/serve.py', result.stdout)
 
+    def test_wheel_without_example(self) -> None:
+        make_wheel(self.tmp, VIEWER + [f for f in OTHER if '/example/' not in f])
+        result = run(str(self.tmp))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('wheel: missing buildzr/site/example/build.json', result.stdout)
+        self.assertIn('wheel: missing buildzr/site/example/data/index.json', result.stdout)
+
     def test_wrong_version(self) -> None:
         make_wheel(self.tmp, VIEWER + OTHER, version='9.9.9')
         result = run(str(self.tmp))
