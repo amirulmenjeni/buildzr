@@ -26,7 +26,8 @@ The examples on this page are real answers from that workspace. They show the de
 
 | Word | Meaning |
 |---|---|
-| **element** | A person, a software system, a container (an application or data store inside a system) or a component (a part inside a container). Deployment elements are elements too (see the next row). |
+| **element** | A person, a software system, a container (an application or data store inside a system) or a component (a part inside a container). Custom elements (type `Element`, such as a device) and deployment elements are elements too (see the next rows). |
+| **custom element** | An element outside the C4 hierarchy, such as a piece of hardware. Its `type` is `Element`; it has no parent and no children. When the model gives it metadata (the word in brackets under its name in a diagram), the `element` answer has a `metadata` field; without metadata there is no such field. |
 | **deployment element** | A deployment node (a server, cluster, region...), an infrastructure node (a load balancer, DNS...), or a container or software system instance (that container or system running on a node). Its id starts with `deploy/<environment>/`, for example `deploy/production/aws/ecs-cluster/web-app`. |
 | **id** | The element's path of lower-case names, joined by `/`: `e-commerce-system/web-app` is the Web App inside the E-Commerce System. Two siblings with the same name get `-2`, `-3`. Ids are given in query parameters: `?id=e-commerce-system/web-app`. |
 | **relationship** | An explicit "A uses B" statement written in the model, with a description and sometimes a technology. Its id is `<source id>-><destination id>`, plus `:<description>` when two relationships connect the same pair. |
@@ -602,6 +603,10 @@ GET /microservices-example/api/v1/view?key=system-context-view-ecommerce
 ```
 
 `relationships` in `view` is `null` when the view's drawing cannot be read.
+
+### Custom elements
+
+Custom elements (`type=Element`) answer every element endpoint like the C4 elements; they appear in `elements`, `tree` (as top-level elements), `neighbours` and `relationships`, and their relationships to C4 elements count as any other. Like a deployment element, a custom element is drawn in views only: its `viewerUrl` opens the first view that shows it with the element selected, and is `null` when no view shows it.
 
 ### Deployment elements
 

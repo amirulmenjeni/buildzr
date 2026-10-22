@@ -28,6 +28,7 @@ DEFAULTS = {
     "SoftwareSystem": ("#1168bd", "#ffffff", "Box"),
     "Container": ("#438dd5", "#ffffff", "Box"),
     "Component": ("#85bbf0", "#000000", "Box"),
+    "Element": ("#dddddd", "#000000", "Box"),  # a custom element
     "Group": ("#ffffff", "#444444", "Box"),
     "DeploymentNode": ("#ffffff", "#000000", "Box"),
     "InfrastructureNode": ("#ffffff", "#000000", "Box"),

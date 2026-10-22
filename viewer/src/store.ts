@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { hasNoData, loadBuild, loadCatalogue, loadIndex, loadModel, loadScene, memory, setSource } from './data';
 import { parseMode, type Files, type ThemeChoice, type WorkspaceSet } from './protocol';
-import { ancestors, chainOf, computeMatches, indexModel, isDeployment, typeLabel, type MatchInfo, type ModelIndex } from './model';
+import { ancestors, chainOf, computeMatches, indexModel, isCustom, isDeployment, isViewOnly, typeLabel, type MatchInfo, type ModelIndex } from './model';
 import { buildHash, emptyFilter, parseHash, type Filter, type Route } from './route';
 import { loadSettings, saveSettings, type SettingId, type SettingValue, type SettingValues } from './settings';
 import { resolveTheme, type Theme } from './theme';
@@ -227,11 +227,11 @@ export const useStore = create<State>()((set, get) => {
       if (r.view) {
         if (m.viewByKey.has(r.view)) view = r.view;
         else notice = `View ${r.view} not found; showing the model`;
-      } else if (r.path && isDeployment(m.byId.get(r.path))) {
-        // Deployment elements are drawn in deployment views only: open the first one that shows it.
+      } else if (r.path && isViewOnly(m.byId.get(r.path))) {
+        // Deployment and custom elements are drawn in views only: open the first one that shows it.
         const el = m.byId.get(r.path)!;
         if (el.views.length && m.viewByKey.has(el.views[0])) { view = el.views[0]; sel = el.id; }
-        else notice = `${r.path} is in no deployment view; showing the landscape`;
+        else notice = `${r.path} is in no ${isCustom(el) ? '' : 'deployment '}view; showing the landscape`;
       } else if (r.path) {
         let p = r.path;
         const el = m.byId.get(p);
@@ -305,6 +305,7 @@ export const useStore = create<State>()((set, get) => {
       const { m } = get();
       let selection = get().selection;
       const inst = selection ? m?.byId.get(selection) : undefined;
+      if (isCustom(inst)) return; // a custom element has no place in the model: there is nothing to show it in
       if (inst && isDeployment(inst)) selection = inst.instanceOf ?? null; // an instance: show its container or system
       const el = selection && m?.byId.get(selection);
       const path = el ? (el.parent ?? '') : '';
@@ -322,8 +323,8 @@ export const useStore = create<State>()((set, get) => {
         commit({ selection: id, camera: opts.zoom && el ? cam('zoom', id) : s.camera, treeOpen: openAncestors([el ? id : null]), sheet: 'peek' }, false);
         return;
       }
-      if (isDeployment(el)) {
-        // Drawn in deployment views only: stay in the current view when it shows the element, else open the first that does.
+      if (isViewOnly(el)) {
+        // Drawn in views only (deployment and custom elements): stay in the current view when it shows the element, else open the first that does.
         const here = s.view ? s.scenes[m.viewByKey.get(s.view)?.scene ?? ''] : undefined;
         const view = here?.nodes.some((n) => n.id === id) ? s.view : el.views.find((k) => m.viewByKey.has(k)) ?? s.view;
         const moved = view !== s.view;

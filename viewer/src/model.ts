@@ -5,9 +5,14 @@ import type { Filter } from './route';
 export const KNOWN_TYPES = new Set(['Person', 'SoftwareSystem', 'Container', 'Component']);
 /** Element types drawn in deployment views only: not in the tree, reached through those views, search and links. */
 export const DEPLOYMENT_TYPES = new Set(['DeploymentNode', 'InfrastructureNode', 'ContainerInstance', 'SoftwareSystemInstance']);
+/** Custom elements: outside the C4 hierarchy. Roots without children, shown in the tree after the people and systems, drawn in the views that list them. */
+export const CUSTOM_TYPES = new Set(['Element']);
 /** Anything else (a type this viewer does not know) is dropped, with its descendants. */
-const indexed = (t: string): boolean => KNOWN_TYPES.has(t) || DEPLOYMENT_TYPES.has(t);
+const indexed = (t: string): boolean => KNOWN_TYPES.has(t) || DEPLOYMENT_TYPES.has(t) || CUSTOM_TYPES.has(t);
 export const isDeployment = (e: Element | undefined): boolean => !!e && DEPLOYMENT_TYPES.has(e.type);
+export const isCustom = (e: Element | undefined): boolean => !!e && CUSTOM_TYPES.has(e.type);
+/** Drawn in authored views only, never on the model canvas (the landscape and the element levels): deployment and custom elements. */
+export const isViewOnly = (e: Element | undefined): boolean => isDeployment(e) || isCustom(e);
 
 export interface ModelIndex {
   elements: Element[]; // known and deployment elements, pre-order, as in model.json
@@ -33,6 +38,8 @@ export function indexModel(model: ModelJson, index: IndexJson): ModelIndex {
     if (e.parent !== null && !byId.has(e.parent)) continue; // under an unknown element
     // A deployment element sits under a deployment node or at the top; nothing else nests with deployment elements.
     if (e.parent !== null && DEPLOYMENT_TYPES.has(e.type) !== DEPLOYMENT_TYPES.has(byId.get(e.parent)!.type)) continue;
+    // A custom element is a root with no children: one under or over another element is not understood and dropped.
+    if (e.parent !== null && (CUSTOM_TYPES.has(e.type) || CUSTOM_TYPES.has(byId.get(e.parent)!.type))) continue;
     if (DEPLOYMENT_TYPES.has(e.type) && e.instanceOf !== undefined && !byId.has(e.instanceOf)) continue;
     const el = { ...e, children: [] as string[] };
     byId.set(el.id, el);
@@ -50,7 +57,10 @@ export function indexModel(model: ModelJson, index: IndexJson): ModelIndex {
     views: model.views, viewByKey: new Map(model.views.map((v) => [v.key, v])),
     order: new Map(elements.map((e, i) => [e.id, i])),
     expandable: new Set(elements.filter((e) => e.children.length > 0 && ('e/' + e.id) in index.scenes).map((e) => e.id)),
-    roots: elements.filter((e) => e.parent === null && KNOWN_TYPES.has(e.type)).map((e) => e.id),
+    roots: [
+      ...elements.filter((e) => e.parent === null && KNOWN_TYPES.has(e.type)),
+      ...elements.filter((e) => e.parent === null && CUSTOM_TYPES.has(e.type)),
+    ].map((e) => e.id),
     tags: [...tagSet].sort(),
     own,
   };
@@ -59,7 +69,8 @@ export function indexModel(model: ModelJson, index: IndexJson): ModelIndex {
 /** Internal style tags written by buildzr; they stay in the data but are not shown. */
 export const isInternalTag = (t: string): boolean => /^buildzr-style(elements|relationships)-/.test(t);
 
-export const typeLabel = (t: string): string => t.replace(/([a-z])([A-Z])/g, '$1 $2');
+/** The name of an element type for people: "SoftwareSystem" -> "Software System"; a custom element is an "Element" in the data. */
+export const typeLabel = (t: string): string => (t === 'Element' ? 'Custom element' : t.replace(/([a-z])([A-Z])/g, '$1 $2'));
 
 /** Ancestors from the root down to (excluding) id. */
 export function ancestors(m: ModelIndex, id: string): string[] {
@@ -98,7 +109,7 @@ export function relationsOf(m: ModelIndex, id: string, rolled: boolean): { out: 
 export const filterActive = (f: Filter): boolean => f.q.trim() !== '' || f.tags.length > 0;
 
 function haystack(e: Element): string {
-  return [e.name, e.id, e.type, typeLabel(e.type), e.technology, e.description, ...e.tags].filter(Boolean).join('\n').toLowerCase();
+  return [e.name, e.id, e.type, typeLabel(e.type), e.technology, e.metadata, e.description, ...e.tags].filter(Boolean).join('\n').toLowerCase();
 }
 
 export interface MatchInfo {

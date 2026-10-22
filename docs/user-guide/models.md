@@ -100,6 +100,7 @@ with SoftwareSystem("X") as x:
 from buildzr.dsl import Workspace, Element, CustomView
 
 with Workspace('Hardware Architecture') as w:
+    # focus: view:hardware-view
     # Custom elements for non-C4 architecture
     controller = Element(
         "Hardware Controller",
@@ -125,7 +126,7 @@ with Workspace('Hardware Architecture') as w:
     w.save(path='workspace.json')
 ```
 
-Custom elements can have relationships with C4 elements (Person, SoftwareSystem, Container, Component) and can be displayed in **any** view type --- including `SystemLandscapeView`, `SystemContextView`, and `CustomView`.
+Custom elements can have relationships with C4 elements (Person, SoftwareSystem, Container, Component) and can be displayed in **any** view type --- including `SystemLandscapeView`, `SystemContextView`, and `CustomView`. The web viewer lists them after the C4 elements in its model tree and draws them in the views that include them; see [Custom elements in the web viewer](views.md#custom-elements-in-the-web-viewer).
 
 ### Element Parameters
 

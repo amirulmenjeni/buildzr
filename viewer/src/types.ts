@@ -15,6 +15,8 @@ export interface Element {
   properties: Record<string, string>; url: string | null; group: string | null; views: string[];
   // deployment elements only
   environment?: string; instanceOf?: string; instances?: string;
+  // custom elements (type Element) only, when they have metadata
+  metadata?: string;
   healthChecks?: { name: string; url: string; interval: number | null; timeout: number | null }[];
 }
 export interface Environment { key: string; name: string; id: string; nodes: string[]; views: string[] }
