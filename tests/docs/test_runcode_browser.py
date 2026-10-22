@@ -37,7 +37,7 @@ def check(lines: list[Json], name: str) -> list[Json]:
 def test_nothing_is_loaded_before_the_first_press(smoke: list[Json]) -> None:
     before = check(smoke, "before the first press")[0]
     assert before["runcode"] == [] and before["cdn"] == 0
-    assert before["blocks"] == 3  # the `# no-run` block has no button
+    assert before["blocks"] == 4  # the `# no-run` block has no button
 
 
 def test_first_block_draws_and_scrolls(smoke: list[Json]) -> None:
@@ -62,6 +62,15 @@ def test_error_names_the_line_the_reader_sees(smoke: list[Json]) -> None:
     assert "line 5" in broken["error"] and "NameError: name 'sytem' is not defined" in broken["error"]
     assert "Traceback" not in broken["error"]
     assert broken["errorLineText"].strip() == "user >> 'uses' >> sytem"
+
+
+def test_a_snippet_with_two_workspaces_has_a_switcher(smoke: list[Json]) -> None:
+    by_block = {x["block"]: x for x in check(smoke, "switcher")}
+    assert [b for b, x in by_block.items() if x["found"]] == [3], "only the two-workspace block has a selector"
+    two = by_block[3]
+    assert two["options"] == ["Shop", "Billing"] and two["shown"] == "Billing", two  # the last one is shown, as before
+    assert two["before"]["json"] == "Billing" and two["after"]["json"] == "Shop", "the model JSON follows the switcher"
+    assert two["after"]["title"] != two["before"]["title"] and two["after"]["nodes"] >= 1, two
 
 
 def test_copy_controls_say_what_they_copy(smoke: list[Json]) -> None:

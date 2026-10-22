@@ -19,7 +19,7 @@ t.eq(parseMode('?handoff=../../x').handoff, null, 'bad handoff id ignored');
 t.eq(parseMode(`?embed=1&handoff=${ID}`).handoff, null, 'no handoff inside an embed');
 
 // ---- messages: valid
-t.eq(parseMessage({ type: 'buildzr:load', files }), { type: 'buildzr:load', files, build: null, route: null, title: null }, 'minimal load');
+t.eq(parseMessage({ type: 'buildzr:load', files }), { type: 'buildzr:load', files, build: null, route: null, title: null, group: null }, 'minimal load');
 t.eq(parseMessage({ type: 'buildzr:load', files, build: { status: 'broken', stage: 'check' }, route: '#/m/x?sel=x/y', title: 'T', extra: 1 })?.route, '#/m/x?sel=x/y', 'full load, extra field ignored');
 t.eq(parseMessage({ type: 'buildzr:theme', theme: 'dark' }), { type: 'buildzr:theme', theme: 'dark' }, 'theme dark');
 t.eq(parseMessage({ type: 'buildzr:theme', theme: 'system' })?.theme, 'system', 'theme system');
@@ -28,6 +28,28 @@ t.eq(parseMessage({ type: 'buildzr:route', route: '' })?.route, '', 'empty route
 t.eq(parseMessage({ type: 'buildzr:handoff-request', id: ID }), { type: 'buildzr:handoff-request', id: ID }, 'handoff request');
 t.eq(parseMessage({ type: 'buildzr:handoff', id: ID, files, build: null })?.type, 'buildzr:handoff', 'handoff answer');
 t.eq(parseMessage({ type: 'buildzr:handoff-missing', id: ID })?.type, 'buildzr:handoff-missing', 'handoff missing');
+
+// ---- messages: several workspaces in one load (the switcher)
+const wsA = { name: 'Shop', files, route: '#/m/shop' }, wsB = { name: 'Billing', files: { 'index.json': '{"b":1}' }, build: { status: 'broken' } };
+const two = parseMessage({ type: 'buildzr:load', workspaces: [wsA, wsB], title: 'T' });
+t.eq(two?.group?.workspaces.map((w) => w.name), ['Shop', 'Billing'], 'workspaces: names in order');
+t.eq(two?.group?.active, 'Shop', 'workspaces: the first is active by default');
+t.eq([two?.files, two?.route, two?.build], [files, '#/m/shop', null], 'workspaces: files, route and build are the active one\'s');
+const second = parseMessage({ type: 'buildzr:load', workspaces: [wsA, wsB], active: 'Billing', route: '#/v/x' });
+t.eq([second?.group?.active, second?.files, second?.build, second?.route], ['Billing', wsB.files, { status: 'broken' }, '#/v/x'], 'workspaces: active picks the data, the message route wins');
+t.eq(parseMessage({ type: 'buildzr:load', files, workspaces: [wsB] })?.files, wsB.files, 'workspaces win over files');
+t.eq(parseMessage({ type: 'buildzr:load', workspaces: [wsA] })?.group?.workspaces.length, 1, 'one workspace is accepted (the switcher hides itself)');
+t.eq(parseMessage({ type: 'buildzr:handoff', id: ID, workspaces: [wsA, wsB], active: 'Billing' })?.group?.active, 'Billing', 'handoff carries the set');
+t.eq(parseMessage({ type: 'buildzr:handoff', id: ID, files })?.group, null, 'handoff without a set');
+const badSets = [
+  [], 'x', {}, [null], [{ files }], [{ name: '', files }], [{ name: 'x'.repeat(201), files }], [{ name: 'A' }], [{ name: 'A', files: {} }],
+  [wsA, { ...wsB, name: 'Shop' }], [{ ...wsA, route: 'javascript:1' }], [{ ...wsA, build: 'ok' }],
+  Array.from({ length: 51 }, (_, i) => ({ name: 'w' + i, files })),
+];
+for (const b of badSets) t.eq(parseMessage({ type: 'buildzr:load', workspaces: b }), null, `invalid workspaces ignored: ${JSON.stringify(b)?.slice(0, 60)}`);
+t.eq(parseMessage({ type: 'buildzr:load', workspaces: [wsA, wsB], active: 'Nope' }), null, 'active must name a workspace');
+t.eq(parseMessage({ type: 'buildzr:load', workspaces: [wsA], active: 3 }), null, 'active must be a string');
+t.eq(parseMessage({ type: 'buildzr:handoff', id: ID, workspaces: [] }), null, 'handoff: empty set ignored');
 
 // ---- messages: invalid (each is ignored)
 const bad = [

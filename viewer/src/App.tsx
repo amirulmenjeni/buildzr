@@ -5,6 +5,7 @@ import { Inspector } from './Inspector';
 import { SettingsButton } from './SettingsPanel';
 import { Breadcrumbs, Toolbar } from './Toolbar';
 import { Tree, ViewsList } from './Tree';
+import { WorkspaceSwitcher } from './Workspaces';
 import { canOpenInNewTab, installEmbed, openInNewTab } from './embed';
 import { installRouter, MODE, useStore } from './store';
 import { usePhone } from './usePhone';
@@ -57,7 +58,7 @@ export function App() {
     </div>
   );
   if (status === 'broken' && build) return <BrokenScreen build={build} />;
-  if (status === 'error') return <div role="alert" className="fatal">Could not load the model: {error}</div>;
+  if (status === 'error') return <div role="alert" className="fatal">Could not load the model: {error}<WorkspaceSwitcher /></div>;
   if (!m || !model) return <div className="fatal" role="status">Loading…</div>;
 
   const leftHidden = drawerMode && !drawer;
@@ -92,6 +93,7 @@ export function App() {
           </div>
         )}
         {drawerMode && <button className="close drawer-close" aria-label="Close navigation" onClick={() => setUi({ drawer: false })}>×</button>}
+        <WorkspaceSwitcher />
         {(!drawerMode || drawerTab === 'model') && (<><h2 className="h">Model</h2><Tree /></>)}
         {(!drawerMode || drawerTab === 'views') && (<><h2 className="h">Views</h2><ViewsList m={m} /></>)}
         <p className="legal"><a href={oflUrl} target="_blank" rel="noreferrer">Inter font licence (OFL-1.1)</a></p>

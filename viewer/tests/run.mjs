@@ -1,5 +1,5 @@
 // Acceptance tests (stage 2 and 3). Usage, inside the devcontainer with the viewer built:
-//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|viewerurl|workspaces|broken|deployment|embed|theme] [--shots]
+//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|viewerurl|workspaces|broken|deployment|embed|switcher|theme] [--shots]
 // A data dir holds index.json, model.json and scene/ (e.g. tests/site/fixtures/small).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -583,6 +583,7 @@ for (const dir of dataDirs) {
   if (!only || only === 'deployment') { const t = await (await import('./deployment.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'theme') { const t = await (await import('./theme.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'embed') { const t = await (await import('./embed.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
+  if (!only || only === 'switcher') { const t = await (await import('./switcher.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (shots) await import('./shots.mjs').then((m) => m.default(browser, srv, F, name));
   srv.close();
 }

@@ -3,7 +3,7 @@
 /** build.json next to index.html (buildzr/site/schema/build.schema.json); only what the viewer reads. */
 export interface BuildInfo {
   status?: 'ok' | 'broken'; stage?: 'model' | 'layout' | 'check'; errors?: string[];
-  workspace?: string; input?: { file?: string };
+  workspace?: string; name?: string; input?: { file?: string };
 }
 
 export interface FileRef { file: string; hash: string }

@@ -211,6 +211,9 @@ def make_workspace_server(directory: str, host: str = "127.0.0.1", port: int = 8
 
 BUILDZR_PREFIX = "/_buildzr"
 WORKSPACES_ENDPOINT = "/_buildzr/v1/workspaces"
+#: Sent with every file of a workspace: where the list of workspaces is, relative to the workspace's folder. The viewer
+#: reads it from ``build.json`` to offer a workspace switcher; a static host does not send it, so the viewer asks nothing.
+WORKSPACES_HEADER = "X-Buildzr-Workspaces"
 
 
 def normalise_url_path(raw: str) -> Optional[str]:
@@ -334,6 +337,12 @@ class WorkspacesHandler(Handler):
     public_url: Optional[str] = None
     sources: dict[str, Source]
     sources_lock: threading.Lock
+    _workspace_file = False
+
+    def end_headers(self) -> None:
+        if self._workspace_file:
+            self.send_header(WORKSPACES_HEADER, "../_buildzr/v1/workspaces")
+        super().end_headers()
 
     def _api_looking(self) -> bool:
         p = (getattr(self, "path", "") or "").split("?", 1)[0]
@@ -375,6 +384,7 @@ class WorkspacesHandler(Handler):
     # --- routing ----------------------------------------------------------------------------------
 
     def _serve(self, head: bool) -> None:
+        self._workspace_file = False  # one connection can carry several requests
         raw, _, query = self.path.partition("?")
         path = normalise_url_path(raw)
         if path is None:
@@ -415,6 +425,7 @@ class WorkspacesHandler(Handler):
         self._static(entry, remainder, head)
 
     def _static(self, entry: Entry, remainder: str, head: bool) -> None:
+        self._workspace_file = True
         self.directory = entry.folder
         self.path = quote(remainder, safe="/")
         fs = self.translate_path(self.path)

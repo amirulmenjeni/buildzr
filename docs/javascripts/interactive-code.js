@@ -233,11 +233,23 @@
         b.timer = setTimeout(() => viewerFailed(b, 'The viewer did not start.'), READY_TIMEOUT_MS);
         b.view.replaceChildren(b.frame);
       } else if (b.frameReady) {
-        post(b, { type: 'buildzr:load', files: result.files, route: result.focus.route, title: b.title });
+        post(b, loadMessage(b, result));
       }
       showExtras(b, result);
     });
   }
+
+  // One workspace: its files. A snippet that creates several: all of them, and the viewer shows a switcher.
+  function loadMessage(b, result) {
+    if (!result.workspaces) return { type: 'buildzr:load', files: result.files, route: result.focus.route, title: b.title };
+    return {
+      type: 'buildzr:load', title: b.title, active: result.active, route: result.focus.route,
+      workspaces: result.workspaces.map((w) => ({ name: w.name, files: w.files, route: w.focus.route })),
+    };
+  }
+
+  // The model JSON of the workspace on screen.
+  const jsonOf = (result, name) => ((result.workspaces || []).find((w) => w.name === name) || result).workspaceJson;
 
   function post(b, message) {
     b.frame.contentWindow.postMessage(message, location.origin);
@@ -250,7 +262,10 @@
     if (e.data.type === 'buildzr:ready') {
       b.frameReady = true;
       clearTimeout(b.timer);
-      if (b.pending) post(b, { type: 'buildzr:load', files: b.pending.result.files, route: b.pending.result.focus.route, title: b.title });
+      if (b.pending) post(b, loadMessage(b, b.pending.result));
+    } else if (e.data.type === 'buildzr:workspace' && typeof e.data.name === 'string' && b.result && b.result.workspaces) {
+      b.shown = e.data.name; // the reader picked another workspace in the viewer: the JSON panel follows
+      if (b.jsonCode) b.jsonCode.textContent = jsonOf(b.result, b.shown);
     } else if (e.data.type === 'buildzr:loaded' && b.pending) {
       const { resolve } = b.pending;
       b.pending = null;
@@ -281,15 +296,18 @@
   }).observe(document.body, { attributes: true, attributeFilter: ['data-md-color-scheme'] });
 
   function showExtras(b, result) {
+    b.result = result;
+    b.shown = result.active || null;
     const json = el('details', 'runcode-json');
     json.append(el('summary', '', 'Show model JSON'));
     const pre = el('pre');
-    pre.append(el('code', '', result.workspaceJson));
+    b.jsonCode = el('code', '', result.workspaceJson);
+    pre.append(b.jsonCode);
     json.append(pre);
     const copy = el('button', 'runcode-copy-json', 'Copy model JSON');
     copy.type = 'button';
     copy.title = 'Copy the Structurizr JSON of this model to the clipboard';
-    copy.addEventListener('click', () => copyJson(b, copy, result.workspaceJson));
+    copy.addEventListener('click', () => copyJson(b, copy, jsonOf(result, b.shown)));
     const row = el('div', 'runcode-extras-row');
     row.append(json, copy);
     b.extras.replaceChildren(row);

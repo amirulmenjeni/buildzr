@@ -102,6 +102,25 @@ addEventListener('message', (e) => {
 
 `files` maps each path, relative to `data/` and written as `index.json` writes it, to the file's JSON text or to the parsed object. It must contain `index.json` and every file that `index.json` names. You can send `buildzr:load` again at any time, for example when the reader runs a changed example: the frame starts again from the new data.
 
+### Send several workspaces
+
+When your page has more than one workspace, such as a snippet that creates two, send them all in one `buildzr:load`, with `workspaces` in place of `files`. The viewer then shows a **Workspace** selector in its navigation drawer, and the reader switches between them without another message from you:
+
+```js
+frame.contentWindow.postMessage({
+  type: 'buildzr:load',
+  active: 'Billing',
+  workspaces: [
+    { name: 'Shop', files: shopFiles },
+    { name: 'Billing', files: billingFiles, route: '#/m/ledger' },
+  ],
+}, location.origin);
+```
+
+Each entry has a `name` (shown in the selector, at most 200 characters, different from the others), `files` as above and, optionally, `build` and `route`. A message holds 1 to 50 entries. `active` names the one to show first; without it, the first. The `route` of the message, when it has one, applies to the active workspace, and otherwise the route of that entry does. Switching opens the other workspace on its own `route`, or on the landscape when it has none. It adds no history entry.
+
+With one entry, the viewer behaves as for `files` and shows no selector. The "Open in a new tab" button opens the workspace on screen and keeps the selector in the new tab.
+
 ### Messages
 
 Every message is an object whose `type` starts with `buildzr:`. The viewer ignores fields it does not know, and ignores a message whose fields have the wrong type.
@@ -110,7 +129,7 @@ From your page to the viewer:
 
 | `type` | Fields | What it does |
 |---|---|---|
-| `buildzr:load` | `files` (required), `build` (optional `build.json` object), `route` (optional hash such as `#/m/shop`), `title` (optional) | Draws the data. With a `build` whose `status` is `broken`, the frame shows the same broken-workspace message as the full viewer. |
+| `buildzr:load` | `files` (required, or `workspaces`, see [Send several workspaces](#send-several-workspaces)), `build` (optional `build.json` object), `route` (optional hash such as `#/m/shop`), `title` (optional) | Draws the data. With a `build` whose `status` is `broken`, the frame shows the same broken-workspace message as the full viewer. |
 | `buildzr:theme` | `theme`: `light`, `dark` or `system` | Switches the theme of the frame. The viewer does not store it. |
 | `buildzr:route` | `route`: a hash, for example `#/m/shop?sel=shop/api` | Opens that place, like a [viewer link](viewer-hash-routes.md). It does not open the inspector. |
 
@@ -121,6 +140,7 @@ From the viewer to your page:
 | `buildzr:ready` | `v`: the protocol version, `1` | The frame listens. Send `buildzr:load` after this message, not before. |
 | `buildzr:loaded` | `status`: `ready`, `broken` or `error`; `error` when there is one | After each `buildzr:load`, or after the data from the server is read. |
 | `buildzr:route` | `route`, `view`, `path`, `selection` | The reader moved or selected something. |
+| `buildzr:workspace` | `name` | The workspace on screen changed: after a `buildzr:load` that has `workspaces`, and each time the reader picks another one. |
 | `buildzr:open` | `url` | The reader opened the model in a new tab. You do not need to do anything. |
 
 The viewer fills its frame and sends no height. Choose a height that suits your page, for example `min(560px, 80vh)`.
