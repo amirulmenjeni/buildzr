@@ -12,31 +12,8 @@ active:
   - id: release-readiness
     title: 1.0 release readiness
     description: Finishing the packaging, documentation and CI checks needed to ship buildzr 1.0 as a stable release.
-  - id: viewer-polish
-    title: Viewer polish
-    description: Refining the built-in web viewer's layout, themes, embedding and phone experience ahead of 1.0.
 
 planned:
-  - target: "1.0"
-    items:
-      - id: viewer-custom-elements
-        title: Custom elements and custom views in the viewer
-        description: Show custom elements and custom views in the web viewer, alongside the standard C4 views.
-      - id: deployment-instance-navigation
-        title: Jump from elements to deployment instances
-        description: Navigate from a software system or container to the deployment instances that run it.
-      - id: browser-demo
-        title: Interactive browser demo
-        description: Edit a buildzr architecture model and explore the rendered viewer side by side, entirely in the browser.
-      - id: export-cli
-        title: Export command for model files
-        description: Export JSON, PlantUML, SVG and PNG from workspace model files with a public buildzr command, covering every workspace a file creates or one you pick; Workspace.save() is deprecated in its favour.
-      - id: viewer-workspace-switcher
-        title: Switch between workspaces in the viewer
-        description: Pick among the workspaces a model file, a buildzr serve catalog or a Run Code snippet creates, with the selector hidden when there is only one.
-      - id: viewer-fonts-notices
-        title: Bundled viewer font and third-party notices
-        description: The self-contained viewer bundles Inter regular and bold as its default font and adds a local About view and a THIRD_PARTY_NOTICES.txt file preserving dependency licence and copyright notices.
   - target: "1.1"
     items:
       - id: viewer-image-export
@@ -79,6 +56,28 @@ planned:
         description: Close lower-priority gaps with the Structurizr DSL that are listed on the compatibility page.
 
 launched:
+  - version: "1.0.0rc1"
+    date: 2026-10-22
+    link: https://github.com/amirulmenjeni/buildzr/tree/v1.0.0rc1
+    items:
+      - id: viewer-custom-elements
+        title: Custom elements and custom views in the viewer
+        description: Show custom elements and custom views in the web viewer, alongside the standard C4 views.
+      - id: deployment-instance-navigation
+        title: Jump from elements to deployment instances
+        description: Navigate from a software system or container to the deployment instances that run it.
+      - id: browser-demo
+        title: Interactive browser demo
+        description: Edit a buildzr architecture model and explore the rendered viewer side by side, entirely in the browser.
+      - id: export-cli
+        title: Export command for model files
+        description: Export JSON, PlantUML, SVG and PNG from workspace model files with a public buildzr command, covering every workspace a file creates or one you pick; Workspace.save() is deprecated in its favour.
+      - id: viewer-workspace-switcher
+        title: Switch between workspaces in the viewer
+        description: Pick among the workspaces a model file, a buildzr serve catalog or a Run Code snippet creates, with the selector hidden when there is only one.
+      - id: viewer-fonts-notices
+        title: Bundled viewer font and third-party notices
+        description: The self-contained viewer bundles Inter regular and bold as its default font and adds a local About view and a THIRD_PARTY_NOTICES.txt file preserving dependency licence and copyright notices.
   - version: 0.0.35
     date: 2026-10-16
     link: https://github.com/amirulmenjeni/buildzr/tree/v0.0.35

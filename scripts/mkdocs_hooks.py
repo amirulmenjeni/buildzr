@@ -27,7 +27,7 @@ ROADMAP_VERSION = 1
 STATUSES = ("active", "planned", "launched")
 KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 TARGET = re.compile(r"^(\d+\.\d+|Later)$")
-RELEASE = re.compile(r"^\d+\.\d+\.\d+$")
+RELEASE = re.compile(r"^\d+\.\d+\.\d+(rc\d+)?$")
 #: Anchors of the headings of the page: an item id must not take one.
 RESERVED_IDS = ("roadmap",)
 RESERVED_PREFIXES = ("rm-",)
@@ -190,7 +190,7 @@ def validate_roadmap(data: Any) -> list[str]:
                 number = release.get("version")
                 if "version" in release:
                     if not isinstance(number, str) or not RELEASE.match(number):
-                        errors.append(f"{at}.version: must be a quoted release like \"0.0.35\", got {number!r}")
+                        errors.append(f"{at}.version: must be a quoted release like \"0.0.35\" or \"1.0.0rc1\", got {number!r}")
                     elif number in seen:
                         errors.append(f"{at}.version: '{number}' is listed twice")
                     else:

@@ -48,7 +48,7 @@ def test_the_roadmap_of_the_repository_is_valid_and_has_the_agreed_shape() -> No
     data = hooks.load_roadmap(ROADMAP)
     assert hooks.validate_roadmap(data) == []
     assert data["version"] == 1
-    assert [g["target"] for g in data["planned"]] == ["1.0", "1.1", "Later"]
+    assert [g["target"] for g in data["planned"]] == ["1.1", "Later"]
     assert all(r["date"] for r in data["launched"])
     assert not os.path.exists(os.path.join(DOCS, "roadmap.md")), "the page is generated, not committed"
     assert not os.path.exists(os.path.join(ROOT, "ROADMAP.md"))
@@ -85,11 +85,17 @@ def test_a_valid_roadmap_has_no_errors() -> None:
     (lambda d: d["launched"][0].update(date="2025-01-01"), "list the newest release first"),
     (lambda d: d["launched"][1].update(version="0.0.2"), "launched[1].version: '0.0.2' is listed twice"),
     (lambda d: d["launched"][0].update(version="v1"), "launched[0].version"),
+    (lambda d: d["launched"][0].update(version="1.0.0rc"), "launched[0].version"),
+    (lambda d: d["launched"][0].update(version="1.0.0dev1"), "launched[0].version"),
     (lambda d: d["launched"][0].update(link="ftp://x/y"), "launched[0].link"),
     (lambda d: d["launched"][0].update(items=[]), "launched[0].items: must be a non-empty list"),
 ])
 def test_validation_names_the_fault_and_where(change: Any, expected: str) -> None:
     assert expected in errors_of(change)
+
+
+def test_a_release_candidate_is_a_launched_version() -> None:
+    assert errors_of(lambda d: d["launched"][0].update(version="1.0.0rc1")) == ""
 
 
 def test_an_id_is_unique_across_every_status() -> None:
