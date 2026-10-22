@@ -28,6 +28,8 @@ export interface ModelIndex {
   tags: string[];
   /** Relationships whose source or destination is the element itself. */
   own: Map<string, { out: Relationship[]; in: Relationship[] }>;
+  /** Software system or container id -> the deployment instances that run it (instanceOf), in model order. */
+  instancesOf: Map<string, string[]>;
 }
 
 export function indexModel(model: ModelJson, index: IndexJson): ModelIndex {
@@ -50,6 +52,12 @@ export function indexModel(model: ModelJson, index: IndexJson): ModelIndex {
   const own = new Map<string, { out: Relationship[]; in: Relationship[] }>();
   for (const e of elements) own.set(e.id, { out: [], in: [] });
   for (const r of rels) { own.get(r.source)!.out.push(r); own.get(r.destination)!.in.push(r); }
+  const instancesOf = new Map<string, string[]>();
+  for (const e of elements) {
+    if (!e.instanceOf) continue;
+    const list = instancesOf.get(e.instanceOf);
+    if (list) list.push(e.id); else instancesOf.set(e.instanceOf, [e.id]);
+  }
   const tagSet = new Set<string>();
   for (const e of elements) for (const t of e.tags) if (!isInternalTag(t)) tagSet.add(t);
   return {
@@ -62,7 +70,7 @@ export function indexModel(model: ModelJson, index: IndexJson): ModelIndex {
       ...elements.filter((e) => e.parent === null && CUSTOM_TYPES.has(e.type)),
     ].map((e) => e.id),
     tags: [...tagSet].sort(),
-    own,
+    own, instancesOf,
   };
 }
 
@@ -87,6 +95,38 @@ export function descendants(m: ModelIndex, id: string): string[] {
   const walk = (i: string) => { for (const c of m.byId.get(i)!.children) { out.push(c); walk(c); } };
   walk(id);
   return out;
+}
+
+/** Element types that can be deployed: the ones a deployment node can hold an instance of. */
+export const DEPLOYABLE_TYPES = new Set(['SoftwareSystem', 'Container']);
+
+export interface DeploymentRow {
+  id: string;
+  /** Names of the deployment nodes the instance sits in, outermost first. */
+  nodes: string[];
+  /** Copies of the innermost node, when more than one ("2", "0..N"). */
+  copies: string | null;
+  /** Whether a deployment view draws it: only then can the viewer show it. */
+  shown: boolean;
+}
+export interface DeploymentGroup { environment: string; name: string; rows: DeploymentRow[] }
+
+/** Where a software system or container runs, by environment (environment order of model.json). Empty when it runs nowhere. */
+export function deploymentsOf(m: ModelIndex, id: string, environments: { key: string; name: string }[]): DeploymentGroup[] {
+  const groups = new Map<string, DeploymentGroup>(environments.map((e) => [e.key, { environment: e.key, name: e.name, rows: [] }]));
+  for (const instId of m.instancesOf.get(id) ?? []) {
+    const inst = m.byId.get(instId)!;
+    const key = inst.environment ?? '';
+    let g = groups.get(key);
+    if (!g) { g = { environment: key, name: key, rows: [] }; groups.set(key, g); }
+    const nodes = ancestors(m, instId).map((a) => m.byId.get(a)!.name);
+    const parent = inst.parent ? m.byId.get(inst.parent) : undefined;
+    g.rows.push({
+      id: instId, nodes, copies: parent?.instances && parent.instances !== '1' ? parent.instances : null,
+      shown: inst.views.some((k) => m.viewByKey.has(k)),
+    });
+  }
+  return [...groups.values()].filter((g) => g.rows.length > 0);
 }
 
 export interface RelRow { rel: Relationship; other: string }

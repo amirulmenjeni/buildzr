@@ -59,6 +59,7 @@ export interface State {
   prefetch(id: string): void;
   openView(key: string, sel?: string | null): void;
   showInModel(): void;
+  showInstance(id: string): void;
   select(id: string | null, opts?: { reveal?: boolean; zoom?: boolean }): void;
   setFilter(f: Filter): void;
   gotoMatch(delta: 1 | -1): void;
@@ -310,6 +311,17 @@ export const useStore = create<State>()((set, get) => {
       const el = selection && m?.byId.get(selection);
       const path = el ? (el.parent ?? '') : '';
       commit({ view: null, path, selection, notice: null, camera: cam('path'), treeOpen: openAncestors([selection]) }, true);
+    },
+
+    /** From a software system or container to one of the deployment instances that run it: opens a deployment view that draws the instance (the current one when it does) and selects it. */
+    showInstance(id) {
+      const m = get().m!;
+      const inst = m.byId.get(id);
+      if (!inst || !isDeployment(inst) || !inst.views.some((k) => m.viewByKey.has(k))) return; // drawn nowhere: nothing to show
+      get().select(id, { reveal: true });
+      const v = get().view;
+      set({ announce: `Showing ${inst.name} in ${v ? m.viewByKey.get(v)?.title ?? v : 'its deployment view'}` });
+      requestAnimationFrame(() => document.querySelector<HTMLElement>('.inspector h2')?.focus()); // the button that was clicked is gone
     },
 
     /** Select an element or edge. With `reveal` the canvas expands to the element's parent (tree, search results). */

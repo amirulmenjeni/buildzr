@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { isCustom, isDeployment, isInternalTag, relationsOf, typeLabel, type ModelIndex, type RelRow } from './model';
+import { Fragment, useMemo, useRef } from 'react';
+import { DEPLOYABLE_TYPES, deploymentsOf, isCustom, isDeployment, isInternalTag, relationsOf, typeLabel, type DeploymentGroup, type ModelIndex, type RelRow } from './model';
 import { useStore } from './store';
 
 function RelList({ title, rows, m, kind }: { title: string; rows: RelRow[]; m: ModelIndex; kind: 'outgoing' | 'incoming' }) {
@@ -22,6 +22,32 @@ function RelList({ title, rows, m, kind }: { title: string; rows: RelRow[]; m: M
   );
 }
 
+/** Where a software system or container runs: one line per instance, by environment. */
+function Deployments({ groups, headingRef }: { groups: DeploymentGroup[]; headingRef: React.RefObject<HTMLHeadingElement | null> }) {
+  const showInstance = useStore((s) => s.showInstance);
+  const total = groups.reduce((n, g) => n + g.rows.length, 0);
+  return (
+    <section data-section="deployments" aria-labelledby="deployments-h">
+      <h3 id="deployments-h" tabIndex={-1} ref={headingRef}>Deployed on <span className="n" data-count={total}>{total}</span></h3>
+      {total === 0 ? <p className="note" data-empty="deployments">Not deployed in any environment.</p> : groups.map((g) => (
+        <div key={g.environment} data-environment={g.environment}>
+          <h4>{g.name}</h4>
+          <ul>{g.rows.map((r) => (
+            <li key={r.id} data-instance={r.id}>
+              {r.shown ? (
+                <button className="link" onClick={() => showInstance(r.id)}>{r.nodes.map((n, i) => (<Fragment key={i}>{i > 0 && <> <span aria-hidden="true">›</span> </>}{n}</Fragment>))}</button>
+              ) : (
+                <span>{r.nodes.join(' › ')} <span className="desc">(in no deployment view)</span></span>
+              )}
+              {r.copies && <span className="tech"> ×{r.copies}</span>}
+            </li>
+          ))}</ul>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export function Inspector() {
   const m = useStore((s) => s.m)!;
   const selection = useStore((s) => s.selection);
@@ -34,7 +60,10 @@ export function Inspector() {
   const expand = useStore((s) => s.expand);
   const openView = useStore((s) => s.openView);
   const showInModel = useStore((s) => s.showInModel);
+  const showInstance = useStore((s) => s.showInstance);
   const environments = useStore((s) => s.model?.deployment.environments);
+
+  const deployHeading = useRef<HTMLHeadingElement>(null);
 
   const el = selection ? m.byId.get(selection) : undefined;
   const edge = useMemo(() => {
@@ -46,15 +75,22 @@ export function Inspector() {
     return null;
   }, [selection, el, scenes]);
   const rel = useMemo(() => (el ? relationsOf(m, el.id, rolled) : null), [m, el, rolled]);
+  // A software system or container shows where it runs, when the workspace has deployment environments at all.
+  const deployments = useMemo(
+    () => (el && DEPLOYABLE_TYPES.has(el.type) && environments && environments.length > 0 ? deploymentsOf(m, el.id, environments) : null),
+    [m, el, environments]);
+  const reachable = deployments ? deployments.flatMap((g) => g.rows).filter((r) => r.shown) : [];
 
   return (
     <aside role="complementary" aria-label="Inspector" className="inspector">
       {el && rel ? (
         <div data-selected-id={el.id}>
-          <h2>{el.name}</h2>
+          <h2 tabIndex={-1}>{el.name}</h2>
           <p className="type" data-field="type">{typeLabel(el.type)}{el.technology ? ` · ${el.technology}` : ''}{el.metadata ? ` · ${el.metadata}` : ''}</p>
           <div className="actions">
             {m.expandable.has(el.id) && path !== el.id && <button data-action="open" onClick={() => expand(el.id)}>Open</button>}
+            {reachable.length === 1 && <button data-action="show-deployment" onClick={() => showInstance(reachable[0].id)}>Show deployment</button>}
+            {reachable.length > 1 && <button data-action="show-deployment" onClick={() => { deployHeading.current?.scrollIntoView({ block: 'nearest' }); deployHeading.current?.focus(); }}>Deployments ({reachable.length})</button>}
             {view && !isCustom(el) && (!isDeployment(el) || el.instanceOf) && <button data-action="show-in-model" onClick={showInModel}>Show in model</button>}
           </div>
           {el.description && <p className="description">{el.description}</p>}
@@ -79,6 +115,7 @@ export function Inspector() {
               ))}</ul>
             </section>
           )}
+          {deployments && <Deployments groups={deployments} headingRef={deployHeading} />}
           <label className="toggle">
             <input type="checkbox" checked={rolled} onChange={(e) => setRolled(e.target.checked)} data-testid="rolled" /> Include relationships of descendants
           </label>
