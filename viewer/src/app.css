@@ -72,11 +72,23 @@ button { font: inherit; }
 .wsswitch select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .fatal .wsswitch, .broken-body .wsswitch { margin: 12px 0; max-width: 360px; }
 @media (max-width: 767px) { .wsswitch select { min-height: 44px; } }
-.legal { font-size: 11px; margin: 12px; color: var(--muted); }
 
 /* settings: gear at the bottom-right of the left panel, popover above it */
-.left-foot { position: sticky; bottom: 0; margin-top: auto; display: flex; justify-content: flex-end; padding: 6px 8px; background: var(--panel); }
+.left-foot { position: sticky; bottom: 0; margin-top: auto; display: flex; align-items: center; justify-content: flex-end; padding: 6px 8px; background: var(--panel); }
 .gear { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--control-line); border-radius: 6px; background: var(--surface); color: var(--fg); cursor: pointer; padding: 0; }
+.about-btn { margin-right: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 8px; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--fg); cursor: pointer; }
+.about-btn:hover, .about-btn[aria-expanded=true] { background: var(--sel-bg); }
+.about-btn:focus-visible, .about-close:focus-visible, .about a:focus-visible, .about-notices:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.about-backdrop { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--backdrop); }
+.about { display: flex; flex-direction: column; width: min(720px, 100%); max-height: min(640px, 100%); background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 32px var(--shadow); }
+.about-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--line); }
+.about-head h2 { margin: 0; font-size: 16px; }
+.about-close { width: 32px; height: 32px; border: 0; background: none; color: var(--fg); font-size: 22px; line-height: 1; cursor: pointer; border-radius: 6px; }
+.about-body { flex: 1; min-height: 0; overflow: auto; padding: 4px 16px 16px; }
+.about-body h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 4px; }
+.about-body p { margin: 4px 0; }
+.about a { color: var(--accent); }
+.about-notices { margin: 8px 0 0; padding: 10px 12px; max-height: 40vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .gear[aria-expanded=true] { background: var(--sel-bg); border-color: var(--accent); }
 .gear:focus-visible, .setting input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .settings-panel { position: absolute; right: 8px; bottom: calc(100% + 4px); width: min(256px, calc(100% - 16px)); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px var(--shadow); padding: 8px 12px 10px; z-index: 5; }
@@ -168,6 +180,9 @@ button { font: inherit; }
   .tabs button[aria-selected=true] { border-bottom-color: var(--accent); font-weight: 700; }
   .tabs .close { flex: none; width: 48px; font-size: 22px; }
   .gear { width: 44px; height: 44px; }
+  .about-btn { min-height: 44px; min-width: 44px; }
+  .about-close { width: 44px; height: 44px; }
+  .about a { display: inline-block; padding: 12px 0; min-height: 44px; }
   .left-foot { padding: 8px 10px; }
   .setting { grid-template-columns: 44px 1fr; column-gap: 8px; }
   .setting input { width: 44px; height: 44px; }
@@ -177,7 +192,6 @@ button { font: inherit; }
   .tree .row { min-height: 44px; }
   .twisty { width: 28px; text-align: center; }
   .views button { min-height: 44px; }
-  .legal a { display: inline-block; padding: 14px 8px; min-height: 44px; }
   .sheet-wrap { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); border-radius: 14px 14px 0 0;
     box-shadow: 0 -4px 16px var(--shadow); display: flex; flex-direction: column; transition: height 200ms ease, transform 200ms ease; }
   .sheet-wrap[data-sheet=closed] { transform: translateY(100%); visibility: hidden; }

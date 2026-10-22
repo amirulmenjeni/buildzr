@@ -35,6 +35,14 @@ The theme is applied before the page is drawn, so the viewer never flashes the o
 
 The theme only changes the viewer. Exported PlantUML, PNG and SVG files are not affected.
 
+## Fonts, About and third-party notices
+
+The viewer sets its text in Inter, regular and bold. Both weights are part of the viewer bundle, so a built workspace shows the same font offline, behind a firewall or from a file share: the page asks no font host for anything. Code and error output keep your system's monospace font.
+
+To read what the viewer includes, click **About** at the bottom left of the left panel. On a phone, it is at the bottom left of the navigation drawer. The dialog describes the viewer and the font and shows the third-party notices: the licence and copyright notice of every library and font in the viewer. Press `Esc`, click **×** or click outside the dialog to close it; the focus returns to **About**. The dialog reads the notices from a file next to the page, and **Open as a plain text file** shows the same file in its own tab. Opening About does not change the [viewer link](viewer-hash-routes.md).
+
+The same notices are in the package as `THIRD_PARTY_NOTICES.txt`: in the wheel under `buildzr-<version>.dist-info/licenses/` and at the root of the source distribution.
+
 ## How the browser keeps the settings
 
 The viewer stores the settings in the browser's `localStorage`, under the key `buildzr-ui:settings`, as one JSON object, for example `{"zoomExpand":true,"theme":"dark"}`. When the viewer loads, it ignores unknown keys and values of the wrong type, and uses the default instead. If the browser blocks storage, the settings still work until the page is closed.

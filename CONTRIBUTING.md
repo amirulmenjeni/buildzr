@@ -294,13 +294,24 @@ Every push to `master` runs the workflow. It releases only when the version is f
 
 The viewer (`viewer/`) is built into the gitignored folder `buildzr/site/static/` and ships inside the package. The workflow therefore runs `npm ci` and `npm run build` in `viewer/` before `uv build`.
 
-Then `.github/scripts/check_wheel.py dist --sdist` fails the run, before anything is published, unless both the sdist and the wheel contain the viewer, the JSON schemas, the modules of `buildzr build` and `buildzr serve` and the layout's Node runner with elkjs, and the version of the wheel equals `buildzr/__about__.py`. To check a build yourself:
+Then `.github/scripts/check_wheel.py dist --sdist` fails the run, before anything is published, unless both the sdist and the wheel contain the viewer, its copy of the third-party notices, the JSON schemas, the modules of `buildzr build` and `buildzr serve` and the layout's Node runner with elkjs, and the version of the wheel equals `buildzr/__about__.py`. It also requires `THIRD_PARTY_NOTICES.txt` in the `.dist-info/licenses/` folder of the wheel and at the root of the sdist (`license-files` in `pyproject.toml` puts it there). To check a build yourself:
 
 ```bash
 (cd viewer && npm ci && npm run build)
 uv build
 python .github/scripts/check_wheel.py dist --sdist
 ```
+
+### Third-party notices
+
+`THIRD_PARTY_NOTICES.txt` holds the licence text and copyright notice of everything from others that the package ships: the npm packages linked into the viewer bundle, the Inter font and the vendored elkjs. The viewer's About dialog shows the same file. It is generated; do not edit it. After you change the production dependencies of `viewer/package.json`, the Inter files or the elkjs bundle, run this from the repository root, then commit the result:
+
+```bash
+(cd viewer && npm ci)
+python scripts/gen_third_party_notices.py
+```
+
+`tests/site/test_notices.py` fails when a package of the bundle is missing from the file or the file is out of date. Dependencies that are only type declarations (`@types/*`, `csstype`) or build tools are not listed, because their code is not shipped. The Java libraries of the PlantUML export are not shipped either; they are downloaded on first use.
 
 ### The smoke test of the wheel
 

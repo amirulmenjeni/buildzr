@@ -3,6 +3,8 @@ name = "buildzr"
 dynamic = ["version"]
 description = "Structurizr for the `buildzr`s 🧱⚒️"
 readme = "README.md"
+# PEP 639: both ship in the wheel under `.dist-info/licenses/` and in the sdist root.
+license-files = ["LICENSE.md", "THIRD_PARTY_NOTICES.txt"]
 requires-python = ">=3.10"
 authors = [
     { name = "Amirul Menjeni", email = "amirulmenjeni@pm.me" },
