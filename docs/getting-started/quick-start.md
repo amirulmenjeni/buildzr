@@ -255,18 +255,18 @@ You have written a model file, built it into a workspace and opened its diagrams
 
 - Learn how to describe more: [Core Concepts](../user-guide/core-concepts.md), [Models](../user-guide/models.md), [Relationships](../user-guide/relationships.md) and [Views](../user-guide/views.md).
 - Serve several workspaces, and let other people open them: [Serve your workspaces](../serve-workspaces.md).
-- Look up every option of `build` and `serve`: [Command reference](../cli.md).
+- Look up every option of `build`, `export` and `serve`: [Command reference](../cli.md).
 - Let scripts and AI assistants read your model as JSON: [The Model API](../model-api.md).
 
 ### Other ways to view the model
 
-The viewer is the main way to view a buildzr model, but the model is also a standard Structurizr workspace in JSON. To write it to a file, add `w.save(path='workspace.json')` as the last line of the `with` block and run `python workspaces/hello.py`. Then you can open it with other tools:
+The viewer is the main way to view a buildzr model, but the model is also a standard Structurizr workspace in JSON. To write it to a file, run `buildzr export workspaces/hello.py --pretty`, which writes `export/<workspace name>/workspace.json`. Then you can open it with other tools:
 
-- **[Structurizr Lite](https://docs.structurizr.com/lite)** shows the workspace in your browser. Run it in the folder that holds `workspace.json`:
+- **[Structurizr Lite](https://docs.structurizr.com/lite)** shows the workspace in your browser. Run it in the folder that holds `workspace.json` (for example `export/hello`):
 
     ```bash
     docker run -it --rm -p 8080:8080 -v $PWD:/usr/local/structurizr structurizr/lite
     ```
 
 - **[Structurizr CLI](https://docs.structurizr.com/cli)** converts the workspace to other formats, such as PlantUML and Mermaid.
-- **PlantUML**: `w.save(format='plantuml', path='output/')` writes `.puml` files. It needs `pip install "buildzr[export-plantuml]"` and Java 11 or newer. Open the files with a [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) viewer, for example the [PlantUML web editor](https://www.plantuml.com/plantuml/uml/ZOvFIyGm4CNl-HIrfowupSMJfvNrk6BnprccwT069fEGcI3zzhO5YoAAf_VcmVlDEub2rXB8N7bsL0Qi9jKajzPcU6z7hrFfYs1saHLPMnU3JGIyTewY0_dUdc-EtHgzFbni057CI_HsNXhW6NERLhxfC4la9croHnxakgelq2FLYtbCwYC3LVSeBlljgWzcXpJkq_selg2RE58Svpz0pxCeXaOs-UztyuJqVV3lAtR4bpa7Sq8UIg0F). See the [Export](../user-guide/export.md) page.
+- **PlantUML**: `buildzr export workspaces/hello.py -f plantuml -o output` writes `.puml` files. It needs `pip install "buildzr[export-plantuml]"` and Java 11 or newer. Open the files with a [C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) viewer, for example the [PlantUML web editor](https://www.plantuml.com/plantuml/uml/ZOvFIyGm4CNl-HIrfowupSMJfvNrk6BnprccwT069fEGcI3zzhO5YoAAf_VcmVlDEub2rXB8N7bsL0Qi9jKajzPcU6z7hrFfYs1saHLPMnU3JGIyTewY0_dUdc-EtHgzFbni057CI_HsNXhW6NERLhxfC4la9croHnxakgelq2FLYtbCwYC3LVSeBlljgWzcXpJkq_selg2RE58Svpz0pxCeXaOs-UztyuJqVV3lAtR4bpa7Sq8UIg0F). See the [Export](../user-guide/export.md) page.

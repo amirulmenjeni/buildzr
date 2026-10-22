@@ -59,7 +59,4 @@ with Workspace('Extended Workspace', extend=parent_workspace) as w:
         auto_layout='tb',
     )
 
-    # Export the merged workspace
-    output_path = os.path.join(os.path.dirname(__file__), 'workspace_extension.json')
-    w.save(path=output_path, pretty=True)
-    print(f"Exported to: {output_path}")
+    # Export the merged workspace with: buildzr export examples/workspace_extension.py --pretty

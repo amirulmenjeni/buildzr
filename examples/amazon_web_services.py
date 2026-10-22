@@ -123,4 +123,4 @@ with Workspace(
     StyleElements(on=[user], shape='Person')
     StyleElements(on=[db], shape='Cylinder')
 
-    w.save(path='amazon_web_services.json', pretty=True)
+    # Write the JSON with: buildzr export examples/amazon_web_services.py --pretty

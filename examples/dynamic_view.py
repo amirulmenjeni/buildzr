@@ -68,4 +68,4 @@ with Workspace('Online Book Store') as w:
         auto_layout='lr',
     )
 
-    w.save(path='dynamic_view.json', pretty=True)
+    # Write the JSON with: buildzr export examples/dynamic_view.py --pretty

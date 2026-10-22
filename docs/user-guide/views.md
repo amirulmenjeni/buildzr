@@ -51,8 +51,6 @@ with Workspace('w') as w:
         description='System Landscape',
         auto_layout='lr'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## System Context View
@@ -90,8 +88,6 @@ with Workspace('w') as w:
         description='My System Context',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## Container View
@@ -138,8 +134,6 @@ with Workspace('w') as w:
         description='Web Application Containers',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## Component View
@@ -190,8 +184,6 @@ with Workspace('w') as w:
         description='API Components',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## Deployment View
@@ -246,8 +238,6 @@ with Workspace('w') as w:
         description='Production Deployment',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## Dynamic View
@@ -365,8 +355,6 @@ with Workspace('Online Book Store') as w:
         ],
         auto_layout='lr',
     )
-
-    w.save(path='workspace.json')
 ```
 
 ### Scope Options
@@ -445,8 +433,6 @@ with Workspace('IoT System') as w:
         title='IoT Device Layout',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ### Custom elements in the web viewer
@@ -671,8 +657,6 @@ with Workspace('multi-view-example', implied_relationships=True) as w:
         description='API Components',
         auto_layout='lr'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## See Also

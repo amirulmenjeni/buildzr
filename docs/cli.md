@@ -4,9 +4,10 @@ The `buildzr` command turns the architecture models that you write in Python int
 
 This page is the reference of the command: every option, its default, and every exit code. To learn the commands step by step, follow the [Quick Start](getting-started/quick-start.md), then [Serve your workspaces](serve-workspaces.md).
 
-The command has two subcommands:
+The command has three subcommands:
 
 - `buildzr build` runs the Python files of your workspaces folder and writes one built workspace for each workspace they create.
+- `buildzr export` runs one model file and writes its workspaces as Structurizr JSON, PlantUML, SVG or PNG files, for other tools and for documents.
 - `buildzr serve` builds what is missing or out of date, then serves every built workspace so that you can open it in a browser.
 
 ## Find the page for your task
@@ -18,6 +19,7 @@ The command has two subcommands:
 | Serve several workspaces, on your machine or for a team | [Serve your workspaces](serve-workspaces.md) |
 | Put the built workspaces on a web server you already have | [Hosting the built workspaces elsewhere](hosting.md) |
 | Let scripts, CI (continuous integration) jobs, dashboards and AI assistants read your model | [The Model API](model-api.md) and the [recipes](publishing-recipes.md) |
+| Write JSON, PlantUML, SVG or PNG files from a model file | [`buildzr export`](#buildzr-export) and [Export](user-guide/export.md) |
 | Keep your settings in one file | [`buildzr.yaml`](config.md) |
 | Link to one box of a diagram | [Viewer links](viewer-hash-routes.md) |
 
@@ -90,7 +92,7 @@ $ buildzr --version
 buildzr 1.0.0
 ```
 
-The version in the output above is an example. `buildzr --help` lists `--version` next to the two subcommands.
+The version in the output above is an example. `buildzr --help` lists `--version` next to the three subcommands.
 
 ### `buildzr build`
 
@@ -180,6 +182,45 @@ When you expand such a box in the viewer, its inside is drawn in that room. If t
 
 *With `--k 9`, Order Service and Inventory Service get room for their components, so they are more than twice as wide and as tall as the other containers, and the viewer zooms out to fit the larger diagram.*
 
+### `buildzr export`
+
+```text
+buildzr export [-h] [-f FORMAT] [-o DIR] [--workspace NAME] [--index N] [--layout {dot,smetana}] [--pretty] FILE
+```
+
+`export` runs one model file `FILE`, in a fresh Python process in a temporary folder (so a model file that still calls `w.save()` does not write into your project and does not print a deprecation warning), and writes every workspace it creates, or the one you pick, as files. It does not use `buildzr.yaml`, Node.js or the viewer. A file that creates several workspaces gives one subfolder for each:
+
+```text
+export/
+  big-bank-plc/
+    workspace.json              format json
+    SystemContext.puml          formats plantuml, svg and png
+    SystemContext.svg           format svg
+    SystemContext.png           format png
+```
+
+The subfolder is named like a [built workspace](#the-name-of-a-built-workspace), and two workspaces of one file that would share a name get `-2`, `-3` and so on in the order the file creates them. Files of an earlier export are overwritten, and files that this export does not write are left alone. Each file written is listed on a line `wrote <path>`.
+
+| Option | What it does |
+|---|---|
+| `FILE` | The Python model file. It must exist and be a file, not a folder; use `build` for a folder. |
+| `-f FORMAT`, `--format FORMAT` | `json` (one `workspace.json`), `plantuml` (one `.puml` file per view), `svg` or `png` (one image per view, next to its `.puml` file). Repeat the option to write several formats in one run. Default: `json`. `plantuml`, `svg` and `png` need `pip install "buildzr[export-plantuml]"` and Java 11 or newer; `svg` and `png` also need Graphviz, unless you use `--layout smetana`. |
+| `-o DIR`, `--out DIR` | The output folder. Default: `export`. |
+| `--workspace NAME` | Export only the workspace with this name. If the file creates no such workspace, or two with that name, the command says so, lists the workspaces with their numbers, and writes nothing. |
+| `--index N` | Export only the N-th workspace the file creates, counting from 0. Use it when two workspaces share a name. It cannot be used with `--workspace`. |
+| `--layout {dot,smetana}` | The PlantUML layout engine for `plantuml`, `svg` and `png`. `dot` uses Graphviz. `smetana` is pure Java and needs no Graphviz, with a rougher layout, and adds `!pragma layout smetana` to the `.puml` files. Default: `dot`. |
+| `--pretty` | Indent the JSON with two spaces. By default the JSON is on one line, as `w.save()` wrote it. |
+
+- A format that cannot work here (no `jpype1`, or Graphviz missing for `svg` and `png` with `dot`) is reported before any file is written, so the run leaves no half-finished folder.
+- A workspace without views gets `workspace.json` only, and a warning for each diagram format.
+- If the model file raises an error, `export` prints it, with the lines of your file, and writes nothing.
+
+```console
+$ buildzr export workspaces/shop.py -f json -f svg --layout smetana -o diagrams
+wrote diagrams/shop/workspace.json
+wrote diagrams/shop/SystemContext.svg
+```
+
 ### `buildzr serve`
 
 ```text
@@ -248,8 +289,8 @@ File dates are not used. Code that a model file imports from anywhere else is no
 | Code | Meaning |
 |---|---|
 | 0 | Success. `serve` exits with 0 when you stop it with Ctrl+C (`serve --example`: also with `SIGTERM`). |
-| 1 | A workspace is broken or could not be built, there was nothing to serve, or the port is in use. |
-| 2 | A usage or config error: an unknown option, an option that cannot be combined with another (such as `--example` with `PATH`), a workspaces folder or path that does not exist, or a problem in `buildzr.yaml`. |
+| 1 | A workspace is broken or could not be built, there was nothing to serve, or the port is in use. For `export`: the model file raised an error or creates no workspace, or the export failed (for example, Java or Graphviz is missing). |
+| 2 | A usage or config error: an unknown option, an option that cannot be combined with another (such as `--example` with `PATH`), a workspaces folder or path that does not exist, an `export` file that does not exist, is a folder, or has no workspace of the name or number you gave, or a problem in `buildzr.yaml`. |
 
 Error messages from the command start with `buildzr: error: `. Problems in `buildzr.yaml` are listed one per line, as `buildzr.yaml:<line>: <key>: <message>`.
 

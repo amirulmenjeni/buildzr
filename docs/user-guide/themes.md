@@ -201,11 +201,9 @@ puml_dict = w.to_plantuml()
 
 # Export to SVG (icons embedded as base64)
 svg_dict = w.to_svg()
-
-# Save to files
-w.save(format='plantuml', path='output/')
-w.save(format='svg', path='output/')
 ```
+
+To write files, run `buildzr export model.py -f plantuml -f svg -o output`.
 
 The generated PlantUML will include `AddElementTag()` directives with sprite definitions, and the legend will display service names with their icons.
 

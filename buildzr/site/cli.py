@@ -1,4 +1,4 @@
-"""The ``buildzr`` command: ``build`` and ``serve``.
+"""The ``buildzr`` command: ``build``, ``export`` and ``serve``.
 
 Every setting comes from a flag, then from ``buildzr.yaml`` (see :mod:`buildzr.site.config`), then from the
 built-in default. Exit codes: 0 ok, 1 build, check or runtime failure, 2 usage or config error.
@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Iterable, NoReturn, Optional
 
 from buildzr.site import config as cfgmod
+from buildzr.site import export_files
 from buildzr.site.api import normalise_origin, normalise_public_url
 from buildzr.site.build import BuildError, BuildResult, Entry, build_all, plan, source_root
 from buildzr.site.config import (
@@ -30,6 +31,10 @@ from buildzr.site.config import (
 )
 from buildzr.site.example import ExampleError, stage as stage_example
 from buildzr.site.serve import Catalog, holds_built_workspaces, serve
+
+
+#: The output folder of ``buildzr export``.
+DEFAULT_EXPORT_OUT = "export"
 
 
 def _version() -> str:
@@ -82,6 +87,25 @@ def _parser() -> argparse.ArgumentParser:
     _add_build_args(b)
     b.add_argument("-o", "--out", metavar="DIR", default=None,
                    help=f"build output: one folder per workspace (default: build.out in buildzr.yaml, else {DEFAULT_OUT})")
+    x = sub.add_parser("export", help="write the workspaces of a model file as JSON, PlantUML, SVG or PNG files",
+                       description="Run a model file and write every workspace it creates (or the one you pick) "
+                                   "as Structurizr JSON, PlantUML source, SVG or PNG files, one folder per workspace.")
+    x.add_argument("file", metavar="FILE", help="the Python model file that creates the workspaces")
+    x.add_argument("-f", "--format", action="append", choices=export_files.FORMATS, default=None, metavar="FORMAT",
+                   help="json, plantuml, svg or png; repeat the option for several (default: json). plantuml, svg "
+                        "and png need buildzr[export-plantuml] and Java; svg and png also need Graphviz, unless "
+                        "--layout smetana")
+    x.add_argument("-o", "--out", metavar="DIR", default=DEFAULT_EXPORT_OUT,
+                   help=f"output folder; each workspace gets a subfolder (default: {DEFAULT_EXPORT_OUT})")
+    x.add_argument("--workspace", metavar="NAME", default=None,
+                   help="export only the workspace with this name (default: every workspace of the file)")
+    x.add_argument("--index", type=int, default=None, metavar="N",
+                   help="export only the N-th workspace the file creates, counting from 0; use it when two "
+                        "workspaces share a name")
+    x.add_argument("--layout", choices=export_files.LAYOUTS, default="dot",
+                   help="PlantUML layout engine for plantuml, svg and png: dot (Graphviz) or smetana (no Graphviz, "
+                        "rougher layout) (default: dot)")
+    x.add_argument("--pretty", action="store_true", help="indent the JSON output")
     s = sub.add_parser("serve", help="build what is stale, then serve every workspace (read-only)")
     s.add_argument("path", nargs="?", default=None, metavar="PATH",
                    help="a workspaces folder or a .py file (built if stale, then the build output is served; it "
@@ -338,6 +362,19 @@ def _cmd_build(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_export(args: argparse.Namespace) -> int:
+    if args.workspace is not None and args.index is not None:
+        raise _Usage("--workspace and --index cannot be used together")
+    if args.index is not None and args.index < 0:
+        raise _Usage("--index: expected 0 or a larger whole number")
+    if not os.path.exists(args.file):
+        raise _Usage(f"{args.file} not found")
+    if os.path.isdir(args.file):
+        raise _Usage(f"{args.file} is a folder; export takes one model file (buildzr build handles a whole folder)")
+    formats = list(dict.fromkeys(args.format or ["json"]))
+    return export_files.run(args.file, args.out, formats, args.layout, args.pretty, args.workspace, args.index)
+
+
 def _node_problem() -> Optional[str]:
     """Why the layout cannot run here (no Node), or ``None``."""
     try:
@@ -479,6 +516,8 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             return int(e.code or 0)
         if args.cmd == "build":
             return _cmd_build(args)
+        if args.cmd == "export":
+            return _cmd_export(args)
         return _cmd_serve(args)
     except _Usage as e:
         return _fail(str(e), 2)
