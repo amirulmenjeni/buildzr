@@ -39,6 +39,8 @@ FOCUS = re.compile(r"^[ \t]*#[ \t]*focus:[ \t]*(\S+)[ \t]*$", re.M)
 OWN_CANVAS = ("deployment", "dynamic")
 #: Printed output kept for the page (a snippet that prints a whole workspace JSON stays readable).
 MAX_STDOUT = 20_000
+#: Longest snippet :func:`run_snippet` accepts (characters). The docs' browser demo limits its editor to half of this.
+MAX_CODE = 100_000
 
 
 class ElkLike(Protocol):
@@ -267,6 +269,8 @@ def run_snippet(code: str) -> str:
     """The entry point of the docs page: JSON ``{"ok": true, ...}`` (see :func:`build_snippet`) or
     ``{"ok": false, "error": {"message", "line", "source"}}``. Never raises for a mistake in the snippet."""
     try:
+        if len(code) > MAX_CODE:
+            raise SnippetError(f"the code is {len(code):,} characters long; the limit is {MAX_CODE:,}")
         result = {"ok": True, **build_snippet(code, JsElkRunner())}
     except SnippetError as e:
         result = {"ok": False, "error": e.to_json()}

@@ -102,13 +102,13 @@ def serve(folder: Path) -> Iterator[str]:
         server.server_close()
 
 
-def run_node(mode: str, url: str, pages: list[str], timeout: float = 600) -> list[Json]:
-    """Run ``runcode_browser.mjs MODE URL PAGES...``; its JSON lines."""
+def run_node(mode: str, url: str, pages: list[str], timeout: float = 600, script: str = SCRIPT) -> list[Json]:
+    """Run ``runcode_browser.mjs MODE URL PAGES...`` (or another ``script`` that takes ``MODE``); its JSON lines."""
     node = shutil.which("node")
     assert node, "node is not installed"
-    done = subprocess.run([node, SCRIPT, mode, url, *pages], capture_output=True, text=True, timeout=timeout, cwd=ROOT)
+    done = subprocess.run([node, script, mode, url, *pages], capture_output=True, text=True, timeout=timeout, cwd=ROOT)
     if done.returncode != 0:
-        raise RuntimeError(f"runcode_browser.mjs {mode} failed:\n{done.stdout}\n{done.stderr}")
+        raise RuntimeError(f"{os.path.basename(script)} {mode} failed:\n{done.stdout}\n{done.stderr}")
     return [json.loads(line) for line in done.stdout.splitlines() if line.startswith("{")]
 
 

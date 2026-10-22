@@ -11,10 +11,8 @@
 (function () {
   'use strict';
 
-  const script = document.currentScript;
-  // docs/runcode/ (scripts/build_docs_assets.py) and this folder, found from this script's URL: works at any depth.
-  const RUNCODE = new URL('../runcode/', script ? script.src : location.href).href;
-  const ENGINE = new URL('runcode-engine.js', script ? script.src : location.href).href;
+  // docs/runcode/ (scripts/build_docs_assets.py): the viewer bundle the diagrams embed. runcode-client.js starts the engine.
+  const RUNCODE = RunCodeClient.RUNCODE;
   const NO_RUN = /^\s*#\s*no-?run\b/;
   const FOCUS = /^[ \t]*#[ \t]*focus:/;
   const READY_TIMEOUT_MS = 20000;
@@ -23,7 +21,7 @@
   // to measure the main-thread path.
   const stats = (window.__runcode = { thread: null, setupMs: null, runs: [] });
   const blocks = [];
-  let engine = null; // Promise<{run(code) -> Promise<result>}>
+  let client = null; // RunCodeClient, made on the first press
 
   document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.language-python.highlight > pre > code, div.highlight > pre > code.language-python')
@@ -127,7 +125,7 @@
   async function runBlock(b) {
     if (b.busy) return;
     b.busy = true;
-    const first = !engine;
+    const first = !client;
     b.run.disabled = true;
     b.run.textContent = '⏳ Running…';
     b.output.hidden = false;
@@ -144,13 +142,13 @@
     scrollToDiagram(b.output, false);
     const t0 = performance.now();
     try {
-      const result = await (await getEngine()).run(b.source);
+      const result = await getClient().run(b.source);
       stats.runs.push({ block: b.n, ms: Math.round(performance.now() - t0), first });
       if (!result.ok) showError(b, result.error);
       else if (!result.drawn) showNothing(b, result);
       else await showDiagram(b, result);
     } catch (err) {
-      engine = null; // the next press tries again
+      client = null; // the next press tries again
       showError(b, { message: String((err && err.message) || err), line: null, source: '', setup: true });
     } finally {
       b.busy = false;
@@ -160,62 +158,9 @@
     }
   }
 
-  function getEngine() {
-    if (!engine) {
-      engine = (window.__runcodeForceMainThread || typeof Worker === 'undefined') ? mainThreadEngine() : workerEngine()
-        .catch((err) => (err && err.workerBroken ? mainThreadEngine() : Promise.reject(err)));
-      engine.catch(() => {});
-    }
-    return engine;
-  }
-
-  function workerEngine() {
-    return new Promise((resolve, reject) => {
-      let worker;
-      try {
-        worker = new Worker(ENGINE);
-      } catch (err) {
-        reject(Object.assign(new Error(String(err)), { workerBroken: true }));
-        return;
-      }
-      const waiting = new Map();
-      let id = 0;
-      worker.onerror = (e) => { // the script did not even start (blocked by a policy, a syntax the browser lacks)
-        e.preventDefault();
-        reject(Object.assign(new Error(e.message || 'the worker failed'), { workerBroken: true }));
-      };
-      worker.onmessage = (e) => {
-        const m = e.data || {};
-        if (m.type === 'started') {
-          stats.thread = 'worker';
-          stats.setupMs = m.ms;
-          resolve({ run: (code) => new Promise((done) => { waiting.set(++id, done); worker.postMessage({ type: 'run', id, code }); }) });
-        } else if (m.type === 'start-failed') {
-          worker.terminate();
-          reject(new Error(m.message));
-        } else if (m.type === 'result' && waiting.has(m.id)) {
-          waiting.get(m.id)(m.result);
-          waiting.delete(m.id);
-        }
-      };
-      worker.postMessage({ type: 'start', base: RUNCODE });
-    });
-  }
-
-  async function mainThreadEngine() {
-    if (!window.RunCodeEngine) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = ENGINE;
-        s.onload = resolve;
-        s.onerror = () => reject(new Error('could not load ' + ENGINE));
-        document.head.appendChild(s);
-      });
-    }
-    const eng = await window.RunCodeEngine.start(RUNCODE);
-    stats.thread = 'main';
-    stats.setupMs = eng.ms;
-    return { run: async (code) => eng.run(code) };
+  function getClient() {
+    if (!client) client = RunCodeClient.create({ stats, forceMainThread: () => window.__runcodeForceMainThread });
+    return client;
   }
 
   // --- showing the result -------------------------------------------------------------------------------
