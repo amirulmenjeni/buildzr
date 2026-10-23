@@ -245,8 +245,6 @@ jobs:
     - name: Get semantic version
       uses: paulhatch/semantic-version@v5.4.0
       id: semantic-version
-      env:
-        PRERELEASE_MODE: true
       with:
         tag_prefix: "v"
 
@@ -254,8 +252,8 @@ jobs:
         major_pattern: "/^\\w+(\\(.+\\))?!:/"
         major_regexp_flags: ""
 
-        # If PRERELEASE_MODE is true, then the minor version is bumped for `fix` and `docs` as well.
-        minor_pattern: ${{ env.PRERELEASE_MODE && '/^(feat|fix|docs)(?:\(.+\))?:/' || '/^feat(?:\(.+\))?:/' }}
+        # e.g., `feat(scope):` or `feat:`
+        minor_pattern: "/^feat(\\(.+\\))?:/"
         minor_regexp_flags: ""
 
         # Follow default hatch versioning format.
@@ -265,7 +263,7 @@ jobs:
         bump_each_commit_patch_pattern: ""
         search_commit_body: false
         user_format_type: "csv"
-        enable_prerelease_mode: ${{ env.PRERELEASE_MODE }}
+        enable_prerelease_mode: false
         debug: false
         version_from_branch: false
 
