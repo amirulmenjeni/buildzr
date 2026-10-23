@@ -45,7 +45,7 @@ dev = [
     "pytest-mypy==1.0.1",
     "jsondiff==2.2.1",
     "yq==4.4.5",
-    "datamodel-code-generator==0.83.0",
+    "datamodel-code-generator==0.86.0",
     "ipykernel==7.3.0",
     "types-PyYAML>=6.0.12",
     "types-Markdown>=3.7",
