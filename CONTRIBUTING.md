@@ -273,22 +273,22 @@ The `release` workflow publishes releases from `master`. It never pushes commits
 
 ### Cut a release
 
-Open a pull request that sets a final version, for example `0.0.33`, in `buildzr/__about__.py`. When the pull request is merged, the workflow builds the viewer and the package, checks them, publishes the package to PyPI and pushes the tag `v0.0.33`.
+Open a pull request that sets a final version, for example `1.0.1`, in `buildzr/__about__.py`. When the pull request is merged, the workflow builds the viewer and the package, checks them, publishes the package to PyPI and pushes the tag `v1.0.1`.
 
 ### Cut a release candidate
 
-Do the same with a version such as `0.1.0rc1`. Versions follow PEP 440, and `rc` is the only pre-release kind that is released. Number the candidates `rc1`, `rc2`, and so on; the final `0.1.0` sorts after them. The tag of `0.1.0rc1` is `v0.1.0rc1`.
+Do the same with a version such as `1.1.0rc1`. Versions follow PEP 440, and `rc` is the only pre-release kind that is released. Number the candidates `rc1`, `rc2`, and so on; the final `1.1.0` sorts after them. The tag of `1.1.0rc1` is `v1.1.0rc1`.
 
 PyPI does not offer a release candidate to a plain `pip install buildzr`. Install it with one of these commands:
 
-- `uvx --from buildzr==0.1.0rc1 buildzr build`
-- `uv add buildzr==0.1.0rc1`
-- `pip install buildzr==0.1.0rc1`
+- `uvx --from buildzr==1.1.0rc1 buildzr build`
+- `uv add buildzr==1.1.0rc1`
+- `pip install buildzr==1.1.0rc1`
 - `pip install --pre buildzr`
 
 ### Which pushes release
 
-Every push to `master` runs the workflow. It releases only when the version is final or a release candidate, and its tag does not exist yet. The workflow skips development, alpha, beta and post-release versions, such as `0.0.33.dev0`, `0.0.33a1`, `0.0.33b1` or `0.0.33.post1`. Bumping the version to `.dev0` therefore does not trigger a release.
+Every push to `master` runs the workflow. It releases only when the version is final or a release candidate, and its tag does not exist yet. The workflow skips development, alpha, beta and post-release versions, such as `1.0.1.dev0`, `1.0.1a1`, `1.0.1b1` or `1.0.1.post1`. Bumping the version to `.dev0` therefore does not trigger a release.
 
 ### What the workflow checks before it publishes
 
@@ -327,7 +327,7 @@ When a pull request changes the version, the `check_version` job of the `build` 
 
 - a version that is not canonical PEP 440, for example `0.0.033`;
 - a final version or release candidate that already has a tag;
-- a version that is not higher than the latest `v*` tag. For example, `0.1.0rc2` is higher than `0.1.0rc1`, and `0.1.0` is higher than `0.1.0rc2`, but `0.1.0rc3` is not higher than the released `0.1.0`.
+- a version that is not higher than the latest `v*` tag. For example, `1.1.0rc2` is higher than `1.1.0rc1`, and `1.1.0` is higher than `1.1.0rc2`, but `1.1.0rc3` is not higher than the released `1.1.0`.
 
 Otherwise, the job reports whether the merge will release the version to PyPI.
 
