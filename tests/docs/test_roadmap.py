@@ -145,6 +145,14 @@ def test_render_groups_by_status_and_target_and_escapes_text() -> None:
     assert "Launched" not in hooks.render_roadmap(data)
 
 
+def test_a_roadmap_without_active_work_renders_no_active_section() -> None:
+    data = valid()
+    del data["active"]
+    assert hooks.validate_roadmap(data) == []
+    page = hooks.render_roadmap(data)
+    assert "Active" not in page and "{ #rm-planned }" in page
+
+
 def test_render_accepts_unquoted_yaml_dates() -> None:
     data = yaml.safe_load(yaml.safe_dump(valid(), default_flow_style=False).replace("'2026-02-02'", "2026-02-02"))
     assert "2 February 2026" in hooks.render_roadmap(data)
