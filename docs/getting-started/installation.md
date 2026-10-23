@@ -31,12 +31,12 @@ The right command depends on what you want to do:
 
 ### Install a release candidate
 
-A release candidate is a pre-release, such as `0.1.0rc1`. A plain `uv add buildzr` or `pip install buildzr` never installs one; ask for it by version:
+A release candidate is a pre-release, such as `1.1.0rc1`. A plain `uv add buildzr` or `pip install buildzr` never installs one; ask for it by version:
 
 ```bash
-uvx --from buildzr==0.1.0rc1 buildzr build
-uv add buildzr==0.1.0rc1
-pip install buildzr==0.1.0rc1
+uvx --from buildzr==1.1.0rc1 buildzr build
+uv add buildzr==1.1.0rc1
+pip install buildzr==1.1.0rc1
 pip install --pre buildzr
 ```
 
