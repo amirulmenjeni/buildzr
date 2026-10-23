@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buildzr.dev/schema/levels/2",
+  "title": "buildzr level graphs (buildzr.levels/2): the W1 -> W2 hand-over",
+  "description": "Output of buildzr/site/levels.py, input of buildzr/site/layout/. One level per scene to lay out: 'landscape', 'e/<path>' for every element with children, 'v/<key>' for every authored view. Everything a scene needs except geometry: nodes with resolved style, shape and UNWRAPPED label lines; rolled-up edges with rels; ports (by id and direction, no position). Sorting and ids are exactly those of the scene (scene.schema.json), so layout only adds x/y/w/h, points, bounds and port positions, and wraps label text.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "modelHash", "levels"],
+  "properties": {
+    "schema": { "const": "buildzr.levels/2" },
+    "modelHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "levels": {
+      "type": "array",
+      "description": "Parents before children: landscape, then e/<path> in model pre-order, then v/<key> in view order.",
+      "items": { "$ref": "#/$defs/level" }
+    }
+  },
+  "$defs": {
+    "level": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "level", "title", "ports", "nodes", "edges"],
+      "properties": {
+        "key": { "type": "string" },
+        "level": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "scope"],
+          "properties": {
+            "kind": { "enum": ["landscape", "element", "view"] },
+            "scope": { "type": ["string", "null"] }
+          }
+        },
+        "title": { "type": "string" },
+        "ports": {
+          "type": "array",
+          "description": "Element levels only: one per parent-level edge touching the scope, id = that edge's id, sorted by id.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "dir"],
+            "properties": {
+              "id": { "type": "string" },
+              "dir": { "enum": ["in", "out"], "description": "in: the parent edge targets the scope (child edges start at the port); out: the reverse." }
+            }
+          }
+        },
+        "nodes": {
+          "type": "array",
+          "description": "Pre-order, siblings sorted by id (as in the scene).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "role", "type", "parent", "name", "tags", "shape", "style", "lines"],
+            "properties": {
+              "id": { "type": "string" },
+              "modelId": { "type": "string" },
+              "role": { "enum": ["element", "boundary"] },
+              "type": { "type": "string" },
+              "parent": { "type": ["string", "null"] },
+              "name": { "type": "string" },
+              "tags": { "type": "array", "items": { "type": "string" } },
+              "shape": { "type": "string" },
+              "style": { "type": "object", "description": "Resolved node style, exactly the scene node 'style' object." },
+              "lines": {
+                "type": "array",
+                "description": "Unwrapped label lines; layout wraps each line's text to the box width and keeps tier/weight/size/italic on every wrapped piece.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["text", "tier"],
+                  "properties": {
+                    "text": { "type": "string" },
+                    "tier": { "enum": [0, 1, 2] },
+                    "weight": { "enum": ["normal", "bold"] },
+                    "size": { "type": "number" },
+                    "italic": { "type": "boolean" }
+                  }
+                }
+              },
+              "children": { "type": "integer", "minimum": 1, "description": "Present iff the element has children at the next level (becomes frame.children; frame.scene = 'e/<id>')." },
+              "instances": { "type": "string", "minLength": 1, "description": "Deployment nodes whose instance count is not '1' (the scene node's 'instances')." },
+              "childType": { "type": "string" }
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "description": "Sorted by id. source/target are node ids or {\"port\": id}.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "source", "target", "rels", "style"],
+            "properties": {
+              "id": { "type": "string" },
+              "source": {},
+              "target": {},
+              "rels": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+              "style": { "type": "object", "description": "Resolved edge style, exactly the scene edge 'style' object." },
+              "lines": {
+                "type": "array",
+                "description": "Unwrapped edge label lines (may be empty: no label).",
+                "items": { "type": "object" }
+              },
+              "order": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

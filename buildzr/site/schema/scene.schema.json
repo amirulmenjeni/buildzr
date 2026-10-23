@@ -1,0 +1,204 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buildzr.dev/schema/scene/2",
+  "title": "buildzr scene graph, one file per level or authored view (buildzr.scene/2)",
+  "description": "A fully laid-out level (landscape, the inside of one element) or authored view. Coordinates are LOCAL to the scene (y down), rounded to 0.01. Styles are resolved; renderers never consult the model's styles. Canonical bytes: json sort_keys, separators (',', ':'), ensure_ascii False, UTF-8, trailing newline. Design note v4, section C. Rules the schema cannot express are enforced by buildzr/site/check.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "key", "level", "title", "modelHash", "layout", "bounds", "ports", "nodes", "edges"],
+  "properties": {
+    "schema": { "const": "buildzr.scene/2" },
+    "key": {
+      "type": "string",
+      "pattern": "^(landscape|e/[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*|v/[a-z0-9][a-z0-9-]*)$",
+      "description": "Scene key: 'landscape', 'e/<element path>' or 'v/<view key>'. index.json maps it to a file."
+    },
+    "level": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "scope"],
+      "properties": {
+        "kind": { "enum": ["landscape", "element", "view"] },
+        "scope": { "type": ["string", "null"], "description": "null for landscape; element path for element; view key for view." }
+      }
+    },
+    "title": { "type": "string" },
+    "modelHash": { "$ref": "#/$defs/hash", "description": "modelHash of the model.json this scene was built from." },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "version", "inputHash", "passes"],
+      "properties": {
+        "engine": { "enum": ["elkjs", "hand"] },
+        "version": { "type": "string" },
+        "inputHash": { "$ref": "#/$defs/hash", "description": "sha256 of the canonical ELK input of the final pass for this scene (layoutOptions included)." },
+        "passes": { "type": "integer", "minimum": 1 },
+        "options": { "type": "object", "additionalProperties": { "type": "string" } },
+        "fallback": { "type": "string", "description": "Set when a documented fallback was used, e.g. 'port-continuity-stops-at-container'." }
+      }
+    },
+    "bounds": {
+      "$ref": "#/$defs/rect4",
+      "description": "[minX, minY, width, height]. For level.kind = element this is EXACTLY the scoped element's own box in local coordinates (minX = minY = 0): the ports lie on its border and a parent frame maps it by translate + uniform scale. For landscape and view scenes: everything drawn, plus margin."
+    },
+    "ports": {
+      "type": "array",
+      "description": "Only for level.kind = element (empty otherwise). One per rolled-up edge of the PARENT scene that touches the scoped element; port.id equals that parent edge's id. Sorted by id.",
+      "items": { "$ref": "#/$defs/port" }
+    },
+    "nodes": {
+      "type": "array",
+      "description": "Pre-order depth-first (parents before children). Siblings sorted by id.",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "description": "Rolled-up edges for this level, sorted by id.",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:([0-9a-f]{64}|unknown)$" },
+    "num": { "type": "number", "description": "Rounded to 0.01; integral values written without a fraction; -0 written as 0." },
+    "rect4": { "type": "array", "items": { "$ref": "#/$defs/num" }, "minItems": 4, "maxItems": 4 },
+    "point": { "type": "array", "items": { "$ref": "#/$defs/num" }, "minItems": 2, "maxItems": 2 },
+    "color": { "type": "string", "pattern": "^#[0-9a-f]{6}$" },
+    "path": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$" },
+    "port": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "x", "y", "side"],
+      "properties": {
+        "id": { "type": "string", "description": "= the parent scene's edge id this port continues." },
+        "x": { "$ref": "#/$defs/num" },
+        "y": { "$ref": "#/$defs/num" },
+        "side": { "enum": ["N", "E", "S", "W"], "description": "Border of bounds the port lies on (within 0.5 px)." }
+      }
+    },
+    "labelLine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "tier"],
+      "properties": {
+        "text": { "type": "string", "description": "Already wrapped by the build for the UNSCALED box width; renderers never re-wrap." },
+        "tier": { "enum": [0, 1, 2], "description": "0 name, 1 type/technology, 2 description. Renderer hides tiers whose effective px (size x cumulative scale x zoom) < 6." },
+        "weight": { "enum": ["normal", "bold"], "default": "normal" },
+        "size": { "type": "number", "description": "px; defaults to node style.fontSize." },
+        "italic": { "type": "boolean", "default": false }
+      }
+    },
+    "frame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scene", "scale", "children"],
+      "properties": {
+        "scene": { "type": "string", "pattern": "^e/", "description": "Child scene key; its content is drawn inside this node's rect." },
+        "scale": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "description": "Uniform scale. Child point (x, y) maps to (node.x + scale * (x - b.minX), node.y + scale * (y - b.minY)), b = child scene bounds; node.w = scale * b.w and node.h = scale * b.h within 0.5 px." },
+        "children": { "type": "integer", "minimum": 1, "description": "Direct child count (for the 'N containers' badge)." },
+        "childType": { "type": "string", "description": "Type of the children, e.g. 'Container', for the badge text." }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "role", "type", "parent", "x", "y", "w", "h", "shape", "style", "label", "tags", "name"],
+      "properties": {
+        "id": { "type": "string", "description": "Element path for role=element (same as model.json id). Boundary ids are 'group:<slug path>' or the element path of the boundary element." },
+        "modelId": { "type": "string" },
+        "role": { "enum": ["element", "boundary"], "description": "boundary = enclosing box (group, the scoped system/container in an authored view, or a deployment node with something drawn inside it) with children and a corner label." },
+        "type": { "type": "string", "description": "Person, SoftwareSystem, Container, Component, Group; in deployment views DeploymentNode, InfrastructureNode, ContainerInstance, SoftwareSystemInstance. Renderers ignore types they do not know." },
+        "parent": { "type": ["string", "null"], "description": "Enclosing boundary node id in THIS scene, or null." },
+        "x": { "$ref": "#/$defs/num" },
+        "y": { "$ref": "#/$defs/num" },
+        "w": { "$ref": "#/$defs/num" },
+        "h": { "$ref": "#/$defs/num" },
+        "shape": {
+          "enum": ["Box", "RoundedBox", "Person", "Cylinder", "Pipe", "Folder", "Hexagon", "Circle", "Ellipse", "Component", "WebBrowser", "MobileDevicePortrait", "MobileDeviceLandscape", "Robot", "Diamond"]
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["fill", "stroke", "color", "fontSize"],
+          "properties": {
+            "fill": { "$ref": "#/$defs/color" },
+            "stroke": { "$ref": "#/$defs/color" },
+            "color": { "$ref": "#/$defs/color" },
+            "fontSize": { "type": "number" },
+            "strokeWidth": { "type": "number", "default": 1 },
+            "dash": { "type": "array", "items": { "type": "number" } },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 }
+          }
+        },
+        "label": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lines", "anchor"],
+          "properties": {
+            "lines": { "type": "array", "items": { "$ref": "#/$defs/labelLine" } },
+            "anchor": { "enum": ["center", "top", "bottom-left", "top-left"], "description": "'top' is used on frame nodes so the label leaves the inside free." }
+          }
+        },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "name": { "type": "string" },
+        "instances": { "type": "string", "minLength": 1, "description": "Deployment nodes only: the number of instances (e.g. '3' or '0..N') when it is not '1'; drawn as a badge." },
+        "frame": { "$ref": "#/$defs/frame", "description": "Present on nodes whose inside is a child scene (expandable). Only in landscape and element scenes." }
+      }
+    },
+    "endpoint": {
+      "oneOf": [
+        { "type": "string", "description": "Node id in this scene." },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["port"],
+          "properties": { "port": { "type": "string", "description": "Port id of this scene; the edge continues as the parent scene's edge with that id." } }
+        }
+      ]
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "target", "points", "count", "rels", "style"],
+      "properties": {
+        "id": { "type": "string", "description": "Opaque, unique in the scene. Convention: '<a>-><b>' with a port end written 'port:<port id>'." },
+        "source": { "$ref": "#/$defs/endpoint" },
+        "target": { "$ref": "#/$defs/endpoint" },
+        "points": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/point" },
+          "description": "Polyline in scene coordinates, from source border (or port) to target border (or port)."
+        },
+        "count": { "type": "integer", "minimum": 1, "description": "= len(rels)." },
+        "rels": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "model.json relationship ids this edge stands for, sorted." },
+        "label": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lines", "x", "y", "w", "h"],
+          "properties": {
+            "lines": { "type": "array", "items": { "$ref": "#/$defs/labelLine" } },
+            "x": { "$ref": "#/$defs/num" },
+            "y": { "$ref": "#/$defs/num" },
+            "w": { "$ref": "#/$defs/num" },
+            "h": { "$ref": "#/$defs/num" }
+          }
+        },
+        "style": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["stroke", "arrow"],
+          "properties": {
+            "stroke": { "$ref": "#/$defs/color" },
+            "color": { "$ref": "#/$defs/color" },
+            "width": { "type": "number", "default": 1.5 },
+            "dash": { "type": "array", "items": { "type": "number" } },
+            "arrow": { "enum": ["end", "start", "both", "none"] },
+            "fontSize": { "type": "number", "default": 12 },
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 }
+          }
+        },
+        "order": { "type": ["string", "null"], "description": "Dynamic-view step; omitted elsewhere." }
+      }
+    }
+  }
+}

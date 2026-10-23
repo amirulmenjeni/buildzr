@@ -30,7 +30,21 @@ CASES = [
     ('0.0.34', '0.0.035', TAGS, 1, '::error title=Version bump::\'0.0.035\' is not in canonical form'),
     ('0.0.34', '0.0.035.dev0', TAGS, 1, '::error title=Version bump::\'0.0.035.dev0\' is not in canonical form'),
     ('0.0.34', '0.0.35dev0', TAGS, 1, '::error title=Version bump::\'0.0.35dev0\' is not in canonical form'),
-    ('0.0.34', '0.0.35rc1', TAGS, 0, '::notice title=Version bump::\'0.0.35rc1\' is not a final version'),
+    ('0.0.34', '0.0.35a1', TAGS, 0, '::notice title=Version bump::\'0.0.35a1\' is not a final version or a release candidate'),
+    ('0.0.34', '0.0.35b2', TAGS, 0, '::notice title=Version bump::\'0.0.35b2\' is not a final version or a release candidate'),
+    ('0.0.34', '0.0.35.post1', TAGS, 0, '::notice title=Version bump::\'0.0.35.post1\' is not a final version or a release candidate'),
+    ('0.0.34', '0.0.35rc1.dev0', TAGS, 0, '::notice title=Version bump::\'0.0.35rc1.dev0\' is not a final version or a release candidate'),
+    ('0.0.34', '0.1.0rc1', TAGS, 0, '::notice title=Version bump::Merging this pull request WILL release v0.1.0rc1'),
+    ('0.0.34', '0.0.35rc1', TAGS, 0, '::notice title=Version bump::Merging this pull request WILL release v0.0.35rc1'),
+    ('0.1.0rc1', '0.1.0rc2', TAGS + ['v0.1.0rc1'], 0, '::notice title=Version bump::Merging this pull request WILL release v0.1.0rc2'),
+    ('0.1.0rc2', '0.1.0', TAGS + ['v0.1.0rc1', 'v0.1.0rc2'], 0, '::notice title=Version bump::Merging this pull request WILL release v0.1.0 to PyPI.'),
+    ('0.1.0rc1', '0.1.0rc1', TAGS + ['v0.1.0rc1'], 0, None),
+    ('0.1.0rc2', '0.1.0rc1', TAGS + ['v0.1.0rc2'], 1, '::error title=Version bump::\'0.1.0rc1\' is not higher than the latest release v0.1.0rc2'),
+    ('0.0.34', '0.1.0rc1', TAGS + ['v0.1.0rc1'], 1, '::error title=Version bump::v0.1.0rc1 is already released'),
+    ('0.1.0', '0.1.0rc2', TAGS + ['v0.1.0rc1', 'v0.1.0'], 1, '::error title=Version bump::\'0.1.0rc2\' is not higher than the latest release v0.1.0'),
+    ('0.0.34', '0.1.0rc01', TAGS, 1, '::error title=Version bump::\'0.1.0rc01\' is not in canonical form'),
+    ('0.0.34', '0.1.0-rc1', TAGS, 1, '::error title=Version bump::\'0.1.0-rc1\' is not in canonical form'),
+    ('0.0.34', '0.1.0RC1', TAGS, 1, '::error title=Version bump::\'0.1.0RC1\' is not in canonical form'),
     ('0.0.34', '0.0.34.post1', TAGS, 0, '::notice title=Version bump::\'0.0.34.post1\' is not a final version'),
     ('0.0.34', '0.0.35+local', TAGS, 1, '::error title=Version bump::\'0.0.35+local\' has a local version label'),
     ('0.0.34', 'garbage', TAGS, 1, '::error title=Version bump::\'garbage\' is not a valid PEP 440 version'),
@@ -83,7 +97,17 @@ class TestCheckVersionBump(unittest.TestCase):
         workflow = RELEASE_WORKFLOW.read_text(encoding='utf-8')
         match = re.search(r'if \[\[ ! "\$VERSION" =~ (\S+) \]\]', workflow)
         assert match is not None
-        self.assertEqual(match.group(1), check_version_bump.FINAL_VERSION_REGEX)
+        self.assertEqual(match.group(1), check_version_bump.RELEASE_VERSION_REGEX)
+
+    def test_release_regex(self) -> None:
+        regex = re.compile(check_version_bump.RELEASE_VERSION_REGEX)
+        for version in ('0.0.35', '1.0.0', '0.1.0rc1', '0.1.0rc12', '1.2rc3'):
+            self.assertIsNotNone(regex.match(version), version)
+        for version in (
+            '0.1.0.dev0', '0.1.0a1', '0.1.0b1', '0.1.0.post1', '0.1.0rc1.dev0',
+            '0.1.0rc01', '0.1.0rc', '0.1.0-rc1', '0.1.0RC1', '0.01.0', '0.1.0+x', '',
+        ):
+            self.assertIsNone(regex.match(version), version)
 
     def test_read_version(self) -> None:
         self.assertEqual(

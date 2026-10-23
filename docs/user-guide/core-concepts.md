@@ -34,13 +34,13 @@ A workspace contains three types of things:
 The basic structure looks like this:
 
 ```python
-# norun
 from buildzr.dsl import Workspace, Person, SoftwareSystem, Container
 
 with Workspace('my-architecture') as w:
     # Define your elements and relationships
     # Create views to visualize them
     # Apply styles to make them pretty
+    ...
 ```
 
 Check out [Workspace](workspace.md) for more info on `Workspace`.
@@ -56,7 +56,6 @@ The humans (or bots pretending to be humans) who interact with your systems. Cou
 Example:
 
 ```python
-# norun
 user = Person('Customer', description='Buys products from our store')
 ```
 
@@ -69,7 +68,6 @@ The highest level of abstraction --- a complete system that delivers value to it
 Example:
 
 ```python
-# norun
 checkout = SoftwareSystem('Checkout System', description='Processes orders and payments')
 ```
 
@@ -82,7 +80,7 @@ A separately runnable or deployable unit within a software system. Web applicati
 Example:
 
 ```python
-# norun
+# no-run: a fragment; a container goes inside a software system
 api = Container('REST API', technology='Python/FastAPI')
 ```
 
@@ -94,7 +92,7 @@ A grouping of related functionality within a container. Controllers, services, r
 
 Example:
 ```python
-# norun
+# no-run: a fragment; a component goes inside a container
 auth = Component('Authentication Service', description='Handles login and tokens')
 ```
 
@@ -107,7 +105,7 @@ Elements in isolation are just boxes. Relationships give them meaning --- they s
 The syntax is simple:
 
 ```python
-# norun
+# no-run: the general form; source and destination stand for two elements
 source >> "description" >> destination
 ```
 
@@ -116,7 +114,7 @@ You can add technical details, tags, properties, and handle complex scenarios li
 Example:
 
 ```python
-# norun
+# no-run: a fragment; user, checkout_api and database are elements of your model
 user >> "Places orders through" >> checkout_api
 checkout_api >> ("Stores orders in", "JDBC") >> database
 ```
@@ -130,7 +128,6 @@ As your architecture grows, you'll want to organize related elements together. G
 Example:
 
 ```python
-# norun
 with Group("Internal Systems"): ...
 ```
 
@@ -153,8 +150,8 @@ Each view is a lens focused on a specific part of your model. You define your ar
 Example:
 
 ```python
-# norun
-SystemContextView(software_system_selector=checkout, key='checkout-context')
+# no-run: a fragment; checkout is a software system of your model
+SystemContextView(software_system_selector=checkout, key='checkout-context', description='Checkout and its users')
 ```
 
 Learn more about views in [Views](views.md).
@@ -164,7 +161,6 @@ Learn more about views in [Views](views.md).
 `buildzr` leverages Python's context managers (`with` statements) to create hierarchical structures that mirror your architecture's natural nesting:
 
 ```python
-# norun
 with Workspace('e-commerce') as w:
     with SoftwareSystem('Shop') as shop:
         api = Container('API')
@@ -177,7 +173,6 @@ This isn't just syntactic sugar --- it makes the code structure reflect the arch
 You can add tags and properties to categorize and annotate your architecture:
 
 ```python
-# norun
 critical_system = SoftwareSystem(
     'Payment Processing',
     tags=['critical', 'pci-compliant'],

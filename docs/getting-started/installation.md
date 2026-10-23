@@ -1,38 +1,60 @@
 # Installation
 
+This page shows how to install buildzr for each way of using it, and how to check the installation.
+
 ## Requirements
 
-- Python 3.10 or higher
+- Python 3.10 or newer.
+- Node.js 18 or newer, only on the machine that builds: `buildzr build`, and `buildzr serve` when a workspace is new or changed. The layout step of the build runs [elkjs](https://github.com/kieler/elkjs) on Node. Check your version with `node --version`. Serving workspaces that are already built (`buildzr serve --no-build`) and the Python API do not need Node.
 
-The project follows a rolling support policy: CI tests every advertised Python
-minor version, new maintained versions are added when supported by dependencies,
-and the oldest version is dropped only at end-of-life or when tooling makes it impractical.
+buildzr supports every Python version that its CI (continuous integration) tests. New maintained Python versions are added when the dependencies support them. The oldest version is dropped only at its end of life, or when the tools make it impractical to keep.
 
 ## Install from PyPI
 
-The easiest way to install `buildzr` is using `pip`:
+To add `buildzr` to a project that uses [uv](https://docs.astral.sh/uv/):
 
 ```bash
-pip install buildzr
+uv add buildzr
+```
+
+With `pip` instead: `pip install buildzr`. Both also install the `buildzr` command.
+
+The right command depends on what you want to do:
+
+| You want to... | Run |
+|---|---|
+| Write models | `uv add buildzr` (or `pip install buildzr`). Your model file imports `buildzr`, so buildzr must be in the environment of your project. |
+| Try the command line, or run it once, for example in CI | `uvx buildzr build`. `uvx` runs buildzr in a temporary environment without installing it. `uvx buildzr serve` works the same way. |
+| Keep the `buildzr` command on your machine | `uv tool install buildzr` |
+
+`uvx buildzr build` works without buildzr in your project. But when you run the model file yourself (`python workspaces/model.py`) or edit it in your editor, your project's Python is used, and the import fails until you add buildzr to the project.
+
+### Install a release candidate
+
+A release candidate is a pre-release, such as `0.1.0rc1`. A plain `uv add buildzr` or `pip install buildzr` never installs one; ask for it by version:
+
+```bash
+uvx --from buildzr==0.1.0rc1 buildzr build
+uv add buildzr==0.1.0rc1
+pip install buildzr==0.1.0rc1
+pip install --pre buildzr
 ```
 
 ### Optional Dependencies
 
 #### `buildzr[export-plantuml]`
 
-To export your architecture diagrams directly to PlantUML format, install with the `export-plantuml` extra:
+To export your diagrams to PlantUML, install the `export-plantuml` extra:
 
 ```bash
 pip install "buildzr[export-plantuml]"
 ```
 
-Note: This requires Java 11+ to be installed on your system, as it uses Structurizr's Java libraries under the hood via JPype.
-Rendering `svg`/`png` additionally needs [Graphviz](https://graphviz.org/download/) (`dot`),
-unless you pass `layout='smetana'`. See the [Export](../user-guide/export.md) page.
+This extra needs Java 11 or newer, because it calls Structurizr's Java libraries through JPype. To render `svg` or `png`, you also need [Graphviz](https://graphviz.org/download/) (`dot`), unless you pass `layout='smetana'`. See the [Export](../user-guide/export.md) page.
 
 ## Install from Source
 
-If you want to install the latest development version from source:
+To install the latest development version from the source code:
 
 ```bash
 git clone https://github.com/amirulmenjeni/buildzr.git
@@ -48,33 +70,32 @@ For development work, install [uv](https://docs.astral.sh/uv/) and sync the lock
 uv sync --all-extras --locked
 ```
 
-This installs the development, documentation, and PlantUML extras. Run tools through the
-project environment with `uv run`, for example:
+This installs every extra, including the development, documentation and PlantUML extras. Run tools in the project environment with `uv run`, for example:
 
 ```bash
 uv run pytest --mypy tests
 ```
 
-The lockfile keeps local development and CI dependencies reproducible.
+The lock file `uv.lock` makes the dependencies of local development and of CI the same. To work on the documentation or to run the full test suite, use the devcontainer; see the [Contributing Guide](../contributing.md).
 
 ## Verification
 
-To verify your installation, try importing `buildzr`:
+To check your installation, import `buildzr`:
 
 ```python
-# norun
+# no-run: checks the buildzr of your own environment
 from buildzr.dsl import Workspace, SoftwareSystem, Person
 print("buildzr installed successfully!")
 ```
 
-Or check the version:
+Or print the installed version:
 
 ```python
-# norun
+# no-run: checks the buildzr of your own environment
 from importlib.metadata import version
 print(version("buildzr"))
 ```
 
 ## Next Steps
 
-Now that you have `buildzr` installed, head over to the [Quick Start Guide](quick-start.md) to create your first architecture diagram!
+To create your first architecture diagram, continue with the [Quick Start Guide](quick-start.md). To serve several models, and let other people open them, continue with [Serve your workspaces](../serve-workspaces.md).

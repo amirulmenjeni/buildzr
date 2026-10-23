@@ -15,6 +15,7 @@ jobs:
     outputs:
       src: ${{ steps.check-src-changed.outputs.src }}
       docs: ${{ steps.check-src-changed.outputs.docs }}
+      package: ${{ steps.check-src-changed.outputs.package }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -27,15 +28,23 @@ jobs:
             src:
               - 'buildzr/**'
               - 'tests/**'
+              - 'viewer/**'
               - 'pyproject.toml'
               - 'uv.lock'
               - '.python-version'
               - '.devcontainer/**'
               - '.github/workflows/**'
+            package:
+              - 'buildzr/**'
+              - 'viewer/**'
+              - 'pyproject.toml'
+              - 'hatch_build.py'
+              - '.github/**'
             docs:
               - 'README.md'
               - 'docs/**'
-              - 'DOCS_SETUP.md'
+              - 'roadmap.yml'
+              - 'scripts/mkdocs_hooks.py'
 
   check_skip_flags:
     runs-on: ubuntu-latest
@@ -81,6 +90,9 @@ jobs:
         with:
           version: 0.12.11
 
+      - name: Test package check
+        run: python3 .github/scripts/test_check_wheel.py
+
       - name: Test version bump check
         run: uv run --no-project --with packaging==26.3 python .github/scripts/test_check_version_bump.py
 
@@ -104,7 +116,28 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: wagoid/commitlint-github-action@v6
+          fetch-depth: 0 # Get every commit of the pull request
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20 # As in the image of the action this replaces
+
+      - name: Test commit lint script
+        run: python3 .github/scripts/test_lint_commits.py
+
+      # Not wagoid/commitlint-github-action, which cannot exempt commits and
+      # lints only the first 100 commits of a pull request.
+      # commitlint 19.8.1 is the last 19.x release, the major the action's
+      # 6.2.1 image used (^19), and supports Node >=18.
+      - name: Lint commit messages
+        env:
+          COMMITLINT: npx --no-install commitlint
+          BASE: ${{ github.event.pull_request.base.sha || format('{0}^', github.sha) }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          npm install --no-save --no-package-lock \
+            @commitlint/cli@19.8.1 @commitlint/config-conventional@19.8.1
+          python3 .github/scripts/lint_commits.py "$BASE" "$HEAD"
 
   tests:
     runs-on: ubuntu-latest
@@ -162,6 +195,20 @@ jobs:
 
     - name: Validate optional dependencies
       run: uv run --python ${{ matrix.python-version }} python -c "import IPython, datamodel_code_generator, jpype, mkdocs, mypy, yq"
+
+    # The viewer is gitignored build output (buildzr/site/static/). The tests of
+    # `buildzr build` and the documentation examples need it, and the real
+    # layout needs Node.
+    - name: Set up Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+
+    - name: Build viewer
+      working-directory: viewer
+      run: |
+        npm ci
+        npm run build
 
     - name: Run tests
       run: uv run --python ${{ matrix.python-version }} pytest --mypy tests
@@ -245,9 +292,28 @@ jobs:
           echo "::notice::File version $current_version is already ahead of (or equal to) computed version $version; skipping version update."
         fi
 
+    # The viewer is gitignored build output that ships inside the package.
+    - name: Set up Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+
+    - name: Build viewer
+      working-directory: viewer
+      run: |
+        npm ci
+        npm run build
+
+    - name: Viewer unit tests
+      working-directory: viewer
+      run: npm run test:unit
+
     - name: Build package
       run: |
         uv build
+
+    - name: Check package
+      run: python3 .github/scripts/check_wheel.py dist --sdist
 
     - name: Upload build
       uses: actions/upload-artifact@v7
@@ -258,6 +324,49 @@ jobs:
     - name: Display uploaded artifacts
       run: |
         ls -R
+
+  # Proves that the package a user would install works: builds the viewer and
+  # the package like the release workflow, checks them, then installs the wheel
+  # into a fresh venv and runs build and serve for real. All the logic
+  # is in smoke_wheel.sh, which can also be run locally.
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    needs:
+      - check_changes
+    if: ${{ needs.check_changes.outputs.package == 'true' }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: 0.12.11
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install 3.10
+
+    - name: Set up Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+
+    - name: Build viewer
+      working-directory: viewer
+      run: |
+        npm ci
+        npm run build
+
+    - name: Build package
+      run: uv build
+
+    - name: Smoke test the built wheel
+      run: .github/scripts/smoke_wheel.sh dist
 
   package_validation:
     runs-on: ubuntu-latest

@@ -1,7 +1,7 @@
 site_name: buildzr
 site_description: Structurizr for the buildzrs - A Python authoring tool for Structurizr models and diagrams
 site_author: Amirul Menjeni
-site_url: https://amirulmenjeni.github.io/buildzr
+site_url: https://buildzr.dev
 
 repo_name: amirulmenjeni/buildzr
 repo_url: https://github.com/amirulmenjeni/buildzr
@@ -10,6 +10,7 @@ edit_uri: edit/master/docs/
 theme:
   name: material
   custom_dir: overrides
+  language: custom
   palette:
     # Light mode
     - media: "(prefers-color-scheme: light)"
@@ -58,6 +59,9 @@ markdown_extensions:
   - attr_list
   - smarty
 
+hooks:
+  - scripts/mkdocs_hooks.py
+
 plugins:
   - search
   - mkdocstrings:
@@ -77,21 +81,34 @@ nav:
   - Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quick-start.md
+    - Use buildzr with AI agents: getting-started/ai-agents.md
+    - Try it in your browser: demo.md
   - User Guide:
     - Core Concepts: user-guide/core-concepts.md
     - Workspace: user-guide/workspace.md
     - Models: user-guide/models.md
     - Relationships: user-guide/relationships.md
     - Views: user-guide/views.md
+    - Deployment Views: user-guide/deployment.md
     - Styles: user-guide/styles.md
     - Themes: user-guide/themes.md
     - Export: user-guide/export.md
+  - Publishing:
+    - Serve your workspaces: serve-workspaces.md
+    - Command reference: cli.md
+    - buildzr.yaml: config.md
+    - Recipes: publishing-recipes.md
+    - Hosting the built workspaces elsewhere: hosting.md
+    - Viewer settings: ui-settings.md
+    - Viewer links: viewer-hash-routes.md
   - API Reference:
     - DSL: api/dsl.md
     - Models: api/models.md
+    - Model API: model-api.md
   - Development:
     - Contributing: contributing.md
     - Roadmap: roadmap.md
+    - Structurizr compatibility: structurizr-compatibility.md
 
 extra:
   social:
@@ -99,8 +116,11 @@ extra:
       link: https://github.com/amirulmenjeni/buildzr
 
 extra_javascript:
-  - https://cdn.jsdelivr.net/pyodide/v0.28.3/full/pyodide.js
+  - javascripts/runcode-client.js
   - javascripts/interactive-code.js
+  - javascripts/demo.js
 
 extra_css:
-  - stylesheets/pyscript.css
+  - stylesheets/runcode.css
+  - stylesheets/demo.css
+  - stylesheets/roadmap.css

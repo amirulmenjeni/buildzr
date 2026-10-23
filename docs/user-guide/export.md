@@ -1,33 +1,33 @@
 # Export
 
 A buildzr workspace can be exported as Structurizr JSON, or rendered through
-PlantUML as `.puml` source, SVG, or PNG.
+PlantUML as `.puml` source, SVG, or PNG. The way to do it is the `buildzr export`
+command. It runs a model file and writes **every workspace the file creates**, or
+the one you pick, so the model file does not need any export code.
 
 ## Formats
 
 | Format       | Output                                  |
 |--------------|-----------------------------------------|
-| `'json'`     | One Structurizr JSON file (default)     |
-| `'plantuml'` | One `.puml` file per view               |
-| `'svg'`      | One `.svg` file per view (plus `.puml`) |
-| `'png'`      | One `.png` file per view (plus `.puml`) |
+| `json`       | One Structurizr JSON file, `workspace.json` (default) |
+| `plantuml`   | One `.puml` file per view               |
+| `svg`        | One `.svg` file per view (plus `.puml`) |
+| `png`        | One `.png` file per view (plus `.puml`) |
 
-```python
-# norun
-w.save()                                   # ./<workspace_name>.json
-w.save(format='json', path='out/arch.json', pretty=True)
-w.save(format='plantuml', path='diagrams/')
-w.save(format='svg', path='diagrams/')
-w.save(format='png', path='diagrams/')
+```bash
+buildzr export workspaces/shop.py                      # export/shop/workspace.json
+buildzr export workspaces/shop.py --pretty -o out      # indented JSON in out/
+buildzr export workspaces/shop.py -f plantuml -f svg   # .puml and .svg files
+buildzr export workspaces/shop.py -f png --layout smetana
+buildzr export workspaces/many.py --workspace "Billing"   # one workspace of several
 ```
 
-The signature is `save(format='json', path=None, pretty=False, layout='dot')`.
-`layout` applies to `plantuml`, `svg` and `png` and is ignored for `json`; an unknown
-value raises `ValueError` for every format. To get the
-content in memory instead of on disk (for example in a Jupyter notebook):
+Every option is in the [command reference](../cli.md#buildzr-export). To get the
+content in memory instead of on disk (for example in a Jupyter notebook), use the
+methods of the workspace:
 
 ```python
-# norun
+# no-run: needs Java for the PlantUML export, and the workspace w of your model
 json_str = w.to_json()        # str
 puml = w.to_plantuml()        # Dict[view_key, puml_source]
 svg = w.to_svg()              # Dict[view_key, svg_source]; accepts layout=...
@@ -39,7 +39,7 @@ svg = w.to_svg()              # Dict[view_key, svg_source]; accepts layout=...
 |--------------|------------------------------------------------------------------------------------------------|
 | `json`       | Nothing extra                                                                                  |
 | `plantuml`   | `buildzr[export-plantuml]` and Java 11+                                                        |
-| `svg`, `png` | As for `plantuml`, plus Graphviz `dot` on `PATH` (or set via `GRAPHVIZ_DOT`), unless you use `layout='smetana'` |
+| `svg`, `png` | As for `plantuml`, plus Graphviz `dot` on `PATH` (or set via `GRAPHVIZ_DOT`), unless you use `--layout smetana` |
 
 Install the extra with:
 
@@ -57,55 +57,88 @@ If you cannot install Java system-wide, a version manager such as
 [mise](https://mise.jdx.dev/) can provide it for a single command:
 
 ```bash
-mise exec java@temurin-21 -- python model.py
+mise exec java@temurin-21 -- buildzr export model.py -f svg
 ```
 
 ## Output files and paths
 
+`buildzr export FILE -o DIR` writes one subfolder of `DIR` (default `export`) for
+each workspace, named after the workspace: `Workspace('Big Bank plc')` is written
+to `DIR/big-bank-plc/`. Two workspaces with the same name get `-2`, `-3` and so
+on. In the subfolder:
+
+- `workspace.json` is the JSON.
 - Each view is written as `<view key>.<ext>`.
-- For `json`, `path` is a **file** (default `./<workspace_name>.json`).
-- For `plantuml`, `svg` and `png`, `path` is a **directory** (default: the
-  current working directory).
 - `svg` and `png` also write the `.puml` source next to each image.
 
-`save()` returns the written file path (`str`) for `json`, and a list of
-written paths for the other formats.
+## Migrating from `Workspace.save()`
+
+`Workspace.save()` is **deprecated**. It still works exactly as before and returns
+the same values, but it emits a `DeprecationWarning` that points here, and it will
+be removed in a future release. A model file that still calls it can be exported
+with `buildzr export` unchanged: the command runs the file in a temporary folder
+and silences this warning, so nothing is written next to your model.
+
+| Before | After |
+|---|---|
+| `w.save(path='workspace.json')` | `buildzr export model.py -o out` (writes `out/<name>/workspace.json`) |
+| `w.save(path='workspace.json', pretty=True)` | `buildzr export model.py --pretty` |
+| `w.save(format='plantuml', path='d/')` | `buildzr export model.py -f plantuml -o d` |
+| `w.save(format='svg', path='d/', layout='smetana')` | `buildzr export model.py -f svg --layout smetana -o d` |
+| `w.save(format='png', path='d/')` | `buildzr export model.py -f png -o d` |
+
+Differences to know:
+
+- The files go into a subfolder per workspace, `workspace.json` and
+  `<view key>.<ext>` inside it, so a file that creates several workspaces does
+  not overwrite itself. `save()` took the file or folder you gave it.
+- Delete the `w.save(...)` line from the model file when you can. A file
+  without it also works with `buildzr build` and `buildzr serve`.
+- If you need the content in a program, `to_json()`, `to_plantuml()` and
+  `to_svg()` are not deprecated.
+- To silence the warning while you migrate, use
+  `warnings.filterwarnings("ignore", message=r"Workspace\.save\(\) is deprecated", category=DeprecationWarning)`.
 
 ## Rendering without Graphviz
 
-Pass `layout='smetana'` to use PlantUML's built-in Java port of Graphviz
+Pass `--layout smetana` to use PlantUML's built-in Java port of Graphviz
 instead of the `dot` executable:
 
-```python
-# norun
-w.save(format='svg', path='diagrams/', layout='smetana')
-svg = w.to_svg(layout='smetana')
+```bash
+buildzr export workspaces/shop.py -f svg --layout smetana -o diagrams
 ```
 
+In Python, `w.to_svg(layout='smetana')` does the same in memory.
+
 Java is still required. The trade-off is that the layout quality is somewhat
-worse than with `dot`. With `layout='smetana'`, the line `!pragma layout smetana`
+worse than with `dot`. With `--layout smetana`, the line `!pragma layout smetana`
 is also written into the generated `.puml` files, so they match the images.
 `to_plantuml()` takes no `layout` argument.
 
 ## Failure behaviour
 
-- If `jpype1` is not installed, `plantuml`/`svg`/`png` raise `ImportError`
-  with the install hint above.
-- If Graphviz is missing (with the default `dot` layout), or PlantUML reports
-  an error instead of producing a diagram, buildzr raises `PlantUmlRenderError`
-  (a subclass of `RuntimeError`). The Graphviz check runs before any `.puml`
-  or image file is written, although `save()` may still create the (empty)
-  output directory. PlantUML syntax errors raise `PlantUmlRenderError` for both
-  `svg` and `png`, and PlantUML's "Dot executable does not exist" banner is
-  caught for `svg`.
-- `format='plantuml'` and `to_plantuml()` never need Graphviz.
+`buildzr export` prints `buildzr: error: ...` and exits with 1 when something
+fails, and with 2 when the file, `--workspace` or `--index` is wrong (see the
+[exit codes](../cli.md#exit-codes)).
+
+- If `jpype1` is not installed, `plantuml`, `svg` and `png` fail with the install
+  hint above.
+- If Graphviz is missing (with the default `dot` layout), the error says so and
+  suggests `--layout smetana`. These two checks run before any file is written,
+  so a run that asks for `json` and `svg` writes nothing when Graphviz is missing.
+- If PlantUML reports an error instead of producing a diagram, the error is
+  printed and the exit status is 1.
+- `-f plantuml` never needs Graphviz.
+
+In Python, the same problems raise `ImportError` and `PlantUmlRenderError` (a
+subclass of `RuntimeError`) from `to_plantuml()` and `to_svg()`:
 
 ```python
-# norun
+# no-run: needs Java for the PlantUML export, and the workspace w of your model
 from buildzr.sinks.plantuml_sink import PlantUmlRenderError
 
 try:
-    w.save(format='svg', path='diagrams/')
+    svgs = w.to_svg()
 except PlantUmlRenderError as e:
     print(f"Rendering failed: {e}")
 ```

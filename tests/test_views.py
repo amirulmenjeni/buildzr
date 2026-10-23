@@ -1926,6 +1926,140 @@ def test_dynamic_view_static_relationship_by_reference_with_inline_step() -> Opt
     assert [r.description for r in dv.relationships] == [None, "again"]
 
 
+def test_dynamic_view_step_without_technology_matches_relationship_with_technology() -> Optional[None]:
+    """A step without a technology matches a relationship that has one."""
+    with Workspace('w') as w:
+        with SoftwareSystem('Shop') as shop:
+            webapp = Container('Web App')
+            payments = Container('Payments')
+        static = webapp >> ("Takes payments through", "HTTPS") >> payments
+
+        DynamicView(
+            key="checkout",
+            scope=shop,
+            steps=[webapp >> "Charges the card through" >> payments],
+        )
+
+    dv = w.model.views.dynamicViews[0]
+    assert dv.relationships is not None
+    assert [r.id for r in dv.relationships] == [static.model.id]
+    assert dv.relationships[0].description == "Charges the card through"
+    assert [r.model.id for r in Explorer(w).walk_relationships()] == [static.model.id]
+
+
+def test_dynamic_view_step_with_empty_technology_matches_relationship_with_technology() -> Optional[None]:
+    """An empty technology in a step counts as no technology."""
+    with Workspace('w') as w:
+        a = SoftwareSystem('a')
+        b = SoftwareSystem('b')
+        static = a >> ("uses", "HTTPS") >> b
+
+        DynamicView(key="v", steps=[a >> ("calls", "") >> b])
+
+    dv = w.model.views.dynamicViews[0]
+    assert dv.relationships is not None
+    assert [r.id for r in dv.relationships] == [static.model.id]
+
+
+def test_dynamic_view_step_with_matching_technology() -> Optional[None]:
+    """A step with a technology picks the relationship with that technology."""
+    with Workspace('w') as w:
+        a = SoftwareSystem('a')
+        b = SoftwareSystem('b')
+        a >> ("Reads", "SQL") >> b
+        rest = a >> ("Reads", "REST") >> b
+
+        DynamicView(key="v", steps=[a >> ("Fetches", "REST") >> b])
+
+    dv = w.model.views.dynamicViews[0]
+    assert dv.relationships is not None
+    assert [r.id for r in dv.relationships] == [rest.model.id]
+    assert dv.relationships[0].description == "Fetches"
+
+
+def test_dynamic_view_step_without_technology_and_two_technologies_raises_error() -> Optional[None]:
+    """A step without a technology that matches two technologies is ambiguous."""
+    with Workspace('w') as w:
+        a = SoftwareSystem('a')
+        b = SoftwareSystem('b')
+        a >> ("Queries", "SQL") >> b
+        a >> ("Syncs", "REST API") >> b
+
+        with pytest.raises(ValueError) as error:
+            DynamicView(key="v", steps=[a >> "Reads" >> b])
+
+    message = str(error.value)
+    assert "from 'a' to 'b' has no technology and matches 2 relationships" in message
+    assert "'Queries' (SQL)" in message
+    assert "'Syncs' (REST API)" in message
+    assert "Add the technology" in message
+
+
+def test_dynamic_view_step_without_technology_prefers_same_description() -> Optional[None]:
+    """Without a technology, a relationship with the step's description wins."""
+    with Workspace('w') as w:
+        a = SoftwareSystem('a')
+        b = SoftwareSystem('b')
+        a >> ("Queries", "SQL") >> b
+        syncs = a >> ("Syncs", "REST API") >> b
+
+        DynamicView(key="v", steps=[a >> "Syncs" >> b])
+
+    dv = w.model.views.dynamicViews[0]
+    assert dv.relationships is not None
+    assert [r.id for r in dv.relationships] == [syncs.model.id]
+
+
+def test_dynamic_view_step_without_technology_and_description_only_differences() -> Optional[None]:
+    """Relationships that differ only by description are not ambiguous."""
+    with Workspace('w') as w:
+        a = SoftwareSystem('a')
+        b = SoftwareSystem('b')
+        first = a >> ("Reads", "HTTPS") >> b
+        writes = a >> ("Writes", "HTTPS") >> b
+
+        DynamicView(key="same", steps=[a >> "Writes" >> b])
+        DynamicView(key="other", steps=[a >> "Deletes" >> b])
+
+    same, other = w.model.views.dynamicViews
+    assert same.relationships is not None and other.relationships is not None
+    assert [r.id for r in same.relationships] == [writes.model.id]
+    # No description matches, so the oldest relationship is used, as before.
+    assert [r.id for r in other.relationships] == [first.model.id]
+    assert other.relationships[0].description == "Deletes"
+
+
+def test_dynamic_view_user_guide_example() -> Optional[None]:
+    """The Dynamic View example in the user guide: steps without a technology."""
+    with Workspace('Online Book Store') as w:
+        customer = Person('Customer')
+        with SoftwareSystem('Online Book Store') as bookstore:
+            webapp = Container('Web Application')
+            database = Container('Database')
+
+        browses = customer >> ("Browses and makes purchases using", "HTTPS") >> webapp
+        reads = webapp >> ("Reads from and writes to", "SQL") >> database
+
+        DynamicView(
+            key='request-past-orders',
+            description='Request past orders feature',
+            scope=bookstore,
+            steps=[
+                customer >> "Requests past orders from" >> webapp,
+                webapp >> "Queries order history using" >> database,
+            ],
+            auto_layout='lr',
+        )
+
+    dv = w.model.views.dynamicViews[0]
+    assert dv.relationships is not None
+    assert [r.id for r in dv.relationships] == [browses.model.id, reads.model.id]
+    assert [r.description for r in dv.relationships] == [
+        "Requests past orders from",
+        "Queries order history using",
+    ]
+
+
 # ============================================================================
 # Custom Element and CustomView Tests
 # ============================================================================

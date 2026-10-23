@@ -33,7 +33,6 @@ Tags are labels you stick on elements to categorize them. Like in Structurizr DS
 ### Adding Tags to Elements
 
 ```python
-# norun
 # Multiple tags
 database = SoftwareSystem('Database', tags={'database', 'critical', 'pci'})
 ```
@@ -216,7 +215,7 @@ with Workspace('w') as w:
 Style all relationships when no target is specified:
 
 ```python
-from buildzr.dsl import StyleRelationships
+from buildzr.dsl import Workspace, StyleRelationships
 
 with Workspace('w') as w:
     # ... define your model and relationships ...
@@ -234,7 +233,7 @@ with Workspace('w') as w:
 Target specific relationships directly:
 
 ```python
-from buildzr.dsl import Person, SoftwareSystem, StyleRelationships
+from buildzr.dsl import Workspace, Person, SoftwareSystem, StyleRelationships
 
 with Workspace('w') as w:
     user = Person('User')
@@ -263,7 +262,7 @@ with Workspace('w') as w:
 Style relationships with specific tags:
 
 ```python
-from buildzr.dsl import Person, SoftwareSystem, With, StyleRelationships
+from buildzr.dsl import Workspace, Person, SoftwareSystem, With, StyleRelationships
 
 with Workspace('w') as w:
     user = Person('User')
@@ -292,23 +291,24 @@ with Workspace('w') as w:
 
 ### Method 4: Style by Group
 
-Style all relationships within a group:
+Style all relationships within a group. Groups also work inside a software system, around its containers:
 
 ```python
-from buildzr.dsl import Group, Component, StyleRelationships
+from buildzr.dsl import Workspace, SoftwareSystem, Group, Container, Component, StyleRelationships
 
 with Workspace('w') as w:
-    with Group("Service Layer") as service_group:
-        with Container('API') as api:
-            comp1 = Component('Service 1')
-            comp2 = Component('Service 2')
-            comp1 >> "Uses" >> comp2
+    with SoftwareSystem('Shop') as shop:
+        with Group("Service Layer") as service_group:
+            with Container('API') as api:
+                comp1 = Component('Service 1')
+                comp2 = Component('Service 2')
+                comp1 >> "Uses" >> comp2
 
-    with Group("Data Layer") as data_group:
-        with Container('Database') as db:
-            comp3 = Component('Repository 1')
-            comp4 = Component('Repository 2')
-            comp3 >> "Queries" >> comp4
+        with Group("Data Layer") as data_group:
+            with Container('Database') as db:
+                comp3 = Component('Repository 1')
+                comp4 = Component('Repository 2')
+                comp3 >> "Queries" >> comp4
 
     # Style relationships within groups
     StyleRelationships(
@@ -330,7 +330,7 @@ with Workspace('w') as w:
 Use custom logic to filter relationships:
 
 ```python
-from buildzr.dsl import Person, SoftwareSystem, Component, StyleRelationships
+from buildzr.dsl import Workspace, Person, SoftwareSystem, Container, Component, StyleRelationships
 
 with Workspace('w') as w:
     user = Person('User')
@@ -368,7 +368,7 @@ Here's your style palette --- all the visual knobs you can tweak to make your di
 ### Element Style Properties
 
 ```python
-# norun
+# no-run: lists the properties; on=[...] stands for what you style
 StyleElements(
     on=[...],
     width=450,              # Width in pixels
@@ -377,9 +377,10 @@ StyleElements(
     color='#ffffff',        # Text color
     shape='RoundedBox',     # Shape
     icon='https://...',     # Icon URL
-    fontSize=24,            # Font size
-    border='Solid',         # Border style
+    font_size=24,           # Font size
+    border='solid',         # Border style: 'solid', 'dashed' or 'dotted'
     stroke='#000000',       # Border color
+    stroke_width=2,         # Border width in pixels
     opacity=85,             # Opacity (0-100)
     metadata=True,          # Show metadata
     description=True        # Show description
@@ -389,6 +390,7 @@ StyleElements(
 !!! tip "Cloud Provider Icons"
     Instead of manually specifying icon URLs, use `buildzr`'s built-in [themes](./themes.md) for AWS, Azure, Google Cloud, and Kubernetes icons:
     ```python
+    # no-run: a fragment; my_container is a container of your model
     from buildzr.themes import AWS
     StyleElements(on=[my_container], **AWS.LAMBDA)
     ```
@@ -415,13 +417,14 @@ Your shape-shifting toolkit (unfortunately, no actual shape-shifting included):
 ### Relationship Style Properties
 
 ```python
+# no-run: lists the properties; on=[...] stands for what you style
 StyleRelationships(
     on=[...],
     thickness=2,           # Line thickness
     color='#707070',       # Line color
     dashed=True,           # Dashed line
-    routing='Direct',      # Routing algorithm
-    fontSize=24,           # Label font size
+    routing='Direct',      # Routing: 'Direct', 'Orthogonal' or 'Curved'
+    font_size=24,          # Label font size
     width=200,             # Width
     position=50,           # Label position (0-100)
     opacity=100            # Opacity (0-100)

@@ -1,14 +1,20 @@
---8<-- "README.md:1:89"
+--8<-- "README.md:home"
 
-![Example Software System View](images/quick_example/web_app_system_context_00.svg)
-![Example Container View](images/quick_example/web_app_container_view_00.svg)
-
---8<-- "README.md:95:119"
-
-<!-- Override README links with docs-relative paths -->
-[Quick Start Tutorial]: getting-started/quick-start.md
-[User Guides]: user-guide/core-concepts.md
-[Styles]: user-guide/styles.md
-[Themes]: user-guide/themes.md
-[Roadmap]: roadmap.md
-[Contributing Guide]: contributing.md
+<!-- The README links to the site by address; the home page uses the pages of this docs folder, which mkdocs checks. -->
+[viewer-image]: images/quick-start/quick-start-view-link.png
+[quick-start]: getting-started/quick-start.md
+[try-it]: getting-started/quick-start.md#6-compare-your-file-with-the-complete-example
+[views]: user-guide/views.md
+[themes]: user-guide/themes.md
+[serve]: serve-workspaces.md
+[viewer-links]: viewer-hash-routes.md
+[export]: user-guide/export.md
+[model-api]: model-api.md
+[ai-agents]: getting-started/ai-agents.md
+[user-guide]: user-guide/core-concepts.md
+[cli]: cli.md
+[api]: api/dsl.md
+[roadmap]: roadmap.md
+[contributing]: contributing.md
+[issues]: https://github.com/amirulmenjeni/buildzr/issues
+[license]: https://github.com/amirulmenjeni/buildzr/blob/master/LICENSE.md

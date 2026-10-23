@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buildzr.dev/schema/build/1",
+  "title": "buildzr built workspace record (build.json)",
+  "description": "<build output>/<name>/build.json: how a workspace was built, from which model file, and whether it is ok or broken. A broken workspace has the stage it failed at and its errors; with stage 'check' its data/ folder is there, with 'model' or 'layout' it is not.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["buildzr", "elkjs", "k", "textColor", "name", "workspace", "workspaces", "input", "fingerprint", "workspacesFolder", "status"],
+  "properties": {
+    "buildzr": { "type": "string", "description": "The version of buildzr that built it." },
+    "elkjs": { "type": ["string", "null"], "description": "The version of the ELK layout engine, or null when the layout stage is not installed." },
+    "k": { "type": "integer", "minimum": 1 },
+    "textColor": { "enum": ["wcag", "c4"] },
+    "modelHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "The modelHash of data/index.json. Only when data/ is there." },
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$", "description": "The folder name, and the address /<name>/ of buildzr serve." },
+    "workspace": { "type": "string", "description": "The name of the Workspace in Python." },
+    "workspaces": { "type": "array", "items": { "type": "string" }, "description": "The names of every built workspace the model file made in this build." },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "sha256"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1, "description": "The model file, relative to the workspaces folder (for a workspaces: list, to the folder of buildzr.yaml), with / separators." },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "Decides whether the built workspace is up to date; the same for an ok and a broken build of the same input." },
+    "workspacesFolder": { "type": "string", "minLength": 1, "description": "The workspaces folder, relative to the build output, with / separators. For a workspaces: list, the folder of buildzr.yaml." },
+    "workspacesList": { "type": "string", "minLength": 1, "description": "Only when the workspace was built from a workspaces: list: the config file holding the list, relative to the build output. A build removes only the workspaces it built itself: the same folder, and the same list or none." },
+    "status": { "enum": ["ok", "broken"] },
+    "stage": { "enum": ["model", "layout", "check"], "description": "Broken only: the step that failed." },
+    "errors": {
+      "type": "array", "minItems": 1, "maxItems": 50,
+      "items": { "type": "string", "maxLength": 500 },
+      "description": "Broken only: what went wrong, at most 50 errors of at most 500 characters."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "ok" } } },
+      "then": { "required": ["modelHash"], "not": { "anyOf": [{ "required": ["stage"] }, { "required": ["errors"] }] } }
+    },
+    {
+      "if": { "properties": { "status": { "const": "broken" } } },
+      "then": { "required": ["stage", "errors"] }
+    },
+    {
+      "if": { "properties": { "status": { "const": "broken" }, "stage": { "const": "check" } } },
+      "then": { "required": ["modelHash"] }
+    },
+    {
+      "if": { "properties": { "status": { "const": "broken" }, "stage": { "enum": ["model", "layout"] } } },
+      "then": { "not": { "required": ["modelHash"] } }
+    }
+  ]
+}

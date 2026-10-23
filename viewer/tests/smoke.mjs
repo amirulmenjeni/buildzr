@@ -1,0 +1,11 @@
+import { serve, launch, newPage, open, ROOT } from './lib.mjs';
+import path from 'node:path';
+const dataDir = process.argv[2] || path.resolve(ROOT, '../tests/site/fixtures/small');
+const srv = await serve(dataDir);
+const b = await launch();
+const errors = [];
+const p = await newPage(b, errors);
+await open(p, srv.url, process.argv[3] ?? '#/m');
+await p.screenshot({ path: '.shots/smoke.png' });
+console.log(await p.evaluate(() => window.__viewer.viewport()), errors);
+await b.close(); srv.close();

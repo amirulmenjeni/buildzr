@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>buildzr model viewer</title>
+    <script>
+      // The theme before the first paint (no flash): the embedding page's ?theme=, else the stored setting, else the device's.
+      (function () {
+        var t = null;
+        try {
+          var q = new URLSearchParams(location.search);
+          if (q.get('embed') === '1') t = q.get('theme');
+          if (t !== 'light' && t !== 'dark' && t !== 'system') t = (JSON.parse(localStorage.getItem('buildzr-ui:settings') || '{}') || {}).theme;
+        } catch (e) { /* storage blocked: follow the device */ }
+        if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = t;
+        document.documentElement.style.colorScheme = t;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

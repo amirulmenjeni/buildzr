@@ -1,0 +1,116 @@
+# The buildzr product roadmap, rendered into the roadmap page (https://buildzr.dev/roadmap/) by scripts/mkdocs_hooks.py
+# at docs build time. The build stops with the list of faults if this file breaks the schema (version 1).
+#
+# Statuses: active (underway now), planned (grouped by a directional release target, never a date) and launched
+# (grouped by a released version with its date). Each item has a stable kebab-case id (used as its link anchor), a
+# short title, a one-sentence description and an optional https link (ids may not start with rm-). An id appears once in the whole file: move an
+# item between statuses instead of copying it.
+
+version: 1
+
+active:
+  - id: release-readiness
+    title: 1.0 release readiness
+    description: Finishing the packaging, documentation and CI checks needed to ship buildzr 1.0 as a stable release.
+
+planned:
+  - target: "1.1"
+    items:
+      - id: viewer-image-export
+        title: PNG and SVG export from the viewer
+        description: Download the diagram on screen as a PNG or SVG image straight from the viewer.
+      - id: serve-watch-mode
+        title: Watch mode for buildzr serve
+        description: Rebuild and refresh the viewer automatically when a model file changes.
+      - id: viewer-branding-themes
+        title: Branding and themes in the viewer
+        description: Apply a workspace's branding and Structurizr themes when the viewer draws its diagrams, with custom typography from licensed bundled fonts or system font stacks; diagram fonts are build-time inputs as their metrics affect layout.
+  - target: Later
+    items:
+      - id: dynamic-view-animation
+        title: Dynamic view animation
+        description: Step through a dynamic view's interactions one at a time in the viewer.
+      - id: viewer-docs-adrs
+        title: Documentation and ADRs in the viewer
+        description: Read a workspace's documentation and architecture decision records next to its diagrams.
+      - id: deployment-health-groups
+        title: Deployment health checks and groups
+        description: Show deployment health checks and deployment groups in the viewer's deployment views.
+      - id: workspace-dependencies
+        title: Workspace dependency tracking
+        description: Track which workspaces depend on each other so changes can be traced across them.
+      - id: extend-workspace-by-name
+        title: Extend a workspace by name
+        description: Extend another workspace in the same project by its name instead of its file path or URL.
+      - id: model-diff
+        title: Model diff
+        description: Compare two versions of a model and see which elements, relationships and views changed.
+      - id: agent-query-interface
+        title: Query interface for AI agents
+        description: Let AI agents query a built model through a dedicated interface such as an MCP server.
+      - id: shared-serve-auth
+        title: Authentication for shared serving
+        description: Protect a buildzr serve instance with authentication when it is shared with a team.
+      - id: structurizr-compatibility-gaps
+        title: Remaining Structurizr compatibility
+        description: Close lower-priority gaps with the Structurizr DSL that are listed on the compatibility page.
+
+launched:
+  - version: "1.0.0rc1"
+    date: 2026-10-22
+    link: https://github.com/amirulmenjeni/buildzr/tree/v1.0.0rc1
+    items:
+      - id: viewer-custom-elements
+        title: Custom elements and custom views in the viewer
+        description: Show custom elements and custom views in the web viewer, alongside the standard C4 views.
+      - id: deployment-instance-navigation
+        title: Jump from elements to deployment instances
+        description: Navigate from a software system or container to the deployment instances that run it.
+      - id: browser-demo
+        title: Interactive browser demo
+        description: Edit a buildzr architecture model and explore the rendered viewer side by side, entirely in the browser.
+      - id: export-cli
+        title: Export command for model files
+        description: Export JSON, PlantUML, SVG and PNG from workspace model files with a public buildzr command, covering every workspace a file creates or one you pick; Workspace.save() is deprecated in its favour.
+      - id: viewer-workspace-switcher
+        title: Switch between workspaces in the viewer
+        description: Pick among the workspaces a model file, a buildzr serve catalog or a Run Code snippet creates, with the selector hidden when there is only one.
+      - id: viewer-fonts-notices
+        title: Bundled viewer font and third-party notices
+        description: The self-contained viewer bundles Inter regular and bold as its default font and adds a local About view and a THIRD_PARTY_NOTICES.txt file preserving dependency licence and copyright notices.
+  - version: 0.0.35
+    date: 2026-10-16
+    link: https://github.com/amirulmenjeni/buildzr/tree/v0.0.35
+    items:
+      - id: deterministic-tag-order
+        title: Deterministic tag order
+        description: Tags are now exported in the order they were added, so the output no longer changes from one Python run to the next.
+        link: https://github.com/amirulmenjeni/buildzr/pull/163
+  - version: 0.0.34
+    date: 2026-10-15
+    link: https://github.com/amirulmenjeni/buildzr/tree/v0.0.34
+    items:
+      - id: plantuml-export-fixes
+        title: PlantUML export fixes
+        description: PlantUML export now handles dynamic views, deployment view filters and integer style values correctly.
+        link: https://github.com/amirulmenjeni/buildzr/pull/159
+  - version: 0.0.33
+    date: 2026-10-15
+    link: https://github.com/amirulmenjeni/buildzr/tree/v0.0.33
+    items:
+      - id: graphviz-free-export
+        title: Graphviz-free SVG and PNG export
+        description: SVG and PNG export can use PlantUML's Smetana layout, which works without Graphviz installed.
+        link: https://github.com/amirulmenjeni/buildzr/pull/149
+      - id: export-guide
+        title: Export guide
+        description: A new Export page in the user guide explains every export format and what each one needs.
+        link: https://github.com/amirulmenjeni/buildzr/pull/150
+  - version: 0.0.32
+    date: 2026-10-14
+    link: https://github.com/amirulmenjeni/buildzr/tree/v0.0.32
+    items:
+      - id: theme-url-fix
+        title: Reliable theme URLs
+        description: Theme icon URLs now point at the structurizr/themes GitHub mirror because the old Structurizr host stopped resolving.
+        link: https://github.com/amirulmenjeni/buildzr/pull/151

@@ -21,7 +21,7 @@ yq -i -y '.components.schemas.ContainerInstance.properties.deploymentGroups = {"
 yq -i -y '.components.schemas.SoftwareSystemInstance.properties.deploymentGroups = {"type": "array", "items": {"type": "string"}}' structurizr.yaml
 
 # Add CustomElement and CustomView schemas
-# Note: The official Structurizr JSON schema (https://github.com/structurizr/json) does NOT include
+# Note: The official Structurizr JSON schema (https://structurizr.com) does NOT include
 # customElements or customViews fields, but the Structurizr CLI and DSL fully support these features.
 # The schema below was derived from testing with `structurizr.sh export`.
 

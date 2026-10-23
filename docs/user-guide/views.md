@@ -19,7 +19,6 @@ Views are how you actually *look* at your architecture. Think of them as differe
 The `SystemLandscapeView` is your 30,000-foot view --- it shows every software system and every person in your organization's ecosystem. This is the view you show to executives who want to see "everything" without actually wanting to understand anything. It answers the question: "What systems do we even have?"
 
 ```python
-# norun
 SystemLandscapeView(
     key='landscape',
     description='Enterprise System Landscape',
@@ -52,8 +51,6 @@ with Workspace('w') as w:
         description='System Landscape',
         auto_layout='lr'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## System Context View
@@ -61,7 +58,7 @@ with Workspace('w') as w:
 Zoom in one level, and you've got the `SystemContextView`. This shows a single software system surrounded by everything it talks to --- users, external systems, databases, or external APIs (including free or third-party services).
 
 ```python
-# norun
+# no-run: a fragment; my_system is a software system of your model
 SystemContextView(
     software_system_selector=my_system,
     key='context',
@@ -91,8 +88,6 @@ with Workspace('w') as w:
         description='My System Context',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## Container View
@@ -100,7 +95,7 @@ with Workspace('w') as w:
 Open up that system and peer inside! The `ContainerView` shows you all the applications, databases, microservices, and other runtime components that make up a software system. This is where you start seeing the actual architecture --- web apps talking to APIs, APIs talking to databases, message queues doing their queuey thing.
 
 ```python
-# norun
+# no-run: a fragment; my_system is a software system of your model
 ContainerView(
     software_system_selector=my_system,
     key='containers',
@@ -139,8 +134,6 @@ with Workspace('w') as w:
         description='Web Application Containers',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## Component View
@@ -148,7 +141,7 @@ with Workspace('w') as w:
 The `ComponentView` shows the most granular level of detail in the C4 model. It reveals the internal structure of a single container --- the controllers, services, repositories, and other architectural layers that live inside. This is the view developers care about most, because it shows where the code lives and how it's organized.
 
 ```python
-# norun
+# no-run: a fragment; my_container is a container of your model
 ComponentView(
     container_selector=my_container,
     key='components',
@@ -191,19 +184,19 @@ with Workspace('w') as w:
         description='API Components',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## Deployment View
 
 Time to get physical! The `DeploymentView` shows where your containers actually *run* --- which cloud provider, which region, which servers, which Docker containers on which Kubernetes clusters in which data centers. For this reason, `DeploymentNode`s can be nested indefinitely. This is the bridge between your beautiful logical architecture and the messy reality of infrastructure. DevOps engineers live here.
 
+`buildzr build` builds deployment views like the other views, and the viewer draws the deployment nodes as nested boxes around what runs on them. [Deployment Views](deployment.md) shows a complete example in the viewer.
+
 ```python
-# norun
+# no-run: a fragment; my_system and prod are a software system and a deployment environment of your model
 DeploymentView(
     software_system_selector=my_system,
-    environment='Production',
+    environment=prod,  # the DeploymentEnvironment object
     key='deployment',
     description='Production Deployment',
     auto_layout='tb'
@@ -245,8 +238,6 @@ with Workspace('w') as w:
         description='Production Deployment',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## Dynamic View
@@ -254,7 +245,7 @@ with Workspace('w') as w:
 Static diagrams show structure, but sometimes you need to show *behavior* --- the sequence of interactions that happen at runtime. The `DynamicView` is your flow diagram. It shows ordered interactions between elements for a specific use case, story, or feature. Instead of "these things are connected," it shows "first this happens, then that happens, then this other thing."
 
 ```python
-# norun
+# no-run: a fragment; ecommerce_system, r1, r2 and r3 are a software system and relationships of your model
 DynamicView(
     key='checkout-flow',
     description='Customer checkout process',
@@ -269,7 +260,7 @@ DynamicView(
 Dynamic views reference *existing* relationships in your model, but display them in a specific order with optional description overrides. You define the static relationships first, then create a dynamic view that shows them in sequence:
 
 ```python
-# norun
+# no-run: a fragment; customer, webapp, database and system are elements of your model
 # First, define the static relationships (what CAN happen)
 r_browse = customer >> "Browses" >> webapp
 r_query = webapp >> "Queries" >> database
@@ -291,7 +282,7 @@ Notice that the descriptions in the dynamic view can be different from the stati
     Unlike descriptions, **technology cannot be overridden** in dynamic views. When you specify a technology in a dynamic view relationship, it acts as a *selector* to match a model relationship with that exact technology. This is useful when you have multiple relationships between the same elements with different technologies:
 
     ```python
-    # norun
+    # no-run: a fragment; webapp, database and system are elements of your model
     # Model has two relationships with different technologies
     webapp >> ("Queries", "SQL") >> database
     webapp >> ("Syncs", "REST API") >> database
@@ -307,6 +298,8 @@ Notice that the descriptions in the dynamic view can be different from the stati
     ```
 
     If no model relationship matches the specified technology, a `ValueError` is raised.
+
+    A step without a technology matches a model relationship whatever its technology. If more than one relationship connects the two elements, the step uses the one with the same description. If the remaining relationships have different technologies, a `ValueError` lists them: add the technology to the step to pick one.
 
 ### Example
 
@@ -328,8 +321,8 @@ with Workspace('Online Book Store') as w:
         database = Container('Database')
 
     # Define static relationships (the "can do" relationships)
-    customer >> "Browses and makes purchases using" >> webapp
-    webapp >> "Reads from and writes to" >> database
+    customer >> ("Browses and makes purchases using", "HTTPS") >> webapp
+    webapp >> ("Reads from and writes to", "SQL") >> database
 
     # Static container view showing the structure
     ContainerView(
@@ -362,8 +355,6 @@ with Workspace('Online Book Store') as w:
         ],
         auto_layout='lr',
     )
-
-    w.save(path='workspace.json')
 ```
 
 ### Scope Options
@@ -375,7 +366,7 @@ The `scope` parameter determines what level of detail your dynamic view shows:
 - **`Container`**: Component level --- shows interactions between components within a container
 
 ```python
-# norun
+# no-run: a fragment; the systems, containers and components are elements of your model
 # Landscape level - systems talking to systems
 DynamicView(
     key='system-integration',
@@ -402,13 +393,13 @@ DynamicView(
 The `CustomView` provides a flexible way to create diagrams that mix custom elements (`Element`) with standard C4 elements. It's particularly useful when you're modeling hardware components, business processes, or anything that doesn't fit neatly into the Person/SoftwareSystem/Container/Component hierarchy --- but you still want to show how they relate to your software architecture.
 
 !!! tip "Custom Elements in Any View"
-    Custom elements (`Element`) can be displayed in **any** view type, not just `CustomView`. You can include them in `SystemLandscapeView`, `SystemContextView`, and other views using the `include_elements` parameter. `CustomView` simply provides another canvas where you have full control over what's displayed.
+    Custom elements (`Element`) can be displayed in **any** view type, not just `CustomView`. You can include them in `SystemLandscapeView`, `SystemContextView`, and other views using the `include_elements` parameter. `CustomView` simply provides another canvas where you have full control over what's displayed. The [web viewer](#custom-elements-in-the-web-viewer) draws them in every view that lists them.
 
 !!! note "Schema Note"
-    The official Structurizr JSON schema at [https://github.com/structurizr/json](https://github.com/structurizr/json) does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure.
+    The official Structurizr JSON schema (see [Structurizr](https://structurizr.com)) does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure.
 
 ```python
-# norun
+# no-run: shows the parameters; the example below runs
 CustomView(
     key='hardware-architecture',
     description='Hardware component interactions',
@@ -423,6 +414,7 @@ CustomView(
 from buildzr.dsl import Workspace, Element, CustomView
 
 with Workspace('IoT System') as w:
+    # focus: view:iot-hardware
     # Define custom elements for hardware/non-software components
     gateway = Element("IoT Gateway", metadata="Hardware", description="Central gateway device")
     sensor_a = Element("Temperature Sensor", metadata="Sensor", description="Measures ambient temperature")
@@ -441,9 +433,18 @@ with Workspace('IoT System') as w:
         title='IoT Device Layout',
         auto_layout='tb'
     )
-
-    w.save(path='workspace.json')
 ```
+
+### Custom elements in the web viewer
+
+The web viewer of `buildzr serve` and `buildzr build` draws custom views like any other view, and draws a custom element in every view that lists it, beside the C4 elements of that view:
+
+- A custom element shows its name, its `metadata` in brackets (`[Hardware]`) and its description. With no `metadata`, the brackets are left out. Without a style of its own it is a light grey box with black text, as in Structurizr; a `StyleElements` on its tags (or on the tag `Element`) changes it like any other element.
+- The model tree lists the custom elements after the people and systems, as **Custom element**. Choosing one opens the first view that draws it, or keeps the view you are in when that view draws it. An element that no view lists is only selected, and the inspector says it is in no views.
+- The inspector shows the type and the metadata, the relationships (also those to and from C4 elements: following one opens the other element in the model or in a view) and the views the element is in. A custom element has no "Open" and no "Show in model", because the model canvas, the landscape and the levels inside the elements, holds the C4 hierarchy only.
+- Search finds custom elements by name, metadata, description and tags, and the views list names a custom view as `custom`.
+
+A viewer link `#/m/<element id>` for a custom element opens its first view; see [Viewer links](../viewer-hash-routes.md#links-to-elements-or-views-that-do-not-exist).
 
 ### CustomView Parameters
 
@@ -469,10 +470,11 @@ Views without layout are just random boxes scattered across a canvas like a todd
 - `'rl'` - Right to left - For RTL languages or just mixing things up
 
 ```python
-# norun
+# no-run: a fragment; system is a software system of your model
 SystemContextView(
     software_system_selector=system,
     key='context-horizontal',
+    description='The system context, left to right',
     auto_layout='lr'  # Left to right
 )
 ```
@@ -489,10 +491,11 @@ Sometimes your view has too much clutter. Maybe there's an internal admin system
 Remove the stuff you don't want anyone to see (for now):
 
 ```python
-# norun
+# no-run: a fragment; system, internal_admin and test_system are elements of your model
 SystemContextView(
     software_system_selector=system,
     key='context',
+    description='The system without its admin and test systems',
     exclude_elements=[internal_admin, test_system]  # Pretend these don't exist
 )
 ```
@@ -502,12 +505,13 @@ SystemContextView(
 Or flip it around --- to include additional containers that otherwise have not have been included in the view:
 
 ```python
-# norun
+# no-run: a fragment; system and critical_container are elements of your model
 # critical_container is not part of system, but we want to include it in the
 # view too!
 ContainerView(
     software_system_selector=system,
     key='containers',
+    description='The containers of the system, and the critical container',
     include_elements=[critical_container]
 )
 ```
@@ -519,15 +523,16 @@ ContainerView(
 You need more than one view. Different people need different levels of detail. Your CEO doesn't want to see your repository pattern implementation, and your backend developer doesn't care about the landscape view. Create views for your audience:
 
 ```python
+# no-run: a fragment; system and api are elements of your model
 # High-level for executives who ask "what does it do?"
-SystemLandscapeView(key='landscape')
+SystemLandscapeView(key='landscape', description='Every system and who uses it')
 
 # Mid-level for architects who ask "how does it work?"
-SystemContextView(software_system_selector=system, key='context')
+SystemContextView(software_system_selector=system, key='context', description='The system and its neighbours')
 
 # Detailed for developers who ask "where's the bug?"
-ContainerView(software_system_selector=system, key='containers')
-ComponentView(container_selector=api, key='components')
+ContainerView(software_system_selector=system, key='containers', description='The containers of the system')
+ComponentView(container_selector=api, key='components', description='The components of the API')
 ```
 
 ### Use Descriptive Keys and Descriptions
@@ -535,6 +540,7 @@ ComponentView(container_selector=api, key='components')
 Future you (or worse, someone else) will thank you for clear, descriptive names. Don't be cryptic:
 
 ```python
+# no-run: a fragment; payment_system is a software system of your model
 # Good - clear and informative
 SystemContextView(
     software_system_selector=payment_system,
@@ -555,11 +561,12 @@ SystemContextView(
 Match your layout direction to your diagram's natural flow:
 
 ```python
-# norun
+# no-run: a fragment; system is a software system of your model
 # Hierarchical flow - use top-to-bottom
 ContainerView(
     software_system_selector=system,
     key='containers',
+    description='The containers, top to bottom',
     auto_layout='tb'  # User at top, database at bottom
 )
 
@@ -567,6 +574,7 @@ ContainerView(
 SystemContextView(
     software_system_selector=system,
     key='context',
+    description='The system context, left to right',
     auto_layout='lr'  # Request flows left to right, like reading
 )
 ```
@@ -649,8 +657,6 @@ with Workspace('multi-view-example', implied_relationships=True) as w:
         description='API Components',
         auto_layout='lr'
     )
-
-    w.save(path='workspace.json')
 ```
 
 ## See Also

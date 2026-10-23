@@ -94,12 +94,13 @@ with SoftwareSystem("X") as x:
 `Element` represents a custom element that sits outside the C4 model. Custom elements are useful when you need to model things that don't fit neatly into the Person, SoftwareSystem, Container, or Component hierarchy --- for example, hardware devices, business processes, non-software entities, or abstract concepts.
 
 !!! note "Schema Note"
-    The official Structurizr JSON schema at [https://github.com/structurizr/json](https://github.com/structurizr/json) does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure used at runtime.
+    `buildzr`'s JSON output is derived from the Structurizr JSON schema of [Structurizr](https://structurizr.com). The official Structurizr JSON schema does **not** include `customElements` or `customViews` fields. However, the Structurizr CLI and DSL fully support these features. The `buildzr` implementation is based on testing with [`structurizr.sh export`](https://docs.structurizr.com/cli/export) to discover the actual JSON structure used at runtime.
 
 ```python
 from buildzr.dsl import Workspace, Element, CustomView
 
 with Workspace('Hardware Architecture') as w:
+    # focus: view:hardware-view
     # Custom elements for non-C4 architecture
     controller = Element(
         "Hardware Controller",
@@ -116,16 +117,14 @@ with Workspace('Hardware Architecture') as w:
     sensor >> "sends data to" >> controller
     controller >> "controls" >> actuator
 
-    # Custom elements can ONLY be displayed in CustomView
+    # A CustomView shows the custom elements and their relationships
     CustomView(
         key="hardware-view",
         description="Hardware component interactions",
     )
-
-    w.save(path='workspace.json')
 ```
 
-Custom elements can have relationships with C4 elements (Person, SoftwareSystem, Container, Component) and can be displayed in **any** view type --- including `SystemLandscapeView`, `SystemContextView`, and `CustomView`.
+Custom elements can have relationships with C4 elements (Person, SoftwareSystem, Container, Component) and can be displayed in **any** view type --- including `SystemLandscapeView`, `SystemContextView`, and `CustomView`. The web viewer lists them after the C4 elements in its model tree and draws them in the views that include them; see [Custom elements in the web viewer](views.md#custom-elements-in-the-web-viewer).
 
 ### Element Parameters
 
@@ -329,7 +328,7 @@ However, if we specify the deployment group like we did in the example above, we
 ## Complete Example
 
 !!! note
-    We've added a `SystemContextView` and a `DeploymentView` in the code below, so that the generated JSON output can be used in a rendering tool (e.g., on [https://structurizr.com/json](https://structurizr.com/json)).
+    We've added a `SystemContextView` and a `DeploymentView` in the code below, so that the model has diagrams to show. To see them, build and serve the file with `buildzr build` and `buildzr serve`, as the [Quick Start](../getting-started/quick-start.md) shows. The viewer draws the deployment view with the AWS regions and nodes as nested boxes around the containers that run on them; [Deployment Views](deployment.md) shows how to read it.
 
     So far, we've only discussed models. With views, we can use (and re-use!) our static and instance models to draw architecture diagrams. See [Views](views.md) for more info.
 
@@ -456,8 +455,6 @@ with Workspace(
     StyleElements(on=[wa], background='#ffffff')
     StyleElements(on=[user], shape='Person')
     StyleElements(on=[db], shape='Cylinder')
-
-    w.save(path='workspace.json', pretty=True)
 ```
 
 ## See Also

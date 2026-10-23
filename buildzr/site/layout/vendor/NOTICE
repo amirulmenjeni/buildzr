@@ -1,0 +1,18 @@
+buildzr bundles, unmodified, a copy of elkjs 0.12.0:
+
+    vendor/elk.bundled.js   (npm package "elkjs" 0.12.0, file lib/elk.bundled.js,
+                             sha256 1222e44f953ce7746af23801e723708f8e6f436b8b377a6a5fc7552f34a307b3)
+
+elkjs is the JavaScript build of the Eclipse Layout Kernel (ELK). It is made
+available under the Eclipse Public License - v 2.0 (see LICENSE-EPL-2.0.md).
+
+  * Eclipse ELK (Java), source code:  https://github.com/eclipse/elk
+  * elkjs (GWT-compiled JavaScript), source code: https://github.com/kieler/elkjs
+    (tag 0.12.0; the bundle is the GWT output of ELK 0.12.0 plus elkjs's own wrapper)
+
+The file has not been changed in any way. buildzr verifies its sha256 before
+every use and refuses to run a different file. See THIRD_PARTY_LICENSES.md for
+the other third-party components used by the site build.
+
+The EPL-2.0 applies to elk.bundled.js only; the rest of buildzr stays under its
+own licence (LICENSE.md at the repository root).

@@ -3,6 +3,8 @@ name = "buildzr"
 dynamic = ["version"]
 description = "Structurizr for the `buildzr`s 🧱⚒️"
 readme = "README.md"
+# PEP 639: both ship in the wheel under `.dist-info/licenses/` and in the sdist root.
+license-files = ["LICENSE.md", "THIRD_PARTY_NOTICES.txt"]
 requires-python = ">=3.10"
 authors = [
     { name = "Amirul Menjeni", email = "amirulmenjeni@pm.me" },
@@ -29,7 +31,12 @@ dependencies = [
     "pytest>=8.3.3",
     "pyhumps==3.8.0",
     "typing-extensions>=4.12.2",
+    "pyyaml>=6.0.3",
+    "jsonschema>=4.23.0",
 ]
+
+[project.scripts]
+buildzr = "buildzr.site.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -40,6 +47,8 @@ dev = [
     "yq==4.4.5",
     "datamodel-code-generator==0.83.0",
     "ipykernel==7.3.0",
+    "types-PyYAML>=6.0.12",
+    "types-Markdown>=3.7",
 ]
 docs = [
     "mkdocs>=1.5.0",
@@ -68,14 +77,21 @@ include = [
     "CONTRIBUTING.md",
     "tests",
     "buildzr",
+    # The agent skill: the tests in the sdist read it. The wheel ships only `buildzr`.
+    "/skills",
 ]
 exclude = [
     "examples",
     "buildzr/modes/generate.sh",
 ]
+# The viewer bundle is gitignored build output; hatch skips ignored files unless listed here.
+# Needed in the sdist too, because `uv build` builds the wheel from the sdist.
+artifacts = ["buildzr/site/static/**"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["buildzr"]
+# The viewer bundle is gitignored build output; hatch skips ignored files unless listed here.
+artifacts = ["buildzr/site/static/**"]
 
 [tool.hatch.build.targets.wheel.hooks.custom]
 path = "hatch_build.py"

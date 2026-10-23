@@ -1,119 +1,147 @@
-# Structurizr for the `buildzr`s 🧱⚒️
+<!-- --8<-- [start:home] -->
+# buildzr
 
 [![Build](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml/badge.svg)](https://github.com/amirulmenjeni/buildzr/actions/workflows/build.yml)
 [![PyPI version](https://img.shields.io/pypi/v/buildzr.svg)](https://pypi.org/project/buildzr/)
 [![Python versions](https://img.shields.io/pypi/pyversions/buildzr.svg)](https://pypi.org/project/buildzr/)
 
-`buildzr` is a [Structurizr](https://structurizr.com/) authoring tool for Python programmers. It allows you to declaratively or procedurally author Structurizr models and diagrams.
+**Define your C4 software architecture in Python, then build it and explore it in an interactive browser viewer.**
 
-If you're not familiar with Structurizr, it is both an open standard (see [Structurizr JSON schema](https://github.com/structurizr/json)) and a [set of tools](https://docs.structurizr.com/usage) for building software architecture diagrams as code. Structurizr derives its architecture modeling paradigm based on the [C4 model](https://c4model.com/), the modeling language for describing software architectures and their relationships.
+- **Write architecture as code.** Describe people, systems, containers and components with Python `with` blocks and `>>` relationships.
+- **See it in your browser.** One command, `buildzr serve`, builds your model and serves a viewer that you can zoom, search and link to.
+- **Stay compatible.** buildzr produces standard [Structurizr](https://structurizr.com/) workspaces, so other Structurizr tools can read your model.
 
-In Structurizr, you define architecture models and their relationships first. And then, you can re-use the models to present multiple perspectives, views, and stories about your architecture.
+![The buildzr viewer showing a system context view, with the User selected and its details in the right panel][viewer-image]
 
-`buildzr` supercharges this workflow with Pythonic syntax sugar and intuitive APIs that make modeling as code more fun and productive.
+## Try it now
 
-## Install
+With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed (it finds or fetches a compatible Python), run:
 
 ```bash
-pip install buildzr
+uvx buildzr serve --example
 ```
 
-## Quick Example
+<!-- DEPENDS ON feature/serve-example (bundled prebuilt example and `serve --example`); do not merge this README before it. -->
+This serves a bundled example workspace and prints its address. Open it to explore the interactive viewer. You do not need a project, a model file or Node.js. If you prefer a browser tab, press **Run Code** on the [complete Quick Start example][try-it]: it runs without installing anything.
 
+<!-- PRE-RELEASE NOTE: delete this block when buildzr 1.0.0 final is on PyPI. -->
+> **Until 1.0.0 final is out, add a pre-release flag:** `uvx --prerelease allow buildzr serve --example`, `uv add --prerelease allow buildzr`, or `pip install --pre buildzr`.
+<!-- END PRE-RELEASE NOTE -->
+
+## Use buildzr with your coding agent
+
+Let your coding agent model your architecture for you. The buildzr skill teaches it to write model files, build them, fix build errors, serve the viewer and answer questions about your model.
+
+Install the skill in your project:
+
+```bash
+npx skills add amirulmenjeni/buildzr
+```
+
+Then ask your agent:
+
+```text
+Use buildzr to model the architecture of this repository. Read the code, create or update
+the model in workspaces/, add a system context view and a container view, build it, and
+tell me how to open it with buildzr serve.
+```
+
+The agent builds the model and tells you how to open the viewer. See [Use buildzr with AI agents][ai-agents] for the requirements and what the agent can do.
+
+## Quick Start
+
+To write a model yourself, start a project. You need:
+
+- Python 3.10 or newer.
+- Node.js 18 or newer: when buildzr builds your model, its layout step runs on Node. Check it with `node --version`.
+- [uv](https://docs.astral.sh/uv/getting-started/installation/). With pip, install with `pip install buildzr` instead of `uv add buildzr`.
+
+Create a project and install buildzr (use the pre-release flag from the note above until 1.0.0 final is out):
+
+```bash
+uv init hello-buildzr
+cd hello-buildzr
+uv add buildzr
+mkdir workspaces
+```
+
+Save this model as `workspaces/hello.py`:
+
+<!-- doctest: file workspaces/hello.py -->
 ```python
 from buildzr.dsl import (
     Workspace,
     SoftwareSystem,
     Person,
-    Container,
-    SystemContextView,
-    ContainerView,
-    desc,
-    Group,
     StyleElements,
+    SystemContextView,
 )
-from buildzr.themes import AWS
 
-with Workspace('w') as w:
+with Workspace('hello') as w:
+    user = Person('User', description='A user of the system')
+    system = SoftwareSystem(
+        'Web Application',
+        description='Our main web application'
+    )
 
-    # Define your models (architecture elements and their relationships).
+    user >> "Uses" >> system
 
-    with Group("My Company") as my_company:
-        u = Person('Web Application User')
-        webapp = SoftwareSystem('Corporate Web App')
-        with webapp:
-            database = Container('database', tags={'db'})
-            api = Container('api')
-            api >> ("Reads and writes data from/to", "http/api") >> database
-    with Group("Microsoft") as microsoft:
-        email_system = SoftwareSystem('Microsoft 365')
-
-    u >> [
-        desc("Reads and writes email using") >> email_system,
-        desc("Create work order using") >> webapp,
-    ]
-    webapp >> "sends notification using" >> email_system
-
-    # Define the views.
+    StyleElements(
+        on=[user],
+        shape='Person'
+    )
 
     SystemContextView(
-        software_system_selector=webapp,
-        key='web_app_system_context_00',
-        description="Web App System Context",
-        auto_layout='lr',
+        software_system_selector=system,
+        key='system-context',
+        description='System Context View',
+        auto_layout='tb'
     )
-
-    ContainerView(
-        software_system_selector=webapp,
-        key='web_app_container_view_00',
-        auto_layout='lr',
-        description="Web App Container View",
-    )
-
-    # Stylize the views, and apply AWS theme icons.
-
-    StyleElements(on=['db'], shape='Cylinder')
-
-    StyleElements(on=[u], **AWS.USER)
-    StyleElements(on=[api], **AWS.LAMBDA)
-    StyleElements(on=[database], **AWS.RDS)
-
-    # Export to JSON, PlantUML, or SVG.
-
-    w.save()                                  # JSON to {workspace_name}.json
-
-    # Requires `pip install buildzr[export-plantuml]`
-    w.save(format='plantuml', path='output/') # PlantUML files
-    w.save(format='svg', path='output/')      # SVG files
 ```
 
-![Example Software System View](./docs/images/quick_example/web_app_system_context_00.svg)
-![Example Container View](./docs/images/quick_example/web_app_container_view_00.svg)
+Build and serve it:
 
-## Getting Started
+```bash
+uv run buildzr serve
+```
 
-Ready to dive in? Check out the [Quick Start Tutorial](https://buildzr.dev/getting-started/quick-start/) and [User Guides](https://buildzr.dev/user-guide/core-concepts/).
+Open <http://127.0.0.1:8000/>. The viewer shows your model; click a box to see its details. The [Quick Start tutorial][quick-start] explains each step.
 
-## Why use `buildzr`?
+## What you can do
 
-✅ **Intuitive Pythonic Syntax**: Use Python's context managers (`with` statements) to create nested structures that naturally mirror your architecture's hierarchy. See the [example](#quick-example).
+- **Model in Python.** Nest elements with `with`, connect them with `>>`, group them, and extend an existing workspace. The DSL is type-hinted, so your editor can complete it.
+- **Draw the views you need.** System landscape, system context, container, component, dynamic and [deployment views][views], with styles and cloud-provider [themes][themes] (AWS, Azure, Google Cloud, Kubernetes, Oracle Cloud).
+- **Build and serve.** `buildzr build` writes each workspace as static web pages. `buildzr serve` builds what changed and serves them on your machine. See [Serve your workspaces][serve].
+- **Explore in the viewer.** Expand and collapse boxes, search, filter by type or tag, inspect relationships, switch between light and dark themes, and share a [link to one view or element][viewer-links].
+- **Export.** Save Structurizr JSON, and PlantUML, SVG or PNG files (these need Java; see [Export][export]).
+- **Query your model.** `buildzr serve` also exposes a read-only JSON [Model API][model-api] for scripts and CI jobs.
+- **Run the examples in your browser.** Every example in the documentation has a **Run Code** button that runs it without installing anything.
 
-✅ **Programmatic Creation**: Use `buildzr`'s DSL APIs to programmatically create C4 model architecture diagrams. Great for automation!
+## Learn more
 
-✅ **Advanced Styling**: Style elements beyond just tags --- target by direct reference, type, group membership, or custom predicates for fine-grained visual control. Just take a look at [Styles](https://buildzr.dev/user-guide/styles/)!
+- Documentation: the [user guides][user-guide], the [command reference][cli] and the [API reference][api].
+- [Roadmap][roadmap]: what is planned and what is done.
+- [Contributing][contributing]: how to report an issue or send a change.
 
-✅ **Cloud Provider Themes**: Add AWS, Azure, Google Cloud, Kubernetes, and Oracle Cloud icons to your diagrams with IDE-discoverable constants. No more memorizing tag strings! See [Themes](https://buildzr.dev/user-guide/themes/).
+buildzr is approaching 1.0. Read the [issue tracker][issues] for known problems, and open an issue if something does not work.
 
-✅ **Type Safety**: Write Structurizr diagrams more securely with extensive type hints and [Mypy](https://mypy-lang.org) support.
+buildzr is released under the [MIT License][license].
+<!-- --8<-- [end:home] -->
 
-✅ **Standards Compliant**: Stays true to the [Structurizr JSON schema](https://github.com/structurizr/json) standards. `buildzr` uses [datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator) to automatically generate the low-level representation of the Workspace model.
-
-✅ **Rich Toolchain**: Uses the familiar Python programming language and its rich toolchains to write software architecture models and diagrams!
-
-
-## Project Links
-
-- [GitHub Repository](https://github.com/amirulmenjeni/buildzr)
-- [Issue Tracker](https://github.com/amirulmenjeni/buildzr/issues)
-- [Roadmap](https://buildzr.dev/roadmap/)
-- [Contributing Guide](https://buildzr.dev/contributing/)
+[viewer-image]: docs/images/quick-start/quick-start-view-link.png
+[quick-start]: https://buildzr.dev/getting-started/quick-start/
+[try-it]: https://buildzr.dev/getting-started/quick-start/#6-compare-your-file-with-the-complete-example
+[views]: https://buildzr.dev/user-guide/views/
+[themes]: https://buildzr.dev/user-guide/themes/
+[serve]: https://buildzr.dev/serve-workspaces/
+[viewer-links]: https://buildzr.dev/viewer-hash-routes/
+[export]: https://buildzr.dev/user-guide/export/
+[model-api]: https://buildzr.dev/model-api/
+[ai-agents]: https://buildzr.dev/getting-started/ai-agents/
+[user-guide]: https://buildzr.dev/user-guide/core-concepts/
+[cli]: https://buildzr.dev/cli/
+[api]: https://buildzr.dev/api/dsl/
+[roadmap]: https://buildzr.dev/roadmap/
+[contributing]: https://buildzr.dev/contributing/
+[issues]: https://github.com/amirulmenjeni/buildzr/issues
+[license]: https://github.com/amirulmenjeni/buildzr/blob/master/LICENSE.md

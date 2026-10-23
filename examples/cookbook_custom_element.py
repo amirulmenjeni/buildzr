@@ -70,4 +70,4 @@ with Workspace('Custom Element Example') as w:
         auto_layout='lr',
     )
 
-    w.save(path='cookbook_custom_element.json', pretty=True)
+    # Write the JSON with: buildzr export examples/cookbook_custom_element.py --pretty

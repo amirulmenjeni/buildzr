@@ -39,4 +39,4 @@ with Workspace("w", scope=None) as w:
         software_system_selector=software_system,
     )
 
-    w.save(path='deployment_groups.json', pretty=True)
+    # Write the JSON with: buildzr export examples/deployment_groups.py --pretty

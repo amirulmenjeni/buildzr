@@ -2,13 +2,13 @@
 
 Low-level API reference for `buildzr.models` module.
 
-This module contains the auto-generated Pydantic models that represent the Structurizr JSON schema. These are the underlying data structures used by the DSL classes.
+This module contains the auto-generated dataclasses that represent the Structurizr JSON schema. These are the underlying data structures used by the DSL classes.
 
 ::: buildzr.models
 
 ## Overview
 
-The `buildzr.models` module contains Pydantic models generated from the [Structurizr JSON schema](https://github.com/structurizr/json) using [datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator).
+The `buildzr.models` module contains Python dataclasses generated from the Structurizr JSON schema (see [Structurizr](https://structurizr.com)) using [datamodel-code-generator](https://github.com/koxudaxi/datamodel-code-generator). The field names are the ones of the schema, in camelCase (`sourceId`, `containerInstances`).
 
 ## When to Use
 
@@ -26,12 +26,12 @@ Most users should use the higher-level DSL API ([buildzr.dsl](dsl.md)) rather th
 The root model representing a complete Structurizr workspace.
 
 ```python
-from buildzr.models import Workspace, Model, ViewSet
+from buildzr.models import Workspace, Model, Views
 
 workspace = Workspace(
     name="My Workspace",
     model=Model(),
-    views=ViewSet()
+    views=Views()
 )
 ```
 
@@ -54,6 +54,8 @@ Deployment-related model types:
 - `SoftwareSystemInstance` - Deployed instance of a software system
 
 ### Relationships
+
+A relationship is stored in the `relationships` list of its source element (a `Person`, `SoftwareSystem`, `Container`, `Component` or deployment element), not in the `Model`. Its `sourceId` and `destinationId` are the ids of the two elements.
 
 ```python
 from buildzr.models import Relationship
@@ -80,11 +82,17 @@ View models for different diagram types:
 
 ### Exporting to JSON
 
+The models are dataclasses, so they have no JSON method of their own. Use `buildzr.encoders.JsonEncoder`, the encoder that the DSL's `to_json()` and `buildzr export` use: it leaves out the fields that are `None`.
+
 ```python
-workspace_dict = workspace.dict(exclude_none=True, by_alias=True)
+import json
+from buildzr.encoders import JsonEncoder
+from buildzr.models import Workspace, Model
+
+workspace = Workspace(name="My Workspace", model=Model())
 
 with open('output.json', 'w') as f:
-    json.dump(workspace_dict, f, indent=2)
+    json.dump(workspace, f, cls=JsonEncoder, indent=2)
 ```
 
 ## Type Hints
@@ -108,10 +116,11 @@ Here's a more comprehensive example that includes deployment models:
 
 ```python
 import json
+from buildzr.encoders import JsonEncoder
 from buildzr.models import (
     Workspace,
     Model,
-    ViewSet,
+    Views,
     Person,
     SoftwareSystem,
     Container,
@@ -132,7 +141,16 @@ workspace = Workspace(
             Person(
                 id="1",
                 name="User",
-                description="System user"
+                description="System user",
+                # A relationship belongs to its source element
+                relationships=[
+                    Relationship(
+                        id="11",
+                        sourceId="1",
+                        destinationId="2",
+                        description="Uses"
+                    )
+                ]
             )
         ],
         softwareSystems=[
@@ -143,7 +161,16 @@ workspace = Workspace(
                     Container(
                         id="3",
                         name="API",
-                        technology="Python/FastAPI"
+                        technology="Python/FastAPI",
+                        relationships=[
+                            Relationship(
+                                id="12",
+                                sourceId="3",
+                                destinationId="4",
+                                description="Reads from and writes to",
+                                technology="SQL"
+                            )
+                        ]
                     ),
                     Container(
                         id="4",
@@ -152,22 +179,9 @@ workspace = Workspace(
                     )
                 ]
             )
-        ],
-        relationships=[
-            Relationship(
-                sourceId="1",
-                destinationId="2",
-                description="Uses"
-            ),
-            Relationship(
-                sourceId="3",
-                destinationId="4",
-                description="Reads from and writes to",
-                technology="SQL"
-            )
         ]
     ),
-    views=ViewSet(
+    views=Views(
         systemContextViews=[
             SystemContextView(
                 key="context",
@@ -186,21 +200,24 @@ workspace = Workspace(
     )
 )
 
-# Add deployment model
+# Add the deployment model: every node and instance names its environment
 deployment_node_aws = DeploymentNode(
     id="5",
     name="AWS",
     technology="Cloud Provider",
+    environment="Production",
     children=[
         DeploymentNode(
             id="6",
             name="ECS Cluster",
             technology="Container Service",
+            environment="Production",
             containerInstances=[
                 ContainerInstance(
                     id="7",
                     containerId="3",
-                    instanceId=1
+                    instanceId=1,
+                    environment="Production"
                 )
             ]
         ),
@@ -208,11 +225,13 @@ deployment_node_aws = DeploymentNode(
             id="8",
             name="RDS",
             technology="Managed Database",
+            environment="Production",
             containerInstances=[
                 ContainerInstance(
                     id="9",
                     containerId="4",
-                    instanceId=1
+                    instanceId=1,
+                    environment="Production"
                 )
             ]
         )
@@ -221,20 +240,20 @@ deployment_node_aws = DeploymentNode(
         InfrastructureNode(
             id="10",
             name="Load Balancer",
-            technology="AWS ALB"
+            technology="AWS ALB",
+            environment="Production"
         )
     ]
 )
 
-# Add deployment environment to model
+# Add the deployment nodes to the model
 if not workspace.model.deploymentNodes:
     workspace.model.deploymentNodes = []
 workspace.model.deploymentNodes.append(deployment_node_aws)
 
 # Export to JSON
-workspace_dict = workspace.dict(exclude_none=True, by_alias=True)
 with open('complete_workspace.json', 'w') as f:
-    json.dump(workspace_dict, f, indent=2)
+    json.dump(workspace, f, cls=JsonEncoder, indent=2)
 
 print("Workspace created with deployment models!")
 ```
@@ -248,5 +267,5 @@ print("Workspace created with deployment models!")
 ## See Also
 
 - [DSL API Reference](dsl.md) - High-level DSL API (recommended)
-- [Structurizr JSON Schema](https://github.com/structurizr/json) - Official schema
+- [Structurizr](https://structurizr.com) - the project that defines the Structurizr JSON schema
 - [User Guide](../user-guide/core-concepts.md) - Usage guide

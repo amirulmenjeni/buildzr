@@ -103,11 +103,6 @@ with Workspace('name') as w:
     person >> "uses" >> system
     person >> ("uses", "HTTP") >> system  # with technology
 
-    # Export to files
-    w.save()                              # JSON to {workspace_name}.json
-    w.save(path='workspace.json')         # JSON to specific path
-    w.save(format='plantuml', path='out') # PlantUML to directory
-
     # Get as strings/dicts (for display, Jupyter, etc.)
     json_str = w.to_json()                # JSON string
     puml_dict = w.to_plantuml()           # Dict[view_key, puml_string]
@@ -133,13 +128,13 @@ Main imports from `buildzr.dsl`:
 
 Requires optional dependency: `pip install buildzr[export-plantuml]`
 
-Uses JPype to call Structurizr's Java libraries. Export with:
+Uses JPype to call Structurizr's Java libraries. Export files with the `buildzr export` command
+(`Workspace.save()` is deprecated):
+```bash
+buildzr export model.py                       # export/<name>/workspace.json
+buildzr export model.py -f plantuml -o out    # .puml files; also -f svg, -f png, --layout smetana
+```
 ```python
-# Save to files
-w.save(format='plantuml', path='output_directory')  # .puml files
-w.save(format='svg', path='output_directory')       # .svg files
-w.save(format='png', path='output_directory')       # .png files
-
 # Get as strings (for Jupyter notebooks, etc.)
 puml_dict = w.to_plantuml()  # Dict[view_key, puml_string]
 svg_dict = w.to_svg()        # Dict[view_key, svg_string]

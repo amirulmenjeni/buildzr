@@ -1,3 +1,5 @@
+import json
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 import buildzr
@@ -525,6 +527,13 @@ class Workspace(DslWorkspaceElement):
         """
         Save workspace to file(s) in the specified format.
 
+        .. deprecated::
+            Use the ``buildzr export`` command instead, which writes every
+            workspace of a model file in JSON, PlantUML, SVG and PNG. This
+            method keeps working and emits a :class:`DeprecationWarning`.
+            To get the content in memory, use :meth:`to_json`,
+            :meth:`to_plantuml` and :meth:`to_svg`.
+
         Args:
             format: Output format. One of:
                 - 'json': Single JSON file (default)
@@ -562,6 +571,23 @@ class Workspace(DslWorkspaceElement):
             >>> w.save(format='svg')  # Saves to ./
             >>> w.save(format='svg', path='out/', layout='smetana')  # No Graphviz
         """
+        warnings.warn(
+            "Workspace.save() is deprecated and will be removed in a future "
+            "release; use the `buildzr export` command instead "
+            "(see https://buildzr.dev/user-guide/export/)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._save(format, path, pretty, layout)
+
+    def _save(
+        self,
+        format: SaveFormat = 'json',
+        path: Optional[Union[str, Path]] = None,
+        pretty: bool = False,
+        layout: PlantUmlLayout = 'dot',
+    ) -> Union[str, List[str]]:
+        """What :meth:`save` does, without the deprecation warning; ``buildzr export`` uses it."""
         if layout not in ('dot', 'smetana'):
             raise ValueError(
                 f"Unsupported layout: {layout!r}. Use one of: 'dot', 'smetana'"
@@ -2846,8 +2872,16 @@ class DynamicView(DslViewElement):
         exclude_id: str,
         technology: Optional[str] = None,
         allowed_ids: Optional[Set[str]] = None,
+        description: Optional[str] = None,
     ) -> Optional[DslRelationship]:
         """Find an existing relationship between source and destination, excluding a specific ID.
+
+        A technology acts as a selector: when one is given, only relationships
+        with that exact technology match. Without a technology (None or ""),
+        relationships of any technology match, and the ones whose description
+        equals `description` are preferred, as in Structurizr. If the matches
+        then have more than one technology, the step is ambiguous and a
+        ValueError names the candidates.
 
         When several relationships match, the one with the lowest numeric ID is
         returned so the result does not depend on set iteration order.
@@ -2862,6 +2896,12 @@ class DynamicView(DslViewElement):
             allowed_ids: If specified, only match relationships with one of these IDs.
                          Used to skip inline relationships created while evaluating
                          the steps of a DynamicView.
+            description: The description of the step. Without a technology,
+                         relationships with this exact description are preferred.
+
+        Raises:
+            ValueError: If no technology is given and the matching relationships
+                have different technologies.
         """
         from buildzr.dsl.explorer import Explorer
 
@@ -2873,10 +2913,34 @@ class DynamicView(DslViewElement):
             and rel.model.id != exclude_id
             and (allowed_ids is None or rel.model.id in allowed_ids)
             # If technology is specified, it must match exactly
-            and (technology is None or rel.model.technology == technology)
+            and (not technology or rel.model.technology == technology)
         ]
         if not candidates:
             return None
+
+        if not technology:
+            same_description = [
+                rel for rel in candidates
+                if (rel.model.description or "") == (description or "")
+            ]
+            if same_description:
+                candidates = same_description
+            technologies = {rel.model.technology or "" for rel in candidates}
+            if len(technologies) > 1:
+                source_name = getattr(source.model, 'name', str(source.model.id))
+                dest_name = getattr(destination.model, 'name', str(destination.model.id))
+                listed = ", ".join(
+                    f"'{rel.model.description or ''}' ({rel.model.technology or 'no technology'})"
+                    for rel in sorted(candidates, key=lambda r: int(r.model.id))
+                )
+                raise ValueError(
+                    f"The DynamicView step from '{source_name}' to '{dest_name}' has no "
+                    f"technology and matches {len(candidates)} relationships with different "
+                    f"technologies: {listed}. Add the technology of the relationship you "
+                    f"mean to the step, for example: "
+                    f"source >> (\"{description or ''}\", \"<technology>\") >> destination."
+                )
+
         return min(candidates, key=lambda r: int(r.model.id))
 
     def _remove_relationship_from_model(
@@ -2960,6 +3024,7 @@ class DynamicView(DslViewElement):
             original_rel = self._find_original_relationship(
                 workspace, source, destination, rel.model.id,
                 technology=rel_technology, allowed_ids=earlier_rel_ids,
+                description=rel.model.description,
             )
 
             if original_rel is not None:
@@ -3108,6 +3173,36 @@ class CustomView(DslViewElement):
             self._m.relationships.append(RelationshipView(id=relationship_id))
 
 
+def _selector_key(item: Any) -> str:
+    """Stable text for one entry of a style selector (never an address or uuid)."""
+    if isinstance(item, str):
+        return 'str:' + item
+    if isinstance(item, Group):
+        return 'group:' + item.full_name()
+    if isinstance(item, type):
+        return 'type:' + item.__name__
+    if isinstance(item, (DslElement, DslRelationship)):
+        return '{}:{}'.format(type(item).__name__, item.model.id)
+    if callable(item):
+        return 'fn:{}.{}'.format(getattr(item, '__module__', ''), getattr(item, '__qualname__', ''))
+    return 'obj:' + type(item).__name__
+
+
+def _style_tag(prefix: str, selector: Optional[List[Any]], props: Dict[str, Any]) -> str:
+    """Deterministic style tag: ``<prefix>-<sha256(selector + style)[:12]>``.
+
+    The style properties are part of the hash, so two selectors that collide
+    (e.g. two lambdas with the same qualname) can only collide when they also
+    carry the identical style, which is harmless.
+    """
+    import hashlib
+    payload = json.dumps(
+        {'on': [_selector_key(i) for i in (selector or [])], 'props': props},
+        sort_keys=True, default=str,
+    )
+    return '{}-{}'.format(prefix, hashlib.sha256(payload.encode('utf-8')).hexdigest()[:12])
+
+
 class StyleElements:
 
     from buildzr.dsl.expression import WorkspaceExpression, ElementExpression
@@ -3188,7 +3283,6 @@ class StyleElements:
         # makes more concise and flexible.
 
         from buildzr.dsl.expression import ElementExpression
-        from uuid import uuid4
 
         if background:
             assert Color.is_valid_color(background), "Invalid background color: {}".format(background)
@@ -3233,7 +3327,11 @@ class StyleElements:
         # affected by this style.
         # If a tag is provided (e.g., from a ThemeElement), use it for meaningful
         # legend display. Otherwise, generate a unique internal tag.
-        element_tag = tag if tag else "buildzr-styleelements-{}".format(uuid4().hex)
+        element_tag = tag if tag else _style_tag('buildzr-styleelements', on, dict(
+            shape=shape, icon=icon, width=width, height=height,
+            background=background, color=color, stroke=stroke,
+            stroke_width=stroke_width, font_size=font_size, border=border,
+            opacity=opacity, metadata=metadata, description=description))
 
         # Track which tags we've already created styles for (to avoid duplicates)
         created_tags: set[str] = set()
@@ -3317,8 +3415,6 @@ class StyleRelationships:
         opacity: Optional[int]=None,
     ) -> None:
 
-        from uuid import uuid4
-
         if color is not None:
             assert Color.is_valid_color(color), "Invalid color: {}".format(color)
 
@@ -3337,7 +3433,10 @@ class StyleRelationships:
 
         # A single unique tag to be applied to all relationships
         # affected by this style.
-        relation_tag = "buildzr-stylerelationships-{}".format(uuid4().hex)
+        relation_tag = _style_tag('buildzr-stylerelationships', on, dict(
+            thickness=thickness, color=color, routing=routing,
+            font_size=font_size, width=width, dashed=dashed,
+            position=position, opacity=opacity))
 
         if on is None:
             self._m.append(buildzr.models.RelationshipStyle(
