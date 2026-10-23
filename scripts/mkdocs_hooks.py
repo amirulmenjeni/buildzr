@@ -137,8 +137,8 @@ def validate_roadmap(data: Any) -> list[str]:
     """Every problem of a parsed roadmap, as ``where: what`` lines. Empty when the roadmap is valid."""
     errors: list[str] = []
     if not isinstance(data, dict):
-        return ["the file must be a mapping with version, active, planned and launched"]
-    _keys(data, TOP_KEYS, {"version", "active", "planned"}, "roadmap", errors)
+        return ["the file must be a mapping with version, planned and, optionally, active and launched"]
+    _keys(data, TOP_KEYS, {"version", "planned"}, "roadmap", errors)
     version = data.get("version")
     if "version" in data and (version != ROADMAP_VERSION or isinstance(version, bool)):
         errors.append(f"version: must be {ROADMAP_VERSION}, got {version!r}")
@@ -250,7 +250,10 @@ def render_roadmap(data: dict[str, Any]) -> str:
         "Which Structurizr features buildzr supports is a separate question; see "
         "[Structurizr compatibility](structurizr-compatibility.md), where a missing feature does not mean "
         "it is planned.", "",
-        "## Active { #rm-active }", "", "Work that is underway now.", *_list(data["active"]),
+    ]
+    if data.get("active"):
+        out += ["## Active { #rm-active }", "", "Work that is underway now.", *_list(data["active"])]
+    out += [
         "## Planned { #rm-planned }", "",
         "Work we intend to do, by the release we are aiming for. A later target is less certain.",
     ]

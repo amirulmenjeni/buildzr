@@ -1,17 +1,12 @@
 # The buildzr product roadmap, rendered into the roadmap page (https://buildzr.dev/roadmap/) by scripts/mkdocs_hooks.py
 # at docs build time. The build stops with the list of faults if this file breaks the schema (version 1).
 #
-# Statuses: active (underway now), planned (grouped by a directional release target, never a date) and launched
+# Statuses: active (underway now, omitted when nothing is), planned (grouped by a directional release target, never a date) and launched
 # (grouped by a released version with its date). Each item has a stable kebab-case id (used as its link anchor), a
 # short title, a one-sentence description and an optional https link (ids may not start with rm-). An id appears once in the whole file: move an
 # item between statuses instead of copying it.
 
 version: 1
-
-active:
-  - id: release-readiness
-    title: 1.0 release readiness
-    description: Finishing the packaging, documentation and CI checks needed to ship buildzr 1.0 as a stable release.
 
 planned:
   - target: "1.1"
@@ -27,6 +22,10 @@ planned:
         description: Apply a workspace's branding and Structurizr themes when the viewer draws its diagrams, with custom typography from licensed bundled fonts or system font stacks; diagram fonts are build-time inputs as their metrics affect layout.
   - target: Later
     items:
+      - id: export-cli-viewer-renderer
+        title: Unattended export with the viewer renderer
+        description: Optionally export PNG and SVG from the buildzr command with the viewer's renderer in a headless Chromium-compatible browser; only this command needs the browser, not the in-viewer export.
+        link: https://github.com/amirulmenjeni/buildzr/issues/176
       - id: dynamic-view-animation
         title: Dynamic view animation
         description: Step through a dynamic view's interactions one at a time in the viewer.
@@ -56,6 +55,13 @@ planned:
         description: Close lower-priority gaps with the Structurizr DSL that are listed on the compatibility page.
 
 launched:
+  - version: "1.0.0"
+    date: 2026-10-23
+    link: https://github.com/amirulmenjeni/buildzr/tree/v1.0.0
+    items:
+      - id: release-readiness
+        title: 1.0 release readiness
+        description: The packaging, documentation and CI checks needed to ship buildzr 1.0 are finished, and 1.0.0 is the first stable release.
   - version: "1.0.0rc1"
     date: 2026-10-22
     link: https://github.com/amirulmenjeni/buildzr/tree/v1.0.0rc1
