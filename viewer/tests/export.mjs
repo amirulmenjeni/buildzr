@@ -193,7 +193,7 @@ export default async function exportTest(browser, srv, F, name) {
     t.eq(S.bg, `rgb(${CANVAS[other].join(', ')})`, `${other} theme: SVG background`);
     await openMenu(q);
     const box = await q.getByLabel('Transparent background').boundingBox();
-    t.ok(!!box && box.width <= 20 && box.height <= 20, `the checkbox is compact (${box && Math.round(box.width)}x${box && Math.round(box.height)})`);
+    t.ok(!!box && box.width >= 14 && box.width <= 16 && box.height >= 14 && box.height <= 16, `the checkbox is compact (${box && Math.round(box.width)}x${box && Math.round(box.height)})`);
     await q.getByLabel('Transparent background').focus();
     await q.keyboard.press('Space');
     t.ok(await q.getByLabel('Transparent background').isChecked(), 'the checkbox toggles with the keyboard');
@@ -221,8 +221,13 @@ export default async function exportTest(browser, srv, F, name) {
     }
     const cb = await q.getByLabel('Transparent background').boundingBox();
     const lb = await q.locator('[data-testid=export] label').boundingBox();
-    t.ok(!!cb && cb.width <= 20 && cb.height <= 20, `phone: the checkbox is compact (${cb && Math.round(cb.width)}x${cb && Math.round(cb.height)})`);
+    t.ok(!!cb && cb.width >= 14 && cb.width <= 16 && cb.height >= 14 && cb.height <= 16, `phone: the checkbox is compact (${cb && Math.round(cb.width)}x${cb && Math.round(cb.height)})`);
     t.ok(!!lb && lb.height >= 44 && lb.x >= 0 && lb.x + lb.width <= 390, 'phone: the checkbox label is still a 44 px touch target');
+    const cbs = await q.getByLabel('Transparent background').evaluate((e) => { const c = getComputedStyle(e); return { w: parseFloat(c.width), h: parseFloat(c.height) }; });
+    t.ok(cbs.w <= 16 && cbs.h <= 16, `phone: the checkbox's computed size is ${cbs.w}x${cbs.h}`);
+    await q.touchscreen.tap(lb.x + lb.width - 20, lb.y + lb.height - 4); // the empty end of the 44 px row, away from the box
+    t.ok(await q.getByLabel('Transparent background').isChecked(), 'phone: a tap on the row, away from the box, toggles it');
+    await q.getByLabel('Transparent background').uncheck();
     t.ok(!!pngSize((await download(q, 'png')).buf), 'phone: PNG downloads');
     await q.context().close();
     const e = await newPage(browser, errors, { viewport: { width: 900, height: 600 } });

@@ -276,7 +276,7 @@ button { font: inherit; }
 .export-menu button:hover:not(:disabled) { background: var(--sel-bg); }
 .export-menu button:disabled { cursor: default; color: var(--muted); }
 .export-menu label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.export-menu input[type=checkbox] { flex: none; width: 18px; height: 18px; margin: 0; } /* as the settings checkboxes; the label is the touch target */
+.export-menu input[type=checkbox] { flex: none; width: 15px; height: 15px; margin: 0; } /* compact beside the 14 px text, also on a phone; the label row is the touch target */
 .export-note { margin: 0; font-size: 12px; color: var(--muted); }
 .export-toggle:focus-visible, .export-menu button:focus-visible, .export-menu input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 @media (max-width: 767px) { .export-toggle { min-width: 44px; min-height: 44px; justify-content: center; } .export-menu button { min-height: 44px; } .export-menu label { min-height: 44px; } }
