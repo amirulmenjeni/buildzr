@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrokenBanner, BrokenScreen } from './Broken';
 import { AboutButton } from './About';
 import { Canvas } from './Canvas';
+import { ExportMenu } from './ExportMenu';
 import { Inspector } from './Inspector';
 import { SettingsButton } from './SettingsPanel';
 import { Breadcrumbs, Toolbar } from './Toolbar';
@@ -72,6 +73,7 @@ export function App() {
         {drawerMode && <button className="menu" aria-label="Open model navigation" aria-expanded={drawer} onClick={() => setUi({ drawer: true })}>☰</button>}
         <h1>{model.workspace.name}</h1>
         <Breadcrumbs />
+        <ExportMenu />
         {drawerMode && <button className="searchbtn" aria-label="Search and filter" aria-expanded={searchOpen} onClick={() => setUi({ searchOpen: !searchOpen })}>⌕</button>}
         {embed && canOpenInNewTab() && (
           <button className="newtab" data-testid="open-new-tab" title="Open this diagram in the full viewer, in a new browser tab" onClick={openInNewTab}>

@@ -36,9 +36,10 @@ export function ElkEdge({ id, data }: EdgeProps<FlowEdge>) {
   const zoomKey = useStore((st) => (e.label ? labelMode(e.label.lines, s.fontSize ?? 12, d.K, st.transform[2]) : ''));
   const tiers = zoomKey.split('|')[0];
   const kids = useStore((st) => (d.owner ? childFade(st.transform[2] / fitZoom(d.owner.w, d.owner.h, st.width, st.height, phoneLayout(), st.maxZoom), reducedMotion()) : 1));
+  const plainWidth = (s.width ?? 1.5) * d.K + (e.count > 1 ? 0.5 * d.K : 0); // without the selection mark (image export)
   const arrow = 8 * d.K;
   return (
-    <g data-edge={e.id} data-count={e.count} data-selected={d.selected ? 'true' : undefined} className="rolled-edge" style={{ opacity: d.opacity * kids }}>
+    <g data-edge={e.id} data-count={e.count} data-plain-width={plainWidth} data-selected={d.selected ? 'true' : undefined} className="rolled-edge" style={{ opacity: d.opacity * kids }}>
       <defs>
         <marker id={`${mid}-e`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth={arrow} markerHeight={arrow} orient="auto-start-reverse" markerUnits="userSpaceOnUse">
           <path d="M0,0 L10,5 L0,10 Z" fill={color} />

@@ -265,3 +265,18 @@ button { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .left, .left[data-open=true], .sheet-wrap { transition: none !important; }
 }
+
+/* ---- image export: a button in the header and the menu under it (never over the canvas) */
+.export { position: relative; }
+.export-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; border: 1px solid var(--control-line); border-radius: 6px; background: var(--surface); color: var(--fg); padding: 2px 10px; cursor: pointer; font: inherit; white-space: nowrap; }
+.export-toggle[aria-expanded=true] { background: var(--sel-bg); border-color: var(--accent); }
+.export-menu { position: absolute; z-index: 30; top: calc(100% + 4px); right: 0; display: flex; flex-direction: column; gap: 6px; width: 260px; max-width: calc(100vw - 16px); padding: 10px 12px;
+  background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px var(--shadow); }
+.export-menu button { min-height: 32px; border: 1px solid var(--control-line); border-radius: 6px; background: var(--surface); color: var(--fg); padding: 2px 10px; cursor: pointer; font: inherit; text-align: left; }
+.export-menu button:hover:not(:disabled) { background: var(--sel-bg); }
+.export-menu button:disabled { cursor: default; color: var(--muted); }
+.export-menu label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.export-note { margin: 0; font-size: 12px; color: var(--muted); }
+.export-toggle:focus-visible, .export-menu button:focus-visible, .export-menu input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 767px) { .export-toggle { min-width: 44px; min-height: 44px; justify-content: center; } .export-menu button { min-height: 44px; } .export-menu input[type=checkbox] { width: 44px; height: 44px; margin: 0; } .export-menu label { min-height: 44px; } }
+@media (max-width: 520px) { .export-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }

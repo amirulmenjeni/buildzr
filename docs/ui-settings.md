@@ -33,7 +33,30 @@ Both themes keep the colours of your model. Element boxes keep their fill and th
 
 The theme is applied before the page is drawn, so the viewer never flashes the other theme while it loads. A page that [embeds the viewer](#embed-the-viewer-in-another-page) chooses the theme of its frame with `theme=` or the `buildzr:theme` message.
 
-The theme only changes the viewer. Exported PlantUML, PNG and SVG files are not affected.
+The theme changes the viewer and the images you [download from it](#download-the-diagram-as-an-image), which are drawn in the theme on screen. It does not change what `buildzr export` writes: PlantUML, SVG and PNG files from the command line are not affected.
+
+## Download the diagram as an image
+
+**Download PNG** and **Download SVG** are at the top right of the canvas. They save the diagram you are looking at: the model canvas at its current place (the landscape or an opened element), or the authored view that is open, of any kind (system context, container, component, dynamic, deployment, custom). The file is made in your browser. Nothing is sent to a server, and the export needs no Java, PlantUML, Graphviz or extra browser.
+
+**What is in the file**
+
+- The whole diagram, however much of it the canvas shows. Zooming in or panning before you export does not cut anything off, and a margin of 24 px is left around it.
+- The diagram as the viewer draws it: the same layout, boxes, boundaries, arrows, arrow labels and colours, in the theme on screen. The font (Inter) is part of the file, so the text looks the same on a computer that does not have it.
+- Not in the file: the toolbar, navigation, zoom controls, the export buttons, the selection outline, search highlights and the "N matches" badges, and the thicker line of a selected arrow. Boxes that a search or tag filter dims stay dimmed, as on screen: clear the filter first for a plain diagram.
+- The level of detail follows the zoom, as it does on screen. Small text that the viewer hides at the current zoom (a description, or a name that does not fit its box) is also hidden in the file. Zoom in, or open the element, before you export to get more.
+
+**File names** are `<workspace>--<what is drawn>.<png or svg>`, in lower-case letters, digits and single hyphens. The model canvas is `model` (landscape) or `model-<element path>`, for example `shop--model-online-shop.png`; an authored view is its key, for example `shop--shop-containers.svg`. The same drawing always gets the same name, and no character that a file system could reject is ever used. Accents are dropped (`Café` is `cafe`). A name with letters that have no plain form, such as Chinese, gets a short tag so two such workspaces never share a name.
+
+**Background.** Both formats have an opaque background in the canvas colour of the theme on screen: white in the light theme, dark grey in the dark theme. That is deliberate: the viewer lightens text and arrows in the dark theme so that they can be read on a dark canvas, so a file without a background can be unreadable on a page of the other theme. Tick **Transparent background** to leave the background out, for a figure that you put on a page of the same theme. The choice is not remembered between visits.
+
+**PNG** is drawn at twice the size on screen (2 pixels for each pixel of the diagram), which is sharp in documents and on high-density screens. A very large diagram is drawn at a smaller scale, down to half size, so that the browser can draw it (about 16 million pixels, at most 16 384 on a side). Beyond that the export stops with a message and suggests SVG, which has no such limit.
+
+**SVG** is the viewer's own drawing saved as one self-contained file, with the font inside, so it is larger than the PNG: several hundred kilobytes for a small diagram. It opens on its own in current Chrome, Edge and Firefox, and works in a web page through `<img>` or as a link. The text stays text. Because the viewer draws its labels with HTML, the SVG holds them in a `foreignObject`, an SVG feature that browsers support and that some other programs may not: a vector editor, slide program or converter that draws only plain SVG shapes can leave the text out. Use the PNG for those. For an SVG made of plain SVG elements, use `buildzr export`, which draws with PlantUML and its own layout.
+
+**If the export fails**, the viewer shows a notice that names the file and says what to do (try the other format, or reload the page). The diagram and everything else keep working, and you can try again. The commonest cause is a diagram too large for the browser to draw as a PNG; SVG works there.
+
+This is not the command-line export. `buildzr export` draws views with PlantUML and its layout, so its pictures differ from the viewer's. The images here are what the viewer shows. An unattended command that exports with the viewer's own renderer is planned separately (see the [roadmap](https://buildzr.dev/roadmap/)).
 
 ## Fonts, About and third-party notices
 

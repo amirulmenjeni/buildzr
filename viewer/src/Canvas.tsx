@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Controls, ReactFlow, ReactFlowProvider, useReactFlow, useStoreApi, useStore as useFlowStore, type NodeMouseHandler, type EdgeMouseHandler } from '@xyflow/react';
 import { compose, pathRect, type Composed, type FlowEdge, type FlowNode } from './compose';
 import { ElkEdge } from './edge';
+import { useDiagram } from './exportsource';
 import { chainOf, computeMatches, type ModelIndex } from './model';
 import { C4Boundary, C4Element } from './nodes';
 import { defaults, type SettingValues } from './settings';
@@ -162,6 +163,9 @@ function Flow() {
   const phoneNow = usePhone();
   const match = useMemo(() => computeMatches(m, filter), [m, filter]);
   const composed = useMemo(() => compose({ m, scenes, path, view, selection, match }), [m, scenes, path, view, selection, match]);
+
+  // The export menu in the header draws what is on screen
+  useEffect(() => { useDiagram.setState({ composed }); return () => useDiagram.setState({ composed: null }); }, [composed]);
 
   // Clicking a collapsed frame expands it in place (and selects it, so the inspector shows it); anything else just selects.
   const onNodeClick: NodeMouseHandler<FlowNode> = (_, node) => {

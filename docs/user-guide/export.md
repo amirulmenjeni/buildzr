@@ -5,6 +5,9 @@ PlantUML as `.puml` source, SVG, or PNG. The way to do it is the `buildzr export
 command. It runs a model file and writes **every workspace the file creates**, or
 the one you pick, so the model file does not need any export code.
 
+!!! tip "Download an image from the viewer"
+    The viewer can also save the diagram on screen as a PNG or SVG, in your browser, with its own layout and colours. See [Download the diagram as an image](../ui-settings.md#download-the-diagram-as-an-image). The command below draws with PlantUML instead.
+
 ## Formats
 
 | Format       | Output                                  |
