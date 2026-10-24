@@ -124,7 +124,7 @@ export default async function settings(browser, srv, F, name) {
     await gear(p).tap();
     t.eq(await panel(p).count(), 1, 'phone: tap opens the panel');
     const tb = await toggle(p).boundingBox(), lb = await p.locator('[role=dialog] label').first().boundingBox(), pb = await panel(p).boundingBox();
-    t.ok(tb.width >= 44 && tb.height >= 44, `phone: toggle is ${tb.width}x${tb.height} (>= 44)`);
+    t.ok(tb.width >= 14 && tb.width <= 16 && tb.height >= 14 && tb.height <= 16, `phone: toggle is ${tb.width}x${tb.height} (15 px, the label row is the 44 px target)`);
     t.ok(lb.height >= 44, `phone: label row is ${lb.height} px high`);
     t.ok(pb.x >= nb.x && pb.x + pb.width <= nb.x + nb.width + 0.5, 'phone: the panel stays inside the drawer');
     await axe0(p, 'phone/open', t);
@@ -133,6 +133,48 @@ export default async function settings(browser, srv, F, name) {
     await p.keyboard.press('Escape');
     t.eq(await panel(p).count(), 0, 'phone: Esc closes the panel');
     t.eq(await p.locator('nav.left[data-open=true]').count(), 1, 'phone: Esc closed only the panel, not the drawer');
+    await p.context().close();
+  }
+
+  // ---- every checkbox of the viewer (Settings, Inspector, Export) is one compact control, with a 44 px row on a phone
+  for (const [kind, opts] of [['desktop', { viewport: { width: 1000, height: 700 } }], ['phone', { viewport: { width: 390, height: 844 }, hasTouch: true }]]) {
+    const p = await newPage(browser, errors, opts);
+    const phone = kind === 'phone';
+    const tap = (loc, pos) => (phone ? loc.tap({ position: pos }) : loc.click({ position: pos }));
+    await open(p, srv.url, `#/m?sel=${F.els[0].id}`);
+    await p.waitForSelector(`[data-selected-id="${F.els[0].id}"]`);
+    const surfaces = [
+      ['inspector', p.locator('[data-testid=rolled]'), async () => {}],
+      ['export', p.getByLabel('Transparent background'), async () => { await p.getByTestId('export-toggle').click(); await p.getByTestId('export').waitFor(); }],
+      ['settings', toggle(p), async () => {
+        if (phone) { await p.locator('button[aria-label="Open model navigation"]').click(); await p.waitForTimeout(350); }
+        await gear(p).click(); await panel(p).waitFor();
+      }],
+    ];
+    for (const [what, box, reveal] of surfaces) {
+      await reveal();
+      const f = await box.evaluate((e) => {
+        const c = getComputedStyle(e), r = e.getBoundingClientRect(), row = (e.closest('label') ?? document.querySelector(`label[for="${e.id}"]`)).getBoundingClientRect();
+        return { w: r.width, h: r.height, cw: parseFloat(c.width), ch: parseFloat(c.height), rowH: row.height, rowL: row.left, rowR: row.right, left: r.left, top: r.top, bottom: r.bottom };
+      });
+      t.ok(f.w >= 14 && f.w <= 16 && f.h >= 14 && f.h <= 16 && f.cw === 15 && f.ch === 15, `${kind} ${what}: the checkbox is ${f.w}x${f.h} (computed ${f.cw}x${f.ch})`);
+      if (phone) t.ok(f.rowH >= 44 && f.rowL <= f.left && f.rowR <= 390, `phone ${what}: the label row is ${f.rowH} px high and holds the box`);
+      const before = await box.isChecked();
+      await box.focus();
+      await p.keyboard.press('Space');
+      t.eq(await box.isChecked(), !before, `${kind} ${what}: Space toggles it`);
+      t.ok(await box.evaluate((e) => e.matches(':focus-visible') && parseFloat(getComputedStyle(e).outlineWidth) >= 2), `${kind} ${what}: a keyboard-focused box shows the focus ring`);
+      await tap(box, { x: 7, y: 7 });
+      t.eq(await box.isChecked(), before, `${kind} ${what}: a click on the box toggles it`);
+      if (phone) {
+        const lb = (await box.evaluate((e) => { const r = (e.closest('label') ?? document.querySelector(`label[for="${e.id}"]`)).getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; }));
+        await p.touchscreen.tap(lb.x + lb.w - 6, lb.y + lb.h - 4);
+        t.eq(await box.isChecked(), !before, `phone ${what}: a tap at the far end of the 44 px row toggles it`);
+        await box.uncheck(); if (before) await box.check();
+      }
+      if (what === 'export') await p.getByTestId('export-toggle').click();
+      if (what === 'settings') await p.keyboard.press('Escape');
+    }
     await p.context().close();
   }
 

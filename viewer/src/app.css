@@ -90,11 +90,12 @@ button { font: inherit; }
 .about a { color: var(--accent); }
 .about-notices { margin: 8px 0 0; padding: 10px 12px; max-height: 40vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .gear[aria-expanded=true] { background: var(--sel-bg); border-color: var(--accent); }
-.gear:focus-visible, .setting input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.gear:focus-visible, .setting input:focus-visible, .toggle input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .settings-panel { position: absolute; right: 8px; bottom: calc(100% + 4px); width: min(256px, calc(100% - 16px)); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 16px var(--shadow); padding: 8px 12px 10px; z-index: 5; }
 .settings-panel h2 { font-size: 13px; margin: 0 0 6px; }
 .setting { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; }
-.setting input { margin: 0; width: 18px; height: 18px; }
+/* every viewer checkbox (Settings, Inspector, Export) is drawn 15 px, on desktop and phone; the label row is the touch target */
+.setting input[type=checkbox], .inspector .toggle input[type=checkbox], .export-menu input[type=checkbox] { flex: none; width: 15px; height: 15px; margin: 0; }
 .setting label { font-weight: 700; }
 .setting-desc { grid-column: 1 / -1; margin: 2px 0 0; font-size: 12px; color: var(--muted); }
 
@@ -129,6 +130,7 @@ button { font: inherit; }
 .actions { display: flex; gap: 8px; margin: 6px 0; }
 .actions button { padding: 4px 10px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); border-radius: 4px; cursor: pointer; }
 .toggle { display: block; margin-top: 10px; font-size: 12px; }
+.toggle input[type=checkbox] { margin: 0 6px 0 0; vertical-align: middle; }
 
 /* canvas */
 .c4el, .c4b { position: relative; transition: none; }
@@ -184,9 +186,9 @@ button { font: inherit; }
   .about-close { width: 44px; height: 44px; }
   .about a { display: inline-block; padding: 12px 0; min-height: 44px; }
   .left-foot { padding: 8px 10px; }
-  .setting { grid-template-columns: 44px 1fr; column-gap: 8px; }
-  .setting input { width: 44px; height: 44px; }
-  .setting label { min-height: 44px; display: flex; align-items: center; }
+  .setting { grid-template-columns: 15px 1fr; column-gap: 8px; }
+  .setting input[type=checkbox] { grid-area: 1 / 1; position: relative; z-index: 1; } /* the 15 px box sits on the label, whose 44 px row spans the whole width */
+  .setting label { grid-area: 1 / 1 / 2 / -1; padding-left: 23px; min-height: 44px; display: flex; align-items: center; }
   .segmented label { min-height: 44px; }
   .setting-desc { grid-column: 1 / -1; }
   .tree .row { min-height: 44px; }
@@ -202,7 +204,7 @@ button { font: inherit; }
   .grip { display: block; width: 40px; height: 5px; border-radius: 3px; background: var(--grip); margin: 0 auto; }
   .sheet-wrap .inspector { border: 0; flex: 1; min-height: 0; overflow: auto; padding-top: 0; }
   .inspector .actions button, .inspector .link, .toggle { min-height: 44px; min-width: 44px; }
-  .inspector .toggle input { width: 44px; height: 44px; vertical-align: middle; margin: 0 6px 0 0; }
+  .inspector .toggle { display: flex; align-items: center; }
   .inspector li { padding: 0; }
   .inspector li .link { padding: 10px 0; }
   .notice button { min-width: 44px; min-height: 44px; }
@@ -276,7 +278,6 @@ button { font: inherit; }
 .export-menu button:hover:not(:disabled) { background: var(--sel-bg); }
 .export-menu button:disabled { cursor: default; color: var(--muted); }
 .export-menu label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.export-menu input[type=checkbox] { flex: none; width: 15px; height: 15px; margin: 0; } /* compact beside the 14 px text, also on a phone; the label row is the touch target */
 .export-note { margin: 0; font-size: 12px; color: var(--muted); }
 .export-toggle:focus-visible, .export-menu button:focus-visible, .export-menu input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 @media (max-width: 767px) { .export-toggle { min-width: 44px; min-height: 44px; justify-content: center; } .export-menu button { min-height: 44px; } .export-menu label { min-height: 44px; } }
