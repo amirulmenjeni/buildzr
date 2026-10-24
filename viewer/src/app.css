@@ -275,8 +275,9 @@ button { font: inherit; }
 .export-menu button { min-height: 32px; border: 1px solid var(--control-line); border-radius: 6px; background: var(--surface); color: var(--fg); padding: 2px 10px; cursor: pointer; font: inherit; text-align: left; }
 .export-menu button:hover:not(:disabled) { background: var(--sel-bg); }
 .export-menu button:disabled { cursor: default; color: var(--muted); }
-.export-menu label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.export-menu label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.export-menu input[type=checkbox] { flex: none; width: 18px; height: 18px; margin: 0; } /* as the settings checkboxes; the label is the touch target */
 .export-note { margin: 0; font-size: 12px; color: var(--muted); }
 .export-toggle:focus-visible, .export-menu button:focus-visible, .export-menu input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-@media (max-width: 767px) { .export-toggle { min-width: 44px; min-height: 44px; justify-content: center; } .export-menu button { min-height: 44px; } .export-menu input[type=checkbox] { width: 44px; height: 44px; margin: 0; } .export-menu label { min-height: 44px; } }
+@media (max-width: 767px) { .export-toggle { min-width: 44px; min-height: 44px; justify-content: center; } .export-menu button { min-height: 44px; } .export-menu label { min-height: 44px; } }
 @media (max-width: 520px) { .export-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }

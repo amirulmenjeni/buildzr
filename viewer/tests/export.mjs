@@ -192,7 +192,14 @@ export default async function exportTest(browser, srv, F, name) {
     const S = await svgFacts(q, (await download(q, 'svg')).buf.toString('utf8'));
     t.eq(S.bg, `rgb(${CANVAS[other].join(', ')})`, `${other} theme: SVG background`);
     await openMenu(q);
-    await q.getByLabel('Transparent background').check();
+    const box = await q.getByLabel('Transparent background').boundingBox();
+    t.ok(!!box && box.width <= 20 && box.height <= 20, `the checkbox is compact (${box && Math.round(box.width)}x${box && Math.round(box.height)})`);
+    await q.getByLabel('Transparent background').focus();
+    await q.keyboard.press('Space');
+    t.ok(await q.getByLabel('Transparent background').isChecked(), 'the checkbox toggles with the keyboard');
+    await q.getByLabel('Transparent background').uncheck();
+    await q.getByText('Transparent background').click();
+    t.ok(await q.getByLabel('Transparent background').isChecked(), 'a click on the label text checks it');
     const tp = await pixels(q, (await download(q, 'png')).buf);
     t.eq(tp.corner[3], 0, 'transparent: the PNG corner has no alpha');
     t.ok(tp.other > 0.01, 'transparent: the diagram is still drawn');
@@ -208,10 +215,14 @@ export default async function exportTest(browser, srv, F, name) {
     const tog = await q.getByTestId('export-toggle').boundingBox();
     t.ok(!!tog && tog.width >= 44 && tog.height >= 44 && tog.x + tog.width <= 390, 'phone: the Export button is on screen and at least 44 px');
     await openMenu(q);
-    for (const b of await q.locator('[data-testid=export] button, [data-testid=export] input').all()) {
+    for (const b of await q.locator('[data-testid=export] button').all()) {
       const box = await b.boundingBox();
       t.ok(!!box && box.height >= 44 && box.width >= 44 && box.x >= 0 && box.x + box.width <= 390, `phone: a control of the menu is on screen and at least 44 px (${box && Math.round(box.width)}x${box && Math.round(box.height)})`);
     }
+    const cb = await q.getByLabel('Transparent background').boundingBox();
+    const lb = await q.locator('[data-testid=export] label').boundingBox();
+    t.ok(!!cb && cb.width <= 20 && cb.height <= 20, `phone: the checkbox is compact (${cb && Math.round(cb.width)}x${cb && Math.round(cb.height)})`);
+    t.ok(!!lb && lb.height >= 44 && lb.x >= 0 && lb.x + lb.width <= 390, 'phone: the checkbox label is still a 44 px touch target');
     t.ok(!!pngSize((await download(q, 'png')).buf), 'phone: PNG downloads');
     await q.context().close();
     const e = await newPage(browser, errors, { viewport: { width: 900, height: 600 } });
