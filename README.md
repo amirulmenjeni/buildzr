@@ -24,10 +24,6 @@ uvx buildzr serve --example
 <!-- DEPENDS ON feature/serve-example (bundled prebuilt example and `serve --example`); do not merge this README before it. -->
 This serves a bundled example workspace and prints its address. Open it to explore the interactive viewer. You do not need a project, a model file or Node.js. If you prefer a browser tab, press **Run Code** on the [complete Quick Start example][try-it]: it runs without installing anything.
 
-<!-- PRE-RELEASE NOTE: delete this block when buildzr 1.0.0 final is on PyPI. -->
-> **Until 1.0.0 final is out, add a pre-release flag:** `uvx --prerelease allow buildzr serve --example`, `uv add --prerelease allow buildzr`, or `pip install --pre buildzr`.
-<!-- END PRE-RELEASE NOTE -->
-
 ## Use buildzr with your coding agent
 
 Let your coding agent model your architecture for you. The buildzr skill teaches it to write model files, build them, fix build errors, serve the viewer and answer questions about your model.
@@ -56,7 +52,7 @@ To write a model yourself, start a project. You need:
 - Node.js 18 or newer: when buildzr builds your model, its layout step runs on Node. Check it with `node --version`.
 - [uv](https://docs.astral.sh/uv/getting-started/installation/). With pip, install with `pip install buildzr` instead of `uv add buildzr`.
 
-Create a project and install buildzr (use the pre-release flag from the note above until 1.0.0 final is out):
+Create a project and install buildzr:
 
 ```bash
 uv init hello-buildzr
