@@ -70,6 +70,18 @@ def _pad(p: tuple[int, int, int, int]) -> str:
     return f"[top={p[0]},left={p[1]},bottom={p[2]},right={p[3]}]"
 
 
+def _leaf_icon(n: Json) -> str:
+    """Where a leaf box draws its icon: above the label, or before the name of a person (its head is above)."""
+    if "icon" not in n["style"]:
+        return ""
+    return "inline" if n["shape"] == "Person" else "block"
+
+
+def _icon_w(n: Json) -> float:
+    """What the icon of a frame or boundary takes from the width of its label (0 without an icon)."""
+    return fonts.icon_inline_w(float(n["style"].get("fontSize", 16))) if "icon" in n["style"] else 0.0
+
+
 def reserve(w: float, h: float, k: float) -> tuple[float, float, float]:
     """Reserve a frame for an inner layout of ``w`` x ``h``: area at most ``k`` leaf boxes.
 
@@ -145,7 +157,7 @@ class Layouter:
                 for n in lv["nodes"]:
                     if n["role"] == "element" and n["id"] not in self.frames[key]:
                         fs = float(n["style"].get("fontSize", 16))
-                        self.leaf[(key, n["id"])] = fonts.leaf_size(n["lines"], fs)
+                        self.leaf[(key, n["id"])] = fonts.leaf_size(n["lines"], fs, icon=_leaf_icon(n))
             for e in lv["edges"]:
                 self.elabel[(key, e["id"])] = self._edge_label(e)
         self.scope_node: dict[str, Json] = {}  # element level -> its node in the parent level
@@ -189,7 +201,7 @@ class Layouter:
         """Height of the frame label (tiers 0 and 1) as drawn on the frame node in the parent scene."""
         n = self.scope_node[key]
         fs = float(n["style"].get("fontSize", 16))
-        lines = fonts.wrap([ln for ln in n["lines"] if ln["tier"] <= 1], frame_w - 2 * fonts.PAD, fs)
+        lines = fonts.wrap([ln for ln in n["lines"] if ln["tier"] <= 1], frame_w - 2 * fonts.PAD - _icon_w(n), fs)
         return fonts.text_height(lines, fs)
 
     def pad_needed(self, key: str, w: float, h: float) -> int:
@@ -241,7 +253,7 @@ class Layouter:
     def _boundary(n: Json, children: list[Json]) -> Json:
         """A group or view boundary: a compound with a label strip at the bottom and a minimum width."""
         fs = float(n["style"].get("fontSize", 16))
-        w = fonts.widest(n["lines"], fs) + 40
+        w = fonts.widest(n["lines"], fs) + 40 + _icon_w(n)
         return {"id": n["id"], "layoutOptions": {
             "elk.padding": _pad(BOUNDARY_PAD), "elk.nodeSize.constraints": "MINIMUM_SIZE",
             "elk.nodeSize.minimum": f"({round(w, 2)},{MIN_BOUNDARY_H})"}, "children": children}
@@ -446,7 +458,7 @@ class Layouter:
             if n["role"] == "boundary":
                 labels[n["id"]] = n["lines"]
             elif n["id"] in frame_ids:
-                labels[n["id"]] = fonts.wrap(n["lines"], w - 2 * fonts.PAD, fs)
+                labels[n["id"]] = fonts.wrap(n["lines"], w - 2 * fonts.PAD - _icon_w(n), fs)
                 scales[n["id"]] = self.fsz[frame_ids[n["id"]]][2]
             else:
                 labels[n["id"]] = self.leaf[(key, n["id"])][2]
@@ -523,7 +535,7 @@ class Layouter:
             fs = float(n["style"].get("fontSize", 16))
             if n["role"] == "boundary":
                 return self._boundary(n, [conv(c) for c in kids.get(n["id"], [])])
-            w_, h_, wrapped = fonts.leaf_size(n["lines"], fs)
+            w_, h_, wrapped = fonts.leaf_size(n["lines"], fs, icon=_leaf_icon(n))
             self.leaf[(key, n["id"])] = (int(w_), h_, wrapped)
             return {"id": n["id"], "width": w_, "height": h_}
 

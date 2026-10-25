@@ -289,8 +289,13 @@ def _write_workspace(stage: str, out: str, k: int, viewer: bool, layout: LayoutF
             if problems:
                 status = {"status": "broken", "stage": "check",
                           "errors": _errors(e.replace(data + os.sep, "data/") for e in problems)}
+        warnings = _errors(levels.get("diagnostics", []))
+        for w in warnings:  # the workspace is built without what they name (buildzr/site/branding.py)
+            where = " ".join(str(x) for x in (info.get("input", {}).get("file"), info.get("name")) if x)
+            warn(f"warning: {where}: {w}")
         info = {"buildzr": _version(), "elkjs": _elk_version(), "k": k, "textColor": info.pop("textColor"),
-                **({"modelHash": model["modelHash"]} if os.path.isdir(data) else {}), **info, **status}
+                **({"modelHash": model["modelHash"]} if os.path.isdir(data) else {}),
+                **({"warnings": warnings} if warnings else {}), **info, **status}
         if not (keep and status["status"] == "broken"):
             _publish(built, out, viewer, static_dir, info)
         return info

@@ -29,6 +29,11 @@
     "workspacesList": { "type": "string", "minLength": 1, "description": "Only when the workspace was built from a workspaces: list: the config file holding the list, relative to the build output. A build removes only the workspaces it built itself: the same folder, and the same list or none." },
     "status": { "enum": ["ok", "broken"] },
     "stage": { "enum": ["model", "layout", "check"], "description": "Broken only: the step that failed." },
+    "warnings": {
+      "type": "array", "minItems": 1, "maxItems": 50,
+      "items": { "type": "string", "maxLength": 500 },
+      "description": "Themes, images or a branding font the built workspace does not use, and why (see buildzr/site/branding.py). The workspace is built without them."
+    },
     "errors": {
       "type": "array", "minItems": 1, "maxItems": 50,
       "items": { "type": "string", "maxLength": 500 },

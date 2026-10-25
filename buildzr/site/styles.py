@@ -77,13 +77,18 @@ def darken(c: str, f: float = 0.7) -> str:
 class Styles:
     """Style lookup over the element and relationship styles of one workspace."""
 
-    def __init__(self, ws: Json, text_color: str = "wcag") -> None:
+    def __init__(self, ws: Json, text_color: str = "wcag",
+                 themes: Optional[tuple[list[Json], list[Json]]] = None) -> None:
+        """``themes`` are the ``(element, relationship)`` styles of the workspace's Structurizr themes
+        (:func:`buildzr.site.branding.resolve_themes`): they come before the workspace's own styles, so for one tag
+        the workspace's style wins, and of two themes the later one."""
         if text_color not in ("wcag", "c4"):
             raise ValueError("text_color must be 'wcag' or 'c4'")
         self.text_color = text_color
         styles = ws.get("views", {}).get("configuration", {}).get("styles", {}) or {}
-        self.elements: list[Json] = styles.get("elements", []) or []
-        self.relationships: list[Json] = styles.get("relationships", []) or []
+        theme_el, theme_rel = themes or ([], [])
+        self.elements: list[Json] = theme_el + (styles.get("elements", []) or [])
+        self.relationships: list[Json] = theme_rel + (styles.get("relationships", []) or [])
 
     def _tag_order(self, tags: list[str], defaults: list[str], styles: list[Json]) -> list[str]:
         """Defaults first, then the other tags in the order the style list first mentions them."""
@@ -105,6 +110,7 @@ class Styles:
         opacity: Optional[float] = None
         bw: Optional[float] = None
         border: Optional[str] = None
+        icon: Optional[str] = None
         for t in self._tag_order(tags, ["Element", TYPE_TAG.get(type_, type_)], self.elements):
             for st in self.elements:
                 if st.get("tag") != t:
@@ -124,6 +130,8 @@ class Styles:
                     bw = float(st["strokeWidth"])
                 if st.get("border"):
                     border = str(st["border"]).lower()
+                if isinstance(st.get("icon"), str) and st["icon"].strip():
+                    icon = st["icon"]
         if self.text_color == "wcag" and not fg_explicit:
             fg = "#000000" if contrast("#000000", fill) >= contrast("#ffffff", fill) else "#ffffff"
         style: Json
@@ -148,6 +156,8 @@ class Styles:
             style["opacity"] = opacity
         if bw:
             style["strokeWidth"] = rnd(bw)
+        if icon:
+            style["icon"] = icon  # the image as the style gives it; the levels replace it with an image id
         return style, shape
 
     def edge(self, tags: list[str]) -> Json:
