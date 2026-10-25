@@ -257,12 +257,13 @@ def _publish(built: str, out: str, viewer: bool, static_dir: str, info: dict[str
 
 
 def _write_workspace(stage: str, out: str, k: int, viewer: bool, layout: LayoutFn, static_dir: str,
-                     info: dict[str, Any]) -> dict[str, Any]:
+                     info: dict[str, Any], keep: bool = False) -> dict[str, Any]:
     """Lay out the export in ``stage``, check it and put the built workspace at ``out`` (replaced as a whole).
 
     A layout that fails because of the model, or data that fails :func:`buildzr.site.check.check_built`, gives a
     broken built workspace (``status: broken``; with stage ``check`` the data is kept, with stage ``layout`` it is
-    not). A failure of the machine (:func:`is_environment_problem`) is raised and ``out`` is left as it was.
+    not). With ``keep``, a broken one is not written and ``out`` is left as it was. A failure of the machine
+    (:func:`is_environment_problem`) is raised and ``out`` is left as it was.
     """
     with open(os.path.join(stage, "model.json"), encoding="utf-8") as f:  # staging name, not the output's
         model = json.load(f)
@@ -290,15 +291,22 @@ def _write_workspace(stage: str, out: str, k: int, viewer: bool, layout: LayoutF
                           "errors": _errors(e.replace(data + os.sep, "data/") for e in problems)}
         info = {"buildzr": _version(), "elkjs": _elk_version(), "k": k, "textColor": info.pop("textColor"),
                 **({"modelHash": model["modelHash"]} if os.path.isdir(data) else {}), **info, **status}
-        _publish(built, out, viewer, static_dir, info)
+        if not (keep and status["status"] == "broken"):
+            _publish(built, out, viewer, static_dir, info)
         return info
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
 def _write_broken(out: str, k: int, viewer: bool, static_dir: str, info: dict[str, Any], stage: str,
-                  errors: Iterable[str]) -> dict[str, Any]:
-    """Put a broken built workspace without data at ``out``: ``build.json`` and the viewer, which says it is broken."""
+                  errors: Iterable[str], keep: bool = False) -> dict[str, Any]:
+    """Put a broken built workspace without data at ``out``: ``build.json`` and the viewer, which says it is broken.
+
+    With ``keep``, nothing is written: only its ``build.json`` object is returned.
+    """
+    if keep:
+        return {"buildzr": _version(), "elkjs": _elk_version(), "k": k, "textColor": info.pop("textColor"), **info,
+                "status": "broken", "stage": stage, "errors": _errors(errors)}
     _guard_replace(out)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     tmp = tempfile.mkdtemp(prefix=".build-", dir=os.path.dirname(out))
@@ -389,6 +397,7 @@ class BuildResult:
     """What :func:`build_all` did. ``empty`` lists the files (absolute paths) that create no workspace.
 
     ``built`` holds the ok workspaces written now, ``broken`` the broken ones, ``fresh`` those left as they were.
+    ``kept`` holds the broken ones that were not written, because ``keep_good`` kept the ok build in their place.
     """
 
     built: list[Built] = field(default_factory=list)
@@ -397,6 +406,7 @@ class BuildResult:
     fresh: list[Built] = field(default_factory=list)
     removed: list[Removed] = field(default_factory=list)
     broken: list[Built] = field(default_factory=list)
+    kept: list[Built] = field(default_factory=list)
 
 
 def folder_record(root: str, out: str) -> str:
@@ -550,7 +560,7 @@ class _Job:
 def build_all(path: Paths, out: str, k: Optional[int] = None, text_color: Optional[str] = None, viewer: bool = True,
               layout_fn: Optional[LayoutFn] = None, static_dir: str = STATIC_DIR, verbose: bool = False,
               only_stale: bool = False, root: Optional[str] = None, prune: bool = False,
-              listed: Optional[str] = None) -> BuildResult:
+              listed: Optional[str] = None, keep_good: bool = False) -> BuildResult:
     """Build every workspace of the Python file or workspaces folder ``path`` into ``out/<name>/``.
 
     ``path`` may also be a list of :class:`Entry` (the ``workspaces:`` list of ``buildzr.yaml``): each file is then
@@ -568,7 +578,9 @@ def build_all(path: Paths, out: str, k: Optional[int] = None, text_color: Option
     With ``only_stale``, a file whose workspaces are all in ``out`` with the current fingerprint is not run
     (:attr:`BuildResult.fresh`). ``root`` is the workspaces folder the source paths in ``build.json`` are relative
     to (default: ``path`` or the folder holding it). With ``prune``, built workspaces this build did not produce
-    are removed as :func:`_prune` says (:attr:`BuildResult.removed`).
+    are removed as :func:`_prune` says (:attr:`BuildResult.removed`). With ``keep_good`` (``serve --watch``), a broken
+    workspace does not replace an ok built workspace of the same name: the ok one stays and the broken result is in
+    :attr:`BuildResult.kept`, not written.
     """
     entries = _entries(path, k, text_color, viewer)
     for e in entries:
@@ -655,12 +667,13 @@ def build_all(path: Paths, out: str, k: Optional[int] = None, text_color: Option
                     "input": {"file": rel, "sha256": _sha256_file(job.source)}, "fingerprint": fps[job.source],
                     "workspacesFolder": folder_record(root, out), **listed_rec}
             dest = os.path.join(out, job.name)
+            keep = keep_good and (read_build_json(dest) or {}).get("status") == "ok"
             try:
                 if job.errors is not None:
-                    written = _write_broken(dest, e.k, e.viewer, static_dir, info, "model", job.errors)
+                    written = _write_broken(dest, e.k, e.viewer, static_dir, info, "model", job.errors, keep=keep)
                 else:
                     assert job.folder is not None
-                    written = _write_workspace(job.folder, dest, e.k, e.viewer, layout, static_dir, info)
+                    written = _write_workspace(job.folder, dest, e.k, e.viewer, layout, static_dir, info, keep=keep)
             except Exception as err:  # not the workspace's fault (see _write_workspace): the old output stays
                 msg = str(err) if isinstance(err, BuildError) else f"{type(err).__name__}: {err}"
                 if is_environment_problem(err) and not isinstance(err, OSError):
@@ -668,7 +681,7 @@ def build_all(path: Paths, out: str, k: Optional[int] = None, text_color: Option
                 result.failed.append(Failure(rel, shown, msg, job.source, environment=True))
                 continue
             done = Built(job.name, dest, rel, written)
-            (result.broken if done.broken else result.built).append(done)
+            (result.kept if done.broken and keep else result.broken if done.broken else result.built).append(done)
     if prune:
         _prune(out, root, result, listed, p)
     return result
@@ -691,7 +704,7 @@ def _prune(out: str, root: str, result: BuildResult, listed: Optional[str] = Non
         done.setdefault(b.source, set()).update(b.info.get("workspaces") or [b.name])
     for f in result.failed:
         done.setdefault(f.source, set())
-    produced = {b.name for b in result.built + result.broken + result.fresh}
+    produced = {b.name for b in result.built + result.broken + result.fresh + result.kept}
     for name, info in _owned(out, root, listed).items():
         src = info["input"]["file"]
         if name in produced or src in kept:
