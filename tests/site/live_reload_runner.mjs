@@ -38,7 +38,13 @@ const page = await browser.newPage();
 let loads = 0;
 let polls = 0;
 page.on('load', () => { loads += 1; });
+let crashed = false;
+let last = '';
+page.on('crash', () => { crashed = true; });
 page.on('request', (r) => { if (r.method() === 'HEAD' && r.url().endsWith('/build.json')) polls += 1; });
+page.on('response', (r) => {
+  if (r.request().method() === 'HEAD' && r.url().endsWith('/build.json')) last = `${r.status()} ${r.headers()['x-buildzr-build']}`;
+});
 await page.goto(url);
 await page.waitForSelector('#root > *');
 const route = await page.evaluate(() => location.hash);
@@ -58,7 +64,10 @@ const lines = readline.createInterface({ input: process.stdin });
 for await (const command of lines) {
   const before = loads;
   if (command === 'reload') {
-    if (!(await until(() => loads > before, 10000))) { say('timeout'); continue; }
+    if (!(await until(() => loads > before || crashed, 20000)) || crashed) {
+      say(crashed ? 'crashed' : `timeout after ${polls} polls, last ${last}`);
+      continue;
+    }
     await page.waitForSelector('#root > *');
     await snap();
     say((await page.evaluate(() => location.hash)) === route ? 'reloaded' : 'route-lost');
