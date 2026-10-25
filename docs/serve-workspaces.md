@@ -142,6 +142,25 @@ If you delete a model file, or rename a workspace in one, `serve` keeps serving 
 
 You do not have to stop `buildzr serve` to see a change: run `buildzr build` in a second terminal, then reload the page. `serve` notices new and replaced workspaces on the next request.
 
+### Rebuild as you edit
+
+Start `serve` with `--watch` instead, and it builds and reloads for you:
+
+```bash
+buildzr serve --watch
+```
+
+Leave the viewer open and save a model file. `serve` builds what the change made out of date, and the open viewer of that workspace reloads by itself, at the same view:
+
+```text
+Watching architecture for changes
+changed: architecture/billing.py
+built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
+reloading the open viewers of billing
+```
+
+If you save a mistake, `serve` prints the error, and the viewer keeps showing the last good build until you save a fix. Stop `serve` with Ctrl+C. [Watch mode](cli.md#watch-mode) in the command reference lists which files are watched and what is not.
+
 ## 5. Build nothing, or build everything
 
 Two options change what `serve` builds:
@@ -255,7 +274,7 @@ The same section takes `port`, `host` and `cors_origins`. An option on the comma
 
 ## 8. When a workspace is broken
 
-A workspace is **broken** when building it failed because of the workspace itself: its model file raised an error, the layout failed on it, or its data failed the checks that `build` runs on every workspace. A broken workspace replaces its previous built workspace, so nobody looks at an old diagram that no longer matches the model, and everything that shows the workspace says that it is broken.
+A workspace is **broken** when building it failed because of the workspace itself: its model file raised an error, the layout failed on it, or its data failed the checks that `build` runs on every workspace. A broken workspace replaces its previous built workspace, so nobody looks at an old diagram that no longer matches the model, and everything that shows the workspace says that it is broken. The exception is `serve --watch`, made for editing: there, a broken build does not replace a good one, and only the terminal shows the error until you save a fix (see [Watch mode](cli.md#watch-mode)).
 
 Make a typo in `architecture/platform.py`, so that its last line names `databse` instead of `database`:
 
