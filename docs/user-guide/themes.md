@@ -190,6 +190,94 @@ with Workspace('AWS Deployment') as w:
                    description='Production deployment')
 ```
 
+## Themes, Icons and Branding in the Viewer
+
+The viewer of `buildzr build` and `buildzr serve` draws the styles of a workspace: its own `StyleElements` and `StyleRelationships`, the Structurizr themes it uses, the icons of its styles and its branding.
+
+### Using a Theme
+
+`apply_theme` adds a Structurizr theme to the workspace (`views.configuration.themes`). Pass a theme of `buildzr.themes` or the URL of a theme's `theme.json`:
+
+```python
+from buildzr.dsl import Workspace, SoftwareSystem, Container, StyleElements
+from buildzr.themes import KUBERNETES_V0_3
+
+with Workspace('On Kubernetes') as w:
+    with SoftwareSystem('Shop'):
+        api = Container('API', tags={'Kubernetes - pod'})
+        gateway = Container('Gateway', tags={'Kubernetes - svc'})
+
+    w.apply_theme(KUBERNETES_V0_3)
+    # your own style of a tag the theme styles too: yours wins
+    StyleElements(on=['Kubernetes - pod'], background='#ffffff')
+```
+
+The elements tagged `Kubernetes - pod` get the theme's stroke and text colour and the white background of your style.
+
+buildzr does not download themes. A theme URL is matched by the name of the folder that holds its `theme.json`, such as `kubernetes-v0.3` or `amazon-web-services-2023.01.31`, against the [themes buildzr ships](#available-themes), whatever the host: `https://static.structurizr.com/themes/kubernetes-v0.3/theme.json` and the GitHub address of `KUBERNETES_V0_3.THEME_URL` are the same theme. The styles of any other theme are not applied, and the build says so (see [Warnings](#warnings)). Add the styles you need with `StyleElements` and `StyleRelationships` instead.
+
+### How Styles Combine
+
+For each element, the viewer starts from the C4 default of its type (a person, a software system, a container...). It then applies the styles of the element's tags, and for each tag:
+
+1. the styles of the themes, in the order you added the themes: a later theme wins over an earlier one;
+2. then the workspace's own styles, in the order you wrote them: your style wins over every theme.
+
+A style changes only the properties it sets: your style with only a `background` keeps the theme's stroke, text colour and icon. The tags apply in this order: `Element`, then the type tag (`Person`, `Container`...), then the element's other tags in the order the style list (the themes' styles first, then yours) first names them. Relationships work the same way, starting from the `Relationship` tag.
+
+A theme that sets a text `color` sets it as you would: buildzr does not change it for contrast. Without a `color`, the text is black or white, whichever reads better on the fill.
+
+The layout makes the boxes; the `width` and `height` of a style are not used.
+
+### Icons
+
+The viewer draws an icon above the name of a box, and before the name of a person, of a box with children (a frame) and of a boundary. The layout leaves room for it.
+
+The viewer shows only the images that the workspace carries, as data URIs. The build copies them into the built workspace, so the icons look the same from `buildzr serve`, from any static host and offline. Icons from a URL are not shown: the viewer loads nothing from other sites. The icons of `buildzr.themes` are URLs; use `as_inline()` to embed one (see [Offline / Self-Contained Workspaces](#offline-self-contained-workspaces)):
+
+```python
+# no-run: as_inline() fetches the icon from the network
+StyleElements(on=[api], **KUBERNETES_V0_3.POD.as_inline())
+```
+
+An icon is a PNG, JPEG, GIF, WebP or SVG image of at most 512 KB.
+
+### Branding
+
+`apply_branding` sets the logo and the font of the diagrams (`views.configuration.branding`):
+
+```python
+# no-run: reads logo.png from your project
+import base64
+from pathlib import Path
+
+logo = 'data:image/png;base64,' + base64.b64encode(Path('logo.png').read_bytes()).decode()
+w.apply_branding(logo=logo, font='Georgia, serif')
+```
+
+- **Logo.** A data URI of an image, as for icons. The viewer shows it in the lower right corner of the diagram.
+- **Font.** A font family, or a list of them as in CSS, such as `'Georgia, serif'`. The viewer sets the text of the diagrams in the first one that the reader's computer has; the rest of the page stays in Inter. Without a generic family (`serif`, `sans-serif`...) at the end, Inter comes after your fonts. The viewer waits up to 3 seconds for the font before it draws the diagram.
+- **Font URL.** `apply_branding(font_url=...)` keeps a web font URL in the workspace for other Structurizr tools. The viewer does not load it: it loads fonts only from the built workspace.
+
+The layout measures text with Inter, the viewer's own font, because the build cannot know the fonts of the reader's computer. Where your font is wider than Inter, the viewer scales the label down until it is as wide as the layout made room for, so no text runs out of its box. It does so again when a font finishes loading, so the same font always gives the same picture.
+
+An image you [download from the viewer](../ui-settings.md#download-the-diagram-as-an-image) has the icons, but not the logo. Its font is embedded only when it is Inter: a branding font from the reader's computer is not part of the file.
+
+### Warnings
+
+What the viewer cannot show does not stop the build. The workspace is built without it, `buildzr build` prints a warning, and `build.json` lists it under `warnings`:
+
+```text
+buildzr: warning: shop.py: theme https://example.com/themes/mine/theme.json: not a theme buildzr ships, so its styles are not applied (buildzr does not download themes). Use one from buildzr.themes, or add the styles you need with StyleElements and StyleRelationships
+buildzr: warning: shop.py: icon https://raw.githubusercontent.com/structurizr/themes/67da2b503abc708f941e5aa2ea35dd553f742c3a/kubernetes-v0.3/pod-256.png: not shown, the image is on another site and the viewer loads nothing from other sites. Embed it instead: .as_inline() on a buildzr.themes element, or a data URI
+```
+
+You get one for a theme buildzr does not ship, an image on another site, an image that is not a data URI of a supported type, is damaged or is too large, a font name that is not a font family, and a font URL. When the viewer cannot read the branding file or an image, it draws the diagram without them and says why in the browser console.
+
+### When the Viewer Draws Them Again
+
+Themes and branding are part of the model file, so a change to them changes the file's [fingerprint](../cli.md#when-a-built-workspace-is-out-of-date) and `buildzr build` and `buildzr serve` build the workspace again. The themes that buildzr ships are part of its version. An image that the model file reads from another file is not part of the fingerprint, like code it imports: after you change the image, build with `--rebuild`.
+
 ## PlantUML Export with Icons
 
 When exporting to PlantUML, icons are automatically included as sprites:

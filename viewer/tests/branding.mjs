@@ -102,9 +102,21 @@ export default async function branding(browser, srv, F, name) {
   });
   t.ok(charge && hex(charge.stroke) === '#b23c17' && charge.dash !== '', `the relationship style is drawn: ${JSON.stringify(charge)}`);
   t.eq(elsewhere, [], 'nothing is asked of another site');
+
+  // 3. an SVG downloaded from the viewer has the icons in it (the logo is not part of the drawing)
+  const toggle = p.getByTestId('export-toggle');
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 30000 }), p.click('[data-testid=export] [data-format=svg]')]);
+  const file = path.join(os.tmpdir(), `buildzr-branding-${Date.now()}.svg`);
+  await dl.saveAs(file);
+  const svg = fs.readFileSync(file, 'utf8');
+  fs.rmSync(file, { force: true });
+  const icons = (svg.match(/<img\b[^>]*>/g) ?? []).filter((tag) => tag.includes('data-role="icon"'));
+  t.ok(icons.length >= 2 && icons.every((tag) => /\ssrc="data:image\//.test(tag)), `the SVG holds the icons as data URIs (${icons.length})`);
+  t.ok(!svg.includes('brand-logo'), 'the SVG does not hold the logo');
   await p.context().close();
 
-  // 3. a missing branding file: the diagrams are drawn without icons, logo and font, and the console says why
+  // 4. a missing branding file: the diagrams are drawn without icons, logo and font, and the console says why
   const fallbacks = [
     ['missing branding file', (x) => null, /could not be read/],
     ['damaged image', (x) => ({ ...x, images: Object.fromEntries(Object.entries(x.images).map(([k]) => [k, 'data:image/png;base64,AAAA'])) }), /could not be drawn/],

@@ -141,6 +141,7 @@ Before `build` puts a built workspace in place, it checks its data: the JSON sch
 
 - The other workspaces are still built either way.
 - The `build.json` of every built workspace has `status`: `ok`, or `broken`. A broken one also has `stage`, the step that failed (`model`, `layout` or `check`), and `errors`, at most 50 errors of at most 500 characters each.
+- A built workspace that leaves out a theme, an image or a branding font has `warnings`, in the same form as `errors`. It is not broken: see [Warnings](user-guide/themes.md#warnings).
 - After a failure at the `check` step, the data is kept next to `build.json`, so that you can look at what is wrong. After a failure at the `model` or `layout` step, there is no data: the folder holds `build.json` and the viewer, which shows the errors.
 - A model file that raises an error before it creates any workspace breaks the workspaces it built last time. On its first build, its broken workspace is named after the file.
 - A broken workspace is up to date like an ok one, so `serve` does not build the same broken model file again and again. Change the file, or use `--rebuild`.
@@ -269,7 +270,7 @@ A built workspace is rebuilt when its folder is missing, or when its **fingerpri
 - the version of buildzr,
 - the settings that change the output, as they are for this workspace: `k`, `text_color` and `viewer`, from an option, the file's list entry or `build:`. Changing the `k` of one list entry rebuilds only the workspaces of that entry.
 
-File dates are not used. Code that a model file imports from anywhere else is not part of the fingerprint: after you change such code, start `serve` with `--rebuild`.
+File dates are not used. Code that a model file imports from anywhere else is not part of the fingerprint: after you change such code, start `serve` with `--rebuild`. The [themes and branding](user-guide/themes.md#when-the-viewer-draws-them-again) of a workspace are part of its model file.
 
 #### What `serve` serves
 
