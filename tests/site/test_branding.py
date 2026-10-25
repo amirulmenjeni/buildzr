@@ -51,7 +51,8 @@ def node_styles(lv: Json) -> dict[str, Json]:
 
 
 def test_a_workspace_style_wins_over_a_theme_for_the_same_tag_and_keeps_what_it_does_not_set() -> None:
-    theme = ([{"tag": "T", "background": "#111111", "stroke": "#222222", "icon": "data:theme"}], [])
+    theme: tuple[list[Json], list[Json]] = ([{"tag": "T", "background": "#111111", "stroke": "#222222",
+                                              "icon": "data:theme"}], [])
     style, _ = Styles(ws([{"tag": "T", "background": "#333333"}]), themes=theme).node("Container", ["T"], "element")
     assert (style["fill"], style["stroke"], style["icon"]) == ("#333333", "#222222", "data:theme")
 
@@ -69,7 +70,7 @@ def test_a_theme_style_of_another_tag_comes_before_the_workspace_s_own_tags() ->
 
 
 def test_theme_relationship_styles_apply_and_the_workspace_overrides_them() -> None:
-    theme = ([], [{"tag": "R", "color": "#123456", "dashed": True, "thickness": 3}])
+    theme: tuple[list[Json], list[Json]] = ([], [{"tag": "R", "color": "#123456", "dashed": True, "thickness": 3}])
     st = Styles(ws(relationships=[{"tag": "R", "color": "#654321"}]), themes=theme)
     assert st.edge(["Relationship", "R"]) == {"stroke": "#654321", "arrow": "end", "width": 3, "dash": [5, 5]}
 
@@ -191,7 +192,7 @@ def test_apply_theme_and_apply_branding_write_views_configuration() -> None:
     assert config["themes"] == [KUBERNETES_V0_3.THEME_URL, "https://example.com/t/theme.json"]
     assert config["branding"] == {"logo": RED, "font": {"name": "Georgia", "url": "https://fonts.example/g.css"}}
     with pytest.raises(ValueError):
-        w.apply_theme(object)  # type: ignore[arg-type]
+        w.apply_theme(object)
 
 
 # --- the level graphs ----------------------------------------------------------------------------------------
@@ -214,6 +215,7 @@ def test_the_branded_workspace_s_levels_carry_images_logo_font_and_diagnostics()
     styles = node_styles(lv)
     assert styles["customer"]["icon"] == ids[RED] and styles["shop"]["icon"] == ids[BLUE]
     assert styles["shop/gateway"]["icon"] == ids[GREEN] and styles["shop/gateway"]["fill"] == "#e8f5e9"
+    assert (styles["shop/gateway"]["color"], styles["shop/gateway"]["stroke"]) == ("#1b5e20", "#3d6fdd")
     assert "icon" not in styles["shop/api"] and styles["shop/api"]["stroke"] == "#3d6fdd"
     assert len(lv["diagnostics"]) == 1 and "pod-256.png: not shown" in lv["diagnostics"][0]
 

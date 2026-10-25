@@ -94,7 +94,7 @@ export default async function branding(browser, srv, F, name) {
   const api = await look(p, 'shop/api'), gateway = await look(p, 'shop/gateway');
   t.eq([api.stroke, hex(api.color)], ['#3d6fdd', '#3d6fdd'], 'shop/api: the Kubernetes theme sets its stroke and text colour');
   t.eq(api.icon, null, 'shop/api: the theme icon is on another site, so none is drawn');
-  t.eq([gateway.fill, gateway.stroke], ['#e8f5e9', '#3d6fdd'], 'shop/gateway: the workspace background wins over the theme, the theme stroke stays');
+  t.eq([gateway.fill, hex(gateway.color), gateway.stroke], ['#e8f5e9', '#1b5e20', '#3d6fdd'], 'shop/gateway: the workspace background and text colour win over the theme, the theme stroke stays');
   t.ok(gateway.icon?.src === iconOf('e/shop', 'shop/gateway') && gateway.icon.w > 0, 'shop/gateway: the workspace icon is drawn');
   const charge = await p.evaluate(() => {
     const e = [...document.querySelectorAll('[data-edge]')].find((g) => g.tagName === 'g' && g.dataset.edge.includes('payments'));

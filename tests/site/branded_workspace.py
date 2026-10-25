@@ -42,7 +42,7 @@ def branded_workspace() -> Workspace:
     """A shop on Kubernetes: a customer, a shop (API, a pod and a service) and a payment system.
 
     Styles: the Kubernetes theme (the API and the worker are pods; the theme sets their stroke and text colour and the
-    workspace a white background), a local override of the theme's service tag (light green background, green icon),
+    workspace a white background), a local override of the theme's service tag (light green background, dark green text, green icon),
     a red icon on the customer, a blue icon on the shop (a frame) and a dashed
     relationship style. Branding: a blue logo and the font stack ``DejaVu Serif, serif``.
     """
@@ -59,7 +59,7 @@ def branded_workspace() -> Workspace:
         charges = api >> ("Charges", "HTTPS") >> payments
         w.apply_theme(KUBERNETES_V0_3)
         StyleElements(on=[POD], background="#ffffff")
-        StyleElements(on=[SVC], background="#e8f5e9", icon=GREEN)
+        StyleElements(on=[SVC], background="#e8f5e9", color="#1b5e20", icon=GREEN)
         StyleElements(on=[customer], icon=RED)
         StyleElements(on=[shop], icon=BLUE)
         StyleElements(on=["External"], background="#6d6d6d")
