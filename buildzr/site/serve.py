@@ -23,7 +23,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 from urllib.parse import quote, unquote
 
 from buildzr.site.api import API_VERSION, PARAMS, Api, ApiError, Source, broken_errors
@@ -214,6 +214,46 @@ WORKSPACES_ENDPOINT = "/_buildzr/v1/workspaces"
 #: Sent with every file of a workspace: where the list of workspaces is, relative to the workspace's folder. The viewer
 #: reads it from ``build.json`` to offer a workspace switcher; a static host does not send it, so the viewer asks nothing.
 WORKSPACES_HEADER = "X-Buildzr-Workspaces"
+#: ``serve --watch``: sent with a workspace's ``build.json``, a hash of it. The page asks for it every second and
+#: reloads when it changes, which happens only when a rebuild replaced the workspace.
+BUILD_HEADER = "X-Buildzr-Build"
+#: ``serve --watch``: put into the viewer's ``index.html`` before ``</head>``, with the hash of ``build.json`` that the
+#: page was served with. Not in an embed fed by its parent page (``postMessage``) nor in a handoff, which reloading
+#: would lose; a request that fails (a swap in progress, a stopped server) only waits longer.
+LIVE_SCRIPT = """<script>/* buildzr serve --watch: reload after each rebuild of this workspace */(function () {
+  var q = new URLSearchParams(location.search);
+  if ((q.get('embed') === '1' && q.get('data') !== 'server') || q.has('handoff') || !window.fetch) return;
+  var token = %s;
+  function poll() {
+    fetch('build.json', {method: 'HEAD', cache: 'no-store'}).then(function (r) {
+      var t = r.ok ? r.headers.get('%s') : null;
+      if (t && t !== token) { location.reload(); return; }
+      setTimeout(poll, r.ok ? 1000 : 3000);
+    }, function () { setTimeout(poll, 3000); });
+  }
+  setTimeout(poll, 1000);
+})();</script>
+"""
+
+
+def build_token(folder: str) -> Optional[str]:
+    """The :data:`BUILD_HEADER` of the built workspace ``folder``: a hash of its ``build.json``, or ``None``."""
+    try:
+        with open(os.path.join(folder, "build.json"), "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()[:32]
+    except OSError:
+        return None
+
+
+def with_live_script(page: bytes, token: Optional[str]) -> bytes:
+    """``page`` (an ``index.html``) with :data:`LIVE_SCRIPT` before ``</head>``, else ``</body>``, else at the end."""
+    script = (LIVE_SCRIPT % (json.dumps(token), BUILD_HEADER)).encode()
+    lower = page.lower()
+    for tag in (b"</head>", b"</body>"):
+        at = lower.find(tag)
+        if at != -1:
+            return page[:at] + script + page[at:]
+    return page + script
 
 
 def normalise_url_path(raw: str) -> Optional[str]:
@@ -337,11 +377,16 @@ class WorkspacesHandler(Handler):
     public_url: Optional[str] = None
     sources: dict[str, Source]
     sources_lock: threading.Lock
+    #: ``serve --watch``: the viewer reloads after a rebuild (:data:`LIVE_SCRIPT`).
+    live: bool = False
     _workspace_file = False
+    _build_token: Optional[str] = None
 
     def end_headers(self) -> None:
         if self._workspace_file:
             self.send_header(WORKSPACES_HEADER, "../_buildzr/v1/workspaces")
+        if self._build_token is not None:
+            self.send_header(BUILD_HEADER, self._build_token)
         super().end_headers()
 
     def _api_looking(self) -> bool:
@@ -385,6 +430,7 @@ class WorkspacesHandler(Handler):
 
     def _serve(self, head: bool) -> None:
         self._workspace_file = False  # one connection can carry several requests
+        self._build_token = None
         raw, _, query = self.path.partition("?")
         path = normalise_url_path(raw)
         if path is None:
@@ -433,10 +479,25 @@ class WorkspacesHandler(Handler):
             self._send(308, "text/plain", b"", head,
                        location="/" + quote(entry.name) + "/" + quote(remainder.lstrip("/"), safe="/") + "/")
             return
+        if self.live and remainder in ("/", "/index.html") and self._live_index(entry, head):
+            return
+        if self.live and remainder == "/build.json":
+            self._build_token = build_token(entry.folder)
         if head:
             http.server.SimpleHTTPRequestHandler.do_HEAD(self)
         else:
             http.server.SimpleHTTPRequestHandler.do_GET(self)
+
+    def _live_index(self, entry: Entry, head: bool) -> bool:
+        """The viewer's ``index.html`` with :data:`LIVE_SCRIPT`; ``False`` when there is no viewer."""
+        token = build_token(entry.folder)  # first: a rebuild that lands before the page is read reloads it once more
+        try:
+            with open(os.path.join(entry.folder, "index.html"), "rb") as f:
+                page = f.read()
+        except OSError:
+            return False
+        self._send(200, "text/html; charset=utf-8", with_live_script(page, token), head)
+        return True
 
     # --- answers about every workspace ------------------------------------------------------------
 
@@ -503,16 +564,17 @@ class WorkspacesHandler(Handler):
 
 
 def make_server(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url: Optional[str] = None,
-                cors_origins: Sequence[str] = ()) -> http.server.ThreadingHTTPServer:
+                cors_origins: Sequence[str] = (), live: bool = False) -> http.server.ThreadingHTTPServer:
     """A server bound to ``host:port`` (port 0 picks a free one) serving every built workspace of ``directory``.
 
     ``directory`` is a build output or one built workspace. ``public_url`` (no trailing slash) is the base of the
-    ``viewerUrl`` links; ``cors_origins`` are the only origins that get ``Access-Control-Allow-Origin``.
+    ``viewerUrl`` links; ``cors_origins`` are the only origins that get ``Access-Control-Allow-Origin``. With ``live``
+    (``serve --watch``) each viewer reloads after its workspace is rebuilt (:data:`LIVE_SCRIPT`).
     """
     root = os.path.abspath(directory)
     handler = type("ServedWorkspacesHandler", (WorkspacesHandler,), {
         "catalog": Catalog(root), "public_url": public_url, "cors_origins": tuple(cors_origins),
-        "sources": {}, "sources_lock": threading.Lock(), "directory": root})
+        "sources": {}, "sources_lock": threading.Lock(), "directory": root, "live": live})
 
     def make(*args: Any, **kw: Any) -> WorkspacesHandler:
         h: WorkspacesHandler = handler(*args, directory=root, **kw)
@@ -521,9 +583,15 @@ def make_server(directory: str, host: str = "127.0.0.1", port: int = 8000, publi
 
 
 def serve(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url: Optional[str] = None,
-          cors_origins: Sequence[str] = (), shown: Optional[str] = None) -> None:
-    """Serve every built workspace of ``directory`` until interrupted; print where each one is."""
-    srv = make_server(directory, host, port, public_url, cors_origins)
+          cors_origins: Sequence[str] = (), shown: Optional[str] = None,
+          watch: Optional[Callable[[], None]] = None) -> None:
+    """Serve every built workspace of ``directory`` until interrupted; print where each one is.
+
+    With ``watch`` (``serve --watch``), the server answers in another thread while ``watch()`` runs in this one, so that
+    Ctrl+C stops what it runs (a build and its child processes) too; the viewers reload after a rebuild. The server
+    stops when ``watch`` returns or raises.
+    """
+    srv = make_server(directory, host, port, public_url, cors_origins, live=watch is not None)
     url = f"http://{host}:{srv.server_address[1]}/"
     base = (public_url + "/") if public_url else url
     entries = Catalog(directory).entries()
@@ -536,7 +604,16 @@ def serve(directory: str, host: str = "127.0.0.1", port: int = 8000, public_url:
     print(f"Workspace list at {base}{WORKSPACES_ENDPOINT[1:]}")
     sys.stdout.flush()
     try:
-        srv.serve_forever()
+        if watch is None:
+            srv.serve_forever()
+        else:
+            answering = threading.Thread(target=srv.serve_forever, name="buildzr-serve", daemon=True)
+            answering.start()
+            try:
+                watch()
+            finally:
+                srv.shutdown()
+                answering.join()
     except KeyboardInterrupt:
         pass
     finally:
