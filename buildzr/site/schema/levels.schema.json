@@ -21,6 +21,10 @@
     "diagnostics": {
       "type": "array", "minItems": 1, "items": { "type": "string" },
       "description": "What of the themes, images and branding font is not used, and why (build.json 'warnings')."
+    },
+    "incomplete": {
+      "const": true,
+      "description": "A theme icon could not be fetched (no network, a timeout, an upstream error), so the built workspace lacks it (build.json 'incomplete')."
     }
   },
   "$defs": {

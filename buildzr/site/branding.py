@@ -6,9 +6,11 @@ Three things of ``views.configuration`` reach the viewer:
   :mod:`buildzr.themes` (e.g. ``.../amazon-web-services-2023.01.31/theme.json``). Their element and relationship
   styles come before the workspace's own styles (see :class:`buildzr.site.styles.Styles`). Nothing is downloaded:
   a theme buildzr does not ship is reported and left out.
-* element style ``icon`` and ``branding.logo``: an image the workspace carries as a ``data:`` URI is copied into the
-  built workspace (:class:`Images`), so the viewer shows it online and offline alike. An ``http(s)`` URL is reported
-  and not shown: the viewer loads nothing from other sites.
+* element style ``icon`` and ``branding.logo``: the built workspace carries every image it shows (:class:`Images`), so
+  the viewer shows it online and offline alike and loads nothing from other sites. A ``data:`` URI is copied. The URL
+  of an icon of a theme buildzr ships (:mod:`buildzr.themes`, pinned to one structurizr/themes commit) is fetched
+  from that commit at build time, or read from the cache (:func:`buildzr.themes.assets.fetch_icon`). Any other
+  ``http(s)`` URL is reported and not shown.
 * ``branding.font``: the name becomes the CSS font family of the diagram text; its URL is reported and not loaded.
 
 Every problem is a diagnostic (a line for ``build.json`` ``warnings``) and a fallback, never an error.
@@ -22,6 +24,8 @@ import hashlib
 import re
 from typing import Any, Optional
 from urllib.parse import urlsplit
+
+from buildzr.themes import assets
 
 Json = dict[str, Any]
 
@@ -102,13 +106,26 @@ def _short(s: str, n: int = 120) -> str:
 
 class Images:
     """The images a built workspace carries: ``sha256:<hex> -> data URI`` (base64 re-encoded, so the same image
-    always gives the same bytes), and the diagnostics of the ones left out."""
+    always gives the same bytes), and the diagnostics of the ones left out.
 
-    def __init__(self) -> None:
+    ``network`` false fetches no icon: a theme icon then comes from the cache only. After the first icon whose host
+    cannot be reached, the others come from the cache only too, so a build without network does not wait for every
+    icon in turn. :attr:`incomplete` says that an icon could not be fetched, so the next build tries again.
+    """
+
+    def __init__(self, network: bool = True) -> None:
         self.images: dict[str, str] = {}
         self.problems: list[str] = []
+        self.network = network
         self._seen: dict[str, Optional[str]] = {}
         self._remote: list[str] = []
+        self._unfetched: list[str] = []
+        self._down = ""  # why the network is no longer used: the first icon whose host could not be reached
+
+    @property
+    def incomplete(self) -> bool:
+        """Whether a theme icon is left out because it could not be fetched (not because of the workspace)."""
+        return bool(self._unfetched)
 
     def add(self, value: Any, what: str) -> Optional[str]:
         """The id of the image ``value`` (``what`` names it in a diagnostic), or ``None`` when it is not shown."""
@@ -122,8 +139,20 @@ class Images:
 
     def _read(self, value: str, what: str) -> Optional[str]:
         if re.match(r"https?://", value, re.I):
-            self._remote.append(f"{what} {_short(value, 240)}")
-            return None
+            pinned = assets.pinned_url(value)
+            if pinned is None:
+                self._remote.append(f"{what} {_short(value, 240)}")
+                return None
+            try:
+                value = assets.fetch_icon(pinned, network=self.network and not self._down)
+            except assets.IconFetchError as e:
+                why = e.reason
+                if e.network and self._down:
+                    why = f"it is not in the cache ({assets.cache_dir()}) and {self._down}"
+                elif e.network and self.network:
+                    self._down = f"{_short(pinned, 240)} could not be fetched either"
+                self._unfetched.append(f"{what} {_short(pinned, 240)}: not shown, {why}")
+                return None
         m = _DATA_URI.fullmatch(value)
         mime = m.group(1).lower() if m else ""
         if not m or mime not in IMAGE_TYPES:
@@ -146,10 +175,15 @@ class Images:
 
     def diagnostics(self) -> list[str]:
         out = list(self.problems)
+        unfetched = sorted(set(self._unfetched))
+        for u in unfetched[:MAX_NAMED]:
+            out.append(f"{u}. The next build tries again")
+        if len(unfetched) > MAX_NAMED:
+            out.append(f"and {len(unfetched) - MAX_NAMED} more theme icons not fetched either")
         remote = sorted(set(self._remote))
         for r in remote[:MAX_NAMED]:
-            out.append(f"{r}: not shown, the image is on another site and the viewer loads nothing from other sites. "
-                       "Embed it instead: .as_inline() on a buildzr.themes element, or a data URI")
+            out.append(f"{r}: not shown, the image is on another site and the viewer loads nothing from other sites "
+                       "(buildzr fetches only the icons of the themes it ships). Embed it instead: a data URI")
         if len(remote) > MAX_NAMED:
             out.append(f"and {len(remote) - MAX_NAMED} more images on other sites, not shown either")
         return out

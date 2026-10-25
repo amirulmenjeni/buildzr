@@ -145,10 +145,11 @@ def _line_text(lines: list[str], line: Optional[int]) -> str:
 def build_files(workspace: Any, runner: ElkLike, k: float = 4.0) -> tuple[dict[str, str], Json]:
     """The ``data/`` folder of a built workspace, as relative path -> text, and the model.
 
-    Same stages and options as ``buildzr build`` (text colour ``wcag``, frame budget ``k`` 4).
+    Same stages and options as ``buildzr build`` (text colour ``wcag``, frame budget ``k`` 4), except that no theme
+    icon is fetched: in the browser they are not shown.
     """
     model = export_model(workspace)
-    levels = build_levels(workspace, model, text_color="wcag")
+    levels = build_levels(workspace, model, text_color="wcag", network=False)  # the page loads nothing from other sites
     lay = Layouter(levels, runner, k=k)  # type: ignore[arg-type]
     lay.layout_generated()
     lay.layout_views()

@@ -26,10 +26,12 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Any
 from urllib.request import urlopen
 
+from buildzr.themes.assets import is_full_sha
+
 
 def fetch_theme(url: str) -> Dict[str, Any]:
     """Fetch theme JSON from URL."""
-    with urlopen(url) as response:
+    with urlopen(url, timeout=60) as response:
         return json.loads(response.read().decode('utf-8')) # type: ignore[no-any-return]
 
 
@@ -319,7 +321,8 @@ def read_urls_file(path: Path) -> List[str]:
     replaces ``{ref}`` in every URL; URLs without ``{ref}`` are returned as is.
 
     Raises:
-        ValueError: If a URL uses ``{ref}`` but the file has no ``@ref`` line.
+        ValueError: If a URL uses ``{ref}`` but the file has no ``@ref`` line, or the ``@ref`` is not a full commit
+            SHA (a branch, a tag or a short SHA can move or become ambiguous; a commit cannot).
     """
     ref = None
     urls: List[str] = []
@@ -331,6 +334,8 @@ def read_urls_file(path: Path) -> List[str]:
             elif line and not line.startswith('#'):
                 urls.append(line)
     if ref is not None:
+        if not is_full_sha(ref):
+            raise ValueError(f'"@ref {ref}" is not a full 40 digit commit SHA')
         return [u.replace('{ref}', ref) for u in urls]
     if any('{ref}' in u for u in urls):
         raise ValueError('URLs use {ref} but the file has no "@ref <commit>" line')

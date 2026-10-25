@@ -29,14 +29,14 @@ DEPLOYMENT_TEXT = {"DeploymentNode": "Deployment Node", "InfrastructureNode": "I
 
 
 class _Builder:
-    def __init__(self, ws: Json, model: Json, text_color: str) -> None:
+    def __init__(self, ws: Json, model: Json, text_color: str, network: bool = True) -> None:
         self.ws = ws
         self.model = model
         self.idx = ModelIndex(model)
         config = ws.get("views", {}).get("configuration", {}) or {}
         theme_el, theme_rel, self.problems = branding.resolve_themes(config.get("themes"))
         self.styles = Styles(ws, text_color, (theme_el, theme_rel))
-        self.images = branding.Images()
+        self.images = branding.Images(network)
         self._anc: dict[str, list[str]] = {}
         self.raw_rels: dict[str, Json] = all_relationships(ws)  # Structurizr id -> relationship (implied ones too)
 
@@ -263,7 +263,7 @@ class _Builder:
         return self.level(mv["scene"], "view", mv["key"], mv["title"], [], nodes, edges)
 
 
-def build_levels(workspace: Any, model: Json, text_color: str = "wcag") -> Json:
+def build_levels(workspace: Any, model: Json, text_color: str = "wcag", network: bool = True) -> Json:
     """Return the ``buildzr.levels/2`` object for ``workspace`` and its exported ``model``.
 
     Args:
@@ -271,12 +271,14 @@ def build_levels(workspace: Any, model: Json, text_color: str = "wcag") -> Json:
         model: The result of :func:`buildzr.site.model.export_model` for the same workspace.
         text_color: ``"wcag"`` picks black or white text by contrast with the fill unless a
             style sets a colour; ``"c4"`` keeps the C4 default text colours.
+        network: Whether the icons of the themes buildzr ships may be fetched (see
+            :func:`buildzr.themes.assets.fetch_icon`); false reads them from the cache only.
 
     Returns:
         The level graphs as a plain dict; write it with :func:`buildzr.site.canonical.dumps`.
     """
     ws = workspace_json(workspace)
-    b = _Builder(ws, model, text_color)
+    b = _Builder(ws, model, text_color, network)
     levels: list[Json] = []
     landscape = b.element_level("landscape", "landscape", None, model["workspace"]["name"],
                             [r for r in b.idx.roots if b.idx.el[r]["type"] in DRAWN_TYPES], [])
@@ -307,4 +309,6 @@ def build_levels(workspace: Any, model: Json, text_color: str = "wcag") -> Json:
     diagnostics = b.problems + b.images.diagnostics() + problems
     if diagnostics:
         out["diagnostics"] = diagnostics
+    if b.images.incomplete:
+        out["incomplete"] = True
     return out

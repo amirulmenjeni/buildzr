@@ -34,6 +34,10 @@
       "items": { "type": "string", "maxLength": 500 },
       "description": "Themes, images or a branding font the built workspace does not use, and why (see buildzr/site/branding.py). The workspace is built without them."
     },
+    "incomplete": {
+      "const": true,
+      "description": "A theme icon could not be fetched (see 'warnings'). The built workspace is never up to date, so the next build tries again."
+    },
     "errors": {
       "type": "array", "minItems": 1, "maxItems": 50,
       "items": { "type": "string", "maxLength": 500 },

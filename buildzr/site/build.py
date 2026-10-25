@@ -28,6 +28,7 @@ from typing import Any, Callable, Iterable, Optional, Sequence, Union
 
 from buildzr.site import canonical
 from buildzr.site.export import read_export_result, run_export, run_export_all
+from buildzr.themes.assets import THEMES_COMMIT
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
@@ -149,7 +150,8 @@ def check_name(name: str) -> Optional[str]:
 
 def fingerprint(source: str, helpers: Iterable[str], root: str, k: int, text_color: str, viewer: bool) -> str:
     """What decides whether a built workspace is stale: a sha256 of the source file, every ``_*.py`` helper of the
-    workspaces folder (path and content), the buildzr version and the options that change the output.
+    workspaces folder (path and content), the buildzr version, the pinned structurizr/themes commit and the options that
+    change the output.
 
     Code imported from outside the workspaces folder is not part of it.
     """
@@ -161,6 +163,7 @@ def fingerprint(source: str, helpers: Iterable[str], root: str, k: int, text_col
 
     part("format", FINGERPRINT_VERSION.encode())
     part("buildzr", _version().encode())
+    part("themes", THEMES_COMMIT.encode())
     part("options", json.dumps({"k": k, "textColor": text_color, "viewer": viewer}, sort_keys=True).encode())
     with open(source, "rb") as f:
         part("source", f.read())
@@ -295,7 +298,8 @@ def _write_workspace(stage: str, out: str, k: int, viewer: bool, layout: LayoutF
             warn(f"warning: {where}: {w}")
         info = {"buildzr": _version(), "elkjs": _elk_version(), "k": k, "textColor": info.pop("textColor"),
                 **({"modelHash": model["modelHash"]} if os.path.isdir(data) else {}),
-                **({"warnings": warnings} if warnings else {}), **info, **status}
+                **({"warnings": warnings} if warnings else {}),
+                **({"incomplete": True} if levels.get("incomplete") else {}), **info, **status}
         if not (keep and status["status"] == "broken"):
             _publish(built, out, viewer, static_dir, info)
         return info
@@ -456,13 +460,14 @@ def _owned(out: str, root: Optional[str] = None, listed: Optional[str] = None) -
 
 
 def is_fresh(source_rel: str, fp: str, owned: dict[str, dict[str, Any]]) -> bool:
-    """Whether every workspace the file built last time is in the output with this fingerprint (ok or broken)."""
+    """Whether every workspace the file built last time is in the output with this fingerprint (ok or broken), and
+    none lacks a theme icon it could not fetch (``incomplete``)."""
     mine = {n: i for n, i in owned.items() if i["input"].get("file") == source_rel}
     if not mine:
         return False
     for info in mine.values():
         siblings = info.get("workspaces")
-        if info.get("fingerprint") != fp or not isinstance(siblings, list):
+        if info.get("fingerprint") != fp or not isinstance(siblings, list) or info.get("incomplete"):
             return False
         if any(s not in mine for s in siblings):
             return False
