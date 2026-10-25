@@ -25,6 +25,9 @@ WORKSPACE = "from tests.site.branded_workspace import branded_workspace\nw = bra
 def main(out: str = OUT) -> None:
     os.environ["PYTHONPATH"] = ROOT + os.pathsep + os.environ.get("PYTHONPATH", "")
     with tempfile.TemporaryDirectory(prefix="buildzr-branded-") as tmp:
+        # like the tests (tests/conftest.py): no theme icon is fetched, so the fixture is the same on any machine
+        os.environ["BUILDZR_OFFLINE"] = "1"
+        os.environ["BUILDZR_CACHE_DIR"] = os.path.join(tmp, "cache")
         src = os.path.join(tmp, "workspace.py")
         with open(src, "w", encoding="utf-8") as f:
             f.write(WORKSPACE)
