@@ -162,7 +162,9 @@ export default async function stage4(browser, srv, F, name) {
         for (const el of document.querySelectorAll('button, a[href], input, select, [role=tab], [role=treeitem] > .row')) {
           if (!vis(el)) continue;
           if (el.closest('.react-flow__node')) continue; // canvas nodes are zoomed by the camera
-          const r = el.getBoundingClientRect();
+          // a checkbox is drawn 15 px; its label row is the touch target
+          const hit = el.type === 'checkbox' ? el.closest('label') ?? document.querySelector(`label[for="${el.id}"]`) ?? el : el;
+          const r = hit.getBoundingClientRect();
           if (r.width < 44 - 0.5 || r.height < 44 - 0.5) out.push(`${el.tagName.toLowerCase()}${el.className ? '.' + String(el.className).split(' ')[0] : ''}[${(el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 24)}] ${r.width.toFixed(0)}x${r.height.toFixed(0)}`);
         }
         return out;
