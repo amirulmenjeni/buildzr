@@ -17,7 +17,11 @@ with its vendored elkjs bundle. Both also carry the third-party notices:
 the viewer's copy (`static/assets/THIRD_PARTY_NOTICES-<hash>.txt`, which its About
 view reads) and `THIRD_PARTY_NOTICES.txt` where users find it, in the wheel's
 `.dist-info/licenses/` and at the root of the sdist. The wheel version
-must equal the version in `buildzr/__about__.py`. The agent skill (`skills/`) ships in
+must equal the version in `buildzr/__about__.py`. Every structurizr/themes
+URL in a text file of the package (`buildzr/`) in either archive names the commit that
+`buildzr/themes/assets.py` pins (`THEMES_COMMIT`), never a branch or a tag,
+and neither carries the theme icons themselves (the build fetches the ones a
+workspace uses). The agent skill (`skills/`) ships in
 the sdist, whose tests read it, and never in the wheel. Stdlib only.
 """
 
@@ -39,6 +43,7 @@ REQUIRED = [
     f'{SITE}/layout/vendor/elk.bundled.js',
     f'{SITE}/example/build.json',
     f'{SITE}/example/data/index.json',
+    'buildzr/themes/assets.py',
 ] + [
     f'{SITE}/schema/{name}.schema.json'
     for name in ('branding', 'build', 'config', 'index', 'levels', 'model', 'scene')
@@ -48,6 +53,10 @@ NOTICES = 'THIRD_PARTY_NOTICES.txt'
 ASSET_JS = re.compile(rf'^{SITE}/static/assets/[^/]+\.js$')
 ASSET_NOTICES = re.compile(rf'^{SITE}/static/assets/THIRD_PARTY_NOTICES-[^/]+\.txt$')
 WHEEL_NOTICES = re.compile(rf'^[^/]+\.dist-info/licenses/{re.escape(NOTICES)}$')
+THEMES_REF = re.compile(r'(?:raw\.githubusercontent\.com|github\.com)/structurizr/themes/(?:(?:raw|blob|tree)/)?'
+                        r'([^/\s"\'{]+)/')
+TEXT = ('.py', '.json', '.txt', '.md', '.js', '.html', '.css', '.mjs')
+ICONS = re.compile(r'^buildzr/themes/.+\.(png|svg|jpe?g|gif|webp)$', re.I)
 
 
 def source_version() -> str:
@@ -56,6 +65,30 @@ def source_version() -> str:
     if match is None:
         raise ValueError('No VERSION found in buildzr/__about__.py')
     return match.group('version')
+
+
+def themes_commit() -> str:
+    text = (ROOT / 'buildzr' / 'themes' / 'assets.py').read_text(encoding='utf-8')
+    match = re.search(r'(?m)^THEMES_COMMIT = "([0-9a-f]{40})"$', text)
+    if match is None:
+        raise ValueError('No full THEMES_COMMIT found in buildzr/themes/assets.py')
+    return match.group(1)
+
+
+def unpinned(kind: str, names: List[str], read: Callable[[str], bytes], prefix: str = '') -> List[str]:
+    """Theme icons shipped, and structurizr/themes URLs naming a ref other than the pinned commit."""
+    commit = themes_commit()
+    result = []
+    for name in names:
+        rel = name[len(prefix):] if name.startswith(prefix) else name
+        if ICONS.match(rel):
+            result.append(f'{kind}: ships the theme icon {rel}; the build fetches the icons it needs')
+        elif rel.startswith('buildzr/') and rel.endswith(TEXT):  # tests may name other refs on purpose
+            refs = sorted({r for r in THEMES_REF.findall(read(name).decode('utf-8', 'replace')) if r != commit})
+            if refs:
+                result.append(f'{kind}: {rel} names structurizr/themes at {", ".join(refs)}, '
+                              f'not the pinned commit {commit}')
+    return result
 
 
 def problems(kind: str, names: List[str], prefix: str = '') -> List[str]:
@@ -78,7 +111,7 @@ def problems(kind: str, names: List[str], prefix: str = '') -> List[str]:
 def check_wheel(path: Path, expected: str) -> List[str]:
     with zipfile.ZipFile(path) as z:
         names = z.namelist()
-        result = problems('wheel', names)
+        result = problems('wheel', names) + unpinned('wheel', names, z.read)
         if any(n.startswith('skills/') for n in names):
             result.append('wheel: contains skills/; the agent skill belongs in the sdist only')
         if not any(WHEEL_NOTICES.match(n) for n in names):
@@ -98,9 +131,15 @@ def check_wheel(path: Path, expected: str) -> List[str]:
 def check_sdist(path: Path) -> List[str]:
     with tarfile.open(path) as t:
         names = t.getnames()
-    # Members are prefixed by the `buildzr-X.Y.Z/` folder.
-    prefix = names[0].split('/')[0] + '/' if names else ''
-    result = problems('sdist', names, prefix=prefix)
+        # Members are prefixed by the `buildzr-X.Y.Z/` folder.
+        prefix = names[0].split('/')[0] + '/' if names else ''
+
+        def read(name: str) -> bytes:
+            f = t.extractfile(name)
+            return f.read() if f is not None else b''
+
+        files = [m.name for m in t.getmembers() if m.isfile()]
+        result = problems('sdist', names, prefix=prefix) + unpinned('sdist', files, read, prefix=prefix)
     if prefix + SKILL not in names:
         result.append(f'sdist: missing {SKILL}')
     if prefix + NOTICES not in names:
@@ -143,7 +182,7 @@ def main(argv: List[str]) -> int:
     if errors:
         print(f'FAILED: {len(errors)} problem(s) found in the built package.', file=sys.stderr)
         return 1
-    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas, example, layout, third-party notices and command modules' + (', and the sdist the agent skill.' if with_sdist else '.'))
+    print(f'OK: {wheel.name}' + (f' and {sdist.name}' if with_sdist else '') + ' contain the viewer, schemas, example, layout, third-party notices and command modules, and only pinned theme URLs' + (', and the sdist the agent skill.' if with_sdist else '.'))
     return 0
 
 
