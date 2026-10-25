@@ -1,5 +1,6 @@
 import { Handle, Position, useStore, type NodeProps } from '@xyflow/react';
-import type { CSSProperties, ReactNode } from 'react';
+import { useMemo, type CSSProperties, type ReactNode, type SyntheticEvent } from 'react';
+import { fitScale } from './branding';
 import type { FlowNode } from './compose';
 import type { LabelLine, SceneNode } from './types';
 import { measureEm } from './textwidth';
@@ -44,30 +45,51 @@ export function labelMode(lines: LabelLine[], base: number, K: number, zoom: num
  * down to 0 (zoomfx NAME_FIT). The widths come from the font's metrics (textwidth.ts) because the scene carries only the wrapped lines.
  * `offset` = distance from the box's left edge to the text of a left-aligned label (scene px).
  */
-export function nameFit(lines: LabelLine[], base: number, K: number, nameCap: number | null, boxW: number, offset: number, zoom: number): number {
+export function nameFit(lines: LabelLine[], base: number, K: number, nameCap: number | null, boxW: number, offset: number, zoom: number,
+                        family: string | null = null, fit = 1): number {
   let widest = 0;
   for (const l of lines) {
     if (l.tier !== 0) continue;
-    const px = Math.max(Math.min(l.size ?? base, nameCap ?? Infinity) * K * zoom, NAME_FLOOR_PX);
-    widest = Math.max(widest, measureEm(l.text, l.weight === 'bold', !!l.italic) * px);
+    const px = Math.max(Math.min(l.size ?? base, nameCap ?? Infinity) * fit * K * zoom, NAME_FLOOR_PX);
+    widest = Math.max(widest, measureEm(l.text, l.weight === 'bold', !!l.italic, family ?? undefined) * px);
   }
   const inner = NAME_FIT.inner * boxW * zoom * K - offset * K * zoom;
   return widest === 0 ? 1 : fitFade(inner > 0 ? widest / inner : Infinity, reducedMotion());
 }
 
-export function Lines({ lines, base, K, zoomKey, align, color, maxTier = 2, nameCap = null, fade = 1, frame = false, nameFade = 1 }: { lines: LabelLine[]; base: number; K: number; zoomKey: string; align: 'center' | 'left'; color: string; maxTier?: number; nameCap?: number | null; fade?: number; frame?: boolean; nameFade?: number }) {
+/** A node's icon: `block` above the label of a leaf box (the layout left room for it), `inline` before the name of a frame, a boundary or a person. */
+export interface NodeIcon { src: string; mode: 'block' | 'inline' }
+/** Sizes in scene px, as buildzr/site/fonts reserves them (ICON, ICON_GAP, icon_inline_w). */
+export const ICON_PX = 40, ICON_GAP_PX = 6, ICON_INLINE_GAP_PX = 4;
+const hideBroken = (ev: SyntheticEvent<HTMLImageElement>): void => {
+  ev.currentTarget.style.display = 'none'; // the box is drawn without it
+  console.warn('buildzr: an icon of this workspace could not be drawn (its image data is damaged); the box is shown without it');
+};
+
+export function Lines({ lines, base, K, zoomKey, align, color, maxTier = 2, nameCap = null, fade = 1, frame = false, nameFade = 1, fit = 1, icon = null }: { lines: LabelLine[]; base: number; K: number; zoomKey: string; align: 'center' | 'left'; color: string; maxTier?: number; nameCap?: number | null; fade?: number; frame?: boolean; nameFade?: number; fit?: number; icon?: NodeIcon | null }) {
   const [tiers, zoomPart, flag] = zoomKey.split('|');
   const floored = flag === 'f';
   const zoom = zoomPart !== '' ? Number(zoomPart) : 1; // only present when a size depends on the zoom (floor, or a cap held up by the floor)
+  let inlineDone = false;
   return (
-    <div data-role={frame ? 'frame-label' : undefined} data-fade={frame ? fade : undefined} style={{ textAlign: align, color, lineHeight: 1.25, whiteSpace: 'pre', fontSize: base, opacity: fade === 1 ? undefined : fade }}>
+    <div data-role={frame ? 'frame-label' : undefined} data-fade={frame ? fade : undefined} data-fit={fit === 1 ? undefined : fit} style={{ textAlign: align, color, lineHeight: 1.25, whiteSpace: 'pre', fontSize: base * fit, opacity: fade === 1 ? undefined : fade }}>
+      {icon?.mode === 'block' && (
+        <img data-role="icon" src={icon.src} alt="" aria-hidden="true" draggable={false} onError={hideBroken}
+             style={{ display: 'block', width: ICON_PX, height: ICON_PX, margin: `0 auto ${ICON_GAP_PX}px`, objectFit: 'contain', opacity: nameFade === 1 ? undefined : nameFade }} />
+      )}
       {lines.map((l, i) => {
         if (l.tier > maxTier || (l.tier !== 0 && !tiers.includes(String(l.tier)))) return null;
-        let size = l.size ?? base;
+        let size = (l.size ?? base) * fit;
         if (l.tier === 0) size = Math.min(size, zoomPart !== '' ? capSize(nameCap, K, zoom) : nameCap ?? Infinity); // no zoom in the key: the floor is not holding the cap up
         if (l.tier === 0 && floored) size = NAME_FLOOR_PX / (K * zoom); // the floor wins over the cap: it is only used where the capped size is smaller
+        const withIcon = icon?.mode === 'inline' && l.tier === 0 && !inlineDone;
+        if (withIcon) inlineDone = true;
         return (
-          <div key={i} data-tier={l.tier} style={{ opacity: l.tier === 0 && nameFade !== 1 ? nameFade : undefined, fontSize: size, fontWeight: l.weight === 'bold' ? 700 : 400, fontStyle: l.italic ? 'italic' : 'normal' }}>{l.text}</div>
+          <div key={i} data-tier={l.tier} style={{ opacity: l.tier === 0 && nameFade !== 1 ? nameFade : undefined, fontSize: size, fontWeight: l.weight === 'bold' ? 700 : 400, fontStyle: l.italic ? 'italic' : 'normal' }}>
+            {withIcon && <img data-role="icon" src={icon.src} alt="" aria-hidden="true" draggable={false} onError={hideBroken}
+                              style={{ width: '1.25em', height: '1.25em', verticalAlign: 'top', marginRight: ICON_INLINE_GAP_PX, objectFit: 'contain' }} />}
+            {l.text}
+          </div>
         );
       })}
     </div>
@@ -126,7 +148,12 @@ function Box({ d, boundary }: { d: FlowNode['data']; boundary: boolean }) {
   const a = n.label.anchor;
   // Not expanded: the floored name fades out where it no longer fits its box (expanded frames have the size-based fade above).
   const leftAligned = boundary || a === 'top-left' || a === 'bottom-left';
-  const nameFade = useStore((s) => (d.expanded ? 1 : nameFit(n.label.lines, n.style.fontSize, d.K, d.nameCap, n.w, leftAligned ? 8 : 0, s.transform[2])));
+  const family = useViewer((s) => s.branding?.font?.family ?? null);
+  const fontEpoch = useViewer((s) => (s.branding?.font ? s.fontEpoch : 0));
+  const fit = useMemo(() => fitScale(n.label.lines, family), [n.label.lines, family, fontEpoch]); // fontEpoch: measure again once a face has loaded
+  const iconSrc = useViewer((s) => (n.style.icon ? s.branding?.images?.[n.style.icon] ?? null : null));
+  const icon: NodeIcon | null = iconSrc ? { src: iconSrc, mode: boundary || a !== 'center' || n.shape === 'Person' ? 'inline' : 'block' } : null;
+  const nameFade = useStore((s) => (d.expanded ? 1 : nameFit(n.label.lines, n.style.fontSize, d.K, d.nameCap, n.w, leftAligned ? 8 : 0, s.transform[2], family, fit)));
   const personPad = n.shape === 'Person' ? Math.min(n.w, n.h) * 0.34 : 0;
   const theme = useViewer((s) => s.theme);
   const c = nodeColors(n.style, boundary, d.expanded, theme, d.under);
@@ -134,7 +161,7 @@ function Box({ d, boundary }: { d: FlowNode['data']; boundary: boolean }) {
   const cls = [boundary ? 'c4b' : 'c4el', d.hit ? 'hit' : '', d.selected ? 'sel' : '', d.expanded ? 'expanded' : '', d.matchBadge ? 'has-match' : ''].filter(Boolean).join(' ');
   const inner: CSSProperties = { position: 'absolute', left: 0, top: 0, width: n.w, height: n.h, transformOrigin: '0 0', transform: d.K === 1 ? undefined : `scale(${d.K})`, overflow: 'hidden' };
   const label = <Lines lines={n.label.lines} base={n.style.fontSize} K={d.K} zoomKey={zoomKey} align={boundary ? 'left' : 'center'} color={color}
-    maxTier={d.expanded ? (d.focused ? 1 : 0) : 2} nameCap={d.nameCap} fade={labelOpacity} frame={d.expanded} nameFade={nameFade} />;
+    maxTier={d.expanded ? (d.focused ? 1 : 0) : 2} nameCap={d.nameCap} fade={labelOpacity} frame={d.expanded} nameFade={nameFade} fit={fit} icon={icon} />;
   return (
     <div className={cls} data-id={n.id} data-selected={d.selected ? 'true' : undefined} data-expanded={d.expanded ? 'true' : undefined} data-fresh={d.K !== 1 ? '' : undefined}
          style={{ width: n.w * d.K, height: n.h * d.K, opacity: d.opacity }}>
