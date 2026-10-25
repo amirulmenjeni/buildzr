@@ -86,7 +86,7 @@ This page tracks which [Structurizr DSL](https://docs.structurizr.com/dsl/langua
 | [Styles](https://docs.structurizr.com/dsl/language#styles) | ✅ | Visual styling for elements and relationships |
 | [Element Style](https://docs.structurizr.com/dsl/language#element) | ✅ | Style by DslElement, Group, callable, element type, or tag string |
 | [Relationship Style](https://docs.structurizr.com/dsl/language#relationship-1) | ✅ | Style by DslRelationship, Group, callable, or tag string |
-| [Theme](https://docs.structurizr.com/dsl/language#theme) | 🟡 | `Workspace.apply_theme`; the viewer applies the [themes buildzr ships](user-guide/themes.md#using-a-theme) and does not download others |
+| [Theme](https://docs.structurizr.com/dsl/language#theme) | 🟡 | `Workspace.apply_theme`; the viewer applies the [themes buildzr ships](user-guide/themes.md#using-a-theme), with their icons [fetched at build time](user-guide/themes.md#theme-icons-at-build-time) from one pinned commit, and does not download others |
 | [Branding](https://docs.structurizr.com/dsl/language#branding) | ✅ | `Workspace.apply_branding`; the viewer shows the logo and sets the diagrams in the font, but does not load a font URL ([Branding](user-guide/themes.md#branding)) |
 | [Terminology](https://docs.structurizr.com/dsl/language#terminology) | 🟡 | Model supports custom type names but no DSL wrapper |
 

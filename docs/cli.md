@@ -141,7 +141,7 @@ Before `build` puts a built workspace in place, it checks its data: the JSON sch
 
 - The other workspaces are still built either way.
 - The `build.json` of every built workspace has `status`: `ok`, or `broken`. A broken one also has `stage`, the step that failed (`model`, `layout` or `check`), and `errors`, at most 50 errors of at most 500 characters each.
-- A built workspace that leaves out a theme, an image or a branding font has `warnings`, in the same form as `errors`. It is not broken: see [Warnings](user-guide/themes.md#warnings).
+- A built workspace that leaves out a theme, an image or a branding font has `warnings`, in the same form as `errors`. It is not broken: see [Warnings](user-guide/themes.md#warnings). When it leaves out a theme icon that could not be fetched, it also has `"incomplete": true`, and the next build builds it again (see [Theme Icons at Build Time](user-guide/themes.md#theme-icons-at-build-time)).
 - After a failure at the `check` step, the data is kept next to `build.json`, so that you can look at what is wrong. After a failure at the `model` or `layout` step, there is no data: the folder holds `build.json` and the viewer, which shows the errors.
 - A model file that raises an error before it creates any workspace breaks the workspaces it built last time. On its first build, its broken workspace is named after the file.
 - A broken workspace is up to date like an ok one, so `serve` does not build the same broken model file again and again. Change the file, or use `--rebuild`.
@@ -263,11 +263,11 @@ The example is **hermetic**: it is already built and shipped inside buildzr, so 
 
 #### When a built workspace is out of date
 
-A built workspace is rebuilt when its folder is missing, or when its **fingerprint** changed. `build` records the fingerprint in the `build.json` of the workspace. It is a sha256 hash of:
+A built workspace is rebuilt when its folder is missing, when it lacks a theme icon that could not be fetched (`"incomplete": true` in its `build.json`), or when its **fingerprint** changed. `build` records the fingerprint in the `build.json` of the workspace. It is a sha256 hash of:
 
 - the model file that creates the workspace,
 - every file whose name starts with `_` and ends with `.py` in the workspaces folder and its subfolders (for a `workspaces:` list: in the folder of the file's entry, or the folder that holds the listed file, and their subfolders),
-- the version of buildzr,
+- the version of buildzr, and the [structurizr/themes commit](user-guide/themes.md#the-pinned-themes-commit) that its themes are pinned to,
 - the settings that change the output, as they are for this workspace: `k`, `text_color` and `viewer`, from an option, the file's list entry or `build:`. Changing the `k` of one list entry rebuilds only the workspaces of that entry.
 
 File dates are not used. Code that a model file imports from anywhere else is not part of the fingerprint: after you change such code, start `serve` with `--rebuild`. The [themes and branding](user-guide/themes.md#when-the-viewer-draws-them-again) of a workspace are part of its model file.

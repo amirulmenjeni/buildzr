@@ -135,7 +135,7 @@ StyleElements(on=[api], **ORACLE_CLOUD.API_GATEWAY)
 
 ## Offline / Self-Contained Workspaces
 
-By default, theme icons reference URLs on Structurizr's CDN. For offline or self-contained workspaces, use `as_inline()` to embed icons as base64:
+The icons of `buildzr.themes` are URLs into one commit of the [structurizr/themes](https://github.com/structurizr/themes) repository (see [The Pinned Themes Commit](#the-pinned-themes-commit)). For the viewer you need nothing more: `buildzr build` and `buildzr serve` [put the icons into the built workspace](#theme-icons-at-build-time). For a workspace JSON that carries its icons itself, for example for another Structurizr tool on a machine without network, use `as_inline()` to embed icons as base64:
 
 ```python
 # no-run: as_inline() fetches the icons from the network
@@ -151,7 +151,7 @@ with Workspace('Offline Workspace') as w:
 ```
 
 !!! warning "Network Required at Build Time"
-    `as_inline()` fetches icons from the CDN when your script runs. The resulting workspace JSON will be self-contained, but you need network access during the build.
+    `as_inline()` reads the icon from buildzr's [icon cache](#theme-icons-at-build-time), or fetches it from the pinned commit when your script runs and caches it. The resulting workspace JSON will be self-contained, but the first run needs network access. Without network and without the icon in the cache, `as_inline()` raises `buildzr.themes.assets.IconFetchError`.
 
 ## Deployment Diagrams
 
@@ -214,7 +214,7 @@ with Workspace('On Kubernetes') as w:
 
 The elements tagged `Kubernetes - pod` get the theme's stroke and text colour and the white background of your style.
 
-buildzr does not download themes. A theme URL is matched by the name of the folder that holds its `theme.json`, such as `kubernetes-v0.3` or `amazon-web-services-2023.01.31`, against the [themes buildzr ships](#available-themes), whatever the host: `https://static.structurizr.com/themes/kubernetes-v0.3/theme.json` and the GitHub address of `KUBERNETES_V0_3.THEME_URL` are the same theme. The styles of any other theme are not applied, and the build says so (see [Warnings](#warnings)). Add the styles you need with `StyleElements` and `StyleRelationships` instead.
+buildzr does not download themes: it applies the styles it ships, and [fetches their icons at build time](#theme-icons-at-build-time). A theme URL is matched by the name of the folder that holds its `theme.json`, such as `kubernetes-v0.3` or `amazon-web-services-2023.01.31`, against the [themes buildzr ships](#available-themes), whatever the host: `https://static.structurizr.com/themes/kubernetes-v0.3/theme.json` and the GitHub address of `KUBERNETES_V0_3.THEME_URL` are the same theme. The styles of any other theme are not applied, and the build says so (see [Warnings](#warnings)). Add the styles you need with `StyleElements` and `StyleRelationships` instead.
 
 ### How Styles Combine
 
@@ -233,14 +233,47 @@ The layout makes the boxes; the `width` and `height` of a style are not used.
 
 The viewer draws an icon above the name of a box, and before the name of a person, of a box with children (a frame) and of a boundary. The layout leaves room for it.
 
-The viewer shows only the images that the workspace carries, as data URIs. The build copies them into the built workspace, so the icons look the same from `buildzr serve`, from any static host and offline. Icons from a URL are not shown: the viewer loads nothing from other sites. The icons of `buildzr.themes` are URLs; use `as_inline()` to embed one (see [Offline / Self-Contained Workspaces](#offline-self-contained-workspaces)):
+The viewer shows only the images that the built workspace carries, so the icons look the same from `buildzr serve`, from any static host and offline: the viewer loads nothing from other sites. The build puts in:
 
-```python
-# no-run: as_inline() fetches the icon from the network
-StyleElements(on=[api], **KUBERNETES_V0_3.POD.as_inline())
-```
+- **a data URI**, as it is (for example from `as_inline()`, see [Offline / Self-Contained Workspaces](#offline-self-contained-workspaces));
+- **the icon of a theme buildzr ships**: the URL of a `buildzr.themes` element, such as `**KUBERNETES_V0_3.POD`, and the icons of a theme you add with `apply_theme`. The build fetches the icon from the [pinned commit](#the-pinned-themes-commit) or reads it from its cache. The same file on another branch of the GitHub repository (`https://raw.githubusercontent.com/structurizr/themes/<branch>/<theme>/<file>`) or on the Structurizr CDN (`https://static.structurizr.com/themes/<theme>/<file>`) gives the file at the pinned commit too.
+
+An image from any other URL is not shown, and the build says so (see [Warnings](#warnings)): buildzr fetches nothing else. Embed it as a data URI instead.
 
 An icon is a PNG, JPEG, GIF, WebP or SVG image of at most 512 KB.
+
+### Theme Icons at Build Time
+
+buildzr ships the styles of its themes, not their icons (about 17 MB). The build fetches the icons a workspace uses, once:
+
+- **From where.** Only `https://raw.githubusercontent.com/structurizr/themes/<pinned commit>/...`, and only the files that the themes buildzr ships use. No redirect is followed. The build waits at most 15 seconds for an icon, and its bytes must be a PNG, JPEG, GIF, WebP or SVG image of at most 512 KB.
+- **The cache.** A fetched icon is kept in `~/.cache/buildzr/themes-<commit>/` (under `$XDG_CACHE_HOME` when that is set, or under `BUILDZR_CACHE_DIR` instead of `~/.cache/buildzr`). A commit never changes, so the cache never expires: the next build reads the icon from there without network. A damaged file is fetched again. Delete the folder to reclaim the space. A new pin uses a new folder.
+- **No network.** With `BUILDZR_OFFLINE=1`, buildzr fetches nothing: the icons come from the cache only.
+- **Failures.** An icon that cannot be fetched (no network, a timeout, an upstream error, a file that is not an image) does not stop the build. The workspace is built without it, the build prints a [warning](#warnings) that names the icon and the reason, and `build.json` records `"incomplete": true`. Such a built workspace is never up to date, so the next `buildzr build` or `buildzr serve` builds it again, even when the model file has not changed. After the first icon whose host cannot be reached, the build takes the other icons from the cache only, so it does not wait 15 seconds for each.
+- **The viewer.** The built workspace carries the icons as data, so the viewer makes no request to GitHub or any other site, online or offline.
+
+The "Run Code" button of these docs runs buildzr in your browser and fetches no icon: the diagrams it draws have none.
+
+The icons belong to their cloud providers and are published in the structurizr/themes repository; see each provider's terms (for example the [AWS Architecture Icons](https://aws.amazon.com/architecture/icons/)) before you publish a built workspace that carries them.
+
+### The Pinned Themes Commit
+
+Every theme of `buildzr.themes` and every icon URL in it names one full commit SHA of [structurizr/themes](https://github.com/structurizr/themes), never a branch such as `master`, a tag or a short SHA, which can move or become ambiguous. The commit is `buildzr.themes.assets.THEMES_COMMIT`:
+
+```python
+from buildzr.themes import AWS, assets
+
+print(assets.THEMES_COMMIT)     # 67da2b503abc708f941e5aa2ea35dd553f742c3a
+print(AWS.EC2.icon_url.startswith(assets.PINNED_BASE))  # True
+```
+
+The commit is part of buildzr, like the themes. To move the pin (buildzr maintainers):
+
+1. Set `THEMES_COMMIT` in `buildzr/themes/assets.py` and the `@ref` line of `buildzr/themes/themes.txt` to the new full 40-digit commit SHA. The generator refuses anything else.
+2. Regenerate the modules: `python -m buildzr.themes.generate --urls-file buildzr/themes/themes.txt`.
+3. Run the tests. `tests/test_themes.py` checks that the two agree and that every theme and icon URL in `buildzr/` names the commit; `.github/scripts/check_wheel.py` checks the same in the built wheel and sdist.
+
+The commit is part of the [fingerprint](../cli.md#when-a-built-workspace-is-out-of-date) of every model file, so after a new pin `buildzr build` builds every workspace again and fetches the icons of the new commit.
 
 ### Branding
 
@@ -269,14 +302,15 @@ What the viewer cannot show does not stop the build. The workspace is built with
 
 ```text
 buildzr: warning: shop.py: theme https://example.com/themes/mine/theme.json: not a theme buildzr ships, so its styles are not applied (buildzr does not download themes). Use one from buildzr.themes, or add the styles you need with StyleElements and StyleRelationships
-buildzr: warning: shop.py: icon https://raw.githubusercontent.com/structurizr/themes/67da2b503abc708f941e5aa2ea35dd553f742c3a/kubernetes-v0.3/pod-256.png: not shown, the image is on another site and the viewer loads nothing from other sites. Embed it instead: .as_inline() on a buildzr.themes element, or a data URI
+buildzr: warning: shop.py: icon https://raw.githubusercontent.com/structurizr/themes/67da2b503abc708f941e5aa2ea35dd553f742c3a/kubernetes-v0.3/pod-256.png: not shown, could not reach the host (Temporary failure in name resolution). The next build tries again
+buildzr: warning: shop.py: icon https://example.com/logo/icon.png: not shown, the image is on another site and the viewer loads nothing from other sites (buildzr fetches only the icons of the themes it ships). Embed it instead: a data URI
 ```
 
-You get one for a theme buildzr does not ship, an image on another site, an image that is not a data URI of a supported type, is damaged or is too large, a font name that is not a font family, and a font URL. When the viewer cannot read the branding file or an image, it draws the diagram without them and says why in the browser console.
+You get one for a theme buildzr does not ship, a theme icon that could not be fetched (see [Theme Icons at Build Time](#theme-icons-at-build-time)), an image on another site, an image that is not a data URI of a supported type, is damaged or is too large, a font name that is not a font family, and a font URL. When the viewer cannot read the branding file or an image, it draws the diagram without them and says why in the browser console.
 
 ### When the Viewer Draws Them Again
 
-Themes and branding are part of the model file, so a change to them changes the file's [fingerprint](../cli.md#when-a-built-workspace-is-out-of-date) and `buildzr build` and `buildzr serve` build the workspace again. The themes that buildzr ships are part of its version. An image that the model file reads from another file is not part of the fingerprint, like code it imports: after you change the image, build with `--rebuild`.
+Themes and branding are part of the model file, so a change to them changes the file's [fingerprint](../cli.md#when-a-built-workspace-is-out-of-date) and `buildzr build` and `buildzr serve` build the workspace again. The themes that buildzr ships and the [commit they are pinned to](#the-pinned-themes-commit) are part of its version and of the fingerprint. A built workspace that lacks a theme icon it could not fetch is built again by the next build. An image that the model file reads from another file is not part of the fingerprint, like code it imports: after you change the image, build with `--rebuild`.
 
 ## PlantUML Export with Icons
 
