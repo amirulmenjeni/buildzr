@@ -41,7 +41,7 @@ REQUIRED = [
     f'{SITE}/example/data/index.json',
 ] + [
     f'{SITE}/schema/{name}.schema.json'
-    for name in ('build', 'config', 'index', 'levels', 'model', 'scene')
+    for name in ('branding', 'build', 'config', 'index', 'levels', 'model', 'scene')
 ]
 SKILL = 'skills/buildzr/SKILL.md'
 NOTICES = 'THIRD_PARTY_NOTICES.txt'
