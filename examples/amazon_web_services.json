@@ -25,7 +25,7 @@
     "softwareSystems": [
       {
         "id": "2",
-        "name": "X",
+        "name": "Online Shop",
         "description": "",
         "tags": "Element,Software System",
         "containers": [
@@ -390,8 +390,8 @@
   "views": {
     "systemContextViews": [
       {
-        "key": "x_context_00",
-        "description": "System context of X",
+        "key": "online_shop_context_00",
+        "description": "System context of Online Shop",
         "softwareSystemId": "2",
         "automaticLayout": {
           "implementation": "Graphviz",
