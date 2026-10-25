@@ -35,14 +35,14 @@ export function ElkEdge({ id, data }: EdgeProps<FlowEdge>) {
   const mStart = (s.arrow === 'start' || s.arrow === 'both') && !d.noStart;
   const mid = `m-${id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
   const width = (s.width ?? 1.5) * d.K * (d.selected ? 1.8 : 1) + (e.count > 1 ? 0.5 * d.K : 0);
-  const zoomKey = useStore((st) => (e.label ? labelMode(e.label.lines, s.fontSize ?? 12, d.K, st.transform[2]) : ''));
+  const family = useViewer((st) => st.branding?.font?.family ?? null);
+  const fontEpoch = useViewer((st) => (st.branding?.font ? st.fontEpoch : 0));
+  const fit = useMemo(() => (e.label ? fitScale(e.label.lines, family) : 1), [e.label, family, fontEpoch]); // fontEpoch: measure again once a face has loaded
+  const zoomKey = useStore((st) => (e.label ? labelMode(e.label.lines, s.fontSize ?? 12, d.K, st.transform[2], true, null, fit) : ''));
   const tiers = zoomKey.split('|')[0];
   const kids = useStore((st) => (d.owner ? childFade(st.transform[2] / fitZoom(d.owner.w, d.owner.h, st.width, st.height, phoneLayout(), st.maxZoom), reducedMotion()) : 1));
   const plainWidth = (s.width ?? 1.5) * d.K + (e.count > 1 ? 0.5 * d.K : 0); // without the selection mark (image export)
   const arrow = 8 * d.K;
-  const family = useViewer((st) => st.branding?.font?.family ?? null);
-  const fontEpoch = useViewer((st) => (st.branding?.font ? st.fontEpoch : 0));
-  const fit = useMemo(() => (e.label ? fitScale(e.label.lines, family) : 1), [e.label, family, fontEpoch]); // fontEpoch: measure again once a face has loaded
   return (
     <g data-edge={e.id} data-count={e.count} data-plain-width={plainWidth} data-selected={d.selected ? 'true' : undefined} className="rolled-edge" style={{ opacity: d.opacity * kids }}>
       <defs>

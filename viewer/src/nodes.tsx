@@ -27,12 +27,15 @@ export const Handles = () => (
 export const capSize = (nameCap: number | null, K: number, zoom: number): number =>
   nameCap === null ? Infinity : Math.max(nameCap, (2 * NAME_FLOOR_PX) / (K * zoom));
 
-/** What the label looks like at this zoom. Only changes (and re-renders) when a threshold is crossed. */
-export function labelMode(lines: LabelLine[], base: number, K: number, zoom: number, allowFloor = true, nameCap: number | null = null): string {
+/**
+ * What the label looks like at this zoom. Only changes (and re-renders) when a threshold is crossed. `fit` is the scale of a label
+ * set in the branding font (branding.ts fitScale): the sizes it decides on are those drawn.
+ */
+export function labelMode(lines: LabelLine[], base: number, K: number, zoom: number, allowFloor = true, nameCap: number | null = null, fit = 1): string {
   const tiers: number[] = [];
   let floor = false;
   for (const l of lines) {
-    const px = (l.tier === 0 ? Math.min(l.size ?? base, capSize(nameCap, K, zoom)) : l.size ?? base) * K * zoom;
+    const px = (l.tier === 0 ? Math.min((l.size ?? base) * fit, capSize(nameCap, K, zoom)) : (l.size ?? base) * fit) * K * zoom;
     if (l.tier === 0) { if (allowFloor && px < NAME_FLOOR_PX) floor = true; } else if (px >= MIN_TIER_PX) tiers.push(l.tier);
   }
   // when floored, or when the cap is held up by the floor, the font size depends on the zoom: include it (6 significant digits) so the label re-renders
@@ -46,12 +49,13 @@ export function labelMode(lines: LabelLine[], base: number, K: number, zoom: num
  * `offset` = distance from the box's left edge to the text of a left-aligned label (scene px).
  */
 export function nameFit(lines: LabelLine[], base: number, K: number, nameCap: number | null, boxW: number, offset: number, zoom: number,
-                        family: string | null = null, fit = 1): number {
+                        family: string | null = null, fit = 1, inlineIcon = false): number {
   let widest = 0;
   for (const l of lines) {
     if (l.tier !== 0) continue;
     const px = Math.max(Math.min(l.size ?? base, nameCap ?? Infinity) * fit * K * zoom, NAME_FLOOR_PX);
-    widest = Math.max(widest, measureEm(l.text, l.weight === 'bold', !!l.italic, family ?? undefined) * px);
+    const icon = inlineIcon ? 1.25 * px + ICON_INLINE_GAP_PX * K * zoom : 0; // the icon before the name (Lines)
+    widest = Math.max(widest, measureEm(l.text, l.weight === 'bold', !!l.italic, family ?? undefined) * px + icon);
   }
   const inner = NAME_FIT.inner * boxW * zoom * K - offset * K * zoom;
   return widest === 0 ? 1 : fitFade(inner > 0 ? widest / inner : Infinity, reducedMotion());
@@ -124,8 +128,8 @@ function Shape({ n, expanded, c }: { n: SceneNode; expanded: boolean; c: NodeCol
   return <svg width={w} height={h} style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>{body}</svg>;
 }
 
-const useZoomKey = (lines: LabelLine[], base: number, K: number, allowFloor: boolean, nameCap: number | null): string =>
-  useStore((s) => labelMode(lines, base, K, s.transform[2], allowFloor, nameCap));
+const useZoomKey = (lines: LabelLine[], base: number, K: number, allowFloor: boolean, nameCap: number | null, fit: number): string =>
+  useStore((s) => labelMode(lines, base, K, s.transform[2], allowFloor, nameCap, fit));
 
 function Badges({ d }: { d: FlowNode['data'] }) {
   return (
@@ -139,21 +143,21 @@ function Badges({ d }: { d: FlowNode['data'] }) {
 
 function Box({ d, boundary }: { d: FlowNode['data']; boundary: boolean }) {
   const n = d.n;
-  const zoomKey = useZoomKey(n.label.lines, n.style.fontSize, d.K, !d.expanded, d.nameCap);
+  const family = useViewer((s) => s.branding?.font?.family ?? null);
+  const fontEpoch = useViewer((s) => (s.branding?.font ? s.fontEpoch : 0));
+  const fit = useMemo(() => fitScale(n.label.lines, family), [n.label.lines, family, fontEpoch]); // fontEpoch: measure again once a face has loaded
+  const zoomKey = useZoomKey(n.label.lines, n.style.fontSize, d.K, !d.expanded, d.nameCap, fit);
   // Expanded frames (the focused one and its ancestors): the name scales with the zoom like everything else and fades out between 12 and 6 px.
-  const nameSize = n.label.lines.find((l) => l.tier === 0)?.size ?? n.style.fontSize;
+  const nameSize = (n.label.lines.find((l) => l.tier === 0)?.size ?? n.style.fontSize) * fit;
   const labelOpacity = useStore((s) => (d.expanded ? labelFade(Math.min(nameSize, capSize(d.nameCap, d.K, s.transform[2])) * d.K * s.transform[2], reducedMotion()) : 1));
   // Children of an expanded frame fade out as the zoom falls below the frame's fit zoom (it collapses at CHILD_FADE.gone).
   const kidsOpacity = useStore((s) => (d.owner ? childFade(s.transform[2] / fitZoom(d.owner.w, d.owner.h, s.width, s.height, phoneLayout(), s.maxZoom), reducedMotion()) : 1));
   const a = n.label.anchor;
   // Not expanded: the floored name fades out where it no longer fits its box (expanded frames have the size-based fade above).
   const leftAligned = boundary || a === 'top-left' || a === 'bottom-left';
-  const family = useViewer((s) => s.branding?.font?.family ?? null);
-  const fontEpoch = useViewer((s) => (s.branding?.font ? s.fontEpoch : 0));
-  const fit = useMemo(() => fitScale(n.label.lines, family), [n.label.lines, family, fontEpoch]); // fontEpoch: measure again once a face has loaded
   const iconSrc = useViewer((s) => (n.style.icon ? s.branding?.images?.[n.style.icon] ?? null : null));
   const icon: NodeIcon | null = iconSrc ? { src: iconSrc, mode: boundary || a !== 'center' || n.shape === 'Person' ? 'inline' : 'block' } : null;
-  const nameFade = useStore((s) => (d.expanded ? 1 : nameFit(n.label.lines, n.style.fontSize, d.K, d.nameCap, n.w, leftAligned ? 8 : 0, s.transform[2], family, fit)));
+  const nameFade = useStore((s) => (d.expanded ? 1 : nameFit(n.label.lines, n.style.fontSize, d.K, d.nameCap, n.w, leftAligned ? 8 : 0, s.transform[2], family, fit, icon?.mode === 'inline')));
   const personPad = n.shape === 'Person' ? Math.min(n.w, n.h) * 0.34 : 0;
   const theme = useViewer((s) => s.theme);
   const c = nodeColors(n.style, boundary, d.expanded, theme, d.under);
