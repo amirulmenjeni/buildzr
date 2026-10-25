@@ -655,6 +655,31 @@ def _check_build_json(data_dir: str, index: Json, rep: Report, required: bool) -
         rep.err("build.json", f"modelHash {info['modelHash']} != index.json modelHash {index['modelHash']}")
 
 
+def _check_branding(index: Json, scenes: dict[str, Json], rep: Report, load_entry: Any) -> None:
+    """The branding file (when index.json names one) against its schema, and every image id the scenes and the logo
+    use against the images it holds."""
+    images: dict[str, Any] = {}
+    if "branding" in index:
+        b = load_entry(index["branding"], "branding")
+        if b is None:
+            return
+        for e in _schema_errors(b, "branding.schema.json"):
+            rep.err("branding", e)
+        if not isinstance(b, dict):
+            return
+        images = b.get("images") if isinstance(b.get("images"), dict) else {}
+        for img, uri in sorted(images.items()):
+            if isinstance(uri, str) and "sha256:" + hashlib.sha256(uri.encode("utf-8")).hexdigest() != img:
+                rep.err("branding", f"image {_short(img)}: the id is not the sha256 of its data URI")
+        if b.get("logo") is not None and b["logo"] not in images:
+            rep.err("branding", f"logo {_short(b['logo'])} is not one of its images")
+    for key, s in sorted(scenes.items()):
+        for n in s.get("nodes", []) if isinstance(s.get("nodes"), list) else []:
+            icon = n.get("style", {}).get("icon") if isinstance(n, dict) and isinstance(n.get("style"), dict) else None
+            if icon is not None and icon not in images:
+                rep.err(f"scene {key}", f"node {_short(n.get('id'))}: icon {_short(icon)} is not in the branding file")
+
+
 def _check_built(data_dir: str, rep: Report, dl: _Deadline, require_build_json: bool) -> None:
     real_index = _safe_file(data_dir, "index.json")
     if real_index is None:
@@ -732,6 +757,7 @@ def _check_built(data_dir: str, rep: Report, dl: _Deadline, require_build_json: 
                 rep.err("index.json", f"view {vkey}: scene {vscene} missing")
         if "landscape" not in index["scenes"]:
             rep.err("index.json", "no landscape scene")
+    _guarded(rep, "branding", _check_branding, index, scenes, rep, load_entry)
     fm = _guarded(rep, "frames", check_frames, scenes, rep, mi, dl)
     if fm is not None:
         totals.update(fm)

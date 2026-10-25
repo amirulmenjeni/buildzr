@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://buildzr.dev/schema/branding/1",
+  "title": "buildzr workspace branding (buildzr.branding/1)",
+  "description": "data/branding.<h8>.json: the images the scenes draw (icons) and the workspace's branding (logo, diagram font). Written only when there is one of them; index.json 'branding' points at it. Images are data URIs, so the file works offline and wherever the viewer is handed its data as JSON (embed mode).",
+  "type": "object",
+  "allOf": [{ "$ref": "#/$defs/content" }],
+  "required": ["schema"],
+  "properties": { "schema": { "const": "buildzr.branding/1" } },
+  "unevaluatedProperties": false,
+  "$defs": {
+    "id": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "sha256 of the image's data URI." },
+    "content": {
+      "type": "object",
+      "properties": {
+        "images": {
+          "type": "object",
+          "description": "Image id -> data URI (base64) of a PNG, JPEG, GIF, WebP or SVG image.",
+          "propertyNames": { "pattern": "^sha256:[0-9a-f]{64}$" },
+          "additionalProperties": { "type": "string", "pattern": "^data:image/(png|jpeg|gif|webp|svg\\+xml);base64,[A-Za-z0-9+/]+={0,2}$" }
+        },
+        "logo": { "$ref": "#/$defs/id", "description": "The branding logo, one of 'images'." },
+        "font": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "family"],
+          "properties": {
+            "name": { "type": "string", "description": "branding.font.name as the workspace gives it." },
+            "family": { "type": "string", "description": "The CSS font-family list the viewer sets the diagram text in; ends in Inter, sans-serif unless the name ends in a generic family." }
+          }
+        }
+      }
+    }
+  }
+}

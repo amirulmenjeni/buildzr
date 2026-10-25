@@ -148,6 +148,9 @@ button { font: inherit; }
 .c4el > div:first-child svg { pointer-events: auto; }
 .edge-label { background: var(--label-bg); pointer-events: none; }
 .react-flow, .react-flow__node, .edge-label, button, input, select { font-family: Inter, sans-serif; }
+/* The diagram text: the workspace's branding font when it has one (branding.ts sets the variable), else Inter. */
+.react-flow__node, .edge-label { font-family: var(--diagram-font, Inter, sans-serif); }
+.brand-logo { position: absolute; right: 12px; bottom: 24px; max-width: 160px; max-height: 48px; object-fit: contain; pointer-events: none; z-index: 5; }
 @media (prefers-reduced-motion: no-preference) {
   .c4el, .c4b { transition: opacity 200ms ease; }
   .react-flow__edge { transition: opacity 200ms ease; }

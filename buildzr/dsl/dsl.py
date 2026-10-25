@@ -452,6 +452,58 @@ class Workspace(DslWorkspaceElement):
                 )
             seen[view.key] = view
 
+    def _configuration(self) -> buildzr.models.Configuration:
+        if not self.model.views:
+            self.model.views = buildzr.models.Views()
+        if not self.model.views.configuration:
+            self.model.views.configuration = buildzr.models.Configuration()
+        return self.model.views.configuration
+
+    def apply_theme(self, theme: Union[str, type]) -> None:
+        """
+        Use a Structurizr theme: its element and relationship styles come before
+        the workspace's own styles. Themes apply in the order they are added.
+
+        Args:
+            theme: The URL of the theme's `theme.json`, or a theme of
+                `buildzr.themes` (for example `AWS` or `KUBERNETES_V0_3`).
+        """
+        url = theme if isinstance(theme, str) else getattr(theme, 'THEME_URL', None)
+        if not isinstance(url, str) or not url:
+            raise ValueError(f"{theme!r} is not a theme URL or a theme of buildzr.themes")
+        configuration = self._configuration()
+        configuration.themes = (configuration.themes or []) + [url]
+
+    def apply_branding(
+        self,
+        logo: Optional[str]=None,
+        font: Optional[str]=None,
+        font_url: Optional[str]=None,
+    ) -> None:
+        """
+        Set the workspace's branding. Arguments left as `None` keep their value.
+
+        Args:
+            logo: The logo, as a data URI of a PNG, JPEG, GIF, WebP or SVG image.
+            font: The font of the diagram text: a family name or a CSS font
+                stack, such as `"Georgia, serif"`.
+            font_url: The URL of a web font, kept in the workspace for other
+                Structurizr tools; the buildzr viewer does not load it.
+        """
+        configuration = self._configuration()
+        if not configuration.branding:
+            configuration.branding = buildzr.models.Branding()
+        branding = configuration.branding
+        if logo is not None:
+            branding.logo = logo
+        if font is not None or font_url is not None:
+            if not branding.font:
+                branding.font = buildzr.models.Font()
+            if font is not None:
+                branding.font.name = font
+            if font_url is not None:
+                branding.font.url = font_url
+
     def apply_style( self,
         style: Union['StyleElements', 'StyleRelationships'],
     ) -> None:

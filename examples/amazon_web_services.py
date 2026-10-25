@@ -23,7 +23,7 @@ with Workspace(
 
     user = Person("User", description="An ordinary user.")
 
-    with SoftwareSystem("X") as x:
+    with SoftwareSystem("Online Shop") as shop:
 
         # Notice that we don't need to specify the tags "Application" and "Database"
         # for styling -- just pass the `wa` and `db` variables directly to the `StyleElements` class.
@@ -38,13 +38,15 @@ with Workspace(
 
             api_layer >> "Runs queries/transactions on" >> db_layer
 
-    user >> ("Uses", "browser") >> x
+    user >> ("Uses", "browser") >> shop
 
     with DeploymentEnvironment("Live") as live:
 
         dg_region_1 = DeploymentGroup("region-1")
         dg_region_2 = DeploymentGroup("region-2")
 
+        # The "Amazon Web Services - ..." tags are those of the Structurizr AWS theme (amazon-web-services-2020.04.30),
+        # so applying that theme gives these nodes its colours and icons.
         with DeploymentNode("Amazon Web Services") as aws:
             aws.add_tags("Amazon Web Services - Cloud")
 
@@ -62,16 +64,16 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_1])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_1])
 
@@ -89,29 +91,29 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_2])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_2])
 
     SystemContextView(
-        software_system_selector=x,
-        key='x_context_00',
-        description="System context of X",
+        software_system_selector=shop,
+        key='online_shop_context_00',
+        description="System context of Online Shop",
     )
 
     DeploymentView(
         environment=live,
         key='aws-deployment-view',
-        software_system_selector=x,
+        software_system_selector=shop,
         title="Amazon Web Services Deployment",
         description="Deployment view of the web application on AWS",
         auto_layout='lr',

@@ -3,8 +3,6 @@
 from dataclasses import dataclass
 from typing import Optional, Iterator, Any
 from collections.abc import Mapping
-import base64
-import urllib.request
 
 
 @dataclass(frozen=True)
@@ -51,32 +49,21 @@ class ThemeElement(Mapping):
     @property
     def icon_base64(self) -> str:
         """
-        Fetch icon and return as base64 data URI.
+        The icon as a base64 data URI (see :func:`buildzr.themes.assets.fetch_icon`).
 
+        A theme icon is read from the cache of the pinned structurizr/themes commit, or fetched from it once.
         The result is cached on the instance for subsequent calls.
+
+        Raises:
+            buildzr.themes.assets.IconFetchError: When the icon can be neither read from the cache nor fetched.
         """
-        # Check if we have a cached value (stored as a private attribute)
         cache_attr = '_icon_base64_cache'
         cached: str = getattr(self, cache_attr, None)
         if cached is not None:
             return cached
 
-        # Fetch and encode the icon
-        with urllib.request.urlopen(self.icon_url) as response:
-            data = base64.b64encode(response.read()).decode('utf-8')
-
-        # Determine MIME type from URL extension
-        ext = self.icon_url.rsplit('.', 1)[-1].lower()
-        mime_types = {
-            'png': 'image/png',
-            'jpg': 'image/jpeg',
-            'jpeg': 'image/jpeg',
-            'gif': 'image/gif',
-            'svg': 'image/svg+xml',
-        }
-        mime = mime_types.get(ext, 'image/png')
-
-        result = f'data:{mime};base64,{data}'
+        from buildzr.themes.assets import fetch_icon
+        result = fetch_icon(self.icon_url)
 
         # Cache the result (bypass frozen dataclass restriction)
         object.__setattr__(self, cache_attr, result)

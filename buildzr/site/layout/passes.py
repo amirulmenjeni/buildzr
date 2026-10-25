@@ -40,6 +40,8 @@ MARGIN = 12  # landscape / view margin, px
 COMPOUND_PAD = (40, 20, 20, 20)  # top, left, bottom, right: a scope's inside padding
 BOUNDARY_PAD = (24, 20, 48, 20)  # authored views: boundary padding, the bottom holds the label
 MIN_BOUNDARY_H = 120
+BOUNDARY_LABEL_X = 8  # px from a boundary's left edge to its label (viewer nodes.tsx Box)
+NAME_FIT_INNER = 0.8  # share of its box's width a name may use and still be drawn in full (viewer zoomfx.ts NAME_FIT.inner)
 SIZE_PASS_SLACK = 1.25  # pass 1 pads the header band by this factor so the final pass rarely has to redo it
 HEADER_MARGIN = 8  # px between a frame's label and its first child row, in parent scale
 EDGE_LABEL_W = 200
@@ -68,6 +70,36 @@ CLOCKWISE = {"NORTH": 0, "EAST": 1, "SOUTH": 2, "WEST": 3}
 
 def _pad(p: tuple[int, int, int, int]) -> str:
     return f"[top={p[0]},left={p[1]},bottom={p[2]},right={p[3]}]"
+
+
+def _leaf_icon(n: Json) -> str:
+    """Where a leaf box draws its icon: above the label, or before the name of a person (its head is above)."""
+    if "icon" not in n["style"]:
+        return ""
+    return "inline" if n["shape"] == "Person" else "block"
+
+
+def _icon_w(n: Json) -> float:
+    """What the icon of a frame or boundary takes from the width of its label (0 without an icon)."""
+    return fonts.icon_inline_w(float(n["style"].get("fontSize", 16))) if "icon" in n["style"] else 0.0
+
+
+def _min_size(w: float, h: float) -> str:
+    """``elk.nodeSize.minimum`` of a compound node at least ``w`` wide and ``h`` high.
+
+    With ``elk.direction`` DOWN (:data:`OPTS`) and ``INCLUDE_CHILDREN``, elkjs 0.12 applies a compound node's minimum
+    size transposed (asked for 400 x 120, it gives 280 x 400), so the pair is given as ``(h, w)``.
+    """
+    return f"({round(h, 2)},{round(w, 2)})"
+
+
+def boundary_min_w(n: Json) -> float:
+    """The width a boundary needs for its label: every line with the padding, and the name and its icon drawn in
+    full (the viewer fades a name wider than :data:`NAME_FIT_INNER` of its box, less the label's inset)."""
+    fs = float(n["style"].get("fontSize", 16))
+    names = [ln for ln in n["lines"] if ln["tier"] == 0]
+    return max(fonts.widest(n["lines"], fs) + 40 + _icon_w(n),
+               (fonts.widest(names, fs) + _icon_w(n) + BOUNDARY_LABEL_X) / NAME_FIT_INNER)
 
 
 def reserve(w: float, h: float, k: float) -> tuple[float, float, float]:
@@ -145,7 +177,7 @@ class Layouter:
                 for n in lv["nodes"]:
                     if n["role"] == "element" and n["id"] not in self.frames[key]:
                         fs = float(n["style"].get("fontSize", 16))
-                        self.leaf[(key, n["id"])] = fonts.leaf_size(n["lines"], fs)
+                        self.leaf[(key, n["id"])] = fonts.leaf_size(n["lines"], fs, icon=_leaf_icon(n))
             for e in lv["edges"]:
                 self.elabel[(key, e["id"])] = self._edge_label(e)
         self.scope_node: dict[str, Json] = {}  # element level -> its node in the parent level
@@ -189,7 +221,7 @@ class Layouter:
         """Height of the frame label (tiers 0 and 1) as drawn on the frame node in the parent scene."""
         n = self.scope_node[key]
         fs = float(n["style"].get("fontSize", 16))
-        lines = fonts.wrap([ln for ln in n["lines"] if ln["tier"] <= 1], frame_w - 2 * fonts.PAD, fs)
+        lines = fonts.wrap([ln for ln in n["lines"] if ln["tier"] <= 1], frame_w - 2 * fonts.PAD - _icon_w(n), fs)
         return fonts.text_height(lines, fs)
 
     def pad_needed(self, key: str, w: float, h: float) -> int:
@@ -240,11 +272,9 @@ class Layouter:
     @staticmethod
     def _boundary(n: Json, children: list[Json]) -> Json:
         """A group or view boundary: a compound with a label strip at the bottom and a minimum width."""
-        fs = float(n["style"].get("fontSize", 16))
-        w = fonts.widest(n["lines"], fs) + 40
         return {"id": n["id"], "layoutOptions": {
             "elk.padding": _pad(BOUNDARY_PAD), "elk.nodeSize.constraints": "MINIMUM_SIZE",
-            "elk.nodeSize.minimum": f"({round(w, 2)},{MIN_BOUNDARY_H})"}, "children": children}
+            "elk.nodeSize.minimum": _min_size(boundary_min_w(n), MIN_BOUNDARY_H)}, "children": children}
 
     def elk_graph(self, key: str, mode: str) -> Json:
         """ELK input of a landscape or element level. ``mode``: 'size' | 'sides' | 'final'."""
@@ -446,7 +476,7 @@ class Layouter:
             if n["role"] == "boundary":
                 labels[n["id"]] = n["lines"]
             elif n["id"] in frame_ids:
-                labels[n["id"]] = fonts.wrap(n["lines"], w - 2 * fonts.PAD, fs)
+                labels[n["id"]] = fonts.wrap(n["lines"], w - 2 * fonts.PAD - _icon_w(n), fs)
                 scales[n["id"]] = self.fsz[frame_ids[n["id"]]][2]
             else:
                 labels[n["id"]] = self.leaf[(key, n["id"])][2]
@@ -523,7 +553,7 @@ class Layouter:
             fs = float(n["style"].get("fontSize", 16))
             if n["role"] == "boundary":
                 return self._boundary(n, [conv(c) for c in kids.get(n["id"], [])])
-            w_, h_, wrapped = fonts.leaf_size(n["lines"], fs)
+            w_, h_, wrapped = fonts.leaf_size(n["lines"], fs, icon=_leaf_icon(n))
             self.leaf[(key, n["id"])] = (int(w_), h_, wrapped)
             return {"id": n["id"], "width": w_, "height": h_}
 

@@ -1,8 +1,9 @@
 """Emit ``buildzr.scene/2`` files and ``index.json`` from laid-out levels.
 
 Input: the ``buildzr.levels/2`` object (what to draw) and the :class:`~buildzr.site.layout.passes.Placed`
-geometry of every level. Output: ``DATA_DIR/model.<h8>.json``, ``index.json`` and
-``scene/<key>.<h8>.json`` (h8 = first 8 hex digits of the file's sha256), all canonical.
+geometry of every level. Output: ``DATA_DIR/model.<h8>.json``, ``index.json``,
+``scene/<key>.<h8>.json`` and, for a workspace with images or a branding font, ``branding.<h8>.json``
+(h8 = first 8 hex digits of the file's sha256), all canonical.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ import hashlib
 import os
 from typing import Any, Optional
 
+from buildzr.site.branding import BRANDING_SCHEMA
 from buildzr.site.canonical import INDEX_SCHEMA, SCENE_SCHEMA, dumps, rnd
 from buildzr.site.layout.elk import ELK_VERSION
 from buildzr.site.layout.passes import Placed
@@ -106,6 +108,11 @@ def model_path(h8: str) -> str:
     return f"model.{h8}.json"
 
 
+def branding_path(h8: str) -> str:
+    """Relative path (under the data dir) of the branding file: the images, the logo and the font."""
+    return f"branding.{h8}.json"
+
+
 def _write_bytes(path: str, data: bytes) -> None:
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "wb") as f:
@@ -129,5 +136,11 @@ def write_workspace(out_dir: str, model: Json, levels: Json, placed: dict[str, P
         rel = scene_path(level["key"], digest[:8])
         _write_bytes(os.path.join(out_dir, rel), data)
         index["scenes"][level["key"]] = {"file": rel, "hash": "sha256:" + digest}
+    if levels.get("branding"):
+        data = dumps({"schema": BRANDING_SCHEMA, **levels["branding"]}).encode("utf-8")
+        digest = hashlib.sha256(data).hexdigest()
+        rel = branding_path(digest[:8])
+        _write_bytes(os.path.join(out_dir, rel), data)
+        index["branding"] = {"file": rel, "hash": "sha256:" + digest}
     _write_bytes(os.path.join(out_dir, "index.json"), dumps(index).encode("utf-8"))
     return index

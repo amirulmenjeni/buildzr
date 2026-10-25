@@ -1,5 +1,5 @@
 // Acceptance tests (stage 2 and 3). Usage, inside the devcontainer with the viewer built:
-//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|about|viewerurl|workspaces|broken|deployment|deploynav|custom|embed|switcher|theme|export] [--shots]
+//   node tests/run.mjs [--data <dir>]... [--only stage2|stage3|stage4|zoom|labels|expand|settings|about|viewerurl|workspaces|broken|deployment|deploynav|custom|branding|embed|switcher|theme|export] [--shots]
 // A data dir holds index.json, model.json and scene/ (e.g. tests/site/fixtures/small).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -278,12 +278,13 @@ async function stage2(browser, srv, F, name) {
         const n = document.querySelector(`.react-flow__node[data-id="${id}"]`);
         const name = n.querySelector('[data-tier="0"]');
         const z = window.__viewer.viewport().zoom;
-        return { tier1: n.querySelectorAll('[data-tier="1"]').length, namePx: parseFloat(getComputedStyle(name).fontSize) * z };
+        // fit: a label set in a branding font is scaled to the width the layout gave it in Inter (branding.ts)
+        return { tier1: n.querySelectorAll('[data-tier="1"]').length, namePx: parseFloat(getComputedStyle(name).fontSize) * z, fit: parseFloat(n.querySelector('[data-fit]')?.dataset.fit ?? '1') };
       }, probe);
     };
     const hi = await read(1), mid = await read(0.6), lo = await read(0.4), tiny = await read(0.2);
-    t.ok(hi.tier1 === 1 && Math.abs(hi.namePx - 16) < 0.01, `zoom 1: tier 1 shown, name 16 px (${JSON.stringify(hi)})`);
-    t.ok(mid.tier1 === 1 && Math.abs(mid.namePx - 9.6) < 0.01, `zoom .6: tier 1 (7.2 px) shown, name 9.6 px (${JSON.stringify(mid)})`);
+    t.ok(hi.tier1 === 1 && Math.abs(hi.namePx - 16 * hi.fit) < 0.01, `zoom 1: tier 1 shown, name 16 px (${JSON.stringify(hi)})`);
+    t.ok(mid.tier1 === 1 && Math.abs(mid.namePx - Math.max(9.6 * mid.fit, 9)) < 0.01, `zoom .6: tier 1 (7.2 px) shown, name 9.6 px (${JSON.stringify(mid)})`);
     t.ok(lo.tier1 === 0 && Math.abs(lo.namePx - 9) < 0.01, `zoom .4: tier 1 (4.8 px) hidden, name floored to 9 px (${JSON.stringify(lo)})`);
     t.ok(tiny.tier1 === 0 && Math.abs(tiny.namePx - 9) < 0.01, `zoom .2: name floored at 9 px (${JSON.stringify(tiny)})`);
     // collapsed frames carry a child count badge
@@ -587,6 +588,7 @@ for (const dir of dataDirs) {
   if (!only || only === 'deployment') { const t = await (await import('./deployment.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'deploynav') { const t = await (await import('./deploynav.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'custom') { const t = await (await import('./custom.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
+  if (!only || only === 'branding') { const t = await (await import('./branding.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'theme') { const t = await (await import('./theme.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'embed') { const t = await (await import('./embed.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }
   if (!only || only === 'switcher') { const t = await (await import('./switcher.mjs')).default(browser, srv, F, name); fails += t.fails; checks += t.checks; }

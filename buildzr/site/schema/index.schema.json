@@ -15,7 +15,8 @@
       "description": "Scene key ('landscape', 'e/<path>', 'v/<view key>') -> file. Every frame.scene and every model view.scene has an entry.",
       "propertyNames": { "pattern": "^(landscape|e/[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*|v/[a-z0-9][a-z0-9-]*)$" },
       "additionalProperties": { "$ref": "#/$defs/file" }
-    }
+    },
+    "branding": { "$ref": "#/$defs/file", "description": "Only for a workspace with images (icons, logo) or a branding font: branding.<h8>.json (branding.schema.json)." }
   },
   "$defs": {
     "file": {

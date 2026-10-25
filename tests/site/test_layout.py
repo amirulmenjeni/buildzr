@@ -208,3 +208,41 @@ def test_children_clear_the_frame_header_band(built: tuple[Path, Json]) -> None:
     assert header_violations(sc) == []
     # the band is real: the top padding grew beyond the old fixed 40 px where the label needs it
     assert min(c["y"] for c in sc["e/billing"]["nodes"]) >= 40
+
+
+@pytest.mark.parametrize("icon", [False, True])
+def test_a_nested_boundary_is_as_wide_as_its_label_needs_and_no_higher(tmp_path: Path, icon: bool) -> None:
+    """ELK applies a compound's minimum size transposed in a DOWN layout: the width a boundary asked for its label
+    became height, and the label (with its icon) was wider than the box, so the viewer faded it out."""
+    from buildzr.dsl import (Container, ContainerInstance, DeploymentEnvironment, DeploymentNode, DeploymentView,
+                             SoftwareSystem, StyleElements, Workspace)
+    from buildzr.site import fonts
+    from buildzr.site.layout.passes import BOUNDARY_LABEL_X, BOUNDARY_PAD, MIN_BOUNDARY_H, NAME_FIT_INNER, boundary_min_w
+    from buildzr.site.levels import build_levels
+    from buildzr.site.model import export_model
+    from tests.site.branded_workspace import GREEN
+
+    with Workspace("w") as w:
+        with SoftwareSystem("X") as x:
+            app = Container("Web Application")
+        with DeploymentEnvironment("Live") as live:
+            with DeploymentNode("Autoscaling Group"):
+                with DeploymentNode("Amazon EC2 - Ubuntu Server") as ec2:
+                    ContainerInstance(app)
+        DeploymentView(environment=live, key="d", software_system_selector=x, description="d")
+        if icon:
+            StyleElements(on=[ec2], icon=GREEN)
+    layout_workspace(build_levels(w, export_model(w)), export_model(w), str(tmp_path))
+    nodes = {n["name"]: n for n in _scenes(tmp_path)["v/d"]["nodes"]}
+    b, leaf = nodes["Amazon EC2 - Ubuntu Server"], nodes["Web Application"]
+    assert ("icon" in b["style"]) is icon
+    need = boundary_min_w({"lines": b["label"]["lines"], "style": b["style"]})
+    assert b["w"] >= need - 0.01 > leaf["w"] + BOUNDARY_PAD[1] + BOUNDARY_PAD[3]  # the label, not the child, sets it
+    # the name and its icon fit the share of the box the viewer draws a name in full
+    name = fonts.widest([ln for ln in b["label"]["lines"] if ln["tier"] == 0], 16)
+    icon_w = fonts.icon_inline_w(16) if icon else 0
+    assert name + icon_w <= NAME_FIT_INNER * b["w"] - BOUNDARY_LABEL_X + 0.01
+    # no height beyond the child, the padding and the label strip
+    assert b["h"] == pytest.approx(max(MIN_BOUNDARY_H, leaf["h"] + BOUNDARY_PAD[0] + BOUNDARY_PAD[2]), abs=0.01)
+    outer = nodes["Autoscaling Group"]
+    assert outer["x"] <= b["x"] and b["x"] + b["w"] <= outer["x"] + outer["w"]

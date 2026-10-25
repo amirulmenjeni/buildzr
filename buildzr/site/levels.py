@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from buildzr.site import branding
 from buildzr.site.canonical import rnd
 from buildzr.site.model import CUSTOM_TYPES, DEPLOYMENT_TYPES, DRAWN_TYPES, ModelIndex, VIEW_KINDS, all_relationships, slug, \
     workspace_json
@@ -28,15 +29,27 @@ DEPLOYMENT_TEXT = {"DeploymentNode": "Deployment Node", "InfrastructureNode": "I
 
 
 class _Builder:
-    def __init__(self, ws: Json, model: Json, text_color: str) -> None:
+    def __init__(self, ws: Json, model: Json, text_color: str, network: bool = True) -> None:
         self.ws = ws
         self.model = model
         self.idx = ModelIndex(model)
-        self.styles = Styles(ws, text_color)
+        config = ws.get("views", {}).get("configuration", {}) or {}
+        theme_el, theme_rel, self.problems = branding.resolve_themes(config.get("themes"))
+        self.styles = Styles(ws, text_color, (theme_el, theme_rel))
+        self.images = branding.Images(network)
         self._anc: dict[str, list[str]] = {}
         self.raw_rels: dict[str, Json] = all_relationships(ws)  # Structurizr id -> relationship (implied ones too)
 
     # --- nodes ---------------------------------------------------------------------
+
+    def _node_style(self, type_: str, tags: list[str], role: str) -> tuple[Json, str]:
+        """:meth:`Styles.node`, with the icon replaced by the id of its image (or dropped when it is not shown)."""
+        style, shape = self.styles.node(type_, tags, role)
+        if "icon" in style:
+            img = self.images.add(style.pop("icon"), "icon")
+            if img:
+                style["icon"] = img
+        return style, shape
 
     def anc(self, path: str) -> list[str]:
         if path not in self._anc:
@@ -64,7 +77,7 @@ class _Builder:
             of = self.idx.el[el["instanceOf"]]
             style_type = of["type"]
             style_tags = of["tags"] + [t for t in el["tags"] if t not in of["tags"]]
-        style, shape = self.styles.node(style_type, style_tags, role)
+        style, shape = self._node_style(style_type, style_tags, role)
         n: Json = {"id": path, "modelId": el["modelId"], "role": role, "type": el["type"], "parent": parent,
                    "name": el["name"], "tags": el["tags"], "shape": shape, "style": style,
                    "lines": self.lines(el, role, float(style["fontSize"]))}
@@ -95,7 +108,7 @@ class _Builder:
                 gid = prefix + "/".join(slug(x) for x in segs[: i + 1])
                 if gid not in groups:
                     full = "/".join(segs[: i + 1])
-                    style, shape = self.styles.node("Group", ["Element", "Group", f"Group:{full}"], "boundary")
+                    style, shape = self._node_style("Group", ["Element", "Group", f"Group:{full}"], "boundary")
                     groups[gid] = {"id": gid, "role": "boundary", "type": "Group", "parent": parent,
                                    "name": segs[i], "tags": ["Element", "Group", f"Group:{full}"],
                                    "shape": shape, "style": style,
@@ -250,7 +263,7 @@ class _Builder:
         return self.level(mv["scene"], "view", mv["key"], mv["title"], [], nodes, edges)
 
 
-def build_levels(workspace: Any, model: Json, text_color: str = "wcag") -> Json:
+def build_levels(workspace: Any, model: Json, text_color: str = "wcag", network: bool = True) -> Json:
     """Return the ``buildzr.levels/2`` object for ``workspace`` and its exported ``model``.
 
     Args:
@@ -258,12 +271,14 @@ def build_levels(workspace: Any, model: Json, text_color: str = "wcag") -> Json:
         model: The result of :func:`buildzr.site.model.export_model` for the same workspace.
         text_color: ``"wcag"`` picks black or white text by contrast with the fill unless a
             style sets a colour; ``"c4"`` keeps the C4 default text colours.
+        network: Whether the icons of the themes buildzr ships may be fetched (see
+            :func:`buildzr.themes.assets.fetch_icon`); false reads them from the cache only.
 
     Returns:
         The level graphs as a plain dict; write it with :func:`buildzr.site.canonical.dumps`.
     """
     ws = workspace_json(workspace)
-    b = _Builder(ws, model, text_color)
+    b = _Builder(ws, model, text_color, network)
     levels: list[Json] = []
     landscape = b.element_level("landscape", "landscape", None, model["workspace"]["name"],
                             [r for r in b.idx.roots if b.idx.el[r]["type"] in DRAWN_TYPES], [])
@@ -285,4 +300,15 @@ def build_levels(workspace: Any, model: Json, text_color: str = "wcag") -> Json:
     for mv in model["views"]:
         sv = raw_views.get((mv["kind"], mv["viewKey"]), {})
         levels.append(b.view_level(mv, sv))
-    return {"schema": LEVELS_SCHEMA, "modelHash": model["modelHash"], "levels": levels}
+    out: Json = {"schema": LEVELS_SCHEMA, "modelHash": model["modelHash"], "levels": levels}
+    brand, problems = branding.branding(ws, b.images)
+    if b.images.images:
+        brand["images"] = dict(sorted(b.images.images.items()))
+    if brand:  # nothing is added for a workspace without themes, icons or branding
+        out["branding"] = brand
+    diagnostics = b.problems + b.images.diagnostics() + problems
+    if diagnostics:
+        out["diagnostics"] = diagnostics
+    if b.images.incomplete:
+        out["incomplete"] = True
+    return out

@@ -44,7 +44,7 @@ user = Person("User", description="An ordinary user.")
 `SoftwareSystem` represents the highest level of abstraction. A software system may contain zero or more containers.
 
 ```python
-with SoftwareSystem('X') as x:
+with SoftwareSystem('Online Shop') as shop:
     # Its containers goes here.
     ...
 ```
@@ -53,10 +53,10 @@ with SoftwareSystem('X') as x:
 
 `Container` represents an application, data store, or service within a software system. A container may contain zero or more components.
 
-Here, we define the containers inside the software system `x` we've defined above.
+Here, we define the containers inside the software system `shop` we've defined above.
 
 ```python
-with SoftwareSystem("X") as x:
+with SoftwareSystem("Online Shop") as shop:
 
     wa = Container("Web Application", technology="Java and Spring boot")
 
@@ -65,7 +65,7 @@ with SoftwareSystem("X") as x:
     wa >> "Reads from and writes to" >> db
 ```
 
-Notice that we've also described a relationship between the web application `wa` and the database `db` of the software system `x`.
+Notice that we've also described a relationship between the web application `wa` and the database `db` of the software system `shop`.
 
 ## Component
 
@@ -74,7 +74,7 @@ Notice that we've also described a relationship between the web application `wa`
 The `wa` web application may further be comprised of several layers, each serving different purpose. For example, in an Onion Architecture, your web application might have an API layer that listens for HTTP requests, which may in turn run queries or transactions via the database layer.
 
 ```python hl_lines="9-13"
-with SoftwareSystem("X") as x:
+with SoftwareSystem("Online Shop") as shop:
 
     wa = Container("Web Application", technology="Java and Spring boot")
 
@@ -229,7 +229,7 @@ with Workspace(
 
     user = Person("User", description="An ordinary user.")
 
-    with SoftwareSystem("X") as x:
+    with SoftwareSystem("Online Shop") as shop:
 
         # Notice that we don't need to specify the tags "Application" and "Database"
         # for styling -- just pass the `wa` and `db` variables directly to the `StyleElements` class.
@@ -244,7 +244,7 @@ with Workspace(
 
             api_layer >> "Runs queries/transactions on" >> db_layer
 
-    user >> ("Uses", "browser") >> x
+    user >> ("Uses", "browser") >> shop
 
     with DeploymentEnvironment("Live") as live:
 
@@ -268,16 +268,16 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_1])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_1])
 
@@ -295,16 +295,16 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_2])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_2])
 ```
@@ -356,7 +356,7 @@ with Workspace(
 
     user = Person("User", description="An ordinary user.")
 
-    with SoftwareSystem("X") as x:
+    with SoftwareSystem("Online Shop") as shop:
 
         # Notice that we don't need to specify the tags "Application" and "Database"
         # for styling -- just pass the `wa` and `db` variables directly to the `StyleElements` class.
@@ -371,7 +371,7 @@ with Workspace(
 
             api_layer >> "Runs queries/transactions on" >> db_layer
 
-    user >> ("Uses", "browser") >> x
+    user >> ("Uses", "browser") >> shop
 
     with DeploymentEnvironment("Live") as live:
 
@@ -395,16 +395,16 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_1])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_1])
 
@@ -422,29 +422,29 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_2])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_2])
 
     SystemContextView(
-        software_system_selector=x,
-        key='x_context_00',
-        description="System context of X",
+        software_system_selector=shop,
+        key='online_shop_context_00',
+        description="System context of Online Shop",
     )
 
     DeploymentView(
         environment=live,
         key='aws-deployment-view',
-        software_system_selector=x,
+        software_system_selector=shop,
         title="Amazon Web Services Deployment",
         description="Deployment view of the web application on AWS",
         auto_layout='lr',

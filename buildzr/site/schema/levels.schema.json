@@ -13,6 +13,18 @@
       "type": "array",
       "description": "Parents before children: landscape, then e/<path> in model pre-order, then v/<key> in view order.",
       "items": { "$ref": "#/$defs/level" }
+    },
+    "branding": {
+      "type": "object",
+      "description": "Only when the workspace has images (icons, logo) or a branding font: the content of data/branding.<h8>.json without its 'schema'."
+    },
+    "diagnostics": {
+      "type": "array", "minItems": 1, "items": { "type": "string" },
+      "description": "What of the themes, images and branding font is not used, and why (build.json 'warnings')."
+    },
+    "incomplete": {
+      "const": true,
+      "description": "A theme icon could not be fetched (no network, a timeout, an upstream error), so the built workspace lacks it (build.json 'incomplete')."
     }
   },
   "$defs": {

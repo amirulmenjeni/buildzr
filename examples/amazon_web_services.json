@@ -25,7 +25,7 @@
     "softwareSystems": [
       {
         "id": "2",
-        "name": "X",
+        "name": "Online Shop",
         "description": "",
         "tags": "Element,Software System",
         "containers": [
@@ -117,7 +117,7 @@
                 "technology": "",
                 "environment": "Live",
                 "instances": "1",
-                "tags": "Deployment Node,Element,Amazon Web Services - Autoscaling Group",
+                "tags": "Deployment Node,Element,Amazon Web Services - Auto Scaling",
                 "children": [
                   {
                     "id": "16",
@@ -165,7 +165,7 @@
                 "technology": "",
                 "environment": "Live",
                 "instances": "1",
-                "tags": "Deployment Node,Amazon Web Services - RDS Instance,Element",
+                "tags": "Deployment Node,Amazon Web Services - RDS,Element",
                 "children": [
                   {
                     "id": "20",
@@ -222,7 +222,7 @@
                 "description": "Automatically distributes incoming application traffic.",
                 "technology": "Elastic Load Balancer",
                 "environment": "Live",
-                "tags": "Infrastructure Node,Amazon Web Services - Elastic Load Balancer,Element",
+                "tags": "Infrastructure Node,Amazon Web Services - Elastic Load Balancing,Element",
                 "properties": {},
                 "relationships": [
                   {
@@ -255,7 +255,7 @@
                 "technology": "",
                 "environment": "Live",
                 "instances": "1",
-                "tags": "Deployment Node,Element,Amazon Web Services - Autoscaling Group",
+                "tags": "Deployment Node,Element,Amazon Web Services - Auto Scaling",
                 "children": [
                   {
                     "id": "27",
@@ -303,7 +303,7 @@
                 "technology": "",
                 "environment": "Live",
                 "instances": "1",
-                "tags": "Deployment Node,Amazon Web Services - RDS Instance,Element",
+                "tags": "Deployment Node,Amazon Web Services - RDS,Element",
                 "children": [
                   {
                     "id": "31",
@@ -360,7 +360,7 @@
                 "description": "Automatically distributes incoming application traffic.",
                 "technology": "Elastic Load Balancer",
                 "environment": "Live",
-                "tags": "Infrastructure Node,Amazon Web Services - Elastic Load Balancer,Element",
+                "tags": "Infrastructure Node,Amazon Web Services - Elastic Load Balancing,Element",
                 "properties": {},
                 "relationships": [
                   {
@@ -390,8 +390,8 @@
   "views": {
     "systemContextViews": [
       {
-        "key": "x_context_00",
-        "description": "System context of X",
+        "key": "online_shop_context_00",
+        "description": "System context of Online Shop",
         "softwareSystemId": "2",
         "automaticLayout": {
           "implementation": "Graphviz",

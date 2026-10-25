@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { hasNoData, loadBuild, loadCatalogue, loadIndex, loadModel, loadScene, memory, setSource } from './data';
+import { applyFamily, fontsReady } from './branding';
+import { hasNoData, loadBranding, loadBuild, loadCatalogue, loadIndex, loadModel, loadScene, memory, setSource } from './data';
 import { parseMode, type Files, type ThemeChoice, type WorkspaceSet } from './protocol';
 import { ancestors, chainOf, computeMatches, indexModel, isCustom, isDeployment, isViewOnly, typeLabel, type MatchInfo, type ModelIndex } from './model';
 import { buildHash, emptyFilter, parseHash, type Filter, type Route } from './route';
 import { loadSettings, saveSettings, type SettingId, type SettingValue, type SettingValues } from './settings';
 import { resolveTheme, type Theme } from './theme';
-import type { BuildInfo, IndexJson, ModelJson, Scene } from './types';
+import type { BrandingJson, BuildInfo, IndexJson, ModelJson, Scene } from './types';
 
 /** How this page was opened (the search part of the URL): standalone, embedded in a frame, or a new tab handed data. */
 export const MODE = parseMode(location.search);
@@ -25,6 +26,8 @@ export interface State {
   model: ModelJson | null;
   m: ModelIndex | null;
   scenes: Record<string, Scene>;
+  branding: BrandingJson | null; // icons, logo and diagram font; null for a workspace without them
+  fontEpoch: number; // bumped when a font face finishes loading while a branding font is set: labels fit themselves again
   // ---- the four things the hash is derived from
   path: string; // deepest expanded element ('' = landscape); the chain is its ancestors + itself
   view: string | null; // authored view key, or null for the model canvas
@@ -161,7 +164,7 @@ export const useStore = create<State>()((set, get) => {
   const initial = loadSettings();
 
   return {
-    status: 'loading', error: null, build: null, index: null, model: null, m: null, scenes: {},
+    status: 'loading', error: null, build: null, index: null, model: null, m: null, scenes: {}, branding: null, fontEpoch: 0,
     path: '', view: null, selection: null, filter: emptyFilter,
     notice: null, announce: '', treeOpen: {}, rolled: false, drawer: false, drawerTab: 'model', sheet: 'peek', searchOpen: false, camera: { seq: 0, kind: 'path', id: null }, settings: initial,
     themeOverride: MODE.theme, theme: resolveTheme(MODE.theme ?? initial.theme, prefersDark()), inspectorOpen: false, title: null,
@@ -177,9 +180,14 @@ export const useStore = create<State>()((set, get) => {
         if (hasNoData(build)) { set({ status: 'broken' }); return; }
         const index = await loadIndex();
         const model = await loadModel(index);
+        const branding = await loadBranding(index);
+        const family = branding?.font?.family ?? null;
+        applyFamily(family);
+        // the labels are drawn once the branding font is there (or the wait is over), so the first drawing is in it
+        if (family && !(await fontsReady(family))) console.warn(`buildzr: the branding font (${family}) did not load in time; the labels fit themselves to it when it does`);
         if (gen !== generation) return;
         const m = indexModel(model, index);
-        set({ index, model, m, status: 'ready' });
+        set({ index, model, m, branding, status: 'ready' });
         get().applyRoute(parseHash(location.hash));
         const fixed = buildHash({ view: get().view, path: get().path, sel: get().selection, filter: get().filter });
         if (fixed !== location.hash) history.replaceState(null, '', fixed);
@@ -195,7 +203,7 @@ export const useStore = create<State>()((set, get) => {
       setSource(memory(files, build));
       memorySet = group;
       if (route !== null) history.replaceState(null, '', route || '#/m');
-      set({ status: 'loading', error: null, build: null, index: null, model: null, m: null, scenes: {}, path: '', view: null, selection: null,
+      set({ status: 'loading', error: null, build: null, index: null, model: null, m: null, scenes: {}, branding: null, path: '', view: null, selection: null,
         filter: emptyFilter, notice: null, treeOpen: {}, drawer: false, sheet: 'peek', searchOpen: false, inspectorOpen: false, title,
         workspaces: group ? group.workspaces.map((w) => ({ id: w.name, label: w.name, href: null })) : [], activeWorkspace: group?.active ?? null });
       await get().init();
@@ -426,4 +434,10 @@ export function followHash(): void {
 export function installRouter(): void {
   addEventListener('popstate', followHash);
   addEventListener('hashchange', followHash);
+}
+
+if (typeof document !== 'undefined' && document.fonts) {
+  document.fonts.addEventListener?.('loadingdone', () => {
+    if (useStore.getState().branding?.font) useStore.setState((s) => ({ fontEpoch: s.fontEpoch + 1 }));
+  });
 }

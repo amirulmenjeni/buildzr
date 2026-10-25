@@ -126,7 +126,8 @@
             "fontSize": { "type": "number" },
             "strokeWidth": { "type": "number", "default": 1 },
             "dash": { "type": "array", "items": { "type": "number" } },
-            "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 }
+            "opacity": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
+            "icon": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "Id of the node's icon in data/branding.<h8>.json 'images'. Leaf boxes draw it above the label (layout leaves room for it); frames and boundaries draw it before the name." }
           }
         },
         "label": {

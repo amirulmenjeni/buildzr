@@ -11,7 +11,7 @@
 - **See it in your browser.** One command, `buildzr serve`, builds your model and serves a viewer that you can zoom, search and link to.
 - **Stay compatible.** buildzr produces standard [Structurizr](https://structurizr.com/) workspaces, so other Structurizr tools can read your model.
 
-![The buildzr viewer showing a system context view, with the User selected and its details in the right panel][viewer-image]
+![The buildzr viewer showing an AWS deployment view: two regions, each with a DNS router, a load balancer, an autoscaling group running the web application and an RDS MySQL database, drawn with AWS icons; one load balancer is selected and its details are in the right panel][viewer-image]
 
 ## Try it now
 
@@ -124,7 +124,7 @@ buildzr is approaching 1.0. Read the [issue tracker][issues] for known problems,
 buildzr is released under the [MIT License][license].
 <!-- --8<-- [end:home] -->
 
-[viewer-image]: docs/images/quick-start/quick-start-view-link.png
+[viewer-image]: docs/images/viewer/readme-aws-deployment.png
 [quick-start]: https://buildzr.dev/getting-started/quick-start/
 [try-it]: https://buildzr.dev/getting-started/quick-start/#6-compare-your-file-with-the-complete-example
 [views]: https://buildzr.dev/user-guide/views/
