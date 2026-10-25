@@ -214,6 +214,8 @@ with Workspace('On Kubernetes') as w:
 
 The elements tagged `Kubernetes - pod` get the theme's stroke and text colour and the white background of your style.
 
+A theme styles only the tags it names, letter for letter: `Amazon Web Services - Elastic Load Balancing` gets the AWS theme's icon, `Amazon Web Services - Elastic Load Balancer` gets nothing. Take the tags from the theme elements (`AWS_2020_04_30.ELASTIC_LOAD_BALANCING.tag`) or from the theme's `theme.json`.
+
 buildzr does not download themes: it applies the styles it ships, and [fetches their icons at build time](#theme-icons-at-build-time). A theme URL is matched by the name of the folder that holds its `theme.json`, such as `kubernetes-v0.3` or `amazon-web-services-2023.01.31`, against the [themes buildzr ships](#available-themes), whatever the host: `https://static.structurizr.com/themes/kubernetes-v0.3/theme.json` and the GitHub address of `KUBERNETES_V0_3.THEME_URL` are the same theme. The styles of any other theme are not applied, and the build says so (see [Warnings](#warnings)). Add the styles you need with `StyleElements` and `StyleRelationships` instead.
 
 ### How Styles Combine

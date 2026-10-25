@@ -268,16 +268,16 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_1])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_1])
 
@@ -295,16 +295,16 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_2])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_2])
 ```
@@ -395,16 +395,16 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_1])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_1])
 
@@ -422,16 +422,16 @@ with Workspace(
                     "Load Balancer",
                     description="Automatically distributes incoming application traffic.",
                     technology="Elastic Load Balancer",
-                    tags={"Amazon Web Services - Elastic Load Balancer"}
+                    tags={"Amazon Web Services - Elastic Load Balancing"}
                 )
 
                 dns >> ("Fowards requests to", "HTTP") >> lb
 
-                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Autoscaling Group"}) as asg:
+                with DeploymentNode("Autoscaling Group", tags={"Amazon Web Services - Auto Scaling"}) as asg:
                     with DeploymentNode("Amazon EC2 - Ubuntu Server", tags={"Amazon Web Services - EC2 Instance"}):
                         lb >> "Forwards requests to" >> ContainerInstance(wa, deployment_groups=[dg_region_2])
 
-                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS Instance"}) as rds:
+                with DeploymentNode("Amazon RDS", tags={"Amazon Web Services - RDS"}) as rds:
                     with DeploymentNode("MySQL", tags={"Amazon Web Services - RDS MySQL instance"}):
                         database_instance = ContainerInstance(db, deployment_groups=[dg_region_2])
 

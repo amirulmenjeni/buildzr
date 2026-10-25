@@ -240,6 +240,39 @@ def test_many_unfetched_icons_are_named_up_to_a_limit() -> None:
     assert len(d) == branding.MAX_NAMED + 1 and d[-1].endswith("more theme icons not fetched either")
 
 
+AWS_2020 = "amazon-web-services-2020.04.30"
+
+
+def test_every_aws_node_of_the_aws_example_has_a_tag_of_the_aws_theme_and_gets_its_icon(
+        online: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The example's AWS tags are the theme's own ("... - Elastic Load Balancing", not "... - Elastic Load Balancer"):
+    with the theme Structurizr's AWS example uses, every AWS node gets the theme's colour and icon, and the
+    application's container instances stay as they are."""
+    import runpy
+
+    theme = {e["tag"]: e for e in branding.bundled_themes()[AWS_2020]["elements"]}
+    host = FakeHost({e["icon"]: PNG for e in theme.values() if "icon" in e})
+    monkeypatch.setattr(assets, "_urlopen", host)
+    w = runpy.run_path(str(Path(ROOT) / "examples" / "amazon_web_services.py"))["w"]
+    w.apply_theme(f"https://static.structurizr.com/themes/{AWS_2020}/theme.json")
+    lv = levels_of(w)
+    view = next(level for level in lv["levels"] if level["key"] == "v/aws-deployment-view")
+    aws = {n["id"]: [t for t in n["tags"] if t.startswith("Amazon Web Services - ")] for n in view["nodes"]}
+    assert {t for tags in aws.values() for t in tags} == {
+        "Amazon Web Services - Cloud", "Amazon Web Services - Region", "Amazon Web Services - Route 53",
+        "Amazon Web Services - Elastic Load Balancing", "Amazon Web Services - Auto Scaling",
+        "Amazon Web Services - EC2 Instance", "Amazon Web Services - RDS", "Amazon Web Services - RDS MySQL instance"}
+    for n in view["nodes"]:
+        if aws[n["id"]]:
+            (tag,) = aws[n["id"]]
+            assert n["style"]["icon"] in lv["branding"]["images"] and n["style"]["stroke"] == theme[tag]["stroke"], n["id"]
+        else:
+            assert n["type"] == "ContainerInstance" and "icon" not in n["style"], n["id"]
+    assert sum(1 for tags in aws.values() if tags) == 15 and len(lv["branding"]["images"]) == 1  # one fake PNG
+    assert sorted({u for u, _ in host.calls}) == sorted({theme[t]["icon"] for tags in aws.values() for t in tags})
+    assert "diagnostics" not in lv and "incomplete" not in lv
+
+
 # --- fonts ---------------------------------------------------------------------------------------------------
 
 
