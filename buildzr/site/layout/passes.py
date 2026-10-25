@@ -40,6 +40,8 @@ MARGIN = 12  # landscape / view margin, px
 COMPOUND_PAD = (40, 20, 20, 20)  # top, left, bottom, right: a scope's inside padding
 BOUNDARY_PAD = (24, 20, 48, 20)  # authored views: boundary padding, the bottom holds the label
 MIN_BOUNDARY_H = 120
+BOUNDARY_LABEL_X = 8  # px from a boundary's left edge to its label (viewer nodes.tsx Box)
+NAME_FIT_INNER = 0.8  # share of its box's width a name may use and still be drawn in full (viewer zoomfx.ts NAME_FIT.inner)
 SIZE_PASS_SLACK = 1.25  # pass 1 pads the header band by this factor so the final pass rarely has to redo it
 HEADER_MARGIN = 8  # px between a frame's label and its first child row, in parent scale
 EDGE_LABEL_W = 200
@@ -80,6 +82,24 @@ def _leaf_icon(n: Json) -> str:
 def _icon_w(n: Json) -> float:
     """What the icon of a frame or boundary takes from the width of its label (0 without an icon)."""
     return fonts.icon_inline_w(float(n["style"].get("fontSize", 16))) if "icon" in n["style"] else 0.0
+
+
+def _min_size(w: float, h: float) -> str:
+    """``elk.nodeSize.minimum`` of a compound node at least ``w`` wide and ``h`` high.
+
+    With ``elk.direction`` DOWN (:data:`OPTS`) and ``INCLUDE_CHILDREN``, elkjs 0.12 applies a compound node's minimum
+    size transposed (asked for 400 x 120, it gives 280 x 400), so the pair is given as ``(h, w)``.
+    """
+    return f"({round(h, 2)},{round(w, 2)})"
+
+
+def boundary_min_w(n: Json) -> float:
+    """The width a boundary needs for its label: every line with the padding, and the name and its icon drawn in
+    full (the viewer fades a name wider than :data:`NAME_FIT_INNER` of its box, less the label's inset)."""
+    fs = float(n["style"].get("fontSize", 16))
+    names = [ln for ln in n["lines"] if ln["tier"] == 0]
+    return max(fonts.widest(n["lines"], fs) + 40 + _icon_w(n),
+               (fonts.widest(names, fs) + _icon_w(n) + BOUNDARY_LABEL_X) / NAME_FIT_INNER)
 
 
 def reserve(w: float, h: float, k: float) -> tuple[float, float, float]:
@@ -252,11 +272,9 @@ class Layouter:
     @staticmethod
     def _boundary(n: Json, children: list[Json]) -> Json:
         """A group or view boundary: a compound with a label strip at the bottom and a minimum width."""
-        fs = float(n["style"].get("fontSize", 16))
-        w = fonts.widest(n["lines"], fs) + 40 + _icon_w(n)
         return {"id": n["id"], "layoutOptions": {
             "elk.padding": _pad(BOUNDARY_PAD), "elk.nodeSize.constraints": "MINIMUM_SIZE",
-            "elk.nodeSize.minimum": f"({round(w, 2)},{MIN_BOUNDARY_H})"}, "children": children}
+            "elk.nodeSize.minimum": _min_size(boundary_min_w(n), MIN_BOUNDARY_H)}, "children": children}
 
     def elk_graph(self, key: str, mode: str) -> Json:
         """ELK input of a landscape or element level. ``mode``: 'size' | 'sides' | 'final'."""
