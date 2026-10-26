@@ -2,6 +2,8 @@
 
 <!-- The README links to the site by address; the home page uses the pages of this docs folder, which mkdocs checks. -->
 [viewer-image]: images/viewer/readme-aws-deployment.png
+[demo]: demo.md
+[demo-button]: https://img.shields.io/badge/%E2%96%B6%20Try%20the%20live%20demo-0969da?style=for-the-badge
 [quick-start]: getting-started/quick-start.md
 [try-it]: getting-started/quick-start.md#6-compare-your-file-with-the-complete-example
 [views]: user-guide/views.md

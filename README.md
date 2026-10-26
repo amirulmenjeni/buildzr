@@ -7,6 +7,10 @@
 
 **Define your C4 software architecture in Python, then build it and explore it in an interactive browser viewer.**
 
+[![Try buildzr in your browser][demo-button]][demo]
+
+No install: edit a model and watch the viewer update.
+
 - **Write architecture as code.** Describe people, systems, containers and components with Python `with` blocks and `>>` relationships.
 - **See it in your browser.** One command, `buildzr serve`, builds your model and serves a viewer that you can zoom, search and link to.
 - **Stay compatible.** buildzr produces standard [Structurizr](https://structurizr.com/) workspaces, so other Structurizr tools can read your model.
@@ -15,7 +19,9 @@
 
 ## Try it now
 
-With [uv](https://docs.astral.sh/uv/getting-started/installation/) installed (it finds or fetches a compatible Python), run:
+The quickest way is the [in-browser demo][demo]: edit a model and run it, with nothing to install.
+
+To run buildzr on your machine, install [uv](https://docs.astral.sh/uv/getting-started/installation/) (it finds or fetches a compatible Python) and run:
 
 ```bash
 uvx buildzr serve --example
@@ -119,12 +125,14 @@ Open <http://127.0.0.1:8000/>. The viewer shows your model; click a box to see i
 - [Roadmap][roadmap]: what is planned and what is done.
 - [Contributing][contributing]: how to report an issue or send a change.
 
-buildzr is approaching 1.0. Read the [issue tracker][issues] for known problems, and open an issue if something does not work.
+Found a problem? Check the [issue tracker][issues] for known issues, and open one if something does not work.
 
 buildzr is released under the [MIT License][license].
 <!-- --8<-- [end:home] -->
 
 [viewer-image]: docs/images/viewer/readme-aws-deployment.png
+[demo]: https://buildzr.dev/demo/
+[demo-button]: https://img.shields.io/badge/%E2%96%B6%20Try%20the%20live%20demo-0969da?style=for-the-badge
 [quick-start]: https://buildzr.dev/getting-started/quick-start/
 [try-it]: https://buildzr.dev/getting-started/quick-start/#6-compare-your-file-with-the-complete-example
 [views]: https://buildzr.dev/user-guide/views/
