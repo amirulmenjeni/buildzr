@@ -53,7 +53,7 @@ GET /microservices-example/api/v1/
   "description": null,
   "status": "ok",
   "builtWith": {
-    "buildzr": "1.0.0",
+    "buildzr": "1.1.0",
     "k": 4
   },
   "counts": {
