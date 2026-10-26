@@ -115,7 +115,7 @@ button { font: inherit; }
 
 .inspector h2 { margin: 4px 0 0; font-size: 17px; }
 .inspector h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 4px; }
-.inspector h2:focus-visible, .inspector h3:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.inspector h2:focus-visible, .inspector h3:focus-visible, .inspector h3[tabindex]:focus { outline: 2px solid var(--focus); outline-offset: 2px; }
 .inspector h4 { font-size: 13px; margin: 8px 0 2px; }
 .inspector .note { color: var(--muted); margin: 4px 0; }
 .inspector .n { background: var(--line); border-radius: 9px; padding: 0 6px; margin-left: 4px; }

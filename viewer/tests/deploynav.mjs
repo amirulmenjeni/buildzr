@@ -94,6 +94,15 @@ export default async function deploynav(browser, srv, F, name) {
     t.eq(await p.locator('[data-action=show-deployment]').textContent(), `Deployments (${list.length})`, 'several: the action counts them');
     await p.locator('[data-action=show-deployment]').click();
     t.eq(await p.evaluate(() => document.activeElement?.closest('[data-section=deployments]') !== null && document.activeElement.tagName), 'H3', 'several: the action moves focus to the list heading');
+    // the click has a visible effect (issue 184): the heading carries a focus ring even after a mouse click, and the action is a real button
+    t.ok((await p.locator(`${section} h3`).evaluate((h) => getComputedStyle(h).outlineStyle)) !== 'none', 'several: the list heading shows a focus ring after a click');
+    t.eq(await p.locator('[data-action=show-deployment]').evaluate((b) => b.tagName), 'BUTTON', 'several: the action is a button');
+    for (const key of ['Enter', 'Space']) {
+      await p.locator('h2[tabindex="-1"]').first().focus(); // somewhere else first
+      await p.locator('[data-action=show-deployment]').focus();
+      await p.keyboard.press(key);
+      t.eq(await p.evaluate(() => document.activeElement?.id), 'deployments-h', `several: ${key} on the action moves focus to the list heading`);
+    }
     const groups = await p.locator(`${section} [data-environment]`).evaluateAll((g) => g.map((x) => [x.dataset.environment, x.querySelector('h4').textContent, x.querySelectorAll('li').length]));
     const want = envs.map((e) => [e.key, e.name, instancesOf(many.id).filter((i) => i.environment === e.key).length]).filter((g) => g[2] > 0);
     t.eq(groups, want, 'several: one group per environment, in environment order');
@@ -194,6 +203,21 @@ export default async function deploynav(browser, srv, F, name) {
     t.eq(await ph.locator('[data-sheet]').getAttribute('data-sheet'), 'peek', 'phone: the sheet shows the instance');
     t.eq(await ph.locator('[data-selected-id] [data-field=instance-of]').count(), 1, 'phone: and its "Instance of"');
     t.eq(await ph.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), 0, 'phone: still no horizontal overflow');
+    await ph.context().close();
+  }
+
+  // ---- 8b. a phone, several instances: the action opens the peeking sheet up to the list instead of doing nothing visible (issue 184)
+  if (many) {
+    const ph = await newPage(browser, errors, { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await open(ph, srv.url, `#/m/${parentOf(many)}?sel=${many.id}`);
+    t.eq(await ph.locator('[data-sheet]').getAttribute('data-sheet'), 'peek', 'phone, several: the sheet peeks');
+    await ph.locator('[data-action=show-deployment]').tap();
+    t.eq(await ph.locator('[data-sheet]').getAttribute('data-sheet'), 'half', 'phone, several: the action grows the sheet so the list shows');
+    await ph.waitForTimeout(400); // the sheet's height transition
+    const hb = await ph.locator(`${section} h3`).boundingBox();
+    const sb = await ph.locator('.sheet-wrap').boundingBox();
+    t.ok(hb.y >= sb.y && hb.y + hb.height <= sb.y + sb.height, `phone, several: the list heading is inside the sheet (${hb.y}..${hb.y + hb.height} in ${sb.y}..${sb.y + sb.height})`);
+    t.eq(await ph.evaluate(() => document.activeElement?.id), 'deployments-h', 'phone, several: focus is on the list heading');
     await ph.context().close();
   }
 

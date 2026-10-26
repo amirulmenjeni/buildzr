@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useRef } from 'react';
 import { DEPLOYABLE_TYPES, deploymentsOf, isCustom, isDeployment, isInternalTag, relationsOf, typeLabel, type DeploymentGroup, type ModelIndex, type RelRow } from './model';
 import { useStore } from './store';
+import { usePhone } from './usePhone';
 
 function RelList({ title, rows, m, kind }: { title: string; rows: RelRow[]; m: ModelIndex; kind: 'outgoing' | 'incoming' }) {
   const select = useStore((s) => s.select);
@@ -61,7 +62,10 @@ export function Inspector() {
   const openView = useStore((s) => s.openView);
   const showInModel = useStore((s) => s.showInModel);
   const showInstance = useStore((s) => s.showInstance);
+  const sheet = useStore((s) => s.sheet);
   const environments = useStore((s) => s.model?.deployment.environments);
+  const setUi = useStore((s) => s.setUi);
+  const phone = usePhone();
 
   const deployHeading = useRef<HTMLHeadingElement>(null);
 
@@ -80,6 +84,11 @@ export function Inspector() {
     () => (el && DEPLOYABLE_TYPES.has(el.type) && environments && environments.length > 0 ? deploymentsOf(m, el.id, environments) : null),
     [m, el, environments]);
   const reachable = deployments ? deployments.flatMap((g) => g.rows).filter((r) => r.shown) : [];
+  /** Take the reader to the list of instances: the phone's peeking sheet grows to show it, the heading is scrolled to the top and focused (with a visible ring). */
+  const showDeployments = () => {
+    const reveal = () => { deployHeading.current?.scrollIntoView({ block: 'start' }); deployHeading.current?.focus(); };
+    if (phone && sheet === 'peek') { setUi({ sheet: 'half' }); requestAnimationFrame(reveal); } else reveal();
+  };
 
   return (
     <aside role="complementary" aria-label="Inspector" className="inspector">
@@ -90,7 +99,7 @@ export function Inspector() {
           <div className="actions">
             {m.expandable.has(el.id) && path !== el.id && <button data-action="open" onClick={() => expand(el.id)}>Open</button>}
             {reachable.length === 1 && <button data-action="show-deployment" onClick={() => showInstance(reachable[0].id)}>Show deployment</button>}
-            {reachable.length > 1 && <button data-action="show-deployment" onClick={() => { deployHeading.current?.scrollIntoView({ block: 'nearest' }); deployHeading.current?.focus(); }}>Deployments ({reachable.length})</button>}
+            {reachable.length > 1 && <button data-action="show-deployment" onClick={showDeployments}>Deployments ({reachable.length})</button>}
             {view && !isCustom(el) && (!isDeployment(el) || el.instanceOf) && <button data-action="show-in-model" onClick={showInModel}>Show in model</button>}
           </div>
           {el.description && <p className="description">{el.description}</p>}
