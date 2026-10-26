@@ -20,15 +20,18 @@ planned:
       - id: viewer-branding-themes
         title: Branding and themes in the viewer
         description: Apply a workspace's branding and Structurizr themes when the viewer draws its diagrams, with custom typography from licensed bundled fonts or system font stacks; diagram fonts are build-time inputs as their metrics affect layout.
+  - target: "1.2"
+    items:
+      - id: dynamic-view-animation
+        title: Dynamic view animation
+        description: Step through a dynamic view's interactions one at a time in the viewer.
+        link: https://github.com/amirulmenjeni/buildzr/issues/189
   - target: Later
     items:
       - id: export-cli-viewer-renderer
         title: Unattended export with the viewer renderer
         description: Optionally export PNG and SVG from the buildzr command with the viewer's renderer in a headless Chromium-compatible browser; only this command needs the browser, not the in-viewer export.
         link: https://github.com/amirulmenjeni/buildzr/issues/176
-      - id: dynamic-view-animation
-        title: Dynamic view animation
-        description: Step through a dynamic view's interactions one at a time in the viewer.
       - id: viewer-docs-adrs
         title: Documentation and ADRs in the viewer
         description: Read a workspace's documentation and architecture decision records next to its diagrams.
@@ -53,6 +56,10 @@ planned:
       - id: structurizr-compatibility-gaps
         title: Remaining Structurizr compatibility
         description: Close lower-priority gaps with the Structurizr DSL that are listed on the compatibility page.
+      - id: incremental-rebuild
+        title: Incremental rebuilds
+        description: Rebuild only what a change touches so that editing one element costs a small fixed amount whatever the size of the workspace, with output identical to a full rebuild.
+        link: https://github.com/amirulmenjeni/buildzr/issues/190
 
 launched:
   - version: "1.0.0"
