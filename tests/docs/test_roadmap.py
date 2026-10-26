@@ -48,7 +48,8 @@ def test_the_roadmap_of_the_repository_is_valid_and_has_the_agreed_shape() -> No
     data = hooks.load_roadmap(ROADMAP)
     assert hooks.validate_roadmap(data) == []
     assert data["version"] == 1
-    assert [g["target"] for g in data["planned"]] == ["1.1", "1.2", "Later"]
+    assert [g["target"] for g in data["planned"]] == ["1.2", "Later"]
+    assert data["launched"][0]["version"] == "1.1.0"
     assert all(r["date"] for r in data["launched"])
     assert not os.path.exists(os.path.join(DOCS, "roadmap.md")), "the page is generated, not committed"
     assert not os.path.exists(os.path.join(ROOT, "ROADMAP.md"))

@@ -9,17 +9,6 @@
 version: 1
 
 planned:
-  - target: "1.1"
-    items:
-      - id: viewer-image-export
-        title: PNG and SVG export from the viewer
-        description: Download the diagram on screen as a PNG or SVG image straight from the viewer.
-      - id: serve-watch-mode
-        title: Watch mode for buildzr serve
-        description: Rebuild and refresh the viewer automatically when a model file changes.
-      - id: viewer-branding-themes
-        title: Branding and themes in the viewer
-        description: Apply a workspace's branding and Structurizr themes when the viewer draws its diagrams, with custom typography from licensed bundled fonts or system font stacks; diagram fonts are build-time inputs as their metrics affect layout.
   - target: "1.2"
     items:
       - id: dynamic-view-animation
@@ -62,6 +51,19 @@ planned:
         link: https://github.com/amirulmenjeni/buildzr/issues/190
 
 launched:
+  - version: "1.1.0"
+    date: 2026-10-26
+    link: https://github.com/amirulmenjeni/buildzr/tree/v1.1.0
+    items:
+      - id: viewer-image-export
+        title: PNG and SVG export from the viewer
+        description: Download the diagram on screen as a PNG or SVG image straight from the viewer.
+      - id: serve-watch-mode
+        title: Watch mode for buildzr serve
+        description: Rebuild and refresh the viewer automatically when a model file changes.
+      - id: viewer-branding-themes
+        title: Branding and themes in the viewer
+        description: Apply a workspace's branding and Structurizr themes when the viewer draws its diagrams, with custom typography from licensed bundled fonts or system font stacks; diagram fonts are build-time inputs as their metrics affect layout.
   - version: "1.0.0"
     date: 2026-10-23
     link: https://github.com/amirulmenjeni/buildzr/tree/v1.0.0
