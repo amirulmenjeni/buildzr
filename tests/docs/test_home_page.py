@@ -58,8 +58,9 @@ def test_every_label_is_defined_for_the_readme_and_for_the_home_page() -> None:
     assert all(readme[k].startswith(("https://", "docs/")) for k in labels), "the README works on GitHub and PyPI"
     for k in labels:
         target = home[k]
-        if target.startswith("http"):  # GitHub pages have no page in docs/
-            assert target == readme[k] and "github.com/amirulmenjeni/buildzr" in target, k
+        if target.startswith("http"):  # GitHub pages have no page in docs/; badge images are shields.io
+            assert target == readme[k] and ("github.com/amirulmenjeni/buildzr" in target
+                                            or target.startswith("https://img.shields.io/")), k
         else:
             page = target.split("#")[0]
             # roadmap.md is generated from roadmap.yml by the mkdocs hook: there is no such file in docs/
