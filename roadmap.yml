@@ -51,6 +51,14 @@ planned:
         link: https://github.com/amirulmenjeni/buildzr/issues/190
 
 launched:
+  - version: "1.1.1"
+    date: 2026-10-26
+    link: https://github.com/amirulmenjeni/buildzr/tree/v1.1.1
+    items:
+      - id: deployments-control-reveals-list
+        title: Deployments control shows the instance list
+        description: Clicking "Deployments (n)" in the viewer's inspector now visibly reveals the list of deployment instances, also on a phone.
+        link: https://github.com/amirulmenjeni/buildzr/pull/195
   - version: "1.1.0"
     date: 2026-10-26
     link: https://github.com/amirulmenjeni/buildzr/tree/v1.1.0
