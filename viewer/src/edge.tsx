@@ -34,17 +34,19 @@ export function ElkEdge({ id, data }: EdgeProps<FlowEdge>) {
   const mEnd = (s.arrow === 'end' || s.arrow === 'both') && !d.noEnd;
   const mStart = (s.arrow === 'start' || s.arrow === 'both') && !d.noStart;
   const mid = `m-${id.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-  const width = (s.width ?? 1.5) * d.K * (d.selected ? 1.8 : 1) + (e.count > 1 ? 0.5 * d.K : 0);
+  const current = d.step === 'current' ? 2 : 1; // the step on screen of a dynamic view: a thicker arrow, kept in an image export
+  const width = (s.width ?? 1.5) * d.K * Math.max(d.selected ? 1.8 : 1, current) + (e.count > 1 ? 0.5 * d.K : 0);
   const family = useViewer((st) => st.branding?.font?.family ?? null);
   const fontEpoch = useViewer((st) => (st.branding?.font ? st.fontEpoch : 0));
   const fit = useMemo(() => (e.label ? fitScale(e.label.lines, family) : 1), [e.label, family, fontEpoch]); // fontEpoch: measure again once a face has loaded
   const zoomKey = useStore((st) => (e.label ? labelMode(e.label.lines, s.fontSize ?? 12, d.K, st.transform[2], true, null, fit) : ''));
   const tiers = zoomKey.split('|')[0];
   const kids = useStore((st) => (d.owner ? childFade(st.transform[2] / fitZoom(d.owner.w, d.owner.h, st.width, st.height, phoneLayout(), st.maxZoom), reducedMotion()) : 1));
-  const plainWidth = (s.width ?? 1.5) * d.K + (e.count > 1 ? 0.5 * d.K : 0); // without the selection mark (image export)
+  const plainWidth = (s.width ?? 1.5) * d.K * current + (e.count > 1 ? 0.5 * d.K : 0); // without the selection mark (image export)
   const arrow = 8 * d.K;
   return (
-    <g data-edge={e.id} data-count={e.count} data-plain-width={plainWidth} data-selected={d.selected ? 'true' : undefined} className="rolled-edge" style={{ opacity: d.opacity * kids }}>
+    <g data-edge={e.id} data-count={e.count} data-plain-width={plainWidth} data-selected={d.selected ? 'true' : undefined} data-step={d.step ?? undefined}
+       className="rolled-edge" style={{ opacity: d.opacity * kids }}>
       <defs>
         <marker id={`${mid}-e`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth={arrow} markerHeight={arrow} orient="auto-start-reverse" markerUnits="userSpaceOnUse">
           <path d="M0,0 L10,5 L0,10 Z" fill={color} />
@@ -55,7 +57,7 @@ export function ElkEdge({ id, data }: EdgeProps<FlowEdge>) {
         style={{ stroke: color, strokeWidth: width, strokeDasharray: s.dash?.map((x) => x * d.K).join(' '), fill: 'none' }} />
       {e.label && d.opacity >= 0.9 && ( // faded labels are dropped: they could not meet contrast anyway
         <EdgeLabelRenderer>
-          <div className="edge-label" aria-hidden="true" data-edge={e.id}
+          <div className="edge-label" aria-hidden="true" data-edge={e.id} data-step={d.step ?? undefined}
                style={{ position: 'absolute', transform: `translate(${d.labelPos[0]}px,${d.labelPos[1]}px)`, width: e.label.w * d.K, height: e.label.h * d.K,
                         color: ec.label, textAlign: 'center', opacity: d.opacity * kids, zIndex: 2000, transformOrigin: '0 0' }}>
             <div style={{ transform: d.K === 1 ? undefined : `scale(${d.K})`, transformOrigin: '0 0', width: e.label.w }}>

@@ -25,10 +25,11 @@ declare global {
       readonly embed: boolean; // embed mode (?embed=1)
       readonly theme: 'light' | 'dark'; // the resolved theme
       autoCollapse: boolean; // test hook: false pauses the zoom-out collapse (tests that restore an old viewport on purpose)
+      stepMs: number; // how long Play shows each step of a dynamic view (a test hook shortens it)
     };
   }
 }
-window.__viewer = { positions: () => ({}), viewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: () => {}, ready: false, cameraDone: 0, autoCollapse: true, settings: defaults(), embed: MODE.embed, theme: 'light' };
+window.__viewer = { positions: () => ({}), viewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: () => {}, ready: false, cameraDone: 0, autoCollapse: true, stepMs: 2000, settings: defaults(), embed: MODE.embed, theme: 'light' };
 Object.defineProperty(window.__viewer, 'settings', { get: () => useStore.getState().settings });
 Object.defineProperty(window.__viewer, 'theme', { get: () => useStore.getState().theme });
 
@@ -160,9 +161,10 @@ function Flow() {
   const expand = useStore((s) => s.expand);
   const collapse = useStore((s) => s.collapse);
   const theme = useStore((s) => s.theme);
+  const step = useStore((s) => s.step);
   const phoneNow = usePhone();
   const match = useMemo(() => computeMatches(m, filter), [m, filter]);
-  const composed = useMemo(() => compose({ m, scenes, path, view, selection, match }), [m, scenes, path, view, selection, match]);
+  const composed = useMemo(() => compose({ m, scenes, path, view, selection, match, step }), [m, scenes, path, view, selection, match, step]);
 
   // The export menu in the header draws what is on screen
   useEffect(() => { useDiagram.setState({ composed }); return () => useDiagram.setState({ composed: null }); }, [composed]);

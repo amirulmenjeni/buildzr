@@ -4,6 +4,7 @@ import { AboutButton } from './About';
 import { Canvas } from './Canvas';
 import { ExportMenu } from './ExportMenu';
 import { Inspector } from './Inspector';
+import { Playback } from './Playback';
 import { SettingsButton } from './SettingsPanel';
 import { Breadcrumbs, Toolbar } from './Toolbar';
 import { Tree, ViewsList } from './Tree';
@@ -100,7 +101,7 @@ export function App() {
         {(!drawerMode || drawerTab === 'views') && (<><h2 className="h">Views</h2><ViewsList m={m} /></>)}
         <SettingsButton extra={<AboutButton />} />
       </nav>
-      <main className="center"><Canvas /></main>
+      <main className="center"><Canvas /><Playback /></main>
       {(phone || sideOpen) && (
       <div className={'sheet-wrap' + (phone ? ` sheet-${sheet}` : '')} data-sheet={phone ? (sheetOpen ? sheet : 'closed') : undefined} {...(phone && !sheetOpen ? { inert: true, 'aria-hidden': true } : {})}>
         {phone && (

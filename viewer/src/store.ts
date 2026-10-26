@@ -51,6 +51,8 @@ export interface State {
   title: string | null; // embed / new tab: the title the parent page gave
   workspaces: WorkspaceChoice[]; // the switcher lists these; it shows only when there are two or more
   activeWorkspace: string | null; // the id of the one on screen
+  step: number; // a dynamic view stepped through: the step on screen (1-based); 0 = the whole diagram, as drawn
+  playing: boolean; // the steps advance by themselves (Playback.tsx)
   // actions
   init(): Promise<void>;
   applyRoute(r: Route): void;
@@ -77,6 +79,7 @@ export interface State {
   switchWorkspace(id: string): void;
   setGone(): void;
   setUi(p: Partial<Pick<State, 'drawer' | 'drawerTab' | 'sheet' | 'searchOpen'>>): void;
+  setStep(step: number, announce: string, playing?: boolean): void;
 }
 
 const sceneKeysFor = (s: Pick<State, 'path' | 'view' | 'm'>): string[] => {
@@ -168,7 +171,7 @@ export const useStore = create<State>()((set, get) => {
     path: '', view: null, selection: null, filter: emptyFilter,
     notice: null, announce: '', treeOpen: {}, rolled: false, drawer: false, drawerTab: 'model', sheet: 'peek', searchOpen: false, camera: { seq: 0, kind: 'path', id: null }, settings: initial,
     themeOverride: MODE.theme, theme: resolveTheme(MODE.theme ?? initial.theme, prefersDark()), inspectorOpen: false, title: null,
-    workspaces: [], activeWorkspace: null,
+    workspaces: [], activeWorkspace: null, step: 0, playing: false,
 
     async init() {
       const gen = generation;
@@ -404,7 +407,13 @@ export const useStore = create<State>()((set, get) => {
     },
     closeInspector() { commit({ selection: null, inspectorOpen: false }, false); },
     setUi(p) { set(p); },
+    setStep(step, announce, playing = false) { set({ step, playing, announce }); },
   };
+});
+
+// Stepping is a way of looking at one view: another view, another selection or another model shows the whole diagram again.
+useStore.subscribe((s, prev) => {
+  if ((s.step !== 0 || s.playing) && (s.view !== prev.view || s.selection !== prev.selection || s.m !== prev.m)) useStore.setState({ step: 0, playing: false });
 });
 
 /** Keep <html data-theme> on the resolved theme, and follow the device's light/dark setting. */
