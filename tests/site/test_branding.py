@@ -246,7 +246,7 @@ AWS_2020 = "amazon-web-services-2020.04.30"
 def test_every_aws_node_of_the_aws_example_has_a_tag_of_the_aws_theme_and_gets_its_icon(
         online: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The example's AWS tags are the theme's own ("... - Elastic Load Balancing", not "... - Elastic Load Balancer"):
-    with the theme Structurizr's AWS example uses, every AWS node gets the theme's colour and icon, and the
+    with the theme the example applies, every AWS node gets the theme's colour and icon, and the
     application's container instances stay as they are."""
     import runpy
 
@@ -254,7 +254,8 @@ def test_every_aws_node_of_the_aws_example_has_a_tag_of_the_aws_theme_and_gets_i
     host = FakeHost({e["icon"]: PNG for e in theme.values() if "icon" in e})
     monkeypatch.setattr(assets, "_urlopen", host)
     w = runpy.run_path(str(Path(ROOT) / "examples" / "amazon_web_services.py"))["w"]
-    w.apply_theme(f"https://static.structurizr.com/themes/{AWS_2020}/theme.json")
+    themes = w.model.views.configuration.themes
+    assert themes and len(themes) == 1 and themes[0].endswith(f"/{AWS_2020}/theme.json")
     lv = levels_of(w)
     view = next(level for level in lv["levels"] if level["key"] == "v/aws-deployment-view")
     aws = {n["id"]: [t for t in n["tags"] if t.startswith("Amazon Web Services - ")] for n in view["nodes"]}
