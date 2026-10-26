@@ -81,6 +81,7 @@ const svgFacts = (p, text) => p.evaluate((src) => {
 }, text);
 
 export default async function exportTest(browser, srv, F, name) {
+  const brandFont = F.index.branding ? JSON.parse(fs.readFileSync(path.join(srv.dir, F.index.branding.file), 'utf8')).font ?? null : null;
   const t = new T(`export:${name}`);
   const errors = [];
   const theme = deviceTheme();
@@ -128,7 +129,9 @@ export default async function exportTest(browser, srv, F, name) {
     const missing = [...new Set(L.names)].filter((n) => !S.text.includes(n));
     t.eq(missing, [], `${label}: every name drawn is in the SVG`);
     t.eq([S.handles, S.chrome, S.badges, S.outlined], [0, 0, 0, 0], `${label}: no handles, viewer controls, buttons, search badges or outlines`);
-    t.ok(S.fonts >= 1, `${label}: the font is embedded (${S.fonts} @font-face)`);
+    // a branding font comes from the reader's computer and is not embedded (docs/user-guide/themes.md, Branding)
+    if (!brandFont) t.ok(S.fonts >= 1, `${label}: the font is embedded (${S.fonts} @font-face)`);
+    else t.ok(text.includes(brandFont.name.split(',')[0].trim()), `${label}: the text names the branding font (${brandFont.family})`);
     t.eq(S.external, [], `${label}: nothing is loaded from outside the file`);
     t.eq(S.bg, `rgb(${CANVAS[theme].join(', ')})`, `${label}: SVG background is the canvas colour`);
     t.ok(!/<\/?(?:html|body)[ >]/.test(text.replace(/<style[\s\S]*?<\/style>/g, '')), `${label}: no page around the drawing`);

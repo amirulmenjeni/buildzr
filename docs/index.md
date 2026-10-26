@@ -1,7 +1,7 @@
 --8<-- "README.md:home"
 
 <!-- The README links to the site by address; the home page uses the pages of this docs folder, which mkdocs checks. -->
-[viewer-image]: images/quick-start/quick-start-view-link.png
+[viewer-image]: images/viewer/readme-aws-deployment.png
 [quick-start]: getting-started/quick-start.md
 [try-it]: getting-started/quick-start.md#6-compare-your-file-with-the-complete-example
 [views]: user-guide/views.md

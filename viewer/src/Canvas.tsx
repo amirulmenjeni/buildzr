@@ -175,6 +175,8 @@ function Flow() {
     else select(node.id);
   };
   const onEdgeClick: EdgeMouseHandler<FlowEdge> = (_, edge) => select(edge.data!.e.id);
+  const logo = useStore((s) => (s.branding?.logo ? s.branding.images?.[s.branding.logo] ?? null : null));
+  const workspaceName = useStore((s) => s.model?.workspace.name ?? '');
 
   return (
     <div className="canvas" data-testid="canvas" onKeyDown={(ev) => {
@@ -193,6 +195,8 @@ function Flow() {
         <ZoomCollapse composed={composed} m={m} />
         <ZoomExpand composed={composed} m={m} />
       </ReactFlow>
+      {logo && <img className="brand-logo" data-testid="brand-logo" src={logo} alt={`${workspaceName} logo`} draggable={false}
+                    onError={(ev) => { ev.currentTarget.style.display = 'none'; console.warn('buildzr: the branding logo could not be drawn (its image data is damaged)'); }} />}
     </div>
   );
 }

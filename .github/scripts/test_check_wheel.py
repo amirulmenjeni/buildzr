@@ -11,7 +11,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from typing import Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 SCRIPTS = Path(__file__).resolve().parent
 SCRIPT = SCRIPTS / 'check_wheel.py'
@@ -29,11 +29,20 @@ VIEWER = [
 OTHER = [path for path in check_wheel.REQUIRED if '/static/' not in path] + ['buildzr/__init__.py']
 
 
-def make_wheel(folder: Path, files: Iterable[str], version: str = VERSION, notices: bool = True) -> Path:
+COMMIT = check_wheel.themes_commit()
+THEME = 'buildzr/themes/generated/aws.py'
+
+
+def theme_url(ref: str) -> str:
+    return f'icon_url="https://raw.githubusercontent.com/structurizr/themes/{ref}/aws/x.png"\n'
+
+
+def make_wheel(folder: Path, files: Iterable[str], version: str = VERSION, notices: bool = True,
+               contents: Optional[Dict[str, str]] = None) -> Path:
     path = folder / f'buildzr-{version}-py3-none-any.whl'
     with zipfile.ZipFile(path, 'w') as z:
         for name in files:
-            z.writestr(name, '')
+            z.writestr(name, (contents or {}).get(name, ''))
         if notices:
             z.writestr(f'buildzr-{version}.dist-info/licenses/{check_wheel.NOTICES}', '')
         z.writestr(
@@ -43,14 +52,15 @@ def make_wheel(folder: Path, files: Iterable[str], version: str = VERSION, notic
     return path
 
 
-def make_sdist(folder: Path, files: Iterable[str], notices: bool = True) -> Path:
+def make_sdist(folder: Path, files: Iterable[str], notices: bool = True,
+               contents: Optional[Dict[str, str]] = None) -> Path:
     path = folder / f'buildzr-{VERSION}.tar.gz'
     src = folder / 'sdist-src'
     with tarfile.open(path, 'w:gz') as t:
         for name in [*files, *([check_wheel.NOTICES] if notices else [])]:
             file = src / f'buildzr-{VERSION}' / name
             file.parent.mkdir(parents=True, exist_ok=True)
-            file.write_text('')
+            file.write_text((contents or {}).get(name, ''))
             t.add(file, arcname=f'buildzr-{VERSION}/{name}')
     return path
 
@@ -167,6 +177,33 @@ class TestCheckWheel(unittest.TestCase):
         self.assertIn('sdist: missing buildzr/site/static/index.html', result.stdout)
         # Without --sdist the sdist is not looked at.
         self.assertEqual(run(str(self.tmp)).returncode, 0)
+
+    def test_pinned_theme_urls_pass(self) -> None:
+        make_wheel(self.tmp, VIEWER + OTHER + [THEME], contents={THEME: theme_url(COMMIT)})
+        result = run(str(self.tmp))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_wheel_with_an_unpinned_theme_url(self) -> None:
+        for ref in ('master', 'main', 'latest', COMMIT[:7]):
+            make_wheel(self.tmp, VIEWER + OTHER + [THEME], contents={THEME: theme_url(ref)})
+            result = run(str(self.tmp))
+            self.assertEqual(result.returncode, 1)
+            self.assertIn(f'wheel: {THEME} names structurizr/themes at {ref}, not the pinned commit', result.stdout)
+
+    def test_wheel_with_theme_icons(self) -> None:
+        make_wheel(self.tmp, VIEWER + OTHER + ['buildzr/themes/icons/aws/x.png'])
+        result = run(str(self.tmp))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('wheel: ships the theme icon buildzr/themes/icons/aws/x.png', result.stdout)
+
+    def test_sdist_with_an_unpinned_theme_url(self) -> None:
+        make_wheel(self.tmp, VIEWER + OTHER)
+        make_sdist(self.tmp, VIEWER + OTHER + [check_wheel.SKILL, 'buildzr/x.md', 'tests/t.py'],
+                   contents={'buildzr/x.md': theme_url('master'), 'tests/t.py': theme_url('main')})
+        result = run(str(self.tmp), '--sdist')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('sdist: buildzr/x.md names structurizr/themes at master', result.stdout)
+        self.assertNotIn('tests/t.py', result.stdout)
 
     def test_usage(self) -> None:
         self.assertEqual(run().returncode, 2)

@@ -48,7 +48,10 @@ export default async function aboutTests(browser, srv, F, name) {
     }));
     t.eq(f.faces, ['400:loaded', '700:loaded'], 'Inter regular and bold are loaded');
     t.eq(f.check, [true, true], 'document.fonts.check Inter 400 and 700');
-    t.ok(/^"?Inter"?,/.test(f.body) && /^"?Inter"?,/.test(f.button) && /^"?Inter"?,/.test(f.node), `Inter is the default for the page, controls and nodes (${f.body}; ${f.button}; ${f.node})`);
+    // a workspace with a branding font sets its diagrams in it (branding.mjs); the page and its controls stay in Inter
+    const brandFont = F.index.branding ? JSON.parse(fs.readFileSync(path.join(srv.dir, F.index.branding.file), 'utf8')).font : null;
+    const nodeFont = brandFont ? f.node === brandFont.family : /^"?Inter"?,/.test(f.node);
+    t.ok(/^"?Inter"?,/.test(f.body) && /^"?Inter"?,/.test(f.button) && nodeFont, `Inter is the default for the page, controls and nodes (${f.body}; ${f.button}; ${f.node})`);
     t.eq(foreign, [], 'no request leaves the page origin');
     t.eq(requested.filter((r) => r.endsWith('.woff2')).map((r) => r.replace(/^.*\/(inter-latin-\d+-normal)-[\w-]+\.woff2$/, '$1')).sort(), ['inter-latin-400-normal', 'inter-latin-700-normal'], 'both woff2 files are served from the bundle');
     const css = fs.readdirSync(path.join(STATIC, 'assets')).filter((n) => n.endsWith('.css')).map((n) => fs.readFileSync(path.join(STATIC, 'assets', n), 'utf8')).join('\n');

@@ -141,6 +141,7 @@ Before `build` puts a built workspace in place, it checks its data: the JSON sch
 
 - The other workspaces are still built either way.
 - The `build.json` of every built workspace has `status`: `ok`, or `broken`. A broken one also has `stage`, the step that failed (`model`, `layout` or `check`), and `errors`, at most 50 errors of at most 500 characters each.
+- A built workspace that leaves out a theme, an image or a branding font has `warnings`, in the same form as `errors`. It is not broken: see [Warnings](user-guide/themes.md#warnings). When it leaves out a theme icon that could not be fetched, it also has `"incomplete": true`, and the next build builds it again (see [Theme Icons at Build Time](user-guide/themes.md#theme-icons-at-build-time)).
 - After a failure at the `check` step, the data is kept next to `build.json`, so that you can look at what is wrong. After a failure at the `model` or `layout` step, there is no data: the folder holds `build.json` and the viewer, which shows the errors.
 - A model file that raises an error before it creates any workspace breaks the workspaces it built last time. On its first build, its broken workspace is named after the file.
 - A broken workspace is up to date like an ok one, so `serve` does not build the same broken model file again and again. Change the file, or use `--rebuild`.
@@ -224,7 +225,7 @@ wrote diagrams/shop/SystemContext.svg
 ### `buildzr serve`
 
 ```text
-buildzr serve [-h] [--example] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOST] [--public-url URL] [--cors-origin ORIGIN] [PATH]
+buildzr serve [-h] [--example] [--no-build] [--rebuild] [--watch] [-c FILE] [-v] [-p PORT] [--host HOST] [--public-url URL] [--cors-origin ORIGIN] [PATH]
 ```
 
 `serve` first builds what is missing or out of date, then serves every built workspace of the build output. It only reads: it answers `GET` and `HEAD` requests, and nothing can change a workspace through it.
@@ -232,9 +233,10 @@ buildzr serve [-h] [--example] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT]
 | Option | What it does |
 |---|---|
 | `PATH` | What to serve. A workspaces folder or a model file: `serve` builds its workspaces when they are missing or out of date, then serves the build output. It replaces `workspaces:` of `buildzr.yaml`, as `-w` does for `build`. A folder that already holds built workspaces (it has a `build.json`, or subfolders that have one): `serve` serves it as it is, and builds nothing. Default: `workspaces:` in `buildzr.yaml` (a path or a list), else the folder `workspaces`. |
-| `--example` | Serve the bundled example workspace, an online shop, instead of your own. See [Try the bundled example](#try-the-bundled-example). Cannot be combined with `PATH`, `--no-build`, `--rebuild`, `-c` or `-v`. |
+| `--example` | Serve the bundled example workspace, an online shop, instead of your own. See [Try the bundled example](#try-the-bundled-example). Cannot be combined with `PATH`, `--no-build`, `--rebuild`, `--watch`, `-c` or `-v`. |
 | `--no-build` | Serve the build output as it is, without building. Node is then not needed. |
 | `--rebuild` | Build every workspace again, also the ones that are up to date. |
+| `--watch` | Keep watching the model files while serving: after each change, build what is out of date and reload the viewers that are open. A rebuild that fails keeps the last good build on screen. See [Watch mode](#watch-mode). Cannot be combined with `--no-build`, nor with a `PATH` that holds built workspaces. |
 | `-c FILE`, `--config FILE` | The config file. Default: `buildzr.yaml`, searched from the current folder upward. |
 | `-v`, `--verbose` | The same as for `build`. |
 | `-p PORT`, `--port PORT` | The port, 1 to 65535. Default: `serve.port` in `buildzr.yaml`, else 8000. |
@@ -261,14 +263,14 @@ The example is **hermetic**: it is already built and shipped inside buildzr, so 
 
 #### When a built workspace is out of date
 
-A built workspace is rebuilt when its folder is missing, or when its **fingerprint** changed. `build` records the fingerprint in the `build.json` of the workspace. It is a sha256 hash of:
+A built workspace is rebuilt when its folder is missing, when it lacks a theme icon that could not be fetched (`"incomplete": true` in its `build.json`), or when its **fingerprint** changed. `build` records the fingerprint in the `build.json` of the workspace. It is a sha256 hash of:
 
 - the model file that creates the workspace,
 - every file whose name starts with `_` and ends with `.py` in the workspaces folder and its subfolders (for a `workspaces:` list: in the folder of the file's entry, or the folder that holds the listed file, and their subfolders),
-- the version of buildzr,
+- the version of buildzr, and the [structurizr/themes commit](user-guide/themes.md#the-pinned-themes-commit) that its themes are pinned to,
 - the settings that change the output, as they are for this workspace: `k`, `text_color` and `viewer`, from an option, the file's list entry or `build:`. Changing the `k` of one list entry rebuilds only the workspaces of that entry.
 
-File dates are not used. Code that a model file imports from anywhere else is not part of the fingerprint: after you change such code, start `serve` with `--rebuild`.
+File dates are not used. Code that a model file imports from anywhere else is not part of the fingerprint: after you change such code, start `serve` with `--rebuild`. The [themes and branding](user-guide/themes.md#when-the-viewer-draws-them-again) of a workspace are part of its model file.
 
 #### What `serve` serves
 
@@ -283,6 +285,18 @@ File dates are not used. Code that a model file imports from anywhere else is no
 - When `serve` starts, it prints each build failure as `build` does, and a block for every broken workspace in the build output, also those built earlier. It serves every built workspace, broken ones included: `/` marks them as broken, and `/_buildzr/v1/workspaces` gives their `status`, `stage` and `errors`. If nothing can be served, it exits with code 1.
 - If a workspace must be built but Node is not installed, `serve` says so in one line and serves what is already built.
 - `serve` looks at the build output again when someone opens `/` or the list, and when an address names a workspace it does not know yet. A workspace that `buildzr build` adds in another terminal therefore appears without a restart. A workspace in the middle of being replaced is not served for that moment: its address answers 404.
+
+#### Watch mode
+
+`buildzr serve --watch` builds and serves as `serve` does, then keeps watching the model files until you stop it with Ctrl+C (or a termination signal, `SIGTERM`). Without `--watch`, `serve` never builds again after it starts.
+
+- **What is watched.** The files that the [fingerprint](#when-a-built-workspace-is-out-of-date) reads: every model file that `serve` builds, the files of the workspaces folder and its subfolders whose name starts with `_` and ends with `.py`, and `buildzr.yaml`. A new model file in a watched folder counts too. Nothing else is watched: not data files that a model file reads, not code imported from outside the workspaces folder, not the build output, and not the files that editors write next to the one you save (`.swp`, `~` and `.#` files, `__pycache__`), so saving a file never starts a loop of builds.
+- **When it builds.** `serve` looks at the files every half second. After a change, it waits until the files stay the same for a moment, so a burst of writes (an editor that saves in several steps, a formatter that runs on save) gives one build of the last version. Then it builds what the change made out of date, as `serve` does when it starts, and prints a `changed:` line and the same lines as `build`. A file that you save without changing it builds nothing. A change made while a build runs starts another build when that one ends.
+- **The viewers reload.** Each viewer page of a workspace that was built again reloads by itself and keeps its address, so the same view stays open. A page asks `serve` once a second whether its workspace was rebuilt (a `HEAD` request for its `build.json`); only `serve --watch` adds this to the viewer pages, and the built files do not change. An [embedded viewer](ui-settings.md#embed-the-viewer-in-another-page) whose page sends it its data does not reload.
+- **A rebuild that fails keeps the last good build.** If the model file raises an error, or the layout or the checks fail, the block of the broken workspace is printed with the line `the last good build is still served; save a fix to rebuild`. The workspace that was served stays as it was, and its viewers do not reload. When you save a fix, the next build replaces it. A workspace that was never built without errors is written broken, as `serve` does without `--watch`, and its viewers reload to show the new errors. If Node or the disk fails, nothing is written, as for `build`.
+- **Removing.** Unlike `serve` without `--watch`, a rebuild removes the built workspaces that no model file creates any more, as [`build` does](#removing-built-workspaces-you-no-longer-build): after you delete a model file or rename a workspace in it.
+- **`buildzr.yaml`.** A change to it is not applied: `serve` prints `buildzr.yaml changed; restart buildzr serve --watch to use its new settings`. Stop `serve` and start it again.
+- **Stopping.** Ctrl+C or `SIGTERM` stops the watch, the server and a build that is running, with the Python process that runs a model file and the Node process of the layout. A built workspace is written aside and then moved into place, so stopping never leaves a half-written one.
 
 ## Exit codes
 

@@ -1,5 +1,5 @@
 import type { Files } from './protocol';
-import type { BuildInfo, IndexJson, ModelJson, Scene } from './types';
+import type { BrandingJson, BuildInfo, IndexJson, ModelJson, Scene } from './types';
 
 /** Where the data comes from: the server (data/ next to index.html), or files an embedding page posted. */
 interface Source { build(): Promise<BuildInfo | null>; json<T>(file: string): Promise<T> }
@@ -53,6 +53,21 @@ export const isBroken = (b: BuildInfo | null): boolean => b?.status === 'broken'
 export const hasNoData = (b: BuildInfo | null): boolean => isBroken(b) && b?.stage !== 'check';
 export const loadIndex = () => source.json<IndexJson>('index.json');
 export const loadModel = (index: IndexJson) => source.json<ModelJson>(index.model.file);
+/**
+ * The branding file, or null when the workspace has none. A file that cannot be read is not fatal: the diagrams are
+ * drawn without icons, logo and branding font, and the console says why.
+ */
+export async function loadBranding(index: IndexJson): Promise<BrandingJson | null> {
+  if (!index.branding) return null;
+  try {
+    const b = await source.json<BrandingJson>(index.branding.file);
+    if (b && typeof b === 'object' && !Array.isArray(b)) return b;
+    throw new Error('not a JSON object');
+  } catch (e) {
+    console.warn(`buildzr: data/${index.branding.file} could not be read, so the diagrams have no icons, logo or branding font (${String(e)})`);
+    return null;
+  }
+}
 export const loadScene = (index: IndexJson, key: string) => {
   const f = index.scenes[key];
   if (!f) return Promise.reject(new Error(`no scene ${key}`));

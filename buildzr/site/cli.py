@@ -12,11 +12,12 @@ import os
 import signal
 import sys
 import tempfile
+import threading
 from pathlib import Path
 from typing import Any, Iterable, NoReturn, Optional
 
 from buildzr.site import config as cfgmod
-from buildzr.site import export_files
+from buildzr.site import export_files, watch
 from buildzr.site.api import normalise_origin, normalise_public_url
 from buildzr.site.build import BuildError, BuildResult, Entry, build_all, plan, source_root
 from buildzr.site.config import (
@@ -117,6 +118,9 @@ def _parser() -> argparse.ArgumentParser:
                         "PATH, --no-build, --rebuild, -c and -v do not)")
     s.add_argument("--no-build", action="store_true", help="serve the build output as it is, without building")
     s.add_argument("--rebuild", action="store_true", help="build every workspace again, even the up-to-date ones")
+    s.add_argument("--watch", action="store_true",
+                   help="keep watching the model files and their _*.py helpers: rebuild what a change makes stale and "
+                        "reload the open viewers; a rebuild that fails keeps the last good build served")
     s.add_argument("-c", "--config", metavar="FILE", default=None,
                    help="config file (default: buildzr.yaml, searched from the current folder upward)")
     s.add_argument("-v", "--verbose", action="store_true",
@@ -314,15 +318,20 @@ def _loud(text: str) -> str:
     return text
 
 
-def broken_block(name: str, folder: str, info: dict[str, Any]) -> str:
-    """The console block of a broken built workspace: name, file, stage, the first 10 errors."""
+def broken_block(name: str, folder: str, info: dict[str, Any], kept: bool = False) -> str:
+    """The console block of a broken built workspace: name, file, stage, the first 10 errors.
+
+    ``kept``: the broken result was not written (``serve --watch``), and the last good build is still served.
+    """
     errors = [str(e) for e in info.get("errors") or []]
     lines = [_loud(f"buildzr: BROKEN: workspace {name} ({_source_shown(folder, info)}) "
                    f"failed at the {info.get('stage', 'unknown')} step")]
     lines += ["    " + e for e in errors[:10]]
     if len(errors) > 10:
-        lines.append(f"    ... and {len(errors) - 10} more in {_show(Path(folder) / 'build.json')}")
-    lines.append("  " + _loud("this workspace is broken; the viewer says so"))
+        where = "" if kept else f" in {_show(Path(folder) / 'build.json')}"  # a kept result is in no file
+        lines.append(f"    ... and {len(errors) - 10} more{where}")
+    lines.append("  " + _loud("the last good build is still served; save a fix to rebuild" if kept else
+                              "this workspace is broken; the viewer says so"))
     return "\n".join(lines)
 
 
@@ -341,6 +350,8 @@ def _report(result: BuildResult, root: Optional[str] = None) -> None:
     sys.stdout.flush()
     for b in result.broken:
         print(broken_block(b.name, b.folder, b.info), file=sys.stderr)
+    for b in result.kept:
+        print(broken_block(b.name, b.folder, b.info, kept=True), file=sys.stderr)
     for f in result.failed:
         kept = "; nothing was written and the previous output is kept" if f.environment else ""
         print(f"buildzr: error: {f.where(_show(Path(f.path)))}: {f.message}{kept}", file=sys.stderr)
@@ -386,12 +397,12 @@ def _node_problem() -> Optional[str]:
     return None
 
 
-def _build_stale(args: argparse.Namespace, b: _BuildArgs) -> set[str]:
+def _build_stale(args: argparse.Namespace, b: _BuildArgs, entries: list[Entry]) -> set[str]:
     """``serve``: build the workspaces that are missing or stale (all with ``--rebuild``); print what happened.
 
-    Returns the names of the broken workspaces it reported.
+    With ``--watch``, a broken result does not replace an ok built workspace. Returns the names of the broken
+    workspaces it reported.
     """
-    entries = b.entries()
     if not entries:
         return set()
     todo = plan(entries, str(b.out), root=b.root, only_stale=not args.rebuild, listed=b.list_file)
@@ -406,12 +417,57 @@ def _build_stale(args: argparse.Namespace, b: _BuildArgs) -> set[str]:
         return set()
     try:
         result = build_all(entries, str(b.out), verbose=args.verbose, only_stale=not args.rebuild, root=b.root,
-                           listed=b.list_file)
+                           listed=b.list_file, keep_good=args.watch)
     except BuildError as e:
         print(f"buildzr: error: {e}", file=sys.stderr)
         return set()
     _report(result)
     return {w.name for w in result.broken}
+
+
+def _changed_shown(files: set[str]) -> str:
+    shown = [_show(Path(f)) for f in sorted(files)]
+    return ", ".join(shown[:3]) + (f" and {len(shown) - 3} more" if len(shown) > 3 else "")
+
+
+def _rebuild(args: argparse.Namespace, b: _BuildArgs, entries: list[Entry], files: set[str]) -> None:
+    """``serve --watch``: build what the change of ``files`` made stale, as ``build`` does, but keep the good builds.
+
+    It prints what happened and never raises (but for Ctrl+C): the watch goes on after any failure.
+    """
+    print(f"changed: {_changed_shown(files)}", flush=True)  # before what the model file prints
+    config = str(b.cfg.path) if b.cfg is not None else None
+    if config is not None and config in files:
+        print(f"buildzr: warning: {_show(Path(config))} changed; restart buildzr serve --watch to use its new settings",
+              file=sys.stderr)
+        if files == {config}:
+            sys.stdout.flush()
+            return
+    try:
+        result = build_all(entries, str(b.out), verbose=args.verbose, only_stale=True, root=b.root, prune=b.full,
+                           listed=b.list_file, keep_good=True)
+    except BuildError as e:
+        print(f"buildzr: error: {e}", file=sys.stderr)
+        return
+    except Exception as e:  # a bug or the disk: say so and keep watching
+        print(f"buildzr: error: the rebuild failed: {type(e).__name__}: {e}", file=sys.stderr)
+        return
+    _report(result, b.root)
+    changed = sorted({w.name for w in result.built + result.broken})
+    if changed:
+        print("reloading the open viewers of " + ", ".join(changed))
+    elif not (result.kept or result.failed or result.removed or result.empty):
+        print("nothing to rebuild: every built workspace is up to date")
+    sys.stdout.flush()
+
+
+def _watcher(args: argparse.Namespace, b: _BuildArgs, entries: list[Entry]) -> watch.Watcher:
+    """``serve --watch``: the watcher of the model files of ``entries``, their helpers and ``buildzr.yaml``."""
+    config = str(b.cfg.path) if b.cfg is not None else None
+
+    def scan() -> watch.Signature:  # a file added to a watched folder counts from the next scan
+        return watch.signature(watch.watched_files(entries, b.root, config, skip=[str(b.out)]))
+    return watch.Watcher(scan, lambda changed: _rebuild(args, b, entries, changed))
 
 
 def _serve_settings(args: argparse.Namespace, cfg: Optional[Config]) -> tuple[str, int, Optional[str], list[str]]:
@@ -444,7 +500,7 @@ def _serve_settings(args: argparse.Namespace, cfg: Optional[Config]) -> tuple[st
 
 #: The ``serve`` options that have no meaning for ``--example``, which neither builds nor reads a config.
 _EXAMPLE_CONFLICTS = (("path", "PATH"), ("no_build", "--no-build"), ("rebuild", "--rebuild"), ("config", "-c/--config"),
-                      ("verbose", "-v/--verbose"))
+                      ("verbose", "-v/--verbose"), ("watch", "--watch"))
 
 
 def _cmd_serve_example(args: argparse.Namespace) -> int:
@@ -475,12 +531,16 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     host, port, public_url, origins = _serve_settings(args, cfg)
     if args.no_build and args.rebuild:
         raise _Usage("--no-build and --rebuild cannot be used together")
+    if args.no_build and args.watch:
+        raise _Usage("--no-build and --watch cannot be used together: --watch rebuilds after each change")
     if args.path is not None and not os.path.exists(args.path):
         raise _Usage(f"{args.path} not found")
+    watcher: Optional[watch.Watcher] = None
     if args.path is not None and os.path.isdir(args.path) and holds_built_workspaces(args.path):
-        if args.rebuild:
-            raise _Usage(f"{args.path} holds built workspaces, which are served as they are; --rebuild needs "
-                         "the workspaces folder or a .py file")
+        for flag, dest in (("--rebuild", "rebuild"), ("--watch", "watch")):
+            if getattr(args, dest):
+                raise _Usage(f"{args.path} holds built workspaces, which are served as they are; {flag} needs "
+                             "the workspaces folder or a .py file")
         directory = args.path
         reported: set[str] = set()
     else:
@@ -492,18 +552,42 @@ def _cmd_serve(args: argparse.Namespace) -> int:
             if b.listed is None and not b.path.exists():
                 raise _Usage(f"{_show(b.path)} not found; create the workspaces folder, pass PATH, set workspaces: "
                              f"in buildzr.yaml, or serve {_show(b.out)} as it is with --no-build")
-            reported = _build_stale(args, b)
-    entries = Catalog(directory).entries()
-    if not entries:
+            entries = b.entries()
+            if args.watch:
+                watcher = _watcher(args, b, entries)
+                last = watcher.scan()  # before the build: a change made while it runs is not missed
+            reported = _build_stale(args, b, entries)
+    served = Catalog(directory).entries()
+    if not served and watcher is None:
         return _fail(f"nothing to serve: {_show(Path(os.path.abspath(directory)))} holds no built workspace")
     sys.stdout.flush()  # "up to date: ..." before the blocks, also when both streams go to one pipe
-    for e in entries.values():
+    for e in served.values():
         if e.info.get("status") == "broken" and e.name not in reported:
             print(broken_block(e.name, e.folder, e.info), file=sys.stderr)
+    if watcher is None:
+        try:
+            serve(directory, host, port, public_url, origins, shown=_show(Path(os.path.abspath(directory))))
+        except OSError as e:
+            return _fail(f"cannot serve on {host}:{port}: {e.strerror or e}")
+        return 0
+    if not served:
+        print(f"nothing built yet in {_show(Path(os.path.abspath(directory)))}; waiting for a model file to change")
+    os.makedirs(directory, exist_ok=True)
+
+    def watching() -> None:
+        print(f"Watching {b.shown} for changes")
+        sys.stdout.flush()
+        assert watcher is not None
+        watcher.run(last)
+    main_thread = threading.current_thread() is threading.main_thread()  # only it can set a signal handler
+    previous = signal.signal(signal.SIGTERM, signal.default_int_handler) if main_thread else None  # stop like Ctrl+C
     try:
-        serve(directory, host, port, public_url, origins, shown=_show(Path(os.path.abspath(directory))))
+        serve(directory, host, port, public_url, origins, shown=_show(Path(os.path.abspath(directory))), watch=watching)
     except OSError as e:
         return _fail(f"cannot serve on {host}:{port}: {e.strerror or e}")
+    finally:
+        if main_thread:
+            signal.signal(signal.SIGTERM, previous)
     return 0
 
 

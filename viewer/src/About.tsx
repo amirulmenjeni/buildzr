@@ -57,7 +57,7 @@ export function AboutButton() {
             <div className="about-body">
               <p>The buildzr viewer is a read-only browser for a Structurizr-style C4 model. It runs entirely from this page: it loads its scripts, styles and fonts from the same place as the page and contacts no other site.</p>
               <h3>Fonts</h3>
-              <p>The text is set in Inter regular and bold, bundled with the viewer under the SIL Open Font License 1.1. Code and error output use your system's monospace font.</p>
+              <p>The text is set in Inter regular and bold, bundled with the viewer under the SIL Open Font License 1.1. Code and error output use your system's monospace font. A workspace with a branding font has its diagrams set in that font when your computer has it.</p>
               <h3>Third-party notices</h3>
               <p>The licences and copyright notices of the software and fonts the viewer includes. <a href={noticesUrl} target="_blank" rel="noreferrer">Open as a plain text file</a>.</p>
               {notices !== null && <pre className="about-notices" tabIndex={0} aria-label="Third-party notices" data-testid="about-notices">{notices}</pre>}

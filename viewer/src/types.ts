@@ -7,7 +7,12 @@ export interface BuildInfo {
 }
 
 export interface FileRef { file: string; hash: string }
-export interface IndexJson { schema: 'buildzr.index/2'; modelHash: string; model: FileRef; scenes: Record<string, FileRef> }
+export interface IndexJson { schema: 'buildzr.index/2'; modelHash: string; model: FileRef; scenes: Record<string, FileRef>; branding?: FileRef }
+/** data/branding.<h8>.json (buildzr/site/schema/branding.schema.json): the images the scenes draw, the logo and the diagram font. */
+export interface BrandingJson {
+  schema: 'buildzr.branding/1'; images?: Record<string, string>; logo?: string;
+  font?: { name: string; family: string }; // family: the CSS font-family list of the diagram text
+}
 
 export interface Element {
   id: string; modelId: string; type: string; parent: string | null; children: string[];
@@ -32,7 +37,7 @@ export interface ModelJson {
 
 export interface LabelLine { text: string; tier: 0 | 1 | 2; weight?: 'normal' | 'bold'; size?: number; italic?: boolean }
 export interface Frame { scene: string; scale: number; children: number; childType?: string }
-export interface NodeStyle { fill: string; stroke: string; color: string; fontSize: number; strokeWidth?: number; dash?: number[]; opacity?: number }
+export interface NodeStyle { fill: string; stroke: string; color: string; fontSize: number; strokeWidth?: number; dash?: number[]; opacity?: number; icon?: string }
 export interface SceneNode {
   id: string; modelId?: string; role: 'element' | 'boundary'; type: string; parent: string | null;
   x: number; y: number; w: number; h: number; shape: string; style: NodeStyle;
