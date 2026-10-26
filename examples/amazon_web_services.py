@@ -15,6 +15,7 @@ from buildzr.dsl import (
     DeploymentView,
     StyleElements,
 )
+from buildzr.themes import AWS_2020_04_30
 
 with Workspace(
     "Amazon Web Services Example",
@@ -46,7 +47,7 @@ with Workspace(
         dg_region_2 = DeploymentGroup("region-2")
 
         # The "Amazon Web Services - ..." tags are those of the Structurizr AWS theme (amazon-web-services-2020.04.30),
-        # so applying that theme gives these nodes its colours and icons.
+        # which the example applies below, so these nodes get its colours and icons.
         with DeploymentNode("Amazon Web Services") as aws:
             aws.add_tags("Amazon Web Services - Cloud")
 
@@ -118,6 +119,8 @@ with Workspace(
         description="Deployment view of the web application on AWS",
         auto_layout='lr',
     )
+
+    w.apply_theme(AWS_2020_04_30)
 
     StyleElements(on=['Element'], background='#ffffff')
     StyleElements(on=['Container'], background='#ffffff')

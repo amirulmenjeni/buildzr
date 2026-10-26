@@ -536,7 +536,10 @@
             "shape": "Cylinder"
           }
         ]
-      }
+      },
+      "themes": [
+        "https://raw.githubusercontent.com/structurizr/themes/67da2b503abc708f941e5aa2ea35dd553f742c3a/amazon-web-services-2020.04.30/theme.json"
+      ]
     }
   },
   "configuration": {
