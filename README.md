@@ -125,7 +125,7 @@ Open <http://127.0.0.1:8000/>. The viewer shows your model; click a box to see i
 - [Roadmap][roadmap]: what is planned and what is done.
 - [Contributing][contributing]: how to report an issue or send a change.
 
-buildzr is approaching 1.0. Read the [issue tracker][issues] for known problems, and open an issue if something does not work.
+Found a problem? Check the [issue tracker][issues] for known issues, and open one if something does not work.
 
 buildzr is released under the [MIT License][license].
 <!-- --8<-- [end:home] -->
