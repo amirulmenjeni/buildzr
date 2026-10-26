@@ -40,7 +40,7 @@ buildzr = "buildzr.site.cli:main"
 
 [project.optional-dependencies]
 dev = [
-    "mypy==2.3.1",
+    "mypy==2.4.0",
     "mypy_extensions==1.1.0",
     "pytest-mypy==1.0.1",
     "jsondiff==2.2.1",
