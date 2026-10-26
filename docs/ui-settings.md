@@ -58,6 +58,28 @@ The theme changes the viewer and the images you [download from it](#download-the
 
 This is not the command-line export. `buildzr export` draws views with PlantUML and its layout, so its pictures differ from the viewer's. The images here are what the viewer shows. An unattended command that exports with the viewer's own renderer is planned separately (see the [roadmap](https://buildzr.dev/roadmap/)).
 
+## Step through a dynamic view
+
+A [dynamic view](user-guide/views.md#dynamic-view) draws an ordered sequence of interactions. When one is open, a small bar at the top of the canvas lets you follow the interactions one at a time. It shows on dynamic views only.
+
+| Button | Key (while the bar has the focus) | What it does |
+|---|---|---|
+| First step | `Home` | Shows step 1. |
+| Previous step | `←` | Shows the step before. |
+| Play / Pause | `Enter` or `Space` on the button | Shows the next step every 2 seconds and stops at the last one. Pause keeps the step on screen. At the last step, Play starts again from step 1. |
+| Next step | `→` | Shows the step after. `End` shows the last step. |
+| Show the whole diagram (×) | `Esc` | Leaves the steps and draws the whole diagram again. |
+
+At each step the arrow of the current interaction is drawn thicker and its label is outlined. The arrows of the earlier steps are drawn as usual. The arrows of the later steps, and the boxes that no step has reached yet, are dimmed. The boxes never move and the camera stays where you put it. The bar shows **Step 3 of 7** and the interaction, for example *Web App → API: Posts the order to*. Screen readers announce each step. Two interactions with the same order number (a parallel sequence) are one step.
+
+The keys work only while the focus is in the bar: press `Tab` to reach it. On the canvas, the arrow keys and `Space` keep their usual meaning.
+
+The diagram opens with all its steps drawn, as before. Selecting a box or an arrow, opening another view or another place in the model shows the whole diagram again. The step is not part of the [viewer link](viewer-hash-routes.md). An image you [download](#download-the-diagram-as-an-image) while a step is on screen is drawn as you see it, dimmed arrows included.
+
+When your device asks for reduced motion, the steps change without the short fade, and Play still works: it changes the step on a timer and moves nothing on the screen.
+
+In an [embedded viewer](#embed-the-viewer-in-another-page) the bar works the same. A frame lower than 240 px has no room for it: the dynamic view is then drawn whole, without the bar.
+
 ## Fonts, About and third-party notices
 
 The viewer sets its text in Inter, regular and bold. Both weights are part of the viewer bundle, so a built workspace shows the same font offline, behind a firewall or from a file share: the page asks no font host for anything. Code and error output keep your system's monospace font. A workspace with a [branding font](user-guide/themes.md#branding) has its diagrams set in that font when your computer has it.
