@@ -12,7 +12,7 @@
         <meta name="author" content="Amirul Menjeni">
       
       
-        <link rel="canonical" href="https://buildzr.dev/1.0.0/contributing/">
+        <link rel="canonical" href="https://buildzr.dev/1.1.0/contributing/">
       
       
         <link rel="prev" href="../model-api/">
@@ -2303,18 +2303,18 @@ browser at http://localhost:8080:</p>
 <h2 id="releasing">Releasing<a class="headerlink" href="#releasing" title="Permanent link">&para;</a></h2>
 <p>The <code>release</code> workflow publishes releases from <code>master</code>. It never pushes commits to <code>master</code>.</p>
 <h3 id="cut-a-release">Cut a release<a class="headerlink" href="#cut-a-release" title="Permanent link">&para;</a></h3>
-<p>Open a pull request that sets a final version, for example <code>0.0.33</code>, in <code>buildzr/__about__.py</code>. When the pull request is merged, the workflow builds the viewer and the package, checks them, publishes the package to PyPI and pushes the tag <code>v0.0.33</code>.</p>
+<p>Open a pull request that sets a final version, for example <code>1.0.1</code>, in <code>buildzr/__about__.py</code>. When the pull request is merged, the workflow builds the viewer and the package, checks them, publishes the package to PyPI and pushes the tag <code>v1.0.1</code>.</p>
 <h3 id="cut-a-release-candidate">Cut a release candidate<a class="headerlink" href="#cut-a-release-candidate" title="Permanent link">&para;</a></h3>
-<p>Do the same with a version such as <code>0.1.0rc1</code>. Versions follow PEP 440, and <code>rc</code> is the only pre-release kind that is released. Number the candidates <code>rc1</code>, <code>rc2</code>, and so on; the final <code>0.1.0</code> sorts after them. The tag of <code>0.1.0rc1</code> is <code>v0.1.0rc1</code>.</p>
+<p>Do the same with a version such as <code>1.1.0rc1</code>. Versions follow PEP 440, and <code>rc</code> is the only pre-release kind that is released. Number the candidates <code>rc1</code>, <code>rc2</code>, and so on; the final <code>1.1.0</code> sorts after them. The tag of <code>1.1.0rc1</code> is <code>v1.1.0rc1</code>.</p>
 <p>PyPI does not offer a release candidate to a plain <code>pip install buildzr</code>. Install it with one of these commands:</p>
 <ul>
-<li><code>uvx --from buildzr==0.1.0rc1 buildzr build</code></li>
-<li><code>uv add buildzr==0.1.0rc1</code></li>
-<li><code>pip install buildzr==0.1.0rc1</code></li>
+<li><code>uvx --from buildzr==1.1.0rc1 buildzr build</code></li>
+<li><code>uv add buildzr==1.1.0rc1</code></li>
+<li><code>pip install buildzr==1.1.0rc1</code></li>
 <li><code>pip install --pre buildzr</code></li>
 </ul>
 <h3 id="which-pushes-release">Which pushes release<a class="headerlink" href="#which-pushes-release" title="Permanent link">&para;</a></h3>
-<p>Every push to <code>master</code> runs the workflow. It releases only when the version is final or a release candidate, and its tag does not exist yet. The workflow skips development, alpha, beta and post-release versions, such as <code>0.0.33.dev0</code>, <code>0.0.33a1</code>, <code>0.0.33b1</code> or <code>0.0.33.post1</code>. Bumping the version to <code>.dev0</code> therefore does not trigger a release.</p>
+<p>Every push to <code>master</code> runs the workflow. It releases only when the version is final or a release candidate, and its tag does not exist yet. The workflow skips development, alpha, beta and post-release versions, such as <code>1.0.1.dev0</code>, <code>1.0.1a1</code>, <code>1.0.1b1</code> or <code>1.0.1.post1</code>. Bumping the version to <code>.dev0</code> therefore does not trigger a release.</p>
 <h3 id="what-the-workflow-checks-before-it-publishes">What the workflow checks before it publishes<a class="headerlink" href="#what-the-workflow-checks-before-it-publishes" title="Permanent link">&para;</a></h3>
 <p>The viewer (<code>viewer/</code>) is built into the gitignored folder <code>buildzr/site/static/</code> and ships inside the package. The workflow therefore runs <code>npm ci</code> and <code>npm run build</code> in <code>viewer/</code> before <code>uv build</code>.</p>
 <p>Then <code>.github/scripts/check_wheel.py dist --sdist</code> fails the run, before anything is published, unless both the sdist and the wheel contain the viewer, its copy of the third-party notices, the JSON schemas, the modules of <code>buildzr build</code> and <code>buildzr serve</code> and the layout&rsquo;s Node runner with elkjs, and the version of the wheel equals <code>buildzr/__about__.py</code>. It also requires <code>THIRD_PARTY_NOTICES.txt</code> in the <code>.dist-info/licenses/</code> folder of the wheel and at the root of the sdist (<code>license-files</code> in <code>pyproject.toml</code> puts it there). To check a build yourself:</p>
@@ -2337,7 +2337,7 @@ browser at http://localhost:8080:</p>
 <ul>
 <li>a version that is not canonical PEP 440, for example <code>0.0.033</code>;</li>
 <li>a final version or release candidate that already has a tag;</li>
-<li>a version that is not higher than the latest <code>v*</code> tag. For example, <code>0.1.0rc2</code> is higher than <code>0.1.0rc1</code>, and <code>0.1.0</code> is higher than <code>0.1.0rc2</code>, but <code>0.1.0rc3</code> is not higher than the released <code>0.1.0</code>.</li>
+<li>a version that is not higher than the latest <code>v*</code> tag. For example, <code>1.1.0rc2</code> is higher than <code>1.1.0rc1</code>, and <code>1.1.0</code> is higher than <code>1.1.0rc2</code>, but <code>1.1.0rc3</code> is not higher than the released <code>1.1.0</code>.</li>
 </ul>
 <p>Otherwise, the job reports whether the merge will release the version to PyPI.</p>
 <h3 id="if-a-release-fails">If a release fails<a class="headerlink" href="#if-a-release-fails" title="Permanent link">&para;</a></h3>

@@ -12,7 +12,7 @@
         <meta name="author" content="Amirul Menjeni">
       
       
-        <link rel="canonical" href="https://buildzr.dev/1.0.0/">
+        <link rel="canonical" href="https://buildzr.dev/1.1.0/">
       
       
       
@@ -1674,19 +1674,13 @@
 <li><strong>See it in your browser.</strong> One command, <code>buildzr serve</code>, builds your model and serves a viewer that you can zoom, search and link to.</li>
 <li><strong>Stay compatible.</strong> buildzr produces standard <a href="https://structurizr.com/">Structurizr</a> workspaces, so other Structurizr tools can read your model.</li>
 </ul>
-<p><img alt="The buildzr viewer showing a system context view, with the User selected and its details in the right panel" src="images/quick-start/quick-start-view-link.png" /></p>
+<p><img alt="The buildzr viewer showing an AWS deployment view: two regions, each with a DNS router, a load balancer, an autoscaling group running the web application and an RDS MySQL database, drawn with AWS icons; one load balancer is selected and its details are in the right panel" src="images/viewer/readme-aws-deployment.png" /></p>
 <h2 id="try-it-now">Try it now<a class="headerlink" href="#try-it-now" title="Permanent link">&para;</a></h2>
 <p>With <a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a> installed (it finds or fetches a compatible Python), run:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uvx<span class="w"> </span>buildzr<span class="w"> </span>serve<span class="w"> </span>--example
 </span></code></pre></div>
 <!-- DEPENDS ON feature/serve-example (bundled prebuilt example and `serve --example`); do not merge this README before it. -->
 <p>This serves a bundled example workspace and prints its address. Open it to explore the interactive viewer. You do not need a project, a model file or Node.js. If you prefer a browser tab, press <strong>Run Code</strong> on the <a href="getting-started/quick-start/#6-compare-your-file-with-the-complete-example">complete Quick Start example</a>: it runs without installing anything.</p>
-<!-- PRE-RELEASE NOTE: delete this block when buildzr 1.0.0 final is on PyPI. -->
-<blockquote>
-<p><strong>Until 1.0.0 final is out, add a pre-release flag:</strong> <code>uvx --prerelease allow buildzr serve --example</code>, <code>uv add --prerelease allow buildzr</code>, or <code>pip install --pre buildzr</code>.</p>
-</blockquote>
-<!-- END PRE-RELEASE NOTE -->
-
 <h2 id="use-buildzr-with-your-coding-agent">Use buildzr with your coding agent<a class="headerlink" href="#use-buildzr-with-your-coding-agent" title="Permanent link">&para;</a></h2>
 <p>Let your coding agent model your architecture for you. The buildzr skill teaches it to write model files, build them, fix build errors, serve the viewer and answer questions about your model.</p>
 <p>Install the skill in your project:</p>
@@ -1705,7 +1699,7 @@
 <li>Node.js 18 or newer: when buildzr builds your model, its layout step runs on Node. Check it with <code>node --version</code>.</li>
 <li><a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a>. With pip, install with <code>pip install buildzr</code> instead of <code>uv add buildzr</code>.</li>
 </ul>
-<p>Create a project and install buildzr (use the pre-release flag from the note above until 1.0.0 final is out):</p>
+<p>Create a project and install buildzr:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>init<span class="w"> </span>hello-buildzr
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">cd</span><span class="w"> </span>hello-buildzr
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>uv<span class="w"> </span>add<span class="w"> </span>buildzr

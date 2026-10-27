@@ -12,7 +12,7 @@
         <meta name="author" content="Amirul Menjeni">
       
       
-        <link rel="canonical" href="https://buildzr.dev/1.0.0/getting-started/installation/">
+        <link rel="canonical" href="https://buildzr.dev/1.1.0/getting-started/installation/">
       
       
         <link rel="prev" href="../..">
@@ -1821,10 +1821,10 @@
 </table>
 <p><code>uvx buildzr build</code> works without buildzr in your project. But when you run the model file yourself (<code>python workspaces/model.py</code>) or edit it in your editor, your project&rsquo;s Python is used, and the import fails until you add buildzr to the project.</p>
 <h3 id="install-a-release-candidate">Install a release candidate<a class="headerlink" href="#install-a-release-candidate" title="Permanent link">&para;</a></h3>
-<p>A release candidate is a pre-release, such as <code>0.1.0rc1</code>. A plain <code>uv add buildzr</code> or <code>pip install buildzr</code> never installs one; ask for it by version:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uvx<span class="w"> </span>--from<span class="w"> </span><span class="nv">buildzr</span><span class="o">==</span><span class="m">0</span>.1.0rc1<span class="w"> </span>buildzr<span class="w"> </span>build
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="nv">buildzr</span><span class="o">==</span><span class="m">0</span>.1.0rc1
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">buildzr</span><span class="o">==</span><span class="m">0</span>.1.0rc1
+<p>A release candidate is a pre-release, such as <code>1.1.0rc1</code>. A plain <code>uv add buildzr</code> or <code>pip install buildzr</code> never installs one; ask for it by version:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uvx<span class="w"> </span>--from<span class="w"> </span><span class="nv">buildzr</span><span class="o">==</span><span class="m">1</span>.1.0rc1<span class="w"> </span>buildzr<span class="w"> </span>build
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>uv<span class="w"> </span>add<span class="w"> </span><span class="nv">buildzr</span><span class="o">==</span><span class="m">1</span>.1.0rc1
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">buildzr</span><span class="o">==</span><span class="m">1</span>.1.0rc1
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>pip<span class="w"> </span>install<span class="w"> </span>--pre<span class="w"> </span>buildzr
 </span></code></pre></div>
 <h3 id="optional-dependencies">Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h3>

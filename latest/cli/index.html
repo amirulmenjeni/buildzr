@@ -12,7 +12,7 @@
         <meta name="author" content="Amirul Menjeni">
       
       
-        <link rel="canonical" href="https://buildzr.dev/1.0.0/cli/">
+        <link rel="canonical" href="https://buildzr.dev/1.1.0/cli/">
       
       
         <link rel="prev" href="../serve-workspaces/">
@@ -1285,6 +1285,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#watch-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watch mode
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1986,6 +1997,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#watch-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Watch mode
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2249,6 +2271,7 @@
 <ul>
 <li>The other workspaces are still built either way.</li>
 <li>The <code>build.json</code> of every built workspace has <code>status</code>: <code>ok</code>, or <code>broken</code>. A broken one also has <code>stage</code>, the step that failed (<code>model</code>, <code>layout</code> or <code>check</code>), and <code>errors</code>, at most 50 errors of at most 500 characters each.</li>
+<li>A built workspace that leaves out a theme, an image or a branding font has <code>warnings</code>, in the same form as <code>errors</code>. It is not broken: see <a href="../user-guide/themes/#warnings">Warnings</a>. When it leaves out a theme icon that could not be fetched, it also has <code>"incomplete": true</code>, and the next build builds it again (see <a href="../user-guide/themes/#theme-icons-at-build-time">Theme Icons at Build Time</a>).</li>
 <li>After a failure at the <code>check</code> step, the data is kept next to <code>build.json</code>, so that you can look at what is wrong. After a failure at the <code>model</code> or <code>layout</code> step, there is no data: the folder holds <code>build.json</code> and the viewer, which shows the errors.</li>
 <li>A model file that raises an error before it creates any workspace breaks the workspaces it built last time. On its first build, its broken workspace is named after the file.</li>
 <li>A broken workspace is up to date like an ok one, so <code>serve</code> does not build the same broken model file again and again. Change the file, or use <code>--rebuild</code>.</li>
@@ -2338,7 +2361,7 @@
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="go">wrote diagrams/shop/SystemContext.svg</span>
 </span></code></pre></div>
 <h3 id="buildzr-serve"><code>buildzr serve</code><a class="headerlink" href="#buildzr-serve" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>buildzr serve [-h] [--example] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOST] [--public-url URL] [--cors-origin ORIGIN] [PATH]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>buildzr serve [-h] [--example] [--no-build] [--rebuild] [--watch] [-c FILE] [-v] [-p PORT] [--host HOST] [--public-url URL] [--cors-origin ORIGIN] [PATH]
 </span></code></pre></div>
 <p><code>serve</code> first builds what is missing or out of date, then serves every built workspace of the build output. It only reads: it answers <code>GET</code> and <code>HEAD</code> requests, and nothing can change a workspace through it.</p>
 <table>
@@ -2355,7 +2378,7 @@
 </tr>
 <tr>
 <td><code>--example</code></td>
-<td>Serve the bundled example workspace, an online shop, instead of your own. See <a href="#try-the-bundled-example">Try the bundled example</a>. Cannot be combined with <code>PATH</code>, <code>--no-build</code>, <code>--rebuild</code>, <code>-c</code> or <code>-v</code>.</td>
+<td>Serve the bundled example workspace, an online shop, instead of your own. See <a href="#try-the-bundled-example">Try the bundled example</a>. Cannot be combined with <code>PATH</code>, <code>--no-build</code>, <code>--rebuild</code>, <code>--watch</code>, <code>-c</code> or <code>-v</code>.</td>
 </tr>
 <tr>
 <td><code>--no-build</code></td>
@@ -2364,6 +2387,10 @@
 <tr>
 <td><code>--rebuild</code></td>
 <td>Build every workspace again, also the ones that are up to date.</td>
+</tr>
+<tr>
+<td><code>--watch</code></td>
+<td>Keep watching the model files while serving: after each change, build what is out of date and reload the viewers that are open. A rebuild that fails keeps the last good build on screen. See <a href="#watch-mode">Watch mode</a>. Cannot be combined with <code>--no-build</code>, nor with a <code>PATH</code> that holds built workspaces.</td>
 </tr>
 <tr>
 <td><code>-c FILE</code>, <code>--config FILE</code></td>
@@ -2404,14 +2431,14 @@
 <li><code>PATH</code>, <code>--no-build</code>, <code>--rebuild</code>, <code>-c</code> and <code>-v</code> have no meaning for an example that is not built from your files, so <code>serve</code> refuses them with exit code 2 instead of ignoring them silently, for example <code>buildzr: error: --example serves the bundled example, so it cannot be used with PATH</code>.</li>
 </ul>
 <h4 id="when-a-built-workspace-is-out-of-date">When a built workspace is out of date<a class="headerlink" href="#when-a-built-workspace-is-out-of-date" title="Permanent link">&para;</a></h4>
-<p>A built workspace is rebuilt when its folder is missing, or when its <strong>fingerprint</strong> changed. <code>build</code> records the fingerprint in the <code>build.json</code> of the workspace. It is a sha256 hash of:</p>
+<p>A built workspace is rebuilt when its folder is missing, when it lacks a theme icon that could not be fetched (<code>"incomplete": true</code> in its <code>build.json</code>), or when its <strong>fingerprint</strong> changed. <code>build</code> records the fingerprint in the <code>build.json</code> of the workspace. It is a sha256 hash of:</p>
 <ul>
 <li>the model file that creates the workspace,</li>
 <li>every file whose name starts with <code>_</code> and ends with <code>.py</code> in the workspaces folder and its subfolders (for a <code>workspaces:</code> list: in the folder of the file&rsquo;s entry, or the folder that holds the listed file, and their subfolders),</li>
-<li>the version of buildzr,</li>
+<li>the version of buildzr, and the <a href="../user-guide/themes/#the-pinned-themes-commit">structurizr/themes commit</a> that its themes are pinned to,</li>
 <li>the settings that change the output, as they are for this workspace: <code>k</code>, <code>text_color</code> and <code>viewer</code>, from an option, the file&rsquo;s list entry or <code>build:</code>. Changing the <code>k</code> of one list entry rebuilds only the workspaces of that entry.</li>
 </ul>
-<p>File dates are not used. Code that a model file imports from anywhere else is not part of the fingerprint: after you change such code, start <code>serve</code> with <code>--rebuild</code>.</p>
+<p>File dates are not used. Code that a model file imports from anywhere else is not part of the fingerprint: after you change such code, start <code>serve</code> with <code>--rebuild</code>. The <a href="../user-guide/themes/#when-the-viewer-draws-them-again">themes and branding</a> of a workspace are part of its model file.</p>
 <h4 id="what-serve-serves">What <code>serve</code> serves<a class="headerlink" href="#what-serve-serves" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
@@ -2447,6 +2474,17 @@
 <li>When <code>serve</code> starts, it prints each build failure as <code>build</code> does, and a block for every broken workspace in the build output, also those built earlier. It serves every built workspace, broken ones included: <code>/</code> marks them as broken, and <code>/_buildzr/v1/workspaces</code> gives their <code>status</code>, <code>stage</code> and <code>errors</code>. If nothing can be served, it exits with code 1.</li>
 <li>If a workspace must be built but Node is not installed, <code>serve</code> says so in one line and serves what is already built.</li>
 <li><code>serve</code> looks at the build output again when someone opens <code>/</code> or the list, and when an address names a workspace it does not know yet. A workspace that <code>buildzr build</code> adds in another terminal therefore appears without a restart. A workspace in the middle of being replaced is not served for that moment: its address answers 404.</li>
+</ul>
+<h4 id="watch-mode">Watch mode<a class="headerlink" href="#watch-mode" title="Permanent link">&para;</a></h4>
+<p><code>buildzr serve --watch</code> builds and serves as <code>serve</code> does, then keeps watching the model files until you stop it with Ctrl+C (or a termination signal, <code>SIGTERM</code>). Without <code>--watch</code>, <code>serve</code> never builds again after it starts.</p>
+<ul>
+<li><strong>What is watched.</strong> The files that the <a href="#when-a-built-workspace-is-out-of-date">fingerprint</a> reads: every model file that <code>serve</code> builds, the files of the workspaces folder and its subfolders whose name starts with <code>_</code> and ends with <code>.py</code>, and <code>buildzr.yaml</code>. A new model file in a watched folder counts too. Nothing else is watched: not data files that a model file reads, not code imported from outside the workspaces folder, not the build output, and not the files that editors write next to the one you save (<code>.swp</code>, <code>~</code> and <code>.#</code> files, <code>__pycache__</code>), so saving a file never starts a loop of builds.</li>
+<li><strong>When it builds.</strong> <code>serve</code> looks at the files every half second. After a change, it waits until the files stay the same for a moment, so a burst of writes (an editor that saves in several steps, a formatter that runs on save) gives one build of the last version. Then it builds what the change made out of date, as <code>serve</code> does when it starts, and prints a <code>changed:</code> line and the same lines as <code>build</code>. A file that you save without changing it builds nothing. A change made while a build runs starts another build when that one ends.</li>
+<li><strong>The viewers reload.</strong> Each viewer page of a workspace that was built again reloads by itself and keeps its address, so the same view stays open. A page asks <code>serve</code> once a second whether its workspace was rebuilt (a <code>HEAD</code> request for its <code>build.json</code>); only <code>serve --watch</code> adds this to the viewer pages, and the built files do not change. An <a href="../ui-settings/#embed-the-viewer-in-another-page">embedded viewer</a> whose page sends it its data does not reload.</li>
+<li><strong>A rebuild that fails keeps the last good build.</strong> If the model file raises an error, or the layout or the checks fail, the block of the broken workspace is printed with the line <code>the last good build is still served; save a fix to rebuild</code>. The workspace that was served stays as it was, and its viewers do not reload. When you save a fix, the next build replaces it. A workspace that was never built without errors is written broken, as <code>serve</code> does without <code>--watch</code>, and its viewers reload to show the new errors. If Node or the disk fails, nothing is written, as for <code>build</code>.</li>
+<li><strong>Removing.</strong> Unlike <code>serve</code> without <code>--watch</code>, a rebuild removes the built workspaces that no model file creates any more, as <a href="#removing-built-workspaces-you-no-longer-build"><code>build</code> does</a>: after you delete a model file or rename a workspace in it.</li>
+<li><strong><code>buildzr.yaml</code>.</strong> A change to it is not applied: <code>serve</code> prints <code>buildzr.yaml changed; restart buildzr serve --watch to use its new settings</code>. Stop <code>serve</code> and start it again.</li>
+<li><strong>Stopping.</strong> Ctrl+C or <code>SIGTERM</code> stops the watch, the server and a build that is running, with the Python process that runs a model file and the Node process of the layout. A built workspace is written aside and then moved into place, so stopping never leaves a half-written one.</li>
 </ul>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <table>

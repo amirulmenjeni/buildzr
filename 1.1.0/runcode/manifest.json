@@ -1,0 +1,21 @@
+{
+ "buildzr": "1.1.0",
+ "files": {
+  "browser_elk.js": "594cd78f4f9f742fb1df9b2c0a8eaf95f3229cc7a9343ad5a0ddf57bfc7debb0",
+  "elk.bundled.js": "1222e44f953ce7746af23801e723708f8e6f436b8b377a6a5fc7552f34a307b3",
+  "viewer/assets/THIRD_PARTY_NOTICES-CJnJyNML.txt": "4618ebdcbd905ed0eed5127a4f8942523e40854f956a55623c843ac58e5828b4",
+  "viewer/assets/fonts/inter-latin-400-normal-C38fXH4l.woff2": "8909904ab6c872eb994093482a88a28eca2cd95912d7b6fecd72103b0dc07edc",
+  "viewer/assets/fonts/inter-latin-700-normal-Yt3aPRUw.woff2": "6f56409fd3d64bb85f7d070bce20749db2d66b6d63cec586cc22d1c761be2491",
+  "viewer/assets/index-BkAcwom8.js": "1d40d98ad5c9b213d1bb8a110da7326241fc224d80b96053f4f22fbebd257d21",
+  "viewer/assets/index-CX-VoIjB.css": "f8c024991c9fdaf20f55f4f9b36ecc52720b7536b62d4415c92932b7f752aa47",
+  "viewer/index.html": "efdf66905f70def6ad8b86add9578868ea3f2c5e1e6dfb4308bb165515f93581",
+  "wheels/buildzr-1.1.0-py3-none-any.whl": "c03d55918232e64bd7730738a4bc1fb4abf0c8a196f3616f42a1883ec8dc671d",
+  "wheels/pyhumps-3.8.0-py3-none-any.whl": "060e1954d9069f428232a1adda165db0b9d8dfdce1d265d36df7fbff540acfd6"
+ },
+ "pyodide": "0.28.3",
+ "schema": "buildzr.runcode/1",
+ "wheels": [
+  "wheels/buildzr-1.1.0-py3-none-any.whl",
+  "wheels/pyhumps-3.8.0-py3-none-any.whl"
+ ]
+}

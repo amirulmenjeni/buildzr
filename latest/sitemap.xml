@@ -1,111 +1,111 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://buildzr.dev/1.0.0/</loc>
+         <loc>https://buildzr.dev/1.1.0/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/cli/</loc>
+         <loc>https://buildzr.dev/1.1.0/cli/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/config/</loc>
+         <loc>https://buildzr.dev/1.1.0/config/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/contributing/</loc>
+         <loc>https://buildzr.dev/1.1.0/contributing/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/demo/</loc>
+         <loc>https://buildzr.dev/1.1.0/demo/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/hosting/</loc>
+         <loc>https://buildzr.dev/1.1.0/hosting/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/model-api/</loc>
+         <loc>https://buildzr.dev/1.1.0/model-api/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/publishing-recipes/</loc>
+         <loc>https://buildzr.dev/1.1.0/publishing-recipes/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/serve-workspaces/</loc>
+         <loc>https://buildzr.dev/1.1.0/serve-workspaces/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/structurizr-compatibility/</loc>
+         <loc>https://buildzr.dev/1.1.0/structurizr-compatibility/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/ui-settings/</loc>
+         <loc>https://buildzr.dev/1.1.0/ui-settings/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/viewer-hash-routes/</loc>
+         <loc>https://buildzr.dev/1.1.0/viewer-hash-routes/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/api/dsl/</loc>
+         <loc>https://buildzr.dev/1.1.0/api/dsl/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/api/models/</loc>
+         <loc>https://buildzr.dev/1.1.0/api/models/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/getting-started/ai-agents/</loc>
+         <loc>https://buildzr.dev/1.1.0/getting-started/ai-agents/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/getting-started/installation/</loc>
+         <loc>https://buildzr.dev/1.1.0/getting-started/installation/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/getting-started/quick-start/</loc>
+         <loc>https://buildzr.dev/1.1.0/getting-started/quick-start/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/user-guide/core-concepts/</loc>
+         <loc>https://buildzr.dev/1.1.0/user-guide/core-concepts/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/user-guide/deployment/</loc>
+         <loc>https://buildzr.dev/1.1.0/user-guide/deployment/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/user-guide/export/</loc>
+         <loc>https://buildzr.dev/1.1.0/user-guide/export/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/user-guide/models/</loc>
+         <loc>https://buildzr.dev/1.1.0/user-guide/models/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/user-guide/relationships/</loc>
+         <loc>https://buildzr.dev/1.1.0/user-guide/relationships/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/user-guide/styles/</loc>
+         <loc>https://buildzr.dev/1.1.0/user-guide/styles/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/user-guide/themes/</loc>
+         <loc>https://buildzr.dev/1.1.0/user-guide/themes/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/user-guide/views/</loc>
+         <loc>https://buildzr.dev/1.1.0/user-guide/views/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/user-guide/workspace/</loc>
+         <loc>https://buildzr.dev/1.1.0/user-guide/workspace/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
     <url>
-         <loc>https://buildzr.dev/1.0.0/roadmap/</loc>
+         <loc>https://buildzr.dev/1.1.0/roadmap/</loc>
          <lastmod>2026-10-27</lastmod>
     </url>
 </urlset>

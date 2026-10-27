@@ -12,7 +12,7 @@
         <meta name="author" content="Amirul Menjeni">
       
       
-        <link rel="canonical" href="https://buildzr.dev/1.0.0/structurizr-compatibility/">
+        <link rel="canonical" href="https://buildzr.dev/1.1.0/structurizr-compatibility/">
       
       
         <link rel="prev" href="../roadmap/">
@@ -2332,12 +2332,12 @@
 <tr>
 <td><a href="https://docs.structurizr.com/dsl/language#theme">Theme</a></td>
 <td>🟡</td>
-<td>Model stores theme URLs but no runtime application</td>
+<td><code>Workspace.apply_theme</code>; the viewer applies the <a href="../user-guide/themes/#using-a-theme">themes buildzr ships</a>, with their icons <a href="../user-guide/themes/#theme-icons-at-build-time">fetched at build time</a> from one pinned commit, and does not download others</td>
 </tr>
 <tr>
 <td><a href="https://docs.structurizr.com/dsl/language#branding">Branding</a></td>
-<td>🟡</td>
-<td>Model supports logo/font but no DSL wrapper</td>
+<td>✅</td>
+<td><code>Workspace.apply_branding</code>; the viewer shows the logo and sets the diagrams in the font, but does not load a font URL (<a href="../user-guide/themes/#branding">Branding</a>)</td>
 </tr>
 <tr>
 <td><a href="https://docs.structurizr.com/dsl/language#terminology">Terminology</a></td>

@@ -12,7 +12,7 @@
         <meta name="author" content="Amirul Menjeni">
       
       
-        <link rel="canonical" href="https://buildzr.dev/1.0.0/serve-workspaces/">
+        <link rel="canonical" href="https://buildzr.dev/1.1.0/serve-workspaces/">
       
       
         <link rel="prev" href="../user-guide/export/">
@@ -1109,6 +1109,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="4. Change one model and serve again">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rebuild-as-you-edit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rebuild as you edit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1726,6 +1743,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="4. Change one model and serve again">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rebuild-as-you-edit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rebuild as you edit
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1923,52 +1957,63 @@
 <p>The fingerprint covers the model file, the files of the workspaces folder and its subfolders whose name starts with <code>_</code> and ends with <code>.py</code>, the version of buildzr and the build options. Code that a model file imports from anywhere else is not tracked: after you change such code, use <code>--rebuild</code> (step 5).</p>
 <p>If you delete a model file, or rename a workspace in one, <code>serve</code> keeps serving the old built workspace, because it never removes anything from the build output. Run <code>buildzr build</code>: a build of the whole workspaces folder removes the built workspaces that no model file creates any more, and prints a <code>removed</code> line for each.</p>
 <p>You do not have to stop <code>buildzr serve</code> to see a change: run <code>buildzr build</code> in a second terminal, then reload the page. <code>serve</code> notices new and replaced workspaces on the next request.</p>
+<h3 id="rebuild-as-you-edit">Rebuild as you edit<a class="headerlink" href="#rebuild-as-you-edit" title="Permanent link">&para;</a></h3>
+<p>Start <code>serve</code> with <code>--watch</code> instead, and it builds and reloads for you:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>buildzr<span class="w"> </span>serve<span class="w"> </span>--watch
+</span></code></pre></div>
+<p>Leave the viewer open and save a model file. <code>serve</code> builds what the change made out of date, and the open viewer of that workspace reloads by itself, at the same view:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Watching architecture for changes
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>changed: architecture/billing.py
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>reloading the open viewers of billing
+</span></code></pre></div>
+<p>If you save a mistake, <code>serve</code> prints the error, and the viewer keeps showing the last good build until you save a fix. Stop <code>serve</code> with Ctrl+C. <a href="../cli/#watch-mode">Watch mode</a> in the command reference lists which files are watched and what is not.</p>
 <h2 id="5-build-nothing-or-build-everything">5. Build nothing, or build everything<a class="headerlink" href="#5-build-nothing-or-build-everything" title="Permanent link">&para;</a></h2>
 <p>Two options change what <code>serve</code> builds:</p>
 <ul>
 <li><code>--no-build</code> serves the build output as it is. Use it on a machine without Node, or when you only want to look.</li>
 <li><code>--rebuild</code> builds every workspace again, whether it is up to date or not.</li>
 </ul>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>$ buildzr serve --no-build
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  http://127.0.0.1:8000/billing/
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  http://127.0.0.1:8000/core/
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>  http://127.0.0.1:8000/infra/
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>$ buildzr serve --no-build
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>  http://127.0.0.1:8000/billing/
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>  http://127.0.0.1:8000/core/
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>  http://127.0.0.1:8000/infra/
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>$ buildzr serve --rebuild
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>  http://127.0.0.1:8000/billing/
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>  http://127.0.0.1:8000/core/
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>  http://127.0.0.1:8000/infra/
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>$ buildzr serve --rebuild
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>  http://127.0.0.1:8000/billing/
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>  http://127.0.0.1:8000/core/
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>  http://127.0.0.1:8000/infra/
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>Workspace list at http://127.0.0.1:8000/_buildzr/v1/workspaces
 </span></code></pre></div>
 <p>You can also give <code>serve</code> a folder of built workspaces, for example one that a CI job built and you downloaded: <code>buildzr serve path/to/build</code>. <code>serve</code> then serves that folder as it is, and needs neither the model files nor Node.</p>
 <h2 id="6-list-the-workspaces-from-a-program">6. List the workspaces from a program<a class="headerlink" href="#6-list-the-workspaces-from-a-program" title="Permanent link">&para;</a></h2>
 <p>A script, a dashboard or an AI assistant that knows only the address of the server can ask which workspaces it serves:</p>
 <!-- doctest: api page shape -->
-<div class="language-http highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="err">GET /_buildzr/v1/workspaces</span>
+<div class="language-http highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="err">GET /_buildzr/v1/workspaces</span>
 </span></code></pre></div>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">"apiVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1"</span><span class="p">,</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">"workspaces"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">    </span><span class="p">{</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"billing"</span><span class="p">,</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">      </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/billing/"</span><span class="p">,</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">      </span><span class="nt">"workspaceName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Billing"</span><span class="p">,</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">      </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">,</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="w">      </span><span class="nt">"viewerUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/billing/"</span><span class="p">,</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">      </span><span class="nt">"apiUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/billing/api/v1/"</span><span class="p">,</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="w">      </span><span class="nt">"llmsUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/billing/llms.txt"</span><span class="p">,</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="w">      </span><span class="nt">"modelHash"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sha256:ddcb904a937d4b261b51564d348d4e92376d670e1ae3ed0692198ae64ae43cab"</span><span class="p">,</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="w">      </span><span class="nt">"builtAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-18T14:15:02Z"</span><span class="p">,</span>
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="w">      </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"billing.py"</span>
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="w">    </span><span class="p">}</span>
-</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="w">  </span><span class="p">]</span>
-</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">"apiVersion"</span><span class="p">:</span><span class="w"> </span><span class="s2">"1"</span><span class="p">,</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">"workspaces"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">    </span><span class="p">{</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="w">      </span><span class="nt">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"billing"</span><span class="p">,</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="w">      </span><span class="nt">"path"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/billing/"</span><span class="p">,</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="w">      </span><span class="nt">"workspaceName"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Billing"</span><span class="p">,</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a><span class="w">      </span><span class="nt">"status"</span><span class="p">:</span><span class="w"> </span><span class="s2">"ok"</span><span class="p">,</span>
+</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a><span class="w">      </span><span class="nt">"viewerUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/billing/"</span><span class="p">,</span>
+</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="w">      </span><span class="nt">"apiUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/billing/api/v1/"</span><span class="p">,</span>
+</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a><span class="w">      </span><span class="nt">"llmsUrl"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/billing/llms.txt"</span><span class="p">,</span>
+</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a><span class="w">      </span><span class="nt">"modelHash"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sha256:ddcb904a937d4b261b51564d348d4e92376d670e1ae3ed0692198ae64ae43cab"</span><span class="p">,</span>
+</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="w">      </span><span class="nt">"builtAt"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-10-18T14:15:02Z"</span><span class="p">,</span>
+</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a><span class="w">      </span><span class="nt">"source"</span><span class="p">:</span><span class="w"> </span><span class="s2">"billing.py"</span>
+</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a><span class="w">    </span><span class="p">}</span>
+</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>The answer above is shortened to its first workspace. Each entry has:</p>
 <ul>
@@ -1987,81 +2032,81 @@
 <li><code>--host 0.0.0.0</code> lets other machines connect. <code>serve</code> has no login: anyone who can reach the port can read every workspace. Do this only on a network you trust, or put a web server in front of it.</li>
 <li>Behind a web server or proxy that adds HTTPS or a login, tell <code>serve</code> the address readers use with <code>--public-url</code>. The links that the Model API returns (<code>viewerUrl</code>, <code>apiUrl</code>) are then complete addresses:</li>
 </ul>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>$ buildzr serve --no-build --public-url https://architecture.example.com
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>  https://architecture.example.com/billing/
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>  https://architecture.example.com/core/
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>  https://architecture.example.com/infra/
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
-</span></code></pre></div>
-<ul>
-<li>If a web page from another address must read the Model API in a browser, allow that address with <code>--cors-origin</code>, for example <code>--cors-origin https://dashboard.example.com</code>. Repeat the option for each address. By default, browsers do not let other web pages read the API.</li>
-</ul>
-<p><code>serve</code> itself still listens on <code>http://127.0.0.1:8000/</code>; point the proxy there. The <a href="../cli/#buildzr-serve">Command reference</a> lists every option.</p>
-<p>To avoid typing the options every time, put them in <code>buildzr.yaml</code>, under <code>serve:</code>. Add the last two lines to <code>buildzr.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">workspaces</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">architecture</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="hll"><span class="nt">serve</span><span class="p">:</span>
-</span></span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="hll"><span class="w">  </span><span class="nt">public_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://architecture.example.com</span>
-</span></span></code></pre></div>
-<p><code>buildzr serve</code> now uses that address without the option:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>$ buildzr serve --no-build
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>$ buildzr serve --no-build --public-url https://architecture.example.com
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
 </span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>  https://architecture.example.com/billing/
 </span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>  https://architecture.example.com/core/
 </span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>  https://architecture.example.com/infra/
 </span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
 </span></code></pre></div>
+<ul>
+<li>If a web page from another address must read the Model API in a browser, allow that address with <code>--cors-origin</code>, for example <code>--cors-origin https://dashboard.example.com</code>. Repeat the option for each address. By default, browsers do not let other web pages read the API.</li>
+</ul>
+<p><code>serve</code> itself still listens on <code>http://127.0.0.1:8000/</code>; point the proxy there. The <a href="../cli/#buildzr-serve">Command reference</a> lists every option.</p>
+<p>To avoid typing the options every time, put them in <code>buildzr.yaml</code>, under <code>serve:</code>. Add the last two lines to <code>buildzr.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nt">workspaces</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">architecture</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="hll"><span class="nt">serve</span><span class="p">:</span>
+</span></span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="hll"><span class="w">  </span><span class="nt">public_url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://architecture.example.com</span>
+</span></span></code></pre></div>
+<p><code>buildzr serve</code> now uses that address without the option:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>$ buildzr serve --no-build
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>  https://architecture.example.com/billing/
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>  https://architecture.example.com/core/
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>  https://architecture.example.com/infra/
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
+</span></code></pre></div>
 <p>The same section takes <code>port</code>, <code>host</code> and <code>cors_origins</code>. An option on the command line still wins over the file, and <code>--cors-origin</code> replaces the list of the file. See <a href="../config/#keys"><code>buildzr.yaml</code></a>.</p>
 <h2 id="8-when-a-workspace-is-broken">8. When a workspace is broken<a class="headerlink" href="#8-when-a-workspace-is-broken" title="Permanent link">&para;</a></h2>
-<p>A workspace is <strong>broken</strong> when building it failed because of the workspace itself: its model file raised an error, the layout failed on it, or its data failed the checks that <code>build</code> runs on every workspace. A broken workspace replaces its previous built workspace, so nobody looks at an old diagram that no longer matches the model, and everything that shows the workspace says that it is broken.</p>
+<p>A workspace is <strong>broken</strong> when building it failed because of the workspace itself: its model file raised an error, the layout failed on it, or its data failed the checks that <code>build</code> runs on every workspace. A broken workspace replaces its previous built workspace, so nobody looks at an old diagram that no longer matches the model, and everything that shows the workspace says that it is broken. The exception is <code>serve --watch</code>, made for editing: there, a broken build does not replace a good one, and only the terminal shows the error until you save a fix (see <a href="../cli/#watch-mode">Watch mode</a>).</p>
 <p>Make a typo in <code>architecture/platform.py</code>, so that its last line names <code>databse</code> instead of <code>database</code>:</p>
 <!-- doctest: file architecture/platform.py -->
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">buildzr.dsl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Workspace</span><span class="p">,</span> <span class="n">Person</span><span class="p">,</span> <span class="n">SoftwareSystem</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="k">with</span> <span class="n">Workspace</span><span class="p">(</span><span class="s2">"Core"</span><span class="p">)</span> <span class="k">as</span> <span class="n">core</span><span class="p">:</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="n">customer</span> <span class="o">=</span> <span class="n">Person</span><span class="p">(</span><span class="s2">"Customer"</span><span class="p">)</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">shop</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Web Shop"</span><span class="p">)</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">payments</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Payment Provider"</span><span class="p">)</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="n">customer</span> <span class="o">&gt;&gt;</span> <span class="s2">"Buys from"</span> <span class="o">&gt;&gt;</span> <span class="n">shop</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="n">shop</span> <span class="o">&gt;&gt;</span> <span class="s2">"Takes payments through"</span> <span class="o">&gt;&gt;</span> <span class="n">payments</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="k">with</span> <span class="n">Workspace</span><span class="p">(</span><span class="s2">"Infra"</span><span class="p">)</span> <span class="k">as</span> <span class="n">infra</span><span class="p">:</span>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>    <span class="n">cluster</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Kubernetes Cluster"</span><span class="p">)</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>    <span class="n">database</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Database Service"</span><span class="p">)</span>
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="hll">    <span class="n">cluster</span> <span class="o">&gt;&gt;</span> <span class="s2">"Stores data in"</span> <span class="o">&gt;&gt;</span> <span class="n">databse</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">buildzr.dsl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Workspace</span><span class="p">,</span> <span class="n">Person</span><span class="p">,</span> <span class="n">SoftwareSystem</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a><span class="k">with</span> <span class="n">Workspace</span><span class="p">(</span><span class="s2">"Core"</span><span class="p">)</span> <span class="k">as</span> <span class="n">core</span><span class="p">:</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="n">customer</span> <span class="o">=</span> <span class="n">Person</span><span class="p">(</span><span class="s2">"Customer"</span><span class="p">)</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="n">shop</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Web Shop"</span><span class="p">)</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="n">payments</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Payment Provider"</span><span class="p">)</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="n">customer</span> <span class="o">&gt;&gt;</span> <span class="s2">"Buys from"</span> <span class="o">&gt;&gt;</span> <span class="n">shop</span>
+</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    <span class="n">shop</span> <span class="o">&gt;&gt;</span> <span class="s2">"Takes payments through"</span> <span class="o">&gt;&gt;</span> <span class="n">payments</span>
+</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
+</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="k">with</span> <span class="n">Workspace</span><span class="p">(</span><span class="s2">"Infra"</span><span class="p">)</span> <span class="k">as</span> <span class="n">infra</span><span class="p">:</span>
+</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>    <span class="n">cluster</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Kubernetes Cluster"</span><span class="p">)</span>
+</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>    <span class="n">database</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Database Service"</span><span class="p">)</span>
+</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a><span class="hll">    <span class="n">cluster</span> <span class="o">&gt;&gt;</span> <span class="s2">"Stores data in"</span> <span class="o">&gt;&gt;</span> <span class="n">databse</span>
 </span></span></code></pre></div>
 <p>Build again. Python prints its error first, then <code>build</code> prints a block for each broken workspace and exits with code 1. Billing is still built:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>$ buildzr build
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>...
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>NameError: name 'databse' is not defined
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    NameError: name 'databse' is not defined
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    platform.py, line 13: cluster &gt;&gt; "Stores data in" &gt;&gt; databse
-</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>  this workspace is broken; the viewer says so
-</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
-</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>    NameError: name 'databse' is not defined
-</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    platform.py, line 13: cluster &gt;&gt; "Stores data in" &gt;&gt; databse
-</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>  this workspace is broken; the viewer says so
-</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>[exit code 1]
+<div class="language-text highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>$ buildzr build
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>...
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>NameError: name 'databse' is not defined
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    NameError: name 'databse' is not defined
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    platform.py, line 13: cluster &gt;&gt; "Stores data in" &gt;&gt; databse
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>  this workspace is broken; the viewer says so
+</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
+</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>    NameError: name 'databse' is not defined
+</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>    platform.py, line 13: cluster &gt;&gt; "Stores data in" &gt;&gt; databse
+</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>  this workspace is broken; the viewer says so
+</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>[exit code 1]
 </span></code></pre></div>
 <p>Core is broken too, although the typo is in the part that creates Infra: when a model file fails, none of its workspaces can be trusted. In a terminal, each block is red. It names the workspace, its model file, the step that failed (<code>model</code>, <code>layout</code> or <code>check</code>) and the first 10 errors.</p>
 <p><code>buildzr serve</code> shows the broken workspaces too, and prints the same blocks when it starts:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>$ buildzr serve
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>up to date: billing, core, infra
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    NameError: name 'databse' is not defined
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    platform.py, line 13: cluster &gt;&gt; "Stores data in" &gt;&gt; databse
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>  this workspace is broken; the viewer says so
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>    NameError: name 'databse' is not defined
-</span><span id="__span-16-9"><a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>    platform.py, line 13: cluster &gt;&gt; "Stores data in" &gt;&gt; databse
-</span><span id="__span-16-10"><a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a>  this workspace is broken; the viewer says so
-</span><span id="__span-16-11"><a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
-</span><span id="__span-16-12"><a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>  https://architecture.example.com/billing/
-</span><span id="__span-16-13"><a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>  https://architecture.example.com/core/
-</span><span id="__span-16-14"><a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a>  https://architecture.example.com/infra/
-</span><span id="__span-16-15"><a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
+<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>$ buildzr serve
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>up to date: billing, core, infra
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>buildzr: BROKEN: workspace core (architecture/platform.py) failed at the model step
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>    NameError: name 'databse' is not defined
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    platform.py, line 13: cluster &gt;&gt; "Stores data in" &gt;&gt; databse
+</span><span id="__span-18-6"><a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>  this workspace is broken; the viewer says so
+</span><span id="__span-18-7"><a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>buildzr: BROKEN: workspace infra (architecture/platform.py) failed at the model step
+</span><span id="__span-18-8"><a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>    NameError: name 'databse' is not defined
+</span><span id="__span-18-9"><a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>    platform.py, line 13: cluster &gt;&gt; "Stores data in" &gt;&gt; databse
+</span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>  this workspace is broken; the viewer says so
+</span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>Serving .buildzr/build at http://127.0.0.1:8000/ (Ctrl+C to stop)
+</span><span id="__span-18-12"><a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>  https://architecture.example.com/billing/
+</span><span id="__span-18-13"><a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>  https://architecture.example.com/core/
+</span><span id="__span-18-14"><a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>  https://architecture.example.com/infra/
+</span><span id="__span-18-15"><a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>Workspace list at https://architecture.example.com/_buildzr/v1/workspaces
 </span></code></pre></div>
 <p><code>serve</code> did not build Core and Infra again: a broken workspace has the fingerprint of the file as it is now, so it is up to date until you change the file.</p>
 <ul>
@@ -2080,24 +2125,24 @@
 </ul>
 <p>Fix the typo and build again. Core and Infra are ordinary workspaces again, and their viewers show the diagrams:</p>
 <!-- doctest: file architecture/platform.py -->
-<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">buildzr.dsl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Workspace</span><span class="p">,</span> <span class="n">Person</span><span class="p">,</span> <span class="n">SoftwareSystem</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="k">with</span> <span class="n">Workspace</span><span class="p">(</span><span class="s2">"Core"</span><span class="p">)</span> <span class="k">as</span> <span class="n">core</span><span class="p">:</span>
-</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>    <span class="n">customer</span> <span class="o">=</span> <span class="n">Person</span><span class="p">(</span><span class="s2">"Customer"</span><span class="p">)</span>
-</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>    <span class="n">shop</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Web Shop"</span><span class="p">)</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>    <span class="n">payments</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Payment Provider"</span><span class="p">)</span>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>    <span class="n">customer</span> <span class="o">&gt;&gt;</span> <span class="s2">"Buys from"</span> <span class="o">&gt;&gt;</span> <span class="n">shop</span>
-</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>    <span class="n">shop</span> <span class="o">&gt;&gt;</span> <span class="s2">"Takes payments through"</span> <span class="o">&gt;&gt;</span> <span class="n">payments</span>
-</span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>
-</span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="k">with</span> <span class="n">Workspace</span><span class="p">(</span><span class="s2">"Infra"</span><span class="p">)</span> <span class="k">as</span> <span class="n">infra</span><span class="p">:</span>
-</span><span id="__span-17-11"><a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>    <span class="n">cluster</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Kubernetes Cluster"</span><span class="p">)</span>
-</span><span id="__span-17-12"><a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>    <span class="n">database</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Database Service"</span><span class="p">)</span>
-</span><span id="__span-17-13"><a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>    <span class="n">cluster</span> <span class="o">&gt;&gt;</span> <span class="s2">"Stores data in"</span> <span class="o">&gt;&gt;</span> <span class="n">database</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">buildzr.dsl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Workspace</span><span class="p">,</span> <span class="n">Person</span><span class="p">,</span> <span class="n">SoftwareSystem</span>
+</span><span id="__span-19-2"><a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>
+</span><span id="__span-19-3"><a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="k">with</span> <span class="n">Workspace</span><span class="p">(</span><span class="s2">"Core"</span><span class="p">)</span> <span class="k">as</span> <span class="n">core</span><span class="p">:</span>
+</span><span id="__span-19-4"><a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a>    <span class="n">customer</span> <span class="o">=</span> <span class="n">Person</span><span class="p">(</span><span class="s2">"Customer"</span><span class="p">)</span>
+</span><span id="__span-19-5"><a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>    <span class="n">shop</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Web Shop"</span><span class="p">)</span>
+</span><span id="__span-19-6"><a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a>    <span class="n">payments</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Payment Provider"</span><span class="p">)</span>
+</span><span id="__span-19-7"><a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>    <span class="n">customer</span> <span class="o">&gt;&gt;</span> <span class="s2">"Buys from"</span> <span class="o">&gt;&gt;</span> <span class="n">shop</span>
+</span><span id="__span-19-8"><a id="__codelineno-19-8" name="__codelineno-19-8" href="#__codelineno-19-8"></a>    <span class="n">shop</span> <span class="o">&gt;&gt;</span> <span class="s2">"Takes payments through"</span> <span class="o">&gt;&gt;</span> <span class="n">payments</span>
+</span><span id="__span-19-9"><a id="__codelineno-19-9" name="__codelineno-19-9" href="#__codelineno-19-9"></a>
+</span><span id="__span-19-10"><a id="__codelineno-19-10" name="__codelineno-19-10" href="#__codelineno-19-10"></a><span class="k">with</span> <span class="n">Workspace</span><span class="p">(</span><span class="s2">"Infra"</span><span class="p">)</span> <span class="k">as</span> <span class="n">infra</span><span class="p">:</span>
+</span><span id="__span-19-11"><a id="__codelineno-19-11" name="__codelineno-19-11" href="#__codelineno-19-11"></a>    <span class="n">cluster</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Kubernetes Cluster"</span><span class="p">)</span>
+</span><span id="__span-19-12"><a id="__codelineno-19-12" name="__codelineno-19-12" href="#__codelineno-19-12"></a>    <span class="n">database</span> <span class="o">=</span> <span class="n">SoftwareSystem</span><span class="p">(</span><span class="s2">"Database Service"</span><span class="p">)</span>
+</span><span id="__span-19-13"><a id="__codelineno-19-13" name="__codelineno-19-13" href="#__codelineno-19-13"></a>    <span class="n">cluster</span> <span class="o">&gt;&gt;</span> <span class="s2">"Stores data in"</span> <span class="o">&gt;&gt;</span> <span class="n">database</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>$ buildzr build
-</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
-</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
-</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
+<div class="language-text highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>$ buildzr build
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>built .buildzr/build/billing (3 elements, 2 relationships, 0 views; modelHash sha256:ddcb904a937d…)
+</span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>built .buildzr/build/core (3 elements, 2 relationships, 0 views; modelHash sha256:baa7b6d1e769…)
+</span><span id="__span-20-4"><a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a>built .buildzr/build/infra (2 elements, 1 relationship, 0 views; modelHash sha256:16a0df17df2a…)
 </span></code></pre></div>
 <p>If Node.js is missing, the disk is full or the build is killed, the workspace is not at fault: <code>build</code> writes nothing, keeps the previous built workspace and prints an error line instead. The <a href="../cli/#when-a-workspace-is-broken">Command reference</a> lists which failures are which.</p>
 <h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
