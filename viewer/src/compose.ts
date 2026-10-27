@@ -3,9 +3,10 @@
 import type { Edge, Node } from '@xyflow/react';
 import type { MatchInfo, ModelIndex } from './model';
 import { chainOf, DEPLOYMENT_TYPES } from './model';
+import { stepLook, stepsOf, type StepLook, type StepState } from './steps';
 import type { Scene, SceneEdge, SceneNode } from './types';
 
-export const OPACITY = { focus: 1, connected: 0.55, context: 0.25, filtered: 0.15 };
+export const OPACITY = { focus: 1, connected: 0.55, context: 0.25, filtered: 0.15, later: 0.25 };
 
 export interface NodeData extends Record<string, unknown> {
   n: SceneNode;
@@ -32,6 +33,7 @@ export interface EdgeData extends Record<string, unknown> {
   noEnd: boolean;
   selected: boolean;
   labelPos: [number, number]; // absolute position of the label box
+  step: StepState | null; // a dynamic view being stepped through: where this edge stands; null otherwise
 }
 export type FlowNode = Node<NodeData>;
 export type FlowEdge = Edge<EdgeData>;
@@ -64,6 +66,8 @@ export interface ComposeInput {
   view: string | null;
   selection: string | null;
   match: MatchInfo | null;
+  /** The step of a dynamic view on screen (1-based); 0 or absent: the whole diagram. */
+  step?: number;
 }
 
 const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
@@ -79,10 +83,13 @@ export function compose(inp: ComposeInput): Composed {
   const levels: Level[] = [];
   let complete = true;
   const chain = view ? [] : chainOf(m, inp.path);
+  let look: StepLook | null = null; // stepping through a dynamic view: earlier steps as drawn, the current one marked, later ones dimmed
   if (view) {
-    const sc = scenes[m.viewByKey.get(view)?.scene ?? ''];
+    const v = m.viewByKey.get(view);
+    const sc = scenes[v?.scene ?? ''];
     if (!sc) return empty;
     levels.push({ scene: sc, K: 1, origin: [sc.bounds[0], sc.bounds[1]], frameId: null });
+    if (inp.step) look = stepLook(sc, stepsOf(sc, v?.kind), inp.step);
   } else {
     const root = scenes['landscape'];
     if (!root) return empty;
@@ -193,6 +200,7 @@ export function compose(inp: ComposeInput): Composed {
       const nm = match && n.frame && !expanded ? (match.under.get(n.id) ?? 0) : 0;
       if (n.frame) minScale = Math.min(minScale, l.K * n.frame.scale);
       const sty = n.style.opacity ?? 1;
+      if (look?.later.has(n.id)) state = Math.min(state, OPACITY.later);
       nodes.push({
         id: rid(n.id), type: n.role === 'boundary' ? 'c4boundary' : 'c4element',
         position: rel, parentId: parent ?? undefined,
@@ -233,13 +241,14 @@ export function compose(inp: ComposeInput): Composed {
       const isLit = !lit || ((typeof e.source !== 'string' || lit.has(e.source)) && (typeof e.target !== 'string' || lit.has(e.target)));
       const startExpanded = typeof e.source === 'string' && expandedIds.has(e.source);
       const endExpanded = typeof e.target === 'string' && expandedIds.has(e.target);
+      const step = look?.edges.get(e.id) ?? null;
       edges.push({
         id: `${sc.key}::${e.id}`, source: s, target: t, type: 'elk',
         selectable: false, focusable: false, zIndex: 1000,
         data: {
-          e, K: l.K, pts: e.points.map(ptAbs), opacity: Math.min(state * (e.style.opacity ?? 1), isLit ? 1 : OPACITY.filtered),
+          e, K: l.K, pts: e.points.map(ptAbs), opacity: Math.min(state * (e.style.opacity ?? 1), isLit ? 1 : OPACITY.filtered, step === 'later' ? OPACITY.later : 1),
           owner, noStart: startExpanded || typeof e.source !== 'string', noEnd: endExpanded || typeof e.target !== 'string',
-          selected: selection === e.id, labelPos: e.label ? ptAbs([e.label.x, e.label.y]) : [0, 0],
+          selected: selection === e.id, labelPos: e.label ? ptAbs([e.label.x, e.label.y]) : [0, 0], step,
         },
       });
     }

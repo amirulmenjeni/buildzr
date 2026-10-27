@@ -255,6 +255,8 @@ DynamicView(
 )
 ```
 
+In the [viewer](../ui-settings.md#step-through-a-dynamic-view) of a built workspace, a dynamic view has a step bar: Play, Pause and the arrow keys walk through the interactions one at a time.
+
 ### How It Works
 
 Dynamic views reference *existing* relationships in your model, but display them in a specific order with optional description overrides. You define the static relationships first, then create a dynamic view that shows them in sequence:
