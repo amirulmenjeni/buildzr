@@ -1,0 +1,160 @@
+/* The browser demo (docs/javascripts/demo.js, docs/demo.md). Colours come from mkdocs-material's variables, so light and
+   dark follow the docs palette. Two panes side by side from 60em; stacked below (phones, narrow windows). */
+.md-main__inner.md-grid:has(.demo) { max-width: 100rem; }
+.demo {
+  --demo-pane-h: min(36rem, 75vh);
+  margin: 1em 0;
+}
+.demo-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em 0.6em;
+  padding: 0.5em;
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem 0.2rem 0 0;
+}
+.demo-pick-wrap { display: inline-flex; align-items: center; gap: 0.5em; margin-right: auto; }
+.demo-pick-wrap[hidden] { display: none; }
+.demo-pick-label, .demo-label { font-size: 0.75rem; font-weight: 700; }
+.demo select,
+.demo button {
+  font: inherit;
+  font-size: 0.8rem;
+  min-height: 2.5rem; /* a touch target */
+  padding: 0.35em 0.9em;
+  border-radius: 0.2rem;
+  color: var(--md-default-fg-color);
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--md-default-fg-color--lighter);
+}
+.demo button { font-weight: 600; cursor: pointer; }
+.demo button:hover:not(:disabled) { border-color: var(--md-accent-fg-color); }
+.demo button:disabled { opacity: 0.55; cursor: default; }
+.demo .demo-run {
+  color: var(--md-primary-bg-color);
+  background: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+}
+.demo .demo-run:hover:not(:disabled) { background: var(--md-primary-fg-color--dark); }
+.demo .demo-run[aria-disabled="true"] { opacity: 0.7; cursor: progress; }
+.demo button:focus-visible,
+.demo select:focus-visible,
+.demo textarea:focus-visible,
+.demo summary:focus-visible,
+.demo-viewer:focus-visible {
+  outline: 2px solid var(--md-accent-fg-color);
+  outline-offset: 2px;
+}
+.demo-status {
+  margin: 0;
+  padding: 0.4em 0.6em;
+  min-height: 2.2em;
+  font-size: 0.75rem;
+  color: var(--md-default-fg-color--light);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-top: 0;
+}
+.demo-offline {
+  margin: 0;
+  padding: 0.4em 0.6em;
+  font-size: 0.75rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-top: 0;
+  border-left: 4px solid #b26a00;
+}
+.demo-offline[hidden] { display: none; }
+
+.demo-panes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75em;
+  margin-top: 0.75em;
+}
+@media (min-width: 60em) {
+  .demo-panes { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: start; }
+}
+.demo-editor, .demo-viewer { min-width: 0; }
+.demo-label { display: block; margin-bottom: 0.25em; }
+.demo-code {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--demo-pane-h);
+  margin: 0;
+  padding: 0.6em 0.8em;
+  font-family: var(--md-code-font-family);
+  font-size: 16px; /* not smaller: iOS zooms into a smaller field */
+  line-height: 1.5;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+  resize: vertical;
+  color: var(--md-code-fg-color);
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2rem;
+}
+.demo-hint { margin: 0.3em 0 0; font-size: 0.7rem; color: var(--md-default-fg-color--light); }
+.demo-problem:empty { display: none; }
+.demo-error {
+  margin: 0.5em 0 0;
+  padding: 0.6em 0.9em;
+  border-left: 4px solid #c62828;
+  background: color-mix(in srgb, #c62828 8%, var(--md-default-bg-color));
+  font-size: 0.8rem;
+}
+.demo-error p { margin: 0.2em 0; }
+.demo-error-lead { font-weight: 700; }
+.demo-error-message { font-family: var(--md-code-font-family); white-space: pre-wrap; overflow-wrap: anywhere; }
+.demo-error pre { margin: 0.4em 0; }
+.demo-error .demo-goto { margin-top: 0.3em; }
+
+.demo-viewer-head { display: flex; align-items: center; justify-content: space-between; }
+.demo-back { display: none; } /* stacked panes only */
+.demo-view {
+  height: var(--demo-pane-h);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  background: var(--md-code-bg-color);
+  overflow: hidden;
+}
+.demo-frame { display: block; width: 100%; height: 100%; border: 0; }
+.demo-empty { margin: 0; padding: 1.5em 1em; font-size: 0.8rem; color: var(--md-default-fg-color--light); }
+@media (max-width: 59.9375em) {
+  .demo-back { display: inline-block; min-height: 2.5rem; }
+  .demo-view { height: min(32rem, 70vh); }
+}
+.demo-extras { font-size: 0.75rem; }
+.demo-extras:empty { display: none; }
+.demo-extras-row { display: flex; align-items: flex-start; gap: 0.75em; padding: 0.4em 0; }
+.demo-extras-row > details { flex: 1; min-width: 0; }
+/* A plain disclosure, not mkdocs-material's collapsible admonition (no icon, no coloured box). */
+.md-typeset .demo-extras details {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: none;
+  font-size: inherit;
+}
+.md-typeset .demo-extras summary { margin: 0; padding: 0.35em 0; border: 0; background: none; font-weight: 600; cursor: pointer; }
+.md-typeset .demo-extras summary::before {
+  content: "▸";
+  position: static;
+  display: inline-block;
+  width: 1em;
+  height: auto;
+  background: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+  color: inherit;
+}
+.md-typeset .demo-extras details[open] > summary::before { content: "▾"; }
+.md-typeset .demo-extras summary::after { display: none; }
+.demo-extras pre { margin: 0.4em 0; max-height: 24em; overflow: auto; }
+@media (max-width: 29.9375em) {
+  .demo-extras-row { flex-direction: column; }
+}

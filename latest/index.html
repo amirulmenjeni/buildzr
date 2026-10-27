@@ -12,7 +12,7 @@
         <meta name="author" content="Amirul Menjeni">
       
       
-        <link rel="canonical" href="https://buildzr.dev/1.1.0/">
+        <link rel="canonical" href="https://buildzr.dev/1.1.1/">
       
       
       
@@ -1669,6 +1669,8 @@
 <a href="https://pypi.org/project/buildzr/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/buildzr.svg" /></a>
 <a href="https://pypi.org/project/buildzr/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/buildzr.svg" /></a></p>
 <p><strong>Define your C4 software architecture in Python, then build it and explore it in an interactive browser viewer.</strong></p>
+<p><a href="demo/"><img alt="Try buildzr in your browser" src="https://img.shields.io/badge/%E2%96%B6%20Try%20the%20live%20demo-0969da?style=for-the-badge" /></a></p>
+<p>No install: edit a model and watch the viewer update.</p>
 <ul>
 <li><strong>Write architecture as code.</strong> Describe people, systems, containers and components with Python <code>with</code> blocks and <code>&gt;&gt;</code> relationships.</li>
 <li><strong>See it in your browser.</strong> One command, <code>buildzr serve</code>, builds your model and serves a viewer that you can zoom, search and link to.</li>
@@ -1676,7 +1678,8 @@
 </ul>
 <p><img alt="The buildzr viewer showing an AWS deployment view: two regions, each with a DNS router, a load balancer, an autoscaling group running the web application and an RDS MySQL database, drawn with AWS icons; one load balancer is selected and its details are in the right panel" src="images/viewer/readme-aws-deployment.png" /></p>
 <h2 id="try-it-now">Try it now<a class="headerlink" href="#try-it-now" title="Permanent link">&para;</a></h2>
-<p>With <a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a> installed (it finds or fetches a compatible Python), run:</p>
+<p>The quickest way is the <a href="demo/">in-browser demo</a>: edit a model and run it, with nothing to install.</p>
+<p>To run buildzr on your machine, install <a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a> (it finds or fetches a compatible Python) and run:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>uvx<span class="w"> </span>buildzr<span class="w"> </span>serve<span class="w"> </span>--example
 </span></code></pre></div>
 <!-- DEPENDS ON feature/serve-example (bundled prebuilt example and `serve --example`); do not merge this README before it. -->
@@ -1756,7 +1759,7 @@
 <li><a href="roadmap/">Roadmap</a>: what is planned and what is done.</li>
 <li><a href="contributing/">Contributing</a>: how to report an issue or send a change.</li>
 </ul>
-<p>buildzr is approaching 1.0. Read the <a href="https://github.com/amirulmenjeni/buildzr/issues">issue tracker</a> for known problems, and open an issue if something does not work.</p>
+<p>Found a problem? Check the <a href="https://github.com/amirulmenjeni/buildzr/issues">issue tracker</a> for known issues, and open one if something does not work.</p>
 <p>buildzr is released under the <a href="https://github.com/amirulmenjeni/buildzr/blob/master/LICENSE.md">MIT License</a>.</p>
 <!-- The README links to the site by address; the home page uses the pages of this docs folder, which mkdocs checks. -->
 
