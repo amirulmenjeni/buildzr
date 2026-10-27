@@ -112,7 +112,7 @@ nav:
     - Model API: model-api.md
   - Development:
     - Contributing: contributing.md
-    - Roadmap: roadmap.md
+    - Roadmap: https://buildzr.dev/roadmap/
     - Structurizr compatibility: structurizr-compatibility.md
 
 extra:

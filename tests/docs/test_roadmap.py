@@ -1,4 +1,4 @@
-"""The product roadmap: ``roadmap.yml`` is validated and rendered into the page ``roadmap.md`` by the mkdocs hooks."""
+"""The product roadmap: ``roadmap.yml`` is validated by the mkdocs hooks and rendered into the roadmap site (/roadmap/)."""
 
 from __future__ import annotations
 
@@ -169,16 +169,55 @@ def _config(root: Path) -> Any:
     return config
 
 
-def test_the_hook_adds_the_generated_page_and_the_build_stops_on_a_bad_roadmap(tmp_path: Path) -> None:
+def _roadmap_site_config(root: Path) -> Any:
+    config = _config(root)
+    config["site_url"] = "https://buildzr.dev/roadmap/"
+    config["extra"]["roadmap_site"] = {"docs_url": "https://buildzr.dev/latest/"}
+    return config
+
+
+def test_the_versioned_docs_validate_the_roadmap_but_have_no_roadmap_page(tmp_path: Path) -> None:
     config = _config(tmp_path)
     (tmp_path / "roadmap.yml").write_text(yaml.safe_dump(valid()), encoding="utf-8")
-    files = hooks.on_files(Files([]), config)
-    page = files.get_file_from_path("roadmap.md")
-    assert page is not None and page.content_string.startswith("---\ntitle: Roadmap")
+    (tmp_path / "docs" / "index.md").write_text("# Home\n", encoding="utf-8")
+    from mkdocs.structure.files import File
+    files = hooks.on_files(Files([File("index.md", config["docs_dir"], config["site_dir"], True)]), config)
+    assert [f.src_uri for f in files] == ["index.md"]
 
     (tmp_path / "roadmap.yml").write_text("version: 1\nactive: []\nplanned: []\n", encoding="utf-8")
     with pytest.raises(PluginError, match=r"roadmap\.yml is not a valid roadmap[\s\S]*active: must be"):
         hooks.on_files(Files([]), config)
+
+
+def test_the_roadmap_site_is_the_roadmap_alone_and_links_to_the_latest_docs(tmp_path: Path) -> None:
+    config = _roadmap_site_config(tmp_path)
+    (tmp_path / "roadmap.yml").write_text(yaml.safe_dump(valid()), encoding="utf-8")
+    from mkdocs.structure.files import File
+    docs = [File(p, config["docs_dir"], config["site_dir"], True)
+            for p in ("index.md", "user-guide/views.md", "images/a.png", "stylesheets/roadmap.css")]
+    for f in docs:
+        os.makedirs(os.path.dirname(f.abs_src_path), exist_ok=True)
+        Path(f.abs_src_path).write_text("x", encoding="utf-8")
+    files = hooks.on_files(Files(docs), config)
+    assert sorted(f.src_uri for f in files) == ["index.md", "stylesheets/roadmap.css"]
+    page = files.get_file_from_path("index.md")
+    assert page is not None and page.content_string.startswith("---\ntitle: Roadmap")
+    assert "(https://buildzr.dev/latest/structurizr-compatibility/)" in page.content_string
+
+    (tmp_path / "roadmap.yml").write_text("version: 1\nactive: []\nplanned: []\n", encoding="utf-8")
+    with pytest.raises(PluginError, match=r"roadmap\.yml is not a valid roadmap[\s\S]*active: must be"):
+        hooks.on_files(Files([]), config)
+
+
+def test_the_nav_of_the_roadmap_site_links_to_the_latest_docs() -> None:
+    nav = [{"Home": "index.md"}, {"Guide": [{"Views": "user-guide/views.md"}, {"API": "api/index.md"}]},
+           {"Development": [{"Roadmap": "https://buildzr.dev/roadmap/"}, {"GitHub": "https://github.com/x"}]}]
+    assert hooks.roadmap_nav(nav, "https://buildzr.dev/latest/", "https://buildzr.dev/roadmap/") == [
+        {"Home": "https://buildzr.dev/latest/"},
+        {"Guide": [{"Views": "https://buildzr.dev/latest/user-guide/views/"},
+                   {"API": "https://buildzr.dev/latest/api/"}]},
+        {"Development": [{"Roadmap": "index.md"}, {"GitHub": "https://github.com/x"}]},
+    ]
 
 
 def test_the_hook_refuses_a_committed_roadmap_page(tmp_path: Path) -> None:
@@ -194,11 +233,15 @@ def test_the_hook_refuses_a_committed_roadmap_page(tmp_path: Path) -> None:
 def test_nav_style_and_readme_wire_the_roadmap_in() -> None:
     with open(os.path.join(ROOT, "mkdocs.yml"), encoding="utf-8") as f:
         config = f.read()
-    for needle in ("- Roadmap: roadmap.md", "- Structurizr compatibility: structurizr-compatibility.md",
-                   "stylesheets/roadmap.css"):
+    for needle in ("- Roadmap: https://buildzr.dev/roadmap/",
+                   "- Structurizr compatibility: structurizr-compatibility.md", "stylesheets/roadmap.css"):
         assert needle in config
+    with open(os.path.join(ROOT, "mkdocs-roadmap.yml"), encoding="utf-8") as f:
+        roadmap_site = yaml.safe_load(f)
+    assert roadmap_site["INHERIT"] == "mkdocs.yml" and roadmap_site["site_url"] == "https://buildzr.dev/roadmap/"
+    assert roadmap_site["extra"]["roadmap_site"] == {"docs_url": "https://buildzr.dev/latest/"}
     with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as f:
         assert "[roadmap]: https://buildzr.dev/roadmap/" in f.read()
     with open(os.path.join(DOCS, "structurizr-compatibility.md"), encoding="utf-8") as f:
         text = f.read()
-    assert "Compatibility is not the roadmap" in text and "roadmap.md" in text
+    assert "Compatibility is not the roadmap" in text and "(https://buildzr.dev/roadmap/)" in text

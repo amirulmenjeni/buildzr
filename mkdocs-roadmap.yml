@@ -1,0 +1,16 @@
+# The roadmap alone, served unversioned at https://buildzr.dev/roadmap/. It is built from master, not from a release:
+# scripts/docs_pages.sh (roadmap) builds it on every change of roadmap.yml and on every release, and puts it at
+# /roadmap/ of the gh-pages branch. The rest of the docs is one folder per release (mkdocs.yml, deployed with mike).
+#
+# Preview it with: uv run mkdocs serve --config-file mkdocs-roadmap.yml
+#
+# The hooks (scripts/mkdocs_hooks.py) see extra.roadmap_site and build one page, the roadmap, as the index of this
+# site; every other entry of the nav links to that page of the latest release.
+INHERIT: mkdocs.yml
+site_url: https://buildzr.dev/roadmap/
+site_dir: site-roadmap
+
+extra:
+  homepage: https://buildzr.dev/latest/  # the logo of the header
+  roadmap_site:
+    docs_url: https://buildzr.dev/latest/

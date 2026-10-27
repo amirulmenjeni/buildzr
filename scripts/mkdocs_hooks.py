@@ -1,8 +1,13 @@
 """mkdocs hooks of the docs build.
 
 * Refuse to build the docs without the Run Code assets (``docs/runcode/``, see build_docs_assets.py).
-* Render the product roadmap, the data file ``roadmap.yml`` in the repository root, into the page ``roadmap.md``.
-  The page is generated in memory on every build: there is no ``docs/roadmap.md`` and no generated Markdown in Git.
+* Render the product roadmap, the data file ``roadmap.yml`` in the repository root, into a page. The page is generated
+  in memory: there is no ``docs/roadmap.md`` and no generated Markdown in Git.
+
+The docs are versioned, one folder per release (https://buildzr.dev/1.1.1/, /latest/), but the roadmap is not: it is
+built from master on its own, with ``mkdocs-roadmap.yml``, and served at https://buildzr.dev/roadmap/. That config sets
+``extra.roadmap_site.docs_url`` and builds a site of one page, the roadmap, whose nav links to the pages of the latest
+release. The versioned build (``mkdocs.yml``) has no roadmap page, links to /roadmap/, and only validates the file.
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ NEEDED = ("manifest.json", "viewer/index.html", "elk.bundled.js", "browser_elk.j
 
 ROADMAP_FILE = "roadmap.yml"
 ROADMAP_PAGE = "roadmap.md"
+COMPATIBILITY_PAGE = "structurizr-compatibility.md"
 ROADMAP_VERSION = 1
 
 STATUSES = ("active", "planned", "launched")
@@ -240,15 +246,18 @@ def _list(items: list[dict[str, Any]]) -> list[str]:
     return ["", '<ul class="roadmap-items">', *map(_item_html, items), "</ul>", ""]
 
 
-def render_roadmap(data: dict[str, Any]) -> str:
-    """The Markdown of the roadmap page for a valid roadmap. Same data, same text: the output is deterministic."""
+def render_roadmap(data: dict[str, Any], compatibility: str = COMPATIBILITY_PAGE) -> str:
+    """The Markdown of the roadmap page for a valid roadmap. Same data, same text: the output is deterministic.
+
+    ``compatibility`` is the link to the Structurizr compatibility page.
+    """
     out = [
         "---", "title: Roadmap", "---", "",
         "# Roadmap", "",
         "What we are working on and what we may do next. Planned work is grouped by a target release, a direction "
         "and not a promise: there are no dates, and an item can move or be dropped. "
         "Which Structurizr features buildzr supports is a separate question; see "
-        "[Structurizr compatibility](structurizr-compatibility.md), where a missing feature does not mean "
+        f"[Structurizr compatibility]({compatibility}), where a missing feature does not mean "
         "it is planned.", "",
     ]
     if data.get("active"):
@@ -277,17 +286,51 @@ def roadmap_path(config: Any) -> str:
     return os.path.join(os.path.dirname(os.path.abspath(config["docs_dir"])), ROADMAP_FILE)
 
 
-def build_roadmap(path: str) -> str:
+def build_roadmap(path: str, compatibility: str = COMPATIBILITY_PAGE) -> str:
     """Load, validate and render ``path``. Any problem is a ``PluginError`` that lists every fault."""
     data = load_roadmap(path)
     errors = validate_roadmap(data)
     if errors:
         raise PluginError(f"{os.path.basename(path)} is not a valid roadmap (schema version {ROADMAP_VERSION}):\n"
                           + "\n".join("  - " + e for e in errors))
-    return render_roadmap(data)
+    return render_roadmap(data, compatibility)
+
+
+def roadmap_docs_url(config: Any) -> str | None:
+    """The docs the roadmap site links to (``extra.roadmap_site.docs_url``), or None for the versioned docs."""
+    site = (config.get("extra") or {}).get("roadmap_site") or {}
+    url: str | None = site.get("docs_url")
+    return url
+
+
+def page_url(path: str) -> str:
+    """The address of a page relative to the root of its site, like mkdocs gives it: ``a/b.md`` is ``a/b/``."""
+    stem = path[:-len(".md")]
+    if stem == "index" or stem.endswith("/index"):
+        return stem[:-len("index")]
+    return stem + "/"
+
+
+def roadmap_nav(nav: Any, docs_url: str, roadmap_url: str) -> Any:
+    """The nav of the roadmap site: the roadmap entry (``roadmap_url``) is its own page, ``index.md``, and every other
+    page is the page of the docs at ``docs_url``."""
+    if isinstance(nav, list):
+        return [roadmap_nav(entry, docs_url, roadmap_url) for entry in nav]
+    if isinstance(nav, dict):
+        return {title: roadmap_nav(entry, docs_url, roadmap_url) for title, entry in nav.items()}
+    if nav == roadmap_url:
+        return "index.md"
+    if isinstance(nav, str) and nav.endswith(".md"):
+        return docs_url + page_url(nav)
+    return nav
 
 
 def on_config(config: Any) -> Any:
+    docs_url = roadmap_docs_url(config)
+    if docs_url is not None:
+        config["nav"] = roadmap_nav(config["nav"], docs_url, config["site_url"])
+        config["extra_javascript"] = []  # the Run Code and demo scripts: the roadmap has no code to run
+        return config
     missing = missing_runcode_assets(config["docs_dir"])
     if missing:
         raise PluginError(
@@ -300,8 +343,17 @@ def on_files(files: Files, config: Any) -> Files:
     if files.get_file_from_path(ROADMAP_PAGE) is not None:
         raise PluginError(f"docs/{ROADMAP_PAGE} must not exist: the page is generated from {ROADMAP_FILE} at build "
                           "time. Delete the file and edit the data instead.")
-    files.append(File.generated(config, ROADMAP_PAGE, content=build_roadmap(roadmap_path(config))))
-    return files
+    docs_url = roadmap_docs_url(config)
+    if docs_url is None:
+        build_roadmap(roadmap_path(config))  # validated on every build; published by the roadmap site only
+        return files
+    # The theme's files and the stylesheets; none of the other files of the docs (pages, images, scripts).
+    docs_dir = os.path.abspath(config["docs_dir"])
+    pages = Files([f for f in files if f.src_uri.startswith("stylesheets/")
+                   or f.abs_src_path is None or not os.path.abspath(f.abs_src_path).startswith(docs_dir + os.sep)])
+    content = build_roadmap(roadmap_path(config), docs_url + page_url(COMPATIBILITY_PAGE))
+    pages.append(File.generated(config, "index.md", content=content))
+    return pages
 
 
 def on_serve(server: Any, config: Any, builder: Any) -> Any:
