@@ -1,6 +1,6 @@
 // Unit tests without a browser: the steps of a dynamic view and what a step looks like (steps.ts). Run: npm run test:unit
 import { T } from './lib.mjs';
-import { compareOrder, stepLook, stepsOf, stepText } from '../src/steps.ts';
+import { compareOrder, follow, FOLLOW, stepLook, stepsOf, stepText, unionBox } from '../src/steps.ts';
 
 const t = new T('steps');
 const edge = (id, order, text) => {
@@ -38,6 +38,20 @@ t.eq(stepText(sc, 'a->b#2', desc), 'two', 'the label without the "2: " in front'
 t.eq(stepText(scene([edge('p->q#3', '3', 'Calls')]), 'p->q#3', desc), 'Calls', 'a label without the number stays as it is');
 t.eq(stepText(scene([edge('x->y#1', '1')]), 'x->y#1', desc), 'from the model', 'no label: the relationship description');
 t.eq(stepText(sc, 'nope', desc), '', 'an unknown edge has no text');
+
+// the camera that follows a step: the target in flow coordinates, the free part of the canvas in canvas px
+t.eq(unionBox([{ x: 0, y: 10, w: 5, h: 5 }, { x: 20, y: 0, w: 0, h: 0 }]), { x: 0, y: 0, w: 20, h: 15 }, 'the box around boxes and points');
+t.eq(unionBox([]), null, 'no boxes: no box');
+const free = { x: 0, y: 80, w: 800, h: 520 }; // under an 80 px bar
+t.eq(follow({ x: 100, y: 100, w: 200, h: 100 }, { x: 0, y: 0, zoom: 1 }, free), null, 'already in the free part: no move');
+const under = follow({ x: 100, y: 20, w: 200, h: 100 }, { x: 0, y: 0, zoom: 1 }, free);
+t.eq(under, { zoom: 1, x: 200, y: 270 }, 'under the bar: centred in the free part, the zoom kept');
+const zoomed = follow({ x: 0, y: 0, w: 400, h: 100 }, { x: -2000, y: 0, zoom: 3 }, free);
+t.eq(zoomed.zoom, (800 - 2 * FOLLOW.pad) / 400, 'too big at this zoom: zoomed out just enough to fit with the padding');
+t.ok(zoomed.zoom < 3, 'zooms out, not in');
+const far = follow({ x: 5000, y: 5000, w: 10, h: 10 }, { x: 0, y: 0, zoom: 0.2 }, free);
+t.eq(far.zoom, 0.2, 'a small step out of view at a small zoom: panned, never zoomed in');
+t.eq([far.x + 5005 * far.zoom, far.y + 5005 * far.zoom], [400, 340], 'its centre at the centre of the free part');
 
 console.log(`steps: ${t.checks} checks, ${t.fails} failed`);
 process.exit(t.fails ? 1 : 0);

@@ -1,11 +1,11 @@
 // Dynamic views: step through the interactions with the step bar. Only dynamic views have it; the default drawing is the
 // one without it; a step marks its arrows and dims what comes later, the layout never moves; bounds, Play and Pause, the
-// keyboard, reduced motion, both themes, an embedded frame and a phone. Data sets without a dynamic view only check that
+// keyboard, reduced motion, both themes, an embedded frame and a phone; the camera follows the current step. Data sets without a dynamic view only check that
 // nothing new shows. Run: node tests/run.mjs --only dynamic --data tests/site/fixtures/dynamic
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { newPage, open, act, hashOf, mouseClick, raf, snapshot, T } from './lib.mjs';
+import { newPage, open, act, hashOf, hitPoint, mouseClick, raf, settle, snapshot, T, zoomTo } from './lib.mjs';
 
 const require = createRequire(import.meta.url);
 const AXE = require.resolve('axe-core/axe.min.js');
@@ -40,6 +40,33 @@ const look = async (p) => { await raf(p, 3); return p.evaluate(() => ({
   live: document.querySelector('[data-testid=live]')?.textContent ?? '',
 })); };
 const stepOf = async (p) => Number(await p.locator(bar).getAttribute('data-step'));
+
+/** Wait until the camera move of the last step is over (Canvas: StepCamera). */
+const camDone = async (p) => { await p.waitForFunction(() => window.__viewer.stepCamera?.done ?? true, null, { timeout: 5000 }); await raf(p, 3); };
+/** In page px: the part of the canvas that the step bar and the phone's sheet leave free, and the current step on screen (its
+ * arrows, their labels and the boxes at both ends). Read from the DOM, not from the viewer's own numbers. */
+const framing = (p) => p.evaluate(() => {
+  const c = document.querySelector('.react-flow').getBoundingClientRect();
+  let top = c.top, bottom = c.bottom;
+  const b = document.querySelector('[data-testid=steps]')?.getBoundingClientRect();
+  if (b && b.height > 0) top = Math.max(top, b.bottom);
+  const sh = document.querySelector('.sheet-wrap[data-sheet]:not([data-sheet=closed])')?.getBoundingClientRect();
+  if (sh && sh.height > 0) bottom = Math.min(bottom, sh.top);
+  const rs = [];
+  for (const g of document.querySelectorAll('g.rolled-edge[data-step=current]')) {
+    rs.push(g.querySelector('.react-flow__edge-path').getBoundingClientRect());
+    for (const id of g.dataset.edge.split('#')[0].split('->')) {
+      const n = document.querySelector(`.react-flow__node[data-id="${CSS.escape(id)}"]`);
+      if (n) rs.push(n.getBoundingClientRect());
+    }
+  }
+  for (const l of document.querySelectorAll('.edge-label[data-step=current]')) rs.push(l.getBoundingClientRect());
+  const box = rs.length ? [Math.min(...rs.map((r) => r.left)), Math.min(...rs.map((r) => r.top)), Math.max(...rs.map((r) => r.right)), Math.max(...rs.map((r) => r.bottom))] : null;
+  return { free: [c.left, top, c.right, bottom], box, vp: window.__viewer.viewport(), cam: window.__viewer.stepCamera ?? {} };
+});
+const inside = (f) => !!f.box && f.box[0] >= f.free[0] - 0.5 && f.box[1] >= f.free[1] - 0.5 && f.box[2] <= f.free[2] + 0.5 && f.box[3] <= f.free[3] + 0.5;
+const sameVp = (a, b) => Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.zoom - b.zoom) < 1e-4;
+const r1 = (f) => JSON.stringify(f.box?.map(Math.round)) + ' in ' + JSON.stringify(f.free.map(Math.round));
 
 const rgb = (s) => s.match(/[\d.]+/g).slice(0, 3).map(Number);
 const lum = ([r, g, b]) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
@@ -105,7 +132,7 @@ export default async function dynamic(browser, srv, F, name) {
     }
     const after = await snapshot(p);
     t.eq(after.dom, before.dom, 'stepping moved no box');
-    t.eq(after.vp, before.vp, 'stepping moved no camera');
+    t.eq(after.vp, before.vp, 'at the default fit every step is already in view: the camera stays (section 11 zooms in)');
     t.eq(await hashOf(p), hash, 'stepping does not change the hash');
     // ---- 3. bounds: the last step, then back to the first
     t.eq(await p.locator(btn('next')).getAttribute('aria-disabled'), 'true', 'last step: Next is disabled');
@@ -226,7 +253,7 @@ export default async function dynamic(browser, srv, F, name) {
     await p.context().close();
   }
 
-  // ---- 7. reduced motion: no fade between steps, Play still steps (the camera never moves); without it, a short fade
+  // ---- 7. reduced motion: no fade between steps, Play still steps; without it, a short fade (the camera: section 12)
   for (const motion of ['reduce', 'no-preference']) {
     const p = await newPage(browser, errors, { reducedMotion: motion });
     await open(p, srv.url, `#/v/${v.key}`);
@@ -293,6 +320,147 @@ export default async function dynamic(browser, srv, F, name) {
     t.ok(r.sw <= r.w, `${label}: no horizontal scroll`);
     const min = label === 'phone' ? 44 : 32;
     t.ok(r.sizes.every(([w, h]) => w >= min && h >= min), `${label}: buttons at least ${min} px: ${JSON.stringify(r.sizes)}`);
+    await p.context().close();
+  }
+
+  // ---- 11. the camera follows the current step: it brings the step's arrows, labels and end boxes into the free part of the
+  // canvas (not under the bar or the phone's sheet), keeps the zoom when the step fits, zooms out only as far as it must, never in
+  const follows = async (p, label, { phone = false } = {}) => {
+    let moved = 0, zoomedOut = 0;
+    for (let k = 1; k <= n; k++) {
+      const before = (await framing(p)).vp;
+      if (phone) await p.locator(btn('next')).tap(); else await p.locator(btn('next')).click();
+      await camDone(p);
+      const f = await framing(p);
+      t.ok(inside(f), `${label} step ${k}: the step is in the free part of the canvas ${r1(f)}`);
+      t.ok(f.vp.zoom <= before.zoom + 1e-6, `${label} step ${k}: never zoomed in (${before.zoom.toFixed(3)} -> ${f.vp.zoom.toFixed(3)})`);
+      if (f.cam.moved) moved++;
+      if (f.vp.zoom < before.zoom - 1e-6) {
+        zoomedOut++;
+        const [w, h] = [f.box[2] - f.box[0], f.box[3] - f.box[1]];
+        const [fw, fh] = [f.free[2] - f.free[0], f.free[3] - f.free[1]];
+        t.ok(Math.max(w / (fw - 64), h / (fh - 64)) > 0.97, `${label} step ${k}: zoomed out only as far as the step needs (${Math.round(w)}x${Math.round(h)} in ${Math.round(fw)}x${Math.round(fh)} less the padding)`);
+      }
+    }
+    return { moved, zoomedOut };
+  };
+  {
+    // desktop: at the default fit every step is in view, nothing moves (section 2); zoomed in, the camera follows
+    const p = await newPage(browser, errors);
+    await open(p, srv.url, `#/v/${v.key}`);
+    const fit = (await snapshot(p)).vp;
+    await p.locator(btn('next')).click();
+    await camDone(p);
+    t.ok(!(await framing(p)).cam.moved && sameVp((await framing(p)).vp, fit), 'desktop default fit: step 1 is in view, the camera stays');
+    await p.locator(btn('close')).click();
+    await settle(p);
+    await zoomTo(p, Math.min(2, fit.zoom * 3));
+    const hash = await hashOf(p);
+    const r = await follows(p, 'desktop zoomed in');
+    t.ok(r.moved > 0, `desktop zoomed in: the camera followed (${r.moved} of ${n} steps moved it)`);
+    t.eq(await hashOf(p), hash, 'following the steps does not change the hash');
+    // a step already in view does not move the camera
+    const k = n;
+    const shown = await framing(p);
+    await p.locator(btn('prev')).click();
+    await camDone(p);
+    const back = await framing(p);
+    if (!back.cam.moved) t.ok(sameVp(back.vp, shown.vp), `previous step ${k - 1} was already in view: the camera stayed`);
+    else t.ok(inside(back), `previous step ${k - 1}: brought into view`);
+    // manual pan between steps is left alone, the next step refocuses
+    await p.evaluate(() => { const v = window.__viewer.viewport(); window.__viewer.setViewport({ ...v, x: v.x + 4000, y: v.y + 3000 }); });
+    await raf(p, 3);
+    const panned = (await framing(p)).vp;
+    await p.waitForTimeout(400);
+    t.ok(sameVp((await framing(p)).vp, panned), 'a manual pan while paused is left alone');
+    await p.locator(btn('next')).click();
+    await camDone(p);
+    const ref = await framing(p);
+    t.ok(ref.cam.moved && inside(ref), `the next step brings the step back into view ${r1(ref)}`);
+    // back to step 0: the default whole-diagram fit, by the close button, Escape and a selection
+    await act(p, () => p.locator(btn('close')).click());
+    t.ok(sameVp((await snapshot(p)).vp, fit), 'Show the whole diagram: the default fit again');
+    await p.locator(btn('next')).click();
+    await camDone(p);
+    await act(p, () => p.keyboard.press('Escape'));
+    t.ok(sameVp((await snapshot(p)).vp, fit), 'Escape: the default fit again');
+    await zoomTo(p, Math.min(2, fit.zoom * 3));
+    await p.locator(btn('next')).click();
+    await camDone(p);
+    await act(p, () => mouseClick(p, steps[0][0].source)); // a box of the step: it is on screen
+    t.eq(await stepOf(p), 0, 'selecting a box ends the stepping');
+    t.ok(sameVp((await snapshot(p)).vp, fit), 'ending the stepping by a selection: the default fit again');
+    await p.context().close();
+  }
+  {
+    // a small desktop window zoomed in: a step too big for it is zoomed out to fit
+    const p = await newPage(browser, errors, { viewport: { width: 800, height: 520 } });
+    await open(p, srv.url, `#/v/${v.key}`);
+    await zoomTo(p, 2);
+    const r = await follows(p, 'small window at zoom 2');
+    t.ok(r.zoomedOut > 0, `small window at zoom 2: a step too big was zoomed out to fit (${r.zoomedOut} of ${n})`);
+    await p.context().close();
+  }
+  {
+    // phone: the default fit runs under the bar, so the camera moves the step out from under it; with the sheet open, above it
+    const opts = { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true };
+    const p = await newPage(browser, errors, opts);
+    await open(p, srv.url, `#/v/${v.key}`);
+    const fit = (await snapshot(p)).vp;
+    await follows(p, 'phone', { phone: true });
+    await act(p, () => p.locator(btn('close')).tap());
+    t.ok(sameVp((await snapshot(p)).vp, fit), 'phone: back to step 0, the default fit again');
+    const box = sc.nodes.find((x) => x.role === 'element');
+    const [x, y] = await hitPoint(p, box.id);
+    await p.touchscreen.tap(x, y); // at step 0: a selection, the camera stays
+    await p.waitForFunction(() => document.querySelector('.sheet-wrap')?.dataset.sheet === 'peek');
+    await p.waitForTimeout(400); // the sheet slides up
+    await follows(p, 'phone, sheet open', { phone: true });
+    await p.context().close();
+  }
+  {
+    // embedded, a frame too low for the bar: the whole canvas is free; no hash change, no history entry
+    const e = await newPage(browser, errors, { viewport: { width: 800, height: 230 } });
+    await e.goto(srv.url + `?embed=1&data=server#/v/${v.key}`);
+    await settle(e);
+    t.ok(!(await e.locator(bar).isVisible()), 'embed 230 px high: no bar');
+    await zoomTo(e, 2);
+    const len = await e.evaluate(() => history.length);
+    const hash = await hashOf(e);
+    for (let k = 1; k <= n; k++) {
+      await e.locator(btn('next')).evaluate((b) => b.click()); // the bar is hidden: press it from the page, as a test would
+      await camDone(e);
+      const f = await framing(e);
+      t.ok(inside(f), `embed, no bar, step ${k}: in view ${r1(f)}`);
+    }
+    t.eq(await e.evaluate(() => history.length), len, 'embed: the camera moves add no history entry');
+    t.eq(await hashOf(e), hash, 'embed: the hash is unchanged');
+    await e.context().close();
+  }
+  // ---- 12. motion: reduced motion jumps to the step at once, otherwise a short animated pan, well inside one Play interval
+  for (const motion of ['reduce', 'no-preference']) {
+    const p = await newPage(browser, errors, { reducedMotion: motion });
+    await open(p, srv.url, `#/v/${v.key}`);
+    if (motion === 'no-preference') await p.waitForFunction(() => window.__viewer.ready === true);
+    await zoomTo(p, 2);
+    const samples = await p.evaluate(() => new Promise((res) => {
+      const out = [window.__viewer.viewport()];
+      document.querySelector('[data-testid=steps-next]').click();
+      const f = () => { out.push(window.__viewer.viewport()); if ((window.__viewer.stepCamera?.done ?? out.length > 30) && out.length > 3) res({ out, cam: window.__viewer.stepCamera ?? {} }); else requestAnimationFrame(f); };
+      requestAnimationFrame(f);
+    }));
+    const { out, cam } = samples;
+    t.ok(cam.moved, `${motion}: zoomed in, step 1 moves the camera`);
+    if (motion === 'reduce') {
+      t.eq(cam.duration, 0, 'reduce: no animation');
+      t.ok(!!cam.to && sameVp(out[1], cam.to), `reduce: the next frame is already the final camera ${JSON.stringify(out[1])}`);
+    } else {
+      t.eq(cam.duration, 300, 'no-preference: a 300 ms pan');
+      t.ok(cam.duration < 2000 / 2, 'the pan ends well inside one Play interval (2 s)');
+      const between = !!cam.to && out.slice(1).some((s) => !sameVp(s, out[0]) && !sameVp(s, cam.to));
+      t.ok(between, `no-preference: the camera passes through in-between positions (${out.length} frames sampled)`);
+      t.ok(!!cam.to && sameVp(out.at(-1), cam.to), 'no-preference: it ends at the final camera');
+    }
     await p.context().close();
   }
 

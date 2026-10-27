@@ -56,3 +56,30 @@ export function stepText(scene: Scene, edgeId: string, relDescription: (relId: s
   if (first) return e.order && first.startsWith(`${e.order}: `) ? first.slice(e.order.length + 2) : first;
   return e.rels.length ? relDescription(e.rels[0]) ?? '' : '';
 }
+
+export interface Box { x: number; y: number; w: number; h: number }
+export interface Viewport { x: number; y: number; zoom: number }
+
+/** On screen (px): a camera move leaves this much room around the step. */
+export const FOLLOW = { pad: 32 };
+
+/** The smallest box around all of these; null for none. */
+export function unionBox(boxes: Box[]): Box | null {
+  if (!boxes.length) return null;
+  const x0 = Math.min(...boxes.map((b) => b.x)), y0 = Math.min(...boxes.map((b) => b.y));
+  const x1 = Math.max(...boxes.map((b) => b.x + b.w)), y1 = Math.max(...boxes.map((b) => b.y + b.h));
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+/**
+ * The camera that shows a step: `target` is in flow coordinates, `free` the part of the canvas no overlay covers (canvas px).
+ * Null when the target is already in `free` at the camera `vp`: nothing moves. Otherwise the target is centred in `free`
+ * at the current zoom, lowered only as far as the target needs to fit with `pad` around it. It never zooms in.
+ */
+export function follow(target: Box, vp: Viewport, free: Box): Viewport | null {
+  const sx = vp.x + target.x * vp.zoom, sy = vp.y + target.y * vp.zoom;
+  if (sx >= free.x && sy >= free.y && sx + target.w * vp.zoom <= free.x + free.w && sy + target.h * vp.zoom <= free.y + free.h) return null;
+  const room = (n: number): number => Math.max(1, n - 2 * FOLLOW.pad);
+  const zoom = Math.max(0.01, Math.min(vp.zoom, room(free.w) / Math.max(target.w, 1e-6), room(free.h) / Math.max(target.h, 1e-6)));
+  return { zoom, x: free.x + free.w / 2 - (target.x + target.w / 2) * zoom, y: free.y + free.h / 2 - (target.y + target.h / 2) * zoom };
+}

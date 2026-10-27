@@ -7,6 +7,7 @@ import { chainOf, computeMatches, type ModelIndex } from './model';
 import { C4Boundary, C4Element } from './nodes';
 import { defaults, type SettingValues } from './settings';
 import { MODE, useStore } from './store';
+import { follow, unionBox, type Box, type Viewport } from './steps';
 import { usePhone } from './usePhone';
 import { EXPAND, fitZoom, shouldCollapse, shouldExpand } from './zoomfx';
 
@@ -26,10 +27,11 @@ declare global {
       readonly theme: 'light' | 'dark'; // the resolved theme
       autoCollapse: boolean; // test hook: false pauses the zoom-out collapse (tests that restore an old viewport on purpose)
       stepMs: number; // how long Play shows each step of a dynamic view (a test hook shortens it)
+      stepCamera: { seq: number; step: number; moved: boolean; to: Viewport | null; duration: number; free: Box | null; done: boolean }; // the last step's camera move (StepCamera)
     };
   }
 }
-window.__viewer = { positions: () => ({}), viewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: () => {}, ready: false, cameraDone: 0, autoCollapse: true, stepMs: 2000, settings: defaults(), embed: MODE.embed, theme: 'light' };
+window.__viewer = { positions: () => ({}), viewport: () => ({ x: 0, y: 0, zoom: 1 }), setViewport: () => {}, ready: false, cameraDone: 0, autoCollapse: true, stepMs: 2000, stepCamera: { seq: 0, step: 0, moved: false, to: null, duration: 0, free: null, done: true }, settings: defaults(), embed: MODE.embed, theme: 'light' };
 Object.defineProperty(window.__viewer, 'settings', { get: () => useStore.getState().settings });
 Object.defineProperty(window.__viewer, 'theme', { get: () => useStore.getState().theme });
 
@@ -80,6 +82,60 @@ function Camera({ composed }: { composed: Composed }) {
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => { window.__viewer.ready = true; window.__viewer.cameraDone = camera.seq; }, dur + 30);
   }, [composed, initialized, camera, path, m, rf, flowStore]);
+  return null;
+}
+
+/** The part of the canvas (canvas px) that the step bar and the phone's inspector sheet leave free. */
+function freeRect(canvas: HTMLElement): Box {
+  const r = canvas.getBoundingClientRect();
+  let top = 0, bottom = r.height;
+  const bar = document.querySelector('[data-testid=steps]')?.getBoundingClientRect();
+  if (bar && bar.height > 0 && bar.bottom > r.top) top = Math.max(top, bar.bottom - r.top);
+  const sheet = document.querySelector('.sheet-wrap[data-sheet]:not([data-sheet=closed])')?.getBoundingClientRect(); // the phone's bottom sheet
+  if (sheet && sheet.height > 0 && sheet.top < r.bottom) bottom = Math.min(bottom, sheet.top - r.top);
+  return { x: 0, y: top, w: r.width, h: Math.max(1, bottom - top) };
+}
+
+/**
+ * Stepping through a dynamic view brings the current step into view: its arrows with their labels and the boxes at both ends,
+ * in the part of the canvas no overlay covers (freeRect). A step already in view does not move the camera; otherwise it is
+ * centred at the current zoom, zoomed out only as far as it needs to fit, never in (steps.ts: follow). Only a change of step
+ * moves the camera, so the user can pan and zoom freely between steps. Step 0 is the default fit again (store: setStep).
+ */
+function StepCamera({ composed }: { composed: Composed }) {
+  const rf = useReactFlow();
+  const flowStore = useStoreApi();
+  const step = useStore((s) => s.step);
+  const latest = useRef(composed);
+  latest.current = composed;
+  const timer = useRef<number>(0);
+  useEffect(() => {
+    const dom = flowStore.getState().domNode;
+    if (!step || !dom) return;
+    const c = latest.current;
+    const boxes: Box[] = [];
+    for (const e of c.edges) {
+      const d = e.data!;
+      if (d.step !== 'current') continue;
+      for (const [x, y] of d.pts) boxes.push({ x, y, w: 0, h: 0 });
+      if (d.e.label) boxes.push({ x: d.labelPos[0], y: d.labelPos[1], w: d.e.label.w * d.K, h: d.e.label.h * d.K });
+      for (const end of [e.source, e.target]) {
+        const n = c.nodes.find((x) => x.id === end);
+        if (n && !n.data.expanded) boxes.push(c.rects.get(end)!); // an expanded frame is around the step, not part of it
+      }
+    }
+    const target = unionBox(boxes);
+    if (!target) return;
+    const free = freeRect(dom);
+    const to = follow(target, rf.getViewport(), free);
+    const duration = to && !reduced() ? 300 : 0;
+    const seq = window.__viewer.stepCamera.seq + 1;
+    window.__viewer.stepCamera = { seq, step, moved: !!to, to, duration, free, done: !to };
+    window.clearTimeout(timer.current);
+    if (!to) return;
+    void rf.setViewport(to, { duration });
+    timer.current = window.setTimeout(() => { if (window.__viewer.stepCamera.seq === seq) window.__viewer.stepCamera.done = true; }, duration + 30);
+  }, [step, rf, flowStore]);
   return null;
 }
 
@@ -194,6 +250,7 @@ function Flow() {
         onPaneClick={() => select(null)} deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null}>
         {!phoneNow && <Controls showInteractive={false} />}
         <Camera composed={composed} />
+        <StepCamera composed={composed} />
         <ZoomCollapse composed={composed} m={m} />
         <ZoomExpand composed={composed} m={m} />
       </ReactFlow>

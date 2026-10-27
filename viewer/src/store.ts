@@ -407,13 +407,18 @@ export const useStore = create<State>()((set, get) => {
     },
     closeInspector() { commit({ selection: null, inspectorOpen: false }, false); },
     setUi(p) { set(p); },
-    setStep(step, announce, playing = false) { set({ step, playing, announce }); },
+    /** Back to step 0 (the whole diagram): the camera goes back to the default fit, the steps may have moved it (Canvas: StepCamera). */
+    setStep(step, announce, playing = false) { set({ step, playing, announce, ...(step === 0 && get().step > 0 ? { camera: cam('path') } : {}) }); },
   };
 });
 
-// Stepping is a way of looking at one view: another view, another selection or another model shows the whole diagram again.
+// Stepping is a way of looking at one view: another view, another selection or another model shows the whole diagram again,
+// at the default fit unless that change already moves the camera.
 useStore.subscribe((s, prev) => {
-  if ((s.step !== 0 || s.playing) && (s.view !== prev.view || s.selection !== prev.selection || s.m !== prev.m)) useStore.setState({ step: 0, playing: false });
+  if ((s.step !== 0 || s.playing) && (s.view !== prev.view || s.selection !== prev.selection || s.m !== prev.m)) {
+    const fit = s.step !== 0 && s.camera.seq === prev.camera.seq;
+    useStore.setState({ step: 0, playing: false, ...(fit ? { camera: { seq: s.camera.seq + 1, kind: 'path', id: null } } : {}) });
+  }
 });
 
 /** Keep <html data-theme> on the resolved theme, and follow the device's light/dark setting. */
