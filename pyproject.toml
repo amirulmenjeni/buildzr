@@ -55,6 +55,7 @@ docs = [
     "mkdocs-material>=9.0.0",
     "mkdocstrings[python]>=0.24.0",
     "pymdown-extensions>=10.0",
+    "mike>=2.1",
 ]
 export-plantuml = [
     "jpype1>=1.4.0",

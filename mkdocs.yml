@@ -64,6 +64,11 @@ hooks:
 
 plugins:
   - search
+  # Versioned docs (https://buildzr.dev/<version>/), deployed by scripts/docs_pages.sh. The canonical address of
+  # every page is its copy under /latest/, so search engines index the latest release.
+  - mike:
+      canonical_version: latest
+      version_selector: false
   - mkdocstrings:
       handlers:
         python:
@@ -111,6 +116,10 @@ nav:
     - Structurizr compatibility: structurizr-compatibility.md
 
 extra:
+  # Material's version selector, filled from /versions.json; a version other than "latest" shows the outdated banner.
+  version:
+    provider: mike
+    default: latest
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/amirulmenjeni/buildzr

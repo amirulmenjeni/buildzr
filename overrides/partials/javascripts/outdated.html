@@ -1,0 +1,5 @@
+{#-
+  Material's own partial (9.7.7) with one fix: base_url is relative (such as "../.."), so new URL() needs the address
+  of the page as its base; without it, the script throws "Invalid URL" on every page of the versioned docs.
+-#}
+<script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("{{ base_url }}",location),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
