@@ -1,0 +1,40 @@
+<!doctype html>
+<!--
+  The not-found page of the gh-pages branch, at its root (https://buildzr.dev/404.html), put there by
+  scripts/docs_pages.sh. GitHub Pages sends it for every address that has no file.
+
+  The docs moved from the root into a folder per release (/1.1.1/, /latest/, ...). An address of the old layout,
+  such as /demo/ or /user-guide/views/#styles, is sent to the same page of the latest release. An address that is
+  already under a release, /latest/ or /roadmap/ is not sent anywhere else (no loop); a versioned copy of the
+  roadmap goes to the one roadmap, /roadmap/. Without JavaScript the page goes to /latest/.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Page not found · buildzr</title>
+  <script>
+    (function () {
+      var path = location.pathname;
+      var first = path.split("/")[1] || "";
+      var rest = path.slice(first.length + 1);
+      var target = null;
+      if (first === "latest" || /^\d+(\.\d+)*$/.test(first)) {
+        if (/^\/roadmap(\/|$)/.test(rest)) target = "/roadmap/";
+      } else if (first !== "roadmap") {
+        target = "/latest" + path;
+      }
+      if (target !== null) location.replace(target + location.search + location.hash);
+    })();
+  </script>
+  <noscript><meta http-equiv="refresh" content="0; url=/latest/"></noscript>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 36rem; margin: 4rem auto; padding: 0 1rem; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>Page not found</h1>
+  <p>There is no page at this address. See the <a href="/latest/">documentation of the latest release</a>.</p>
+</body>
+</html>
