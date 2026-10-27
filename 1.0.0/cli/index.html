@@ -1,0 +1,2560 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Structurizr for the buildzrs - A Python authoring tool for Structurizr models and diagrams">
+      
+      
+        <meta name="author" content="Amirul Menjeni">
+      
+      
+        <link rel="canonical" href="https://buildzr.dev/1.0.0/cli/">
+      
+      
+        <link rel="prev" href="../serve-workspaces/">
+      
+      
+        <link rel="next" href="../config/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Command reference - buildzr</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../stylesheets/runcode.css">
+    
+      <link rel="stylesheet" href="../stylesheets/demo.css">
+    
+      <link rel="stylesheet" href="../stylesheets/roadmap.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+  <!-- Privacy-friendly analytics by Plausible -->
+  <script async src="https://plausible.io/js/pa-i2wEf91cOYm1xoPEDkpz2.js"></script>
+  <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init()
+  </script>
+
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#command-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+          <aside class="md-banner md-banner--warning">
+            <div class="md-banner__inner md-grid md-typeset">
+              
+  This is the documentation of an older release.
+  <a href="../.."><strong>Go to the latest release.</strong></a>
+
+            </div>
+            <script>var el=document.querySelector("[data-md-component=outdated]"),base=new URL("..",location),outdated=__md_get("__outdated",sessionStorage,base);!0===outdated&&el&&(el.hidden=!1)</script>
+          </aside>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="buildzr" class="md-header__button md-logo" aria-label="buildzr" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            buildzr
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Command reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/amirulmenjeni/buildzr" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    amirulmenjeni/buildzr
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../user-guide/core-concepts/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../serve-workspaces/" class="md-tabs__link">
+          
+  
+  
+  Publishing
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/dsl/" class="md-tabs__link">
+          
+  
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../contributing/" class="md-tabs__link">
+          
+  
+  
+  Development
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="buildzr" class="md-nav__button md-logo" aria-label="buildzr" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    buildzr
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/amirulmenjeni/buildzr" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    amirulmenjeni/buildzr
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/ai-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use buildzr with AI agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../demo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Try it in your browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/core-concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Concepts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/workspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workspace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/relationships/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relationships
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/views/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment Views
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/styles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Styles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/themes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Themes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../user-guide/export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Publishing
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Publishing
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../serve-workspaces/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Serve your workspaces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command reference
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#find-the-page-for-your-task" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Find the page for your task
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#words-used-on-this-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Words used on this page
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#requirements-and-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements and installation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Requirements and installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#run-the-command-without-installing-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run the command without installing it
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands-and-their-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands and their options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands and their options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-commands-find-their-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the commands find their settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buildzr-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        buildzr --version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buildzr-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        buildzr build
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="buildzr build">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-files-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which files run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-name-of-a-built-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The name of a built workspace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-a-workspace-is-broken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When a workspace is broken
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removing-built-workspaces-you-no-longer-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing built workspaces you no longer build
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#choosing-a-value-for-k" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing a value for --k
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buildzr-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        buildzr export
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buildzr-serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        buildzr serve
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="buildzr serve">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#try-the-bundled-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Try the bundled example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-a-built-workspace-is-out-of-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When a built workspace is out of date
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-serve-serves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What serve serves
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../config/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    buildzr.yaml
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../publishing-recipes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Recipes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hosting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hosting the built workspaces elsewhere
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ui-settings/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Viewer settings
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../viewer-hash-routes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Viewer links
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/dsl/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DSL
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../model-api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Development
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../structurizr-compatibility/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Structurizr compatibility
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#find-the-page-for-your-task" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Find the page for your task
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#words-used-on-this-page" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Words used on this page
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#requirements-and-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Requirements and installation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Requirements and installation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#run-the-command-without-installing-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run the command without installing it
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands-and-their-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands and their options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Commands and their options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-the-commands-find-their-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How the commands find their settings
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buildzr-version" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        buildzr --version
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buildzr-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        buildzr build
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="buildzr build">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-files-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which files run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-name-of-a-built-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The name of a built workspace
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-a-workspace-is-broken" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When a workspace is broken
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#removing-built-workspaces-you-no-longer-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Removing built workspaces you no longer build
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#choosing-a-value-for-k" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Choosing a value for --k
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buildzr-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        buildzr export
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#buildzr-serve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        buildzr serve
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="buildzr serve">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#try-the-bundled-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Try the bundled example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-a-built-workspace-is-out-of-date" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When a built workspace is out of date
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-serve-serves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What serve serves
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="command-reference">Command reference<a class="headerlink" href="#command-reference" title="Permanent link">&para;</a></h1>
+<p>The <code>buildzr</code> command turns the architecture models that you write in Python into <strong>built workspaces</strong>: folders of web pages that draw your diagrams in a browser, with the model data next to them. It also serves them, so that you and other people can open them.</p>
+<p>This page is the reference of the command: every option, its default, and every exit code. To learn the commands step by step, follow the <a href="../getting-started/quick-start/">Quick Start</a>, then <a href="../serve-workspaces/">Serve your workspaces</a>.</p>
+<p>The command has three subcommands:</p>
+<ul>
+<li><code>buildzr build</code> runs the Python files of your workspaces folder and writes one built workspace for each workspace they create.</li>
+<li><code>buildzr export</code> runs one model file and writes its workspaces as Structurizr JSON, PlantUML, SVG or PNG files, for other tools and for documents.</li>
+<li><code>buildzr serve</code> builds what is missing or out of date, then serves every built workspace so that you can open it in a browser.</li>
+</ul>
+<h2 id="find-the-page-for-your-task">Find the page for your task<a class="headerlink" href="#find-the-page-for-your-task" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>You want to&hellip;</th>
+<th>Read</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Describe your architecture in Python</td>
+<td><a href="../getting-started/quick-start/">Quick Start</a> and the <a href="../user-guide/core-concepts/">User Guide</a></td>
+</tr>
+<tr>
+<td>Open your model in a browser</td>
+<td><a href="../getting-started/quick-start/">Quick Start</a></td>
+</tr>
+<tr>
+<td>Serve several workspaces, on your machine or for a team</td>
+<td><a href="../serve-workspaces/">Serve your workspaces</a></td>
+</tr>
+<tr>
+<td>Put the built workspaces on a web server you already have</td>
+<td><a href="../hosting/">Hosting the built workspaces elsewhere</a></td>
+</tr>
+<tr>
+<td>Let scripts, CI (continuous integration) jobs, dashboards and AI assistants read your model</td>
+<td><a href="../model-api/">The Model API</a> and the <a href="../publishing-recipes/">recipes</a></td>
+</tr>
+<tr>
+<td>Write JSON, PlantUML, SVG or PNG files from a model file</td>
+<td><a href="#buildzr-export"><code>buildzr export</code></a> and <a href="../user-guide/export/">Export</a></td>
+</tr>
+<tr>
+<td>Keep your settings in one file</td>
+<td><a href="../config/"><code>buildzr.yaml</code></a></td>
+</tr>
+<tr>
+<td>Link to one box of a diagram</td>
+<td><a href="../viewer-hash-routes/">Viewer links</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="words-used-on-this-page">Words used on this page<a class="headerlink" href="#words-used-on-this-page" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Word</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>workspace</strong></td>
+<td>A <code>Workspace(...)</code> that you write in Python. It is also what readers open: its viewer, its data and its Model API, at <code>/&lt;name&gt;/</code> of <code>buildzr serve</code>.</td>
+</tr>
+<tr>
+<td><strong>workspaces folder</strong></td>
+<td>The folder of Python files that create your workspaces: <code>workspaces/</code> unless <code>-w</code> or the <code>workspaces:</code> key of <code>buildzr.yaml</code> names another one. One file may create several workspaces.</td>
+</tr>
+<tr>
+<td><strong>model file</strong></td>
+<td>One Python file of the workspaces folder.</td>
+</tr>
+<tr>
+<td><strong>built workspace</strong></td>
+<td>The folder that <code>buildzr build</code> writes for one workspace: the viewer, the model data and a file called <code>build.json</code>.</td>
+</tr>
+<tr>
+<td><strong>build output</strong></td>
+<td>The folder that holds every built workspace, one subfolder per workspace. Default: <code>.buildzr/build</code>.</td>
+</tr>
+<tr>
+<td><strong>viewer</strong></td>
+<td>The web page inside a built workspace that draws the diagrams. A workspace built with <code>--no-viewer</code> has the model data only and is called a <strong>data-only workspace</strong>.</td>
+</tr>
+<tr>
+<td><strong>modelHash</strong></td>
+<td>A fingerprint of the model, shown as <code>sha256:</code> and the start of a hash. The same model always gives the same hash.</td>
+</tr>
+<tr>
+<td><strong>Model API</strong></td>
+<td>The part of <code>buildzr serve</code> that answers questions about a model as JSON (a text format for data), under <code>/&lt;name&gt;/api/v1/</code>.</td>
+</tr>
+<tr>
+<td><strong><code>buildzr.yaml</code></strong></td>
+<td>The optional config file of your project. It holds the workspaces folder and the build settings.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="requirements-and-installation">Requirements and installation<a class="headerlink" href="#requirements-and-installation" title="Permanent link">&para;</a></h2>
+<p>You need:</p>
+<ul>
+<li>Python 3.10 or newer.</li>
+<li>Node.js 18 or newer on the machine that builds: <code>buildzr build</code>, and <code>buildzr serve</code> when a workspace is missing or out of date. The layout step of the build runs on Node. Check your version with <code>node --version</code>. Serving workspaces that are already built does not need Node.</li>
+<li>The <code>buildzr</code> package. Installing it also installs the <code>buildzr</code> command.</li>
+</ul>
+<p>Install the package with pip:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>buildzr
+</span></code></pre></div>
+<p>If your project uses <a href="https://docs.astral.sh/uv/">uv</a>, add the package to it instead:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>add<span class="w"> </span>buildzr
+</span></code></pre></div>
+<h3 id="run-the-command-without-installing-it">Run the command without installing it<a class="headerlink" href="#run-the-command-without-installing-it" title="Permanent link">&para;</a></h3>
+<p>uv includes a tool called <code>uvx</code>, so install uv first. <code>uvx</code> runs a command in a temporary environment, and you do not install anything into your project. Put <code>uvx</code> in front of each command on this page, for example <code>uvx buildzr build</code>.</p>
+<p>The temporary environment contains buildzr, so your model file can import it. If your model file imports other packages, add each one with <code>--with</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>uvx<span class="w"> </span>--with<span class="w"> </span>&lt;package&gt;<span class="w"> </span>buildzr<span class="w"> </span>build
+</span></code></pre></div>
+<h2 id="commands-and-their-options">Commands and their options<a class="headerlink" href="#commands-and-their-options" title="Permanent link">&para;</a></h2>
+<h3 id="how-the-commands-find-their-settings">How the commands find their settings<a class="headerlink" href="#how-the-commands-find-their-settings" title="Permanent link">&para;</a></h3>
+<p>Each setting comes from the first of these that has it:</p>
+<ol>
+<li>An option on the command line.</li>
+<li><code>buildzr.yaml</code>. When <code>workspaces:</code> is a list, the <code>build:</code> of a file&rsquo;s entry comes before the <code>build:</code> of the whole file; see <a href="../config/#choosing-which-files-to-build">Choosing which files to build</a>.</li>
+<li>The built-in default.</li>
+</ol>
+<p>The tables below list every option. <code>buildzr COMMAND --help</code> prints the same list.</p>
+<h3 id="buildzr-version"><code>buildzr --version</code><a class="headerlink" href="#buildzr-version" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>buildzr --version
+</span></code></pre></div>
+<p><code>--version</code> prints the installed version of buildzr, as <code>buildzr &lt;version&gt;</code>, and exits with code 0. Run it to check which version a machine or a CI job uses:</p>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="gp">$ </span>buildzr<span class="w"> </span>--version
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="go">buildzr 1.0.0</span>
+</span></code></pre></div>
+<p>The version in the output above is an example. <code>buildzr --help</code> lists <code>--version</code> next to the three subcommands.</p>
+<h3 id="buildzr-build"><code>buildzr build</code><a class="headerlink" href="#buildzr-build" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>buildzr build [-h] [-w PATH] [--k N] [--text-color {wcag,c4}] [--no-viewer] [-c FILE] [-v] [-o DIR]
+</span></code></pre></div>
+<p><code>build</code> runs every model file of the workspaces folder, each in a fresh Python process, lays out the diagrams of every workspace the files create, checks the result, and writes each one to <code>&lt;build output&gt;/&lt;name&gt;/</code>. It always builds every workspace; <code>serve</code> is the command that builds only what is out of date.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-w PATH</code>, <code>--workspaces PATH</code></td>
+<td>The Python file or folder that creates workspaces. It takes one path, and it replaces <code>workspaces:</code> of <code>buildzr.yaml</code>, whether that is a path or a <a href="../config/#choosing-which-files-to-build">list of files and folders</a>. The <code>build:</code> settings of the file still apply; the settings of a list entry do not. Default: <code>workspaces:</code> in <code>buildzr.yaml</code>, else the folder <code>workspaces</code>.</td>
+</tr>
+<tr>
+<td><code>--k N</code></td>
+<td>Room for a box that contains other boxes, as a multiple of the area of an empty box. Raise it if the insides of such boxes are too small to read; lower it for compact diagrams. A whole number of at least 1. Default: <code>build.k</code> in <code>buildzr.yaml</code>, else 4. See <a href="#choosing-a-value-for-k">Choosing a value for <code>--k</code></a>.</td>
+</tr>
+<tr>
+<td><code>--text-color {wcag,c4}</code></td>
+<td>The text colour on boxes whose styles do not set one. <code>wcag</code> picks black or white, whichever contrasts more with the box, following the Web Content Accessibility Guidelines (WCAG). <code>c4</code> uses the default C4 text colours. Default: <code>build.text_color</code>, else <code>wcag</code>.</td>
+</tr>
+<tr>
+<td><code>--no-viewer</code></td>
+<td>Build data-only workspaces: the model data without the viewer. It also applies to the entries of a <code>workspaces:</code> list that set <code>viewer: true</code>.</td>
+</tr>
+<tr>
+<td><code>-c FILE</code>, <code>--config FILE</code></td>
+<td>The config file. Default: <code>buildzr.yaml</code>, searched from the current folder upward.</td>
+</tr>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td>Also show the line from the step that runs each model file. It counts the elements, relationships, views and levels of each workspace, and names a temporary folder. Errors are always shown.</td>
+</tr>
+<tr>
+<td><code>-o DIR</code>, <code>--out DIR</code></td>
+<td>The build output. Default: <code>build.out</code>, else <code>.buildzr/build</code>.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="which-files-run">Which files run<a class="headerlink" href="#which-files-run" title="Permanent link">&para;</a></h4>
+<ul>
+<li>With a folder, <code>build</code> runs every <code>.py</code> file in it and in its subfolders, in the order of their paths.</li>
+<li>Files and folders whose name starts with <code>_</code> or <code>.</code> are skipped, and so is <code>__pycache__</code>.</li>
+<li>A file that creates no workspace is skipped with one line, <code>skipped &lt;file&gt;: it creates no workspace</code>.</li>
+<li>Each file runs in its own Python process, in a temporary folder, so a model file that calls <code>w.save()</code> does not write into your project.</li>
+</ul>
+<h4 id="the-name-of-a-built-workspace">The name of a built workspace<a class="headerlink" href="#the-name-of-a-built-workspace" title="Permanent link">&para;</a></h4>
+<p>Each workspace is written to a folder named after the workspace, and served at the same name: <code>Workspace('Big Bank plc')</code> becomes <code>big-bank-plc</code>, at <code>/big-bank-plc/</code>. The rule:</p>
+<ul>
+<li>Upper-case letters become lower case. Every character other than <code>a</code> to <code>z</code>, <code>0</code> to <code>9</code>, <code>.</code>, <code>_</code> and <code>-</code> becomes <code>-</code>.</li>
+<li>Characters at the start that are not a letter or a digit are removed. The name is cut to 64 characters.</li>
+<li>An empty name falls back to the name of the file without <code>.py</code>.</li>
+<li>These names are reserved, because they would hide a file or an address of <code>buildzr serve</code>: <code>api</code>, <code>assets</code>, <code>data</code>, <code>_buildzr</code>, <code>index.html</code>, <code>build.json</code> and <code>llms.txt</code>. A workspace with one of them fails; rename it.</li>
+<li>When two workspaces get the same name, <code>build</code> stops before it writes anything, with one error that names both workspaces and their files.</li>
+<li>A model file that imports another model file also runs the <code>with Workspace(...)</code> blocks of that file, so it creates the same workspaces a second time. <code>build</code> then stops with the same error.</li>
+</ul>
+<h4 id="when-a-workspace-is-broken">When a workspace is broken<a class="headerlink" href="#when-a-workspace-is-broken" title="Permanent link">&para;</a></h4>
+<p>Before <code>build</code> puts a built workspace in place, it checks its data: the JSON schemas, and rules that the schemas cannot express, such as boxes inside their frames and arrows that end on the border of their boxes. What happens when a step fails depends on what is at fault:</p>
+<table>
+<thead>
+<tr>
+<th>At fault</th>
+<th>Examples</th>
+<th>What <code>build</code> does</th>
+<th>Exit code</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The workspace</td>
+<td>Its model file raises an error. The layout fails on this model. The data fails its checks.</td>
+<td>Writes a <strong>broken</strong> built workspace, which replaces the previous one, and prints a block for it.</td>
+<td>1</td>
+</tr>
+<tr>
+<td>The machine</td>
+<td>Node.js is missing or too old. The disk is full. Permission is denied. The build process is killed.</td>
+<td>Writes nothing: the previous built workspace stays as it was. Prints one error line.</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The other workspaces are still built either way.</li>
+<li>The <code>build.json</code> of every built workspace has <code>status</code>: <code>ok</code>, or <code>broken</code>. A broken one also has <code>stage</code>, the step that failed (<code>model</code>, <code>layout</code> or <code>check</code>), and <code>errors</code>, at most 50 errors of at most 500 characters each.</li>
+<li>After a failure at the <code>check</code> step, the data is kept next to <code>build.json</code>, so that you can look at what is wrong. After a failure at the <code>model</code> or <code>layout</code> step, there is no data: the folder holds <code>build.json</code> and the viewer, which shows the errors.</li>
+<li>A model file that raises an error before it creates any workspace breaks the workspaces it built last time. On its first build, its broken workspace is named after the file.</li>
+<li>A broken workspace is up to date like an ok one, so <code>serve</code> does not build the same broken model file again and again. Change the file, or use <code>--rebuild</code>.</li>
+<li>A workspace with a <a href="#the-name-of-a-built-workspace">reserved name</a> fails without a broken workspace, because it cannot be written under that name.</li>
+<li>Every built workspace, ok or broken, is written to a temporary folder first and then put in place in one step, so a reader never sees half of one.</li>
+</ul>
+<p>The block of a broken workspace, red in a terminal:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>buildzr: BROKEN: workspace billing (workspaces/billing.py) failed at the model step
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    NameError: name 'ledger' is not defined
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    billing.py, line 6: invoicing &gt;&gt; "Collects payments through" &gt;&gt; ledger
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  this workspace is broken; the viewer says so
+</span></code></pre></div>
+<p><a href="../serve-workspaces/#8-when-a-workspace-is-broken">Serve your workspaces</a> shows what the viewer, the list at <code>/</code> and the Model API show for a broken workspace.</p>
+<h4 id="removing-built-workspaces-you-no-longer-build">Removing built workspaces you no longer build<a class="headerlink" href="#removing-built-workspaces-you-no-longer-build" title="Permanent link">&para;</a></h4>
+<p>A full build, without <code>-w</code> or with <code>-w</code> and a folder, removes a built workspace when its model file was deleted, or when its model file ran without failure in this build and no longer creates it (you renamed or removed the workspace in the file). It prints one line for each, such as <code>removed old-name: its model file workspaces/old-name.py is gone</code>. When <code>workspaces:</code> in <code>buildzr.yaml</code> is a list, a full build is a build without <code>-w</code>, and it also removes the built workspaces of a file you took off the list. A model file that failed because of the machine keeps all its previous built workspaces. Only built workspaces built from the same workspaces folder are removed: <code>build.json</code> records that folder, so <code>buildzr build -w other/folder</code> never removes the workspaces of your workspaces folder. A workspace built from a <code>workspaces:</code> list also records the config file of the list, so only a build of that same list removes it. A folder without a <code>build.json</code> that names its model file is never removed, nor is anything when you build one file with <code>-w FILE</code>. <code>serve</code> never removes anything: run <code>buildzr build</code> to tidy the build output.</p>
+<h3 id="choosing-a-value-for-k">Choosing a value for <code>--k</code><a class="headerlink" href="#choosing-a-value-for-k" title="Permanent link">&para;</a></h3>
+<p><code>--k</code> sets how much room the layout gives the inside of a box that contains other boxes, such as a software system with containers. The room for the inside is at most <code>N</code> times the area of an empty box; the box itself is a little larger, because it also holds its own name. <code>build.k</code> in <code>buildzr.yaml</code> sets the same value.</p>
+<p>When you expand such a box in the viewer, its inside is drawn in that room. If the inside needs more room, it is shrunk to fit; it is never enlarged. For example, in the model <code>examples/buildzr_models_example.py</code> of the buildzr repository, the inside of the E-Commerce System is drawn at 23% of its full size with <code>--k 1</code>, 35% with 4 (the default), 50% with 9 and 68% with 16.</p>
+<ul>
+<li><strong>Raise the value</strong> when the inside of an expanded box is too small to read. The cost: boxes with an inside take more room on the diagram of their parent, so the whole diagram is larger, and the viewer shows it smaller when it fits it to the screen.</li>
+<li><strong>Lower the value</strong> for compact diagrams. You then zoom in to read the inside of an expanded box.</li>
+<li>Once a box has all the room its inside needs, the inside is drawn at full size, and a larger value changes nothing more for that box. In the example, the Order Service container reaches full size at 9.</li>
+<li>A model in which no box contains other boxes, such as the one in the <a href="../getting-started/quick-start/">Quick Start</a>, looks the same at every value.</li>
+<li>The value is a whole number of at least 1. The default is 4.</li>
+</ul>
+<p><img alt="The E-Commerce System expanded with --k 1: its five containers are small, and Order Service, which has two components, is about the same size as the empty boxes" src="../images/cli/k-1-expanded-system.png" /></p>
+<p><em>With <code>--k 1</code>, the containers fill a small area, and the viewer zooms in to show it. Order Service and Inventory Service, which contain components, are about the same size as the other containers.</em></p>
+<p><img alt="The same system expanded with --k 9: Order Service and Inventory Service are much larger than the empty boxes, and the diagram is shown at a smaller zoom" src="../images/cli/k-9-expanded-system.png" /></p>
+<p><em>With <code>--k 9</code>, Order Service and Inventory Service get room for their components, so they are more than twice as wide and as tall as the other containers, and the viewer zooms out to fit the larger diagram.</em></p>
+<h3 id="buildzr-export"><code>buildzr export</code><a class="headerlink" href="#buildzr-export" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>buildzr export [-h] [-f FORMAT] [-o DIR] [--workspace NAME] [--index N] [--layout {dot,smetana}] [--pretty] FILE
+</span></code></pre></div>
+<p><code>export</code> runs one model file <code>FILE</code>, in a fresh Python process in a temporary folder (so a model file that still calls <code>w.save()</code> does not write into your project and does not print a deprecation warning), and writes every workspace it creates, or the one you pick, as files. It does not use <code>buildzr.yaml</code>, Node.js or the viewer. A file that creates several workspaces gives one subfolder for each:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>export/
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>  big-bank-plc/
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    workspace.json              format json
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    SystemContext.puml          formats plantuml, svg and png
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    SystemContext.svg           format svg
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    SystemContext.png           format png
+</span></code></pre></div>
+<p>The subfolder is named like a <a href="#the-name-of-a-built-workspace">built workspace</a>, and two workspaces of one file that would share a name get <code>-2</code>, <code>-3</code> and so on in the order the file creates them. Files of an earlier export are overwritten, and files that this export does not write are left alone. Each file written is listed on a line <code>wrote &lt;path&gt;</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FILE</code></td>
+<td>The Python model file. It must exist and be a file, not a folder; use <code>build</code> for a folder.</td>
+</tr>
+<tr>
+<td><code>-f FORMAT</code>, <code>--format FORMAT</code></td>
+<td><code>json</code> (one <code>workspace.json</code>), <code>plantuml</code> (one <code>.puml</code> file per view), <code>svg</code> or <code>png</code> (one image per view, next to its <code>.puml</code> file). Repeat the option to write several formats in one run. Default: <code>json</code>. <code>plantuml</code>, <code>svg</code> and <code>png</code> need <code>pip install "buildzr[export-plantuml]"</code> and Java 11 or newer; <code>svg</code> and <code>png</code> also need Graphviz, unless you use <code>--layout smetana</code>.</td>
+</tr>
+<tr>
+<td><code>-o DIR</code>, <code>--out DIR</code></td>
+<td>The output folder. Default: <code>export</code>.</td>
+</tr>
+<tr>
+<td><code>--workspace NAME</code></td>
+<td>Export only the workspace with this name. If the file creates no such workspace, or two with that name, the command says so, lists the workspaces with their numbers, and writes nothing.</td>
+</tr>
+<tr>
+<td><code>--index N</code></td>
+<td>Export only the N-th workspace the file creates, counting from 0. Use it when two workspaces share a name. It cannot be used with <code>--workspace</code>.</td>
+</tr>
+<tr>
+<td><code>--layout {dot,smetana}</code></td>
+<td>The PlantUML layout engine for <code>plantuml</code>, <code>svg</code> and <code>png</code>. <code>dot</code> uses Graphviz. <code>smetana</code> is pure Java and needs no Graphviz, with a rougher layout, and adds <code>!pragma layout smetana</code> to the <code>.puml</code> files. Default: <code>dot</code>.</td>
+</tr>
+<tr>
+<td><code>--pretty</code></td>
+<td>Indent the JSON with two spaces. By default the JSON is on one line, as <code>w.save()</code> wrote it.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>A format that cannot work here (no <code>jpype1</code>, or Graphviz missing for <code>svg</code> and <code>png</code> with <code>dot</code>) is reported before any file is written, so the run leaves no half-finished folder.</li>
+<li>A workspace without views gets <code>workspace.json</code> only, and a warning for each diagram format.</li>
+<li>If the model file raises an error, <code>export</code> prints it, with the lines of your file, and writes nothing.</li>
+</ul>
+<div class="language-console highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="gp">$ </span>buildzr<span class="w"> </span><span class="nb">export</span><span class="w"> </span>workspaces/shop.py<span class="w"> </span>-f<span class="w"> </span>json<span class="w"> </span>-f<span class="w"> </span>svg<span class="w"> </span>--layout<span class="w"> </span>smetana<span class="w"> </span>-o<span class="w"> </span>diagrams
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="go">wrote diagrams/shop/workspace.json</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="go">wrote diagrams/shop/SystemContext.svg</span>
+</span></code></pre></div>
+<h3 id="buildzr-serve"><code>buildzr serve</code><a class="headerlink" href="#buildzr-serve" title="Permanent link">&para;</a></h3>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>buildzr serve [-h] [--example] [--no-build] [--rebuild] [-c FILE] [-v] [-p PORT] [--host HOST] [--public-url URL] [--cors-origin ORIGIN] [PATH]
+</span></code></pre></div>
+<p><code>serve</code> first builds what is missing or out of date, then serves every built workspace of the build output. It only reads: it answers <code>GET</code> and <code>HEAD</code> requests, and nothing can change a workspace through it.</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PATH</code></td>
+<td>What to serve. A workspaces folder or a model file: <code>serve</code> builds its workspaces when they are missing or out of date, then serves the build output. It replaces <code>workspaces:</code> of <code>buildzr.yaml</code>, as <code>-w</code> does for <code>build</code>. A folder that already holds built workspaces (it has a <code>build.json</code>, or subfolders that have one): <code>serve</code> serves it as it is, and builds nothing. Default: <code>workspaces:</code> in <code>buildzr.yaml</code> (a path or a list), else the folder <code>workspaces</code>.</td>
+</tr>
+<tr>
+<td><code>--example</code></td>
+<td>Serve the bundled example workspace, an online shop, instead of your own. See <a href="#try-the-bundled-example">Try the bundled example</a>. Cannot be combined with <code>PATH</code>, <code>--no-build</code>, <code>--rebuild</code>, <code>-c</code> or <code>-v</code>.</td>
+</tr>
+<tr>
+<td><code>--no-build</code></td>
+<td>Serve the build output as it is, without building. Node is then not needed.</td>
+</tr>
+<tr>
+<td><code>--rebuild</code></td>
+<td>Build every workspace again, also the ones that are up to date.</td>
+</tr>
+<tr>
+<td><code>-c FILE</code>, <code>--config FILE</code></td>
+<td>The config file. Default: <code>buildzr.yaml</code>, searched from the current folder upward.</td>
+</tr>
+<tr>
+<td><code>-v</code>, <code>--verbose</code></td>
+<td>The same as for <code>build</code>.</td>
+</tr>
+<tr>
+<td><code>-p PORT</code>, <code>--port PORT</code></td>
+<td>The port, 1 to 65535. Default: <code>serve.port</code> in <code>buildzr.yaml</code>, else 8000.</td>
+</tr>
+<tr>
+<td><code>--host HOST</code></td>
+<td>The address to listen on. Default: <code>serve.host</code> in <code>buildzr.yaml</code>, else <code>127.0.0.1</code>: only this machine can connect. To let other machines connect, pass <code>0.0.0.0</code>; do this only on purpose.</td>
+</tr>
+<tr>
+<td><code>--public-url URL</code></td>
+<td>The address at which readers reach this server (<code>http://</code> or <code>https://</code>), for example behind a proxy. The <a href="../model-api/">Model API</a> builds its <code>viewerUrl</code> links from it. Default: <code>serve.public_url</code> in <code>buildzr.yaml</code>, else none.</td>
+</tr>
+<tr>
+<td><code>--cors-origin ORIGIN</code></td>
+<td>Let a web page from <code>ORIGIN</code> read the Model API from a browser (CORS, Cross-Origin Resource Sharing). Repeat the option for more origins. There is no wildcard. Default: <code>serve.cors_origins</code> in <code>buildzr.yaml</code>, else none. The option replaces the list of the file; it does not add to it.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="try-the-bundled-example">Try the bundled example<a class="headerlink" href="#try-the-bundled-example" title="Permanent link">&para;</a></h4>
+<p>To see the viewer before you write a model, run:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>uvx<span class="w"> </span>buildzr<span class="w"> </span>serve<span class="w"> </span>--example
+</span></code></pre></div>
+<p><code>serve</code> prints the address of the example, <code>http://127.0.0.1:8000/example/</code> by default. It does not open a browser; open the address yourself. The example is an online shop with all six kinds of view (system landscape, system context, container, component, dynamic and deployment), so you can explore the viewer on a realistic diagram.</p>
+<p>The example is <strong>hermetic</strong>: it is already built and shipped inside buildzr, so Node is not needed, and <code>serve</code> builds nothing.</p>
+<ul>
+<li>It ignores the folder you run it in: <code>buildzr.yaml</code> is not read (even a broken one), and your workspaces folder and build output are not touched.</li>
+<li>It writes nothing into the current folder. The files it serves are copied to a temporary folder, which <code>serve</code> removes when you stop it with Ctrl+C or a termination signal (<code>SIGTERM</code>).</li>
+<li><code>-p</code>/<code>--port</code>, <code>--host</code>, <code>--public-url</code> and <code>--cors-origin</code> work as usual, with their defaults (not the <code>serve:</code> section of any <code>buildzr.yaml</code>). The <a href="../model-api/">Model API</a> of the example is at <code>/example/api/v1/</code>.</li>
+<li><code>PATH</code>, <code>--no-build</code>, <code>--rebuild</code>, <code>-c</code> and <code>-v</code> have no meaning for an example that is not built from your files, so <code>serve</code> refuses them with exit code 2 instead of ignoring them silently, for example <code>buildzr: error: --example serves the bundled example, so it cannot be used with PATH</code>.</li>
+</ul>
+<h4 id="when-a-built-workspace-is-out-of-date">When a built workspace is out of date<a class="headerlink" href="#when-a-built-workspace-is-out-of-date" title="Permanent link">&para;</a></h4>
+<p>A built workspace is rebuilt when its folder is missing, or when its <strong>fingerprint</strong> changed. <code>build</code> records the fingerprint in the <code>build.json</code> of the workspace. It is a sha256 hash of:</p>
+<ul>
+<li>the model file that creates the workspace,</li>
+<li>every file whose name starts with <code>_</code> and ends with <code>.py</code> in the workspaces folder and its subfolders (for a <code>workspaces:</code> list: in the folder of the file&rsquo;s entry, or the folder that holds the listed file, and their subfolders),</li>
+<li>the version of buildzr,</li>
+<li>the settings that change the output, as they are for this workspace: <code>k</code>, <code>text_color</code> and <code>viewer</code>, from an option, the file&rsquo;s list entry or <code>build:</code>. Changing the <code>k</code> of one list entry rebuilds only the workspaces of that entry.</li>
+</ul>
+<p>File dates are not used. Code that a model file imports from anywhere else is not part of the fingerprint: after you change such code, start <code>serve</code> with <code>--rebuild</code>.</p>
+<h4 id="what-serve-serves">What <code>serve</code> serves<a class="headerlink" href="#what-serve-serves" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Address</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/&lt;name&gt;/</code></td>
+<td>The viewer of the workspace <code>&lt;name&gt;</code>, and its files, such as <code>/&lt;name&gt;/data/index.json</code>.</td>
+</tr>
+<tr>
+<td><code>/&lt;name&gt;/api/v1/</code></td>
+<td>The <a href="../model-api/">Model API</a> of the workspace.</td>
+</tr>
+<tr>
+<td><code>/&lt;name&gt;/llms.txt</code></td>
+<td>A short plain-text page that tells AI tools where the Model API of the workspace is.</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td>With one workspace, a redirect (HTTP 302) to <code>/&lt;name&gt;/</code>, or to its Model API <code>/&lt;name&gt;/api/v1/</code> when it is data-only. With several, a page that links to each one: to its viewer, or to its Model API when it is data-only.</td>
+</tr>
+<tr>
+<td><code>/_buildzr/v1/workspaces</code></td>
+<td>The list of workspaces as JSON. See <a href="../serve-workspaces/#6-list-the-workspaces-from-a-program">Serve your workspaces</a>.</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>When <code>serve</code> starts, it prints each build failure as <code>build</code> does, and a block for every broken workspace in the build output, also those built earlier. It serves every built workspace, broken ones included: <code>/</code> marks them as broken, and <code>/_buildzr/v1/workspaces</code> gives their <code>status</code>, <code>stage</code> and <code>errors</code>. If nothing can be served, it exits with code 1.</li>
+<li>If a workspace must be built but Node is not installed, <code>serve</code> says so in one line and serves what is already built.</li>
+<li><code>serve</code> looks at the build output again when someone opens <code>/</code> or the list, and when an address names a workspace it does not know yet. A workspace that <code>buildzr build</code> adds in another terminal therefore appears without a restart. A workspace in the middle of being replaced is not served for that moment: its address answers 404.</li>
+</ul>
+<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Success. <code>serve</code> exits with 0 when you stop it with Ctrl+C (<code>serve --example</code>: also with <code>SIGTERM</code>).</td>
+</tr>
+<tr>
+<td>1</td>
+<td>A workspace is broken or could not be built, there was nothing to serve, or the port is in use. For <code>export</code>: the model file raised an error or creates no workspace, or the export failed (for example, Java or Graphviz is missing).</td>
+</tr>
+<tr>
+<td>2</td>
+<td>A usage or config error: an unknown option, an option that cannot be combined with another (such as <code>--example</code> with <code>PATH</code>), a workspaces folder or path that does not exist, an <code>export</code> file that does not exist, is a folder, or has no workspace of the name or number you gave, or a problem in <code>buildzr.yaml</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Error messages from the command start with <code>buildzr: error:</code>. Problems in <code>buildzr.yaml</code> are listed one per line, as <code>buildzr.yaml:&lt;line&gt;: &lt;key&gt;: &lt;message&gt;</code>.</p>
+<p>In the examples on these pages, a last line such as <code>[exit code 2]</code> shows the exit code. The command does not print that line.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/amirulmenjeni/buildzr" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Code copied to clipboard", "clipboard.copy": "Copy this code", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../javascripts/runcode-client.js"></script>
+      
+        <script src="../javascripts/interactive-code.js"></script>
+      
+        <script src="../javascripts/demo.js"></script>
+      
+    
+  </body>
+</html>
