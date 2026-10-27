@@ -626,7 +626,7 @@ class Workspace(DslWorkspaceElement):
         warnings.warn(
             "Workspace.save() is deprecated and will be removed in a future "
             "release; use the `buildzr export` command instead "
-            "(see https://buildzr.dev/user-guide/export/)",
+            "(see https://buildzr.dev/latest/user-guide/export/)",
             DeprecationWarning,
             stacklevel=2,
         )
