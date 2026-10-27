@@ -23,6 +23,10 @@ jobs:
     permissions:
       contents: write # Push the release tag
       id-token: write # PyPI Trusted Publishing (OIDC), no stored token
+    outputs:
+      release: ${{ steps.check-version.outputs.release }}
+      docs: ${{ steps.check-version.outputs.docs }}
+      tag: ${{ steps.check-version.outputs.tag }}
     steps:
     - name: Set up uv
       uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
@@ -57,6 +61,13 @@ jobs:
           echo "::notice::'$VERSION' is not a final or release candidate version. Skipping release."
           echo "release=false" >> "$GITHUB_OUTPUT"
           exit 0
+        fi
+
+        # The docs of buildzr.dev show final releases (X.Y.Z) only, never a release candidate.
+        if [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+          echo "docs=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "docs=false" >> "$GITHUB_OUTPUT"
         fi
 
         # Check the remote too, in case the tag was pushed after checkout.
@@ -124,3 +135,15 @@ jobs:
       run: |
         git tag "$TAG"
         git push origin "refs/tags/$TAG"
+
+  # Publish the docs of the release to buildzr.dev (/<version>/ and /latest/), after the package is on PyPI and the
+  # tag is pushed. Only when this run released a final version: release candidates (X.Y.ZrcN) are not published to
+  # the docs, and a run that released nothing publishes nothing.
+  docs:
+    needs: publish
+    if: needs.publish.outputs.release == 'true' && needs.publish.outputs.docs == 'true'
+    permissions:
+      contents: write # Push to the gh-pages branch
+    uses: ./.github/workflows/docs-publish.yml
+    with:
+      tag: ${{ needs.publish.outputs.tag }}

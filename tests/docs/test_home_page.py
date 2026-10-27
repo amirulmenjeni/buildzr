@@ -59,12 +59,13 @@ def test_every_label_is_defined_for_the_readme_and_for_the_home_page() -> None:
     for k in labels:
         target = home[k]
         if target.startswith("http"):  # GitHub pages have no page in docs/; badge images are shields.io
+            # the roadmap is not versioned: it is served from master at /roadmap/, outside the docs of a release
             assert target == readme[k] and ("github.com/amirulmenjeni/buildzr" in target
-                                            or target.startswith("https://img.shields.io/")), k
+                                            or target.startswith("https://img.shields.io/")
+                                            or target == "https://buildzr.dev/roadmap/"), k
         else:
             page = target.split("#")[0]
-            # roadmap.md is generated from roadmap.yml by the mkdocs hook: there is no such file in docs/
-            assert page == "roadmap.md" or os.path.isfile(os.path.join(DOCS, page)), f"{k}: docs/{target} does not exist"
+            assert os.path.isfile(os.path.join(DOCS, page)), f"{k}: docs/{target} does not exist"
 
 
 # --- the Quick Start of the README --------------------------------------------------------------------------

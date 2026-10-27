@@ -22,6 +22,7 @@ dist
 
 # MkDocs build output.
 /site/
+/site-roadmap/
 
 # v4 viewer build output and local test data.
 buildzr/site/static/

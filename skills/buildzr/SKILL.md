@@ -95,7 +95,7 @@ While `buildzr serve` runs, read the model as JSON instead of reading the Python
 - `GET /<name>/api/v1/`: the orientation document: counts, top-level ids, endpoint templates, limits.
 - Then `element?id=shop/api`, `elements?q=postgres`, `tree?depth=2`, `neighbours?id=shop/database&direction=in`, `path?from=customer&to=shop/database`, `relationships?from=shop/api`, `views`, `view?key=shop-containers`.
 
-Element ids are made from the element **names**, not the Python variables: lower case, `-` for spaces, joined by `/` (`Container('Database')` in `Shop` is `shop/database`). A wrong id answers 404 with the nearest existing ancestor. Lists are paged: follow `next` while `truncated` is true. After a change, build again and the answers change with the `modelHash`. Every endpoint and field is described at https://buildzr.dev/model-api/.
+Element ids are made from the element **names**, not the Python variables: lower case, `-` for spaces, joined by `/` (`Container('Database')` in `Shop` is `shop/database`). A wrong id answers 404 with the nearest existing ancestor. Lists are paged: follow `next` while `truncated` is true. After a change, build again and the answers change with the `modelHash`. Every endpoint and field is described at https://buildzr.dev/latest/model-api/.
 
 Check: `curl -s http://127.0.0.1:8000/<name>/api/v1/` answers JSON with `"status": "ok"`.
 
@@ -112,7 +112,7 @@ serve:
   port: 8000
 ```
 
-Options on the command line win over the file. Unknown keys are errors. Every key: https://buildzr.dev/config/.
+Options on the command line win over the file. Unknown keys are errors. Every key: https://buildzr.dev/latest/config/.
 
 ## Pitfalls
 

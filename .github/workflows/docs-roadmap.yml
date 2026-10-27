@@ -1,0 +1,58 @@
+name: docs-roadmap
+
+# Publishes the roadmap of master at https://buildzr.dev/roadmap/ (gh-pages:/roadmap/). The roadmap is the one page
+# that is not versioned: it follows master, while the rest of the docs shows releases only (docs-publish.yml). A
+# release publishes it too.
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - roadmap.yml
+      - mkdocs.yml
+      - mkdocs-roadmap.yml
+      - scripts/mkdocs_hooks.py
+      - scripts/docs_pages.sh
+      - scripts/pages/**
+      - overrides/**
+      - docs/stylesheets/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Push to the gh-pages branch
+    # One writer of gh-pages at a time, shared with docs-publish.yml.
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      with:
+        version: 0.12.11
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install
+
+    - name: Sync dependencies
+      run: uv sync --extra docs --locked
+
+    - name: Set the committer
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+    # The roadmap site needs no Run Code assets, so no Node.js.
+    - name: Publish the roadmap
+      run: scripts/docs_pages.sh roadmap --push

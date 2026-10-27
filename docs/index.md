@@ -16,7 +16,7 @@
 [user-guide]: user-guide/core-concepts.md
 [cli]: cli.md
 [api]: api/dsl.md
-[roadmap]: roadmap.md
+[roadmap]: https://buildzr.dev/roadmap/
 [contributing]: contributing.md
 [issues]: https://github.com/amirulmenjeni/buildzr/issues
 [license]: https://github.com/amirulmenjeni/buildzr/blob/master/LICENSE.md

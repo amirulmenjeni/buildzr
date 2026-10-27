@@ -3,7 +3,7 @@
 This page tracks which [Structurizr DSL](https://docs.structurizr.com/dsl/language) features the buildzr Python DSL supports today.
 
 !!! note "Compatibility is not the roadmap"
-    A feature marked ❌ or 🟡 here is not necessarily planned, and its position on this page says nothing about priority. For what we are working on and what comes next, see the [Roadmap](roadmap.md).
+    A feature marked ❌ or 🟡 here is not necessarily planned, and its position on this page says nothing about priority. For what we are working on and what comes next, see the [Roadmap](https://buildzr.dev/roadmap/).
 
 > **Note**: buildzr uses a Pythonic DSL approach rather than the text-based Structurizr DSL. Features marked as ✅ have Python equivalents, while ❌ indicates no current support. Some features have partial support (🟡) with model-level definitions but no DSL wrapper.
 

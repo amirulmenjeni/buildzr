@@ -1,0 +1,88 @@
+name: docs-publish
+
+# Publishes the docs of a final release to the gh-pages branch, which GitHub Pages serves at https://buildzr.dev:
+# /<version>/ with mike, /latest/ (the default of the site) when it is the highest release, the roadmap of master at
+# /roadmap/ and the root files (CNAME, 404.html). Master itself is never published: buildzr.dev shows releases only.
+#
+# The release workflow calls this after it has published a final release to PyPI and pushed its tag (a tag pushed with
+# GITHUB_TOKEN does not start other workflows). Run it by hand, on master, to publish a release again, for example
+# after a failed run: Actions > docs-publish > Run workflow, with the tag (v1.1.1).
+#
+# The tooling (scripts/docs_pages.sh) comes from the commit this workflow runs on; the docs come from the tag's own
+# checkout, built with the tag's own uv.lock.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag of the final release to publish, such as v1.1.1
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the final release to publish, such as v1.1.1 (release candidates are not published)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Push to the gh-pages branch
+    # One writer of gh-pages at a time, shared with docs-roadmap.yml. The group is set on the job, not the workflow,
+    # so that it also holds when release.yml calls this workflow.
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+    steps:
+    - name: Check the tag
+      env:
+        TAG: ${{ inputs.tag }}
+      run: |
+        if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+          echo "::error::'$TAG' is not the tag of a final release (vX.Y.Z). Release candidates are not published to the docs."
+          exit 1
+        fi
+
+    - name: Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0 # The tags, and the history of gh-pages to commit on
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      with:
+        version: 0.12.11
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install
+
+    - name: Set up Node
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 22
+
+    - name: Sync dependencies
+      run: uv sync --extra docs --locked
+
+    - name: Set the committer
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+    - name: Deploy the release
+      env:
+        TAG: ${{ inputs.tag }}
+      run: scripts/docs_pages.sh deploy "$TAG"
+
+    - name: Publish the roadmap of master
+      run: scripts/docs_pages.sh roadmap
+
+    - name: Push gh-pages
+      run: scripts/docs_pages.sh push

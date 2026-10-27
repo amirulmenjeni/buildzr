@@ -199,7 +199,7 @@ Data is persisted in `~/.structurizr-onpremises/` so your workspaces survive con
 
 ## Working on the documentation
 
-The documentation is a MkDocs site. Its pages are the Markdown files under `docs/`, and `mkdocs.yml` configures it. The `docs` workflow builds the site with `--strict` and deploys it to GitHub Pages on every push to `master`. The public address is https://buildzr.dev.
+The documentation is a MkDocs site. Its pages are the Markdown files under `docs/`, and `mkdocs.yml` configures it. The `docs` workflow builds the site with `--strict` on every pull request and push to `master`, as a check; it publishes nothing. The public site, https://buildzr.dev, shows the documentation of releases only: a release publishes its docs (see [The docs of a release](#the-docs-of-a-release)), and a change merged into `master` appears there with the next release. The roadmap is the one exception.
 
 ### Set up the environment
 
@@ -235,7 +235,9 @@ uv run pytest tests/docs
 
 ### Edit the roadmap
 
-The [roadmap](https://buildzr.dev/roadmap/) is the data file `roadmap.yml` in the repository root; there is no Markdown to edit. The docs build (`scripts/mkdocs_hooks.py`) validates the file and renders it into the page, and stops with a list of every fault if the file breaks the schema. Move an item between `active`, `planned` and `launched` instead of copying it, and base a `launched` entry on a release tag or merged pull request. The Structurizr feature tables are a separate page, `docs/structurizr-compatibility.md`.
+The [roadmap](https://buildzr.dev/roadmap/) is the data file `roadmap.yml` in the repository root; there is no Markdown to edit. The docs build (`scripts/mkdocs_hooks.py`) validates the file, and stops with a list of every fault if the file breaks the schema.
+
+The roadmap is not versioned: it is built from `master` with its own config, `mkdocs-roadmap.yml`, as a site of one page whose menu links to the pages of the latest release. The `docs-roadmap` workflow publishes it at https://buildzr.dev/roadmap/ when a push to `master` changes it, so a merged change shows without a release. The versioned docs have no roadmap page; they link to `/roadmap/`. Preview it with `uv run mkdocs serve --config-file mkdocs-roadmap.yml`; its menu links go to the published site. Move an item between `active`, `planned` and `launched` instead of copying it, and base a `launched` entry on a release tag or merged pull request. The Structurizr feature tables are a separate page, `docs/structurizr-compatibility.md`.
 
 ### Add a page
 
@@ -331,8 +333,35 @@ When a pull request changes the version, the `check_version` job of the `build` 
 
 Otherwise, the job reports whether the merge will release the version to PyPI.
 
+### The docs of a release
+
+https://buildzr.dev shows the documentation of final releases, one folder per release, built with [mike](https://github.com/jimporter/mike) from the release's tag into the `gh-pages` branch, which GitHub Pages serves:
+
+| Address | What it shows |
+|---|---|
+| `/1.1.1/`, `/1.1.0/`, ... | The docs of that release, as its tag has them. The version menu in the header lists every release. A release that is not the latest shows a banner that links to the latest. |
+| `/latest/` | A copy of the highest release, marked `(latest)` in the menu. `/` redirects here, and the canonical address of every page is under `/latest/`. |
+| `/roadmap/` | The roadmap of `master` (see [Edit the roadmap](#edit-the-roadmap)). |
+| any other address | The root `404.html` sends an address of the old layout, such as `/demo/` or `/user-guide/views/`, to the same page under `/latest/`, and `/<version>/roadmap/` to `/roadmap/`. |
+
+`master` itself is never published. After the `release` workflow has published a final version to PyPI and pushed its tag, it calls the `docs-publish` workflow, which deploys that tag to `/<version>/` (and to `/latest/` when it is the highest release), refreshes `/roadmap/` from `master` and puts the root files (`CNAME`, `.nojekyll`, `404.html`) in place. Release candidates are not published to the docs. The work is done by `scripts/docs_pages.sh`; each tag is built from its own checkout with its own `uv.lock`.
+
+To publish the docs of a release again, for example after a failed run or to fix the root files, run the `docs-publish` workflow by hand on `master` (Actions, docs-publish, Run workflow) with the tag, such as `v1.1.1`. Publishing an older release again does not move `/latest/`.
+
+To deploy every release since 1.0.0 at once, for example to fill a new `gh-pages` branch, run this from an up-to-date checkout of `master` with its tags, with Node.js 22 on `PATH`:
+
+```bash
+scripts/backfill_docs.sh          # commits to the local gh-pages branch only
+uv run mike serve                 # preview it at http://localhost:8000
+scripts/docs_pages.sh push        # or run the backfill again with --push
+```
+
+Neither script pushes unless asked to. Running them again gives the same branch content.
+
 ### If a release fails
 
 If a release fails, no tag is pushed. Re-run the failed run from the Actions tab before you merge anything else. Otherwise, the next push to `master` releases that version from the newer commit.
 
 A re-run skips files that are already on PyPI, so a re-run after a failed tag push only pushes the tag. A version that reached PyPI cannot be uploaded again: fix forward with a new version.
+
+If only the `docs` job fails, the release itself is done: re-run the failed job, or run the `docs-publish` workflow by hand with the tag (see [The docs of a release](#the-docs-of-a-release)).

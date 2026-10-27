@@ -131,21 +131,21 @@ buildzr is released under the [MIT License][license].
 <!-- --8<-- [end:home] -->
 
 [viewer-image]: docs/images/viewer/readme-aws-deployment.png
-[demo]: https://buildzr.dev/demo/
+[demo]: https://buildzr.dev/latest/demo/
 [demo-button]: https://img.shields.io/badge/%E2%96%B6%20Try%20the%20live%20demo-0969da?style=for-the-badge
-[quick-start]: https://buildzr.dev/getting-started/quick-start/
-[try-it]: https://buildzr.dev/getting-started/quick-start/#6-compare-your-file-with-the-complete-example
-[views]: https://buildzr.dev/user-guide/views/
-[themes]: https://buildzr.dev/user-guide/themes/
-[serve]: https://buildzr.dev/serve-workspaces/
-[viewer-links]: https://buildzr.dev/viewer-hash-routes/
-[export]: https://buildzr.dev/user-guide/export/
-[model-api]: https://buildzr.dev/model-api/
-[ai-agents]: https://buildzr.dev/getting-started/ai-agents/
-[user-guide]: https://buildzr.dev/user-guide/core-concepts/
-[cli]: https://buildzr.dev/cli/
-[api]: https://buildzr.dev/api/dsl/
+[quick-start]: https://buildzr.dev/latest/getting-started/quick-start/
+[try-it]: https://buildzr.dev/latest/getting-started/quick-start/#6-compare-your-file-with-the-complete-example
+[views]: https://buildzr.dev/latest/user-guide/views/
+[themes]: https://buildzr.dev/latest/user-guide/themes/
+[serve]: https://buildzr.dev/latest/serve-workspaces/
+[viewer-links]: https://buildzr.dev/latest/viewer-hash-routes/
+[export]: https://buildzr.dev/latest/user-guide/export/
+[model-api]: https://buildzr.dev/latest/model-api/
+[ai-agents]: https://buildzr.dev/latest/getting-started/ai-agents/
+[user-guide]: https://buildzr.dev/latest/user-guide/core-concepts/
+[cli]: https://buildzr.dev/latest/cli/
+[api]: https://buildzr.dev/latest/api/dsl/
 [roadmap]: https://buildzr.dev/roadmap/
-[contributing]: https://buildzr.dev/contributing/
+[contributing]: https://buildzr.dev/latest/contributing/
 [issues]: https://github.com/amirulmenjeni/buildzr/issues
 [license]: https://github.com/amirulmenjeni/buildzr/blob/master/LICENSE.md
