@@ -9,7 +9,7 @@ In this tutorial, you describe a small software system in Python and open its di
 
 You need:
 
-- Python 3.10 or newer.
+- Python 3.11 or newer.
 - Node.js 18 or newer. The layout step of `buildzr build` runs on Node. Check your version with `node --version`.
 - [uv](https://docs.astral.sh/uv/getting-started/installation/), the Python package manager that this tutorial uses.
 
