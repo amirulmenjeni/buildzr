@@ -41,7 +41,7 @@ The command has three subcommands:
 
 You need:
 
-- Python 3.10 or newer.
+- Python 3.11 or newer.
 - Node.js 18 or newer on the machine that builds: `buildzr build`, and `buildzr serve` when a workspace is missing or out of date. The layout step of the build runs on Node. Check your version with `node --version`. Serving workspaces that are already built does not need Node.
 - The `buildzr` package. Installing it also installs the `buildzr` command.
 

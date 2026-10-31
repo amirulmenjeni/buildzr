@@ -144,7 +144,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
     needs:
       - check_skip_flags
       - commitlint
@@ -213,6 +213,73 @@ jobs:
     - name: Run tests
       run: uv run --python ${{ matrix.python-version }} pytest --mypy tests
 
+  # Python 3.15 is not supported yet: jpype1 (the `export-plantuml` extra) ships
+  # wheels only up to 3.14 and its source build needs Ant. This job only tells us
+  # early whether the rest of buildzr works there, so it installs every extra but
+  # `export-plantuml` (tests/test_export_plantuml.py needs jpype, so it is ignored) and never
+  # fails the workflow. Once jpype1 has a 3.15 wheel, add the 3.15 classifier and
+  # fold 3.15 into the `tests` matrix.
+  tests-py315:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs:
+      - check_skip_flags
+      - commitlint
+      - check_changes
+
+    if: ${{ !contains(needs.check_skip_flags.outputs.head-commit-message, '[skip-ci]') && needs.check_changes.outputs.src == 'true' }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    - name: Set up Java
+      uses: actions/setup-java@v6
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install Structurizr CLI
+      run: |
+        wget -q https://github.com/structurizr/cli/releases/download/v2024.03.03/structurizr-cli.zip
+        sudo unzip -q structurizr-cli.zip -d /opt/structurizr-cli
+        sudo ln -s /opt/structurizr-cli/structurizr.sh /usr/bin/structurizr.sh
+        rm structurizr-cli.zip
+
+    - name: Install Graphviz
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq graphviz
+        dot -V
+
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: 0.12.11
+        enable-cache: true
+
+    - name: Set up Python
+      run: uv python install 3.15
+
+    - name: Sync dependencies
+      run: uv sync --extra dev --extra docs --locked --python 3.15
+
+    - name: Set up Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 22
+
+    - name: Build viewer
+      working-directory: viewer
+      run: |
+        npm ci
+        npm run build
+
+    - name: Run tests
+      run: uv run --python 3.15 pytest --mypy --ignore tests/test_export_plantuml.py tests
+
   build:
     runs-on: ubuntu-latest
     needs:
@@ -235,7 +302,7 @@ jobs:
         enable-cache: true
 
     - name: Set up Python
-      run: uv python install 3.10
+      run: uv python install 3.11
 
     - name: Install Hatch
       run: uv tool install hatch==1.18.0
@@ -347,7 +414,7 @@ jobs:
         enable-cache: true
 
     - name: Set up Python
-      run: uv python install 3.10
+      run: uv python install 3.11
 
     - name: Set up Node
       uses: actions/setup-node@v7
@@ -374,7 +441,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
 
     steps:
     - name: Checkout code

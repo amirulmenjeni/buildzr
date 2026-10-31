@@ -90,7 +90,7 @@ def slim_wheel(out_dir: str) -> str:
         with open(os.path.join(ROOT, rel), "rb") as f:
             entries.append((rel, f.read()))
     metadata = (f"Metadata-Version: 2.1\nName: buildzr\nVersion: {v}\nSummary: buildzr for the docs' Run Code "
-                "(slim: no PlantUML export, no viewer, no Node layout)\nRequires-Python: >=3.10\n"
+                "(slim: no PlantUML export, no viewer, no Node layout)\nRequires-Python: >=3.11\n"
                 "Requires-Dist: pyhumps==3.8.0\nRequires-Dist: typing-extensions>=4.12.2\n").encode()
     wheel = b"Wheel-Version: 1.0\nGenerator: buildzr scripts/build_docs_assets.py\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
     entries += [(f"{dist_info}/METADATA", metadata), (f"{dist_info}/WHEEL", wheel)]

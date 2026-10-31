@@ -4,7 +4,7 @@ This page shows how to install buildzr for each way of using it, and how to chec
 
 ## Requirements
 
-- Python 3.10 or newer.
+- Python 3.11 or newer.
 - Node.js 18 or newer, only on the machine that builds: `buildzr build`, and `buildzr serve` when a workspace is new or changed. The layout step of the build runs [elkjs](https://github.com/kieler/elkjs) on Node. Check your version with `node --version`. Serving workspaces that are already built (`buildzr serve --no-build`) and the Python API do not need Node.
 
 buildzr supports every Python version that its CI (continuous integration) tests. New maintained Python versions are added when the dependencies support them. The oldest version is dropped only at its end of life, or when the tools make it impractical to keep.
