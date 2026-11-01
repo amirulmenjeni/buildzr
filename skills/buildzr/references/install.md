@@ -1,6 +1,6 @@
 # Install buildzr and check the version
 
-You need Python 3.10 or newer, and Node.js 18 or newer for the layout step of `buildzr build` (check with `node --version`). Serving workspaces that are already built (`buildzr serve --no-build`) does not need Node.
+You need Python 3.11 or newer, and Node.js 18 or newer for the layout step of `buildzr build` (check with `node --version`). Serving workspaces that are already built (`buildzr serve --no-build`) does not need Node.
 
 ## Pick one way to install
 

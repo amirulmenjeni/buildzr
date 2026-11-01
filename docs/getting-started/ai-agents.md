@@ -10,7 +10,7 @@ You need:
 
 - A coding agent that reads skills, in a project folder.
 - Node.js on the machine, to run the [`skills`](https://github.com/vercel-labs/skills) command with `npx`. Version 1.7.2 of `skills` asks for Node.js 22.20 or newer.
-- Python 3.10 or newer, and Node.js 18 or newer, for buildzr itself. The agent installs buildzr when it first needs it.
+- Python 3.11 or newer, and Node.js 18 or newer, for buildzr itself. The agent installs buildzr when it first needs it.
 
 ## Install the skill
 

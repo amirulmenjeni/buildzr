@@ -5,7 +5,7 @@
 # Usage: smoke_wheel.sh [DIST_DIR]    (default: dist, relative to the repo)
 #
 # Run it from anywhere after `cd viewer && npm ci && npm run build && cd .. &&
-# uv build`. It needs uv, python 3.10 or newer, node 18 or newer and curl.
+# uv build`. It needs uv, python 3.11 or newer, node 18 or newer and curl.
 # Everything happens in a temporary folder outside the repository, so the
 # checkout cannot be imported by accident. Set KEEP=1 to keep the folder.
 set -euo pipefail
@@ -63,7 +63,7 @@ WHEEL="${wheels[0]}"
 # The venv's python runs the stdlib-only helper scripts too, so the machine
 # needs no other python.
 step "Create a fresh venv"
-uv venv --python 3.10 "$WORK/venv" >/dev/null
+uv venv --python 3.11 "$WORK/venv" >/dev/null
 
 step "Check the package"
 "$WORK/venv/bin/python" "$REPO/.github/scripts/check_wheel.py" "$DIST" --sdist

@@ -54,7 +54,7 @@ The agent builds the model and tells you how to open the viewer. See [Use buildz
 
 To write a model yourself, start a project. You need:
 
-- Python 3.10 or newer.
+- Python 3.11 or newer.
 - Node.js 18 or newer: when buildzr builds your model, its layout step runs on Node. Check it with `node --version`.
 - [uv](https://docs.astral.sh/uv/getting-started/installation/). With pip, install with `pip install buildzr` instead of `uv add buildzr`.
 

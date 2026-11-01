@@ -40,14 +40,14 @@ def builders() -> List[AbstractBuilder]:
         parts   = sample.rpartition('.')[0].rpartition('/')
 
         module  = f".{parts[2]}"
-        package = f".{parts[0].replace('/', '.')}"
+        package = parts[0].replace('/', '.')
 
         sample_packages.append((module, package))
 
     modules = [importlib.import_module(sample, package=package) \
                for (sample, package) in sample_packages]
 
-    abstract_builder_mod = importlib.import_module('.abstract_builder', package='.tests')
+    abstract_builder_mod = importlib.import_module('.abstract_builder', package='tests')
     abstract_builder_cls = [\
         cls for name, cls in inspect.getmembers(abstract_builder_mod, inspect.isclass)\
         if name == 'AbstractBuilder'

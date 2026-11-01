@@ -13,6 +13,7 @@
 
 # Tests artefacts
 tests/samples/.tests.**.json
+tests/samples/tests.**.json
 tests/samples/*.puml
 tests/structurizr_dsl_samples
 
