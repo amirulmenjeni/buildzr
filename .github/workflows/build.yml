@@ -219,6 +219,7 @@ jobs:
   # `export-plantuml` (tests/test_export_plantuml.py needs jpype, so it is ignored) and never
   # fails the workflow. Once jpype1 has a 3.15 wheel, add the 3.15 classifier and
   # fold 3.15 into the `tests` matrix.
+  # tests/test_workspaces.py::test_export_plantuml needs jpype too, so it is deselected.
   tests-py315:
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -278,7 +279,7 @@ jobs:
         npm run build
 
     - name: Run tests
-      run: uv run --python 3.15 pytest --mypy --ignore tests/test_export_plantuml.py tests
+      run: uv run --python 3.15 pytest --mypy --ignore tests/test_export_plantuml.py --deselect tests/test_workspaces.py::test_export_plantuml tests
 
   build:
     runs-on: ubuntu-latest
