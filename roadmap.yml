@@ -15,6 +15,10 @@ planned:
         title: Dynamic view animation
         description: Step through a dynamic view's interactions one at a time in the viewer.
         link: https://github.com/amirulmenjeni/buildzr/issues/189
+      - id: python-3-11-to-3-14
+        title: Python 3.11 to 3.14, Python 3.10 dropped
+        description: buildzr now requires Python 3.11 or newer and is tested on Python 3.11 to 3.14; Python 3.10, which reached end of life in October 2026, is no longer supported.
+        link: https://github.com/amirulmenjeni/buildzr/pull/205
   - target: Later
     items:
       - id: export-cli-viewer-renderer
