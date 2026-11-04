@@ -1,0 +1,17 @@
+[
+  {
+    "id": "shop",
+    "title": "A shop with containers",
+    "code": "from buildzr.dsl import Workspace, Person, SoftwareSystem, Container\n\nwith Workspace('Shop') as w:\n    customer = Person('Customer', description='Buys things online')\n    with SoftwareSystem('Shop', description='Takes and ships orders') as shop:\n        web = Container('Web App', technology='Python, Flask')\n        api = Container('API', technology='Python, FastAPI')\n        db = Container('Database', technology='PostgreSQL')\n    payments = SoftwareSystem('Payment Provider', description='Charges cards')\n\n    customer >> ('Browses', 'HTTPS') >> web\n    web >> ('Calls', 'JSON/HTTPS') >> api\n    api >> ('Reads from and writes to', 'SQL') >> db\n    api >> 'Takes payments with' >> payments\n"
+  },
+  {
+    "id": "hello",
+    "title": "The smallest model",
+    "code": "# Change anything and press Run (or Ctrl+Enter) to see the diagram change.\nperson = Person('User', description='A user of the system')\nsystem = SoftwareSystem('Web Application', description='Does something useful')\nperson >> 'Uses' >> system\n"
+  },
+  {
+    "id": "deployment",
+    "title": "A shop in production",
+    "code": "from buildzr.dsl import (\n    Workspace, Person, SoftwareSystem, Container,\n    DeploymentEnvironment, DeploymentNode, InfrastructureNode, ContainerInstance, DeploymentView,\n)\n\nwith Workspace('Shop Deployment') as w:\n    customer = Person('Customer')\n    with SoftwareSystem('Shop') as shop:\n        api = Container('API', technology='Python, FastAPI')\n        db = Container('Database', technology='PostgreSQL')\n    customer >> ('Buys from', 'HTTPS') >> api\n    api >> ('Reads from and writes to', 'SQL') >> db\n\n    with DeploymentEnvironment('Production') as production:\n        with DeploymentNode('AWS', technology='Amazon Web Services'):\n            with DeploymentNode('eu-west-1', technology='AWS region'):\n                lb = InfrastructureNode('Load Balancer', technology='Elastic Load Balancer')\n                with DeploymentNode('ECS Cluster', technology='Amazon ECS', instances='2'):\n                    api_instance = ContainerInstance(api)\n                with DeploymentNode('RDS', technology='Amazon RDS'):\n                    ContainerInstance(db)\n                lb >> ('Forwards requests to', 'HTTPS') >> api_instance\n\n    DeploymentView(environment=production, key='production', software_system_selector=shop,\n                   description='The shop in production')\n"
+  }
+]

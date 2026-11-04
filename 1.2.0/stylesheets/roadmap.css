@@ -1,0 +1,29 @@
+/* The roadmap page (scripts/mkdocs_hooks.py renders roadmap.yml into it). Colours come from mkdocs-material's
+   variables, so light and dark follow the docs palette. The [dir] prefix outweighs the list rules of the theme. */
+[dir] .md-typeset ul.roadmap-items {
+  list-style: none;
+  margin: 0.8em 0 1.6em;
+  padding: 0;
+}
+[dir] .md-typeset ul.roadmap-items > li {
+  list-style: none;
+  margin-left: 0;
+  margin-bottom: 0.6em;
+  padding: 0.6em 0.9em;
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-left: 0.25rem solid var(--md-primary-fg-color);
+  border-radius: 0.2rem;
+  background: var(--md-code-bg-color);
+  overflow-wrap: anywhere;
+}
+.roadmap-items > li:target {
+  outline: 0.1rem solid var(--md-accent-fg-color);
+}
+.roadmap-description {
+  display: block;
+  margin-top: 0.2em;
+  color: var(--md-default-fg-color--light);
+}
+@media (min-width: 60em) {
+  .roadmap-items > li { padding: 0.7em 1.1em; }
+}

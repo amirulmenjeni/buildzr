@@ -12,20 +12,20 @@
         <meta name="author" content="Amirul Menjeni">
       
       
-        <link rel="canonical" href="https://buildzr.dev/1.1.1/contributing/">
+        <link rel="canonical" href="https://buildzr.dev/latest/contributing/">
       
       
         <link rel="prev" href="../model-api/">
       
       
-        <link rel="next" href="../roadmap/">
+        <link rel="next" href="../structurizr-compatibility/">
       
       
         
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -33,10 +33,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1688,6 +1688,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#the-docs-of-a-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The docs of a release
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#if-a-release-fails" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1719,7 +1730,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../roadmap/" class="md-nav__link">
+      <a href="https://buildzr.dev/roadmap/" class="md-nav__link">
         
   
   
@@ -2046,6 +2057,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#the-docs-of-a-release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The docs of a release
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#if-a-release-fails" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2239,7 +2261,7 @@ browser at http://localhost:8080:</p>
 </span></code></pre></div>
 <p>Data is persisted in <code>~/.structurizr-onpremises/</code> so your workspaces survive container restarts.</p>
 <h2 id="working-on-the-documentation">Working on the documentation<a class="headerlink" href="#working-on-the-documentation" title="Permanent link">&para;</a></h2>
-<p>The documentation is a MkDocs site. Its pages are the Markdown files under <code>docs/</code>, and <code>mkdocs.yml</code> configures it. The <code>docs</code> workflow builds the site with <code>--strict</code> and deploys it to GitHub Pages on every push to <code>master</code>. The public address is https://buildzr.dev.</p>
+<p>The documentation is a MkDocs site. Its pages are the Markdown files under <code>docs/</code>, and <code>mkdocs.yml</code> configures it. The <code>docs</code> workflow builds the site with <code>--strict</code> on every pull request and push to <code>master</code>, as a check; it publishes nothing. The public site, https://buildzr.dev, shows the documentation of releases only: a release publishes its docs (see <a href="#the-docs-of-a-release">The docs of a release</a>), and a change merged into <code>master</code> appears there with the next release. The roadmap is the one exception.</p>
 <h3 id="set-up-the-environment">Set up the environment<a class="headerlink" href="#set-up-the-environment" title="Permanent link">&para;</a></h3>
 <p>Work in the devcontainer of the repository; it has the same Python, uv and Java tools as CI. Install every extra, which includes the <code>docs</code> extra:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--all-extras<span class="w"> </span>--locked
@@ -2258,7 +2280,8 @@ browser at http://localhost:8080:</p>
 </span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span>tests/docs
 </span></code></pre></div>
 <h3 id="edit-the-roadmap">Edit the roadmap<a class="headerlink" href="#edit-the-roadmap" title="Permanent link">&para;</a></h3>
-<p>The <a href="https://buildzr.dev/roadmap/">roadmap</a> is the data file <code>roadmap.yml</code> in the repository root; there is no Markdown to edit. The docs build (<code>scripts/mkdocs_hooks.py</code>) validates the file and renders it into the page, and stops with a list of every fault if the file breaks the schema. Move an item between <code>active</code>, <code>planned</code> and <code>launched</code> instead of copying it, and base a <code>launched</code> entry on a release tag or merged pull request. The Structurizr feature tables are a separate page, <code>docs/structurizr-compatibility.md</code>.</p>
+<p>The <a href="https://buildzr.dev/roadmap/">roadmap</a> is the data file <code>roadmap.yml</code> in the repository root; there is no Markdown to edit. The docs build (<code>scripts/mkdocs_hooks.py</code>) validates the file, and stops with a list of every fault if the file breaks the schema.</p>
+<p>The roadmap is not versioned: it is built from <code>master</code> with its own config, <code>mkdocs-roadmap.yml</code>, as a site of one page whose menu links to the pages of the latest release. The <code>docs-roadmap</code> workflow publishes it at https://buildzr.dev/roadmap/ when a push to <code>master</code> changes it, so a merged change shows without a release. The versioned docs have no roadmap page; they link to <code>/roadmap/</code>. Preview it with <code>uv run mkdocs serve --config-file mkdocs-roadmap.yml</code>; its menu links go to the published site. Move an item between <code>active</code>, <code>planned</code> and <code>launched</code> instead of copying it, and base a <code>launched</code> entry on a release tag or merged pull request. The Structurizr feature tables are a separate page, <code>docs/structurizr-compatibility.md</code>.</p>
 <h3 id="add-a-page">Add a page<a class="headerlink" href="#add-a-page" title="Permanent link">&para;</a></h3>
 <p>Create a Markdown file under <code>docs/</code> and add it to the <code>nav</code> section of <code>mkdocs.yml</code>. A page that is not in <code>nav</code> does not appear in the menu.</p>
 <h3 id="python-examples-and-run-code">Python examples and Run Code<a class="headerlink" href="#python-examples-and-run-code" title="Permanent link">&para;</a></h3>
@@ -2340,9 +2363,46 @@ browser at http://localhost:8080:</p>
 <li>a version that is not higher than the latest <code>v*</code> tag. For example, <code>1.1.0rc2</code> is higher than <code>1.1.0rc1</code>, and <code>1.1.0</code> is higher than <code>1.1.0rc2</code>, but <code>1.1.0rc3</code> is not higher than the released <code>1.1.0</code>.</li>
 </ul>
 <p>Otherwise, the job reports whether the merge will release the version to PyPI.</p>
+<h3 id="the-docs-of-a-release">The docs of a release<a class="headerlink" href="#the-docs-of-a-release" title="Permanent link">&para;</a></h3>
+<p>https://buildzr.dev shows the documentation of final releases, one folder per release, built with <a href="https://github.com/jimporter/mike">mike</a> from the release&rsquo;s tag into the <code>gh-pages</code> branch, which GitHub Pages serves:</p>
+<table>
+<thead>
+<tr>
+<th>Address</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/1.1.1/</code>, <code>/1.1.0/</code>, &hellip;</td>
+<td>The docs of that release, as its tag has them. The version menu in the header lists every release. A release that is not the latest shows a banner that links to the latest.</td>
+</tr>
+<tr>
+<td><code>/latest/</code></td>
+<td>A copy of the highest release, marked <code>(latest)</code> in the menu. <code>/</code> redirects here, and the canonical address of every page is under <code>/latest/</code>.</td>
+</tr>
+<tr>
+<td><code>/roadmap/</code></td>
+<td>The roadmap of <code>master</code> (see <a href="#edit-the-roadmap">Edit the roadmap</a>).</td>
+</tr>
+<tr>
+<td>any other address</td>
+<td>The root <code>404.html</code> sends an address of the old layout, such as <code>/demo/</code> or <code>/user-guide/views/</code>, to the same page under <code>/latest/</code>, and <code>/&lt;version&gt;/roadmap/</code> to <code>/roadmap/</code>.</td>
+</tr>
+</tbody>
+</table>
+<p><code>master</code> itself is never published. After the <code>release</code> workflow has published a final version to PyPI and pushed its tag, it calls the <code>docs-publish</code> workflow, which deploys that tag to <code>/&lt;version&gt;/</code> (and to <code>/latest/</code> when it is the highest release), refreshes <code>/roadmap/</code> from <code>master</code> and puts the root files (<code>CNAME</code>, <code>.nojekyll</code>, <code>404.html</code>) in place. Release candidates are not published to the docs. The work is done by <code>scripts/docs_pages.sh</code>; each tag is built from its own checkout with its own <code>uv.lock</code>.</p>
+<p>To publish the docs of a release again, for example after a failed run or to fix the root files, run the <code>docs-publish</code> workflow by hand on <code>master</code> (Actions, docs-publish, Run workflow) with the tag, such as <code>v1.1.1</code>. Publishing an older release again does not move <code>/latest/</code>.</p>
+<p>To deploy every release since 1.0.0 at once, for example to fill a new <code>gh-pages</code> branch, run this from an up-to-date checkout of <code>master</code> with its tags, with Node.js 22 on <code>PATH</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>scripts/backfill_docs.sh<span class="w">          </span><span class="c1"># commits to the local gh-pages branch only</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>uv<span class="w"> </span>run<span class="w"> </span>mike<span class="w"> </span>serve<span class="w">                 </span><span class="c1"># preview it at http://localhost:8000</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>scripts/docs_pages.sh<span class="w"> </span>push<span class="w">        </span><span class="c1"># or run the backfill again with --push</span>
+</span></code></pre></div>
+<p>Neither script pushes unless asked to. Running them again gives the same branch content.</p>
 <h3 id="if-a-release-fails">If a release fails<a class="headerlink" href="#if-a-release-fails" title="Permanent link">&para;</a></h3>
 <p>If a release fails, no tag is pushed. Re-run the failed run from the Actions tab before you merge anything else. Otherwise, the next push to <code>master</code> releases that version from the newer commit.</p>
 <p>A re-run skips files that are already on PyPI, so a re-run after a failed tag push only pushes the tag. A version that reached PyPI cannot be uploaded again: fix forward with a new version.</p>
+<p>If only the <code>docs</code> job fails, the release itself is done: re-run the failed job, or run the <code>docs-publish</code> workflow by hand with the tag (see <a href="#the-docs-of-a-release">The docs of a release</a>).</p>
 
 
 
@@ -2414,10 +2474,10 @@ browser at http://localhost:8080:</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Code copied to clipboard", "clipboard.copy": "Copy this code", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Code copied to clipboard", "clipboard.copy": "Copy this code", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../javascripts/runcode-client.js"></script>
       

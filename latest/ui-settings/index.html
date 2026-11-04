@@ -12,7 +12,7 @@
         <meta name="author" content="Amirul Menjeni">
       
       
-        <link rel="canonical" href="https://buildzr.dev/1.1.1/ui-settings/">
+        <link rel="canonical" href="https://buildzr.dev/latest/ui-settings/">
       
       
         <link rel="prev" href="../hosting/">
@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -33,10 +33,10 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1230,6 +1230,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#step-through-a-dynamic-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step through a dynamic view
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fonts-about-and-third-party-notices" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1619,7 +1630,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../roadmap/" class="md-nav__link">
+      <a href="https://buildzr.dev/roadmap/" class="md-nav__link">
         
   
   
@@ -1739,6 +1750,17 @@
     <span class="md-ellipsis">
       
         Download the diagram as an image
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#step-through-a-dynamic-view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step through a dynamic view
       
     </span>
   </a>
@@ -1936,6 +1958,50 @@
 <p><strong>SVG</strong> is the viewer&rsquo;s own drawing saved as one self-contained file, with the font inside, so it is larger than the PNG: several hundred kilobytes for a small diagram. It opens on its own in current Chrome, Edge and Firefox, and works in a web page through <code>&lt;img&gt;</code> or as a link. The text stays text. Because the viewer draws its labels with HTML, the SVG holds them in a <code>foreignObject</code>, an SVG feature that browsers support and that some other programs may not: a vector editor, slide program or converter that draws only plain SVG shapes can leave the text out. Use the PNG for those. For an SVG made of plain SVG elements, use <code>buildzr export</code>, which draws with PlantUML and its own layout.</p>
 <p><strong>If the export fails</strong>, the viewer shows a notice that names the file and says what to do (try the other format, or reload the page). The diagram and everything else keep working, and you can try again. The commonest cause is a diagram too large for the browser to draw as a PNG; SVG works there.</p>
 <p>This is not the command-line export. <code>buildzr export</code> draws views with PlantUML and its layout, so its pictures differ from the viewer&rsquo;s. The images here are what the viewer shows. An unattended command that exports with the viewer&rsquo;s own renderer is planned separately (see the <a href="https://buildzr.dev/roadmap/">roadmap</a>).</p>
+<h2 id="step-through-a-dynamic-view">Step through a dynamic view<a class="headerlink" href="#step-through-a-dynamic-view" title="Permanent link">&para;</a></h2>
+<p>A <a href="../user-guide/views/#dynamic-view">dynamic view</a> draws an ordered sequence of interactions. When one is open, a small bar at the top of the canvas lets you follow the interactions one at a time. It shows on dynamic views only.</p>
+<table>
+<thead>
+<tr>
+<th>Button</th>
+<th>Key (while the bar has the focus)</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First step</td>
+<td><code>Home</code></td>
+<td>Shows step 1.</td>
+</tr>
+<tr>
+<td>Previous step</td>
+<td><code>←</code></td>
+<td>Shows the step before.</td>
+</tr>
+<tr>
+<td>Play / Pause</td>
+<td><code>Enter</code> or <code>Space</code> on the button</td>
+<td>Shows the next step every 2 seconds and stops at the last one. Pause keeps the step on screen. At the last step, Play starts again from step 1.</td>
+</tr>
+<tr>
+<td>Next step</td>
+<td><code>→</code></td>
+<td>Shows the step after. <code>End</code> shows the last step.</td>
+</tr>
+<tr>
+<td>Show the whole diagram (×)</td>
+<td><code>Esc</code></td>
+<td>Leaves the steps and draws the whole diagram again.</td>
+</tr>
+</tbody>
+</table>
+<p>At each step the arrow of the current interaction is drawn thicker and its label is outlined. The arrows of the earlier steps are drawn as usual. The arrows of the later steps, and the boxes that no step has reached yet, are dimmed. The boxes never move. The bar shows <strong>Step 3 of 7</strong> and the interaction, for example <em>Web App → API: Posts the order to</em>. Screen readers announce each step. Two interactions with the same order number (a parallel sequence) are one step.</p>
+<p>The camera follows the current step: when its arrow, the arrow&rsquo;s label or a box at either end is out of view, or under the bar or the inspector sheet on a phone, the canvas pans to centre the step in the free part of the canvas. It keeps your zoom when the step fits at that zoom, and zooms out only as far as needed when it does not. It never zooms in. When the step is already in view, the camera does not move. You can pan and zoom as you like between steps: only the next change of step moves the camera again. Leaving the steps (the ×, <code>Esc</code>, a selection or another view) brings back the whole-diagram view the dynamic view opened with.</p>
+<p>The keys work only while the focus is in the bar: press <code>Tab</code> to reach it. On the canvas, the arrow keys and <code>Space</code> keep their usual meaning.</p>
+<p>The diagram opens with all its steps drawn, as before. Selecting a box or an arrow, opening another view or another place in the model shows the whole diagram again. The step is not part of the <a href="../viewer-hash-routes/">viewer link</a>. An image you <a href="#download-the-diagram-as-an-image">download</a> while a step is on screen is drawn as you see it, dimmed arrows included.</p>
+<p>The camera pans in a short animation (0.3 seconds), well before Play shows the next step. When your device asks for reduced motion, the camera jumps to the step at once and the steps change without the short fade. Play still works.</p>
+<p>In an <a href="#embed-the-viewer-in-another-page">embedded viewer</a> the bar works the same. A frame lower than 240 px has no room for it: the dynamic view is then drawn whole, without the bar. Moving the camera never changes the page&rsquo;s address or adds to its history.</p>
 <h2 id="fonts-about-and-third-party-notices">Fonts, About and third-party notices<a class="headerlink" href="#fonts-about-and-third-party-notices" title="Permanent link">&para;</a></h2>
 <p>The viewer sets its text in Inter, regular and bold. Both weights are part of the viewer bundle, so a built workspace shows the same font offline, behind a firewall or from a file share: the page asks no font host for anything. Code and error output keep your system&rsquo;s monospace font. A workspace with a <a href="../user-guide/themes/#branding">branding font</a> has its diagrams set in that font when your computer has it.</p>
 <p>To read what the viewer includes, click <strong>About</strong> at the bottom left of the left panel. On a phone, it is at the bottom left of the navigation drawer. The dialog describes the viewer and the font and shows the third-party notices: the licence and copyright notice of every library and font in the viewer. Press <code>Esc</code>, click <strong>×</strong> or click outside the dialog to close it; the focus returns to <strong>About</strong>. The dialog reads the notices from a file next to the page, and <strong>Open as a plain text file</strong> shows the same file in its own tab. Opening About does not change the <a href="../viewer-hash-routes/">viewer link</a>.</p>
@@ -2168,10 +2234,10 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Code copied to clipboard", "clipboard.copy": "Copy this code", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Code copied to clipboard", "clipboard.copy": "Copy this code", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
       
         <script src="../javascripts/runcode-client.js"></script>
       
