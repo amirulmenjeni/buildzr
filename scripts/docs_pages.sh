@@ -99,7 +99,9 @@ latest_version() {
 }
 
 # Older tags have no version selector and no outdated banner; add both (and Material's outdated script, fixed)
-# without touching the content.
+# without touching the content. A tag that lists the mike plugin with `version_selector: false` (v1.2.0) gets that
+# option removed: Material then does not pass extra.version to the page and shows no selector. The default (true)
+# makes mike add nothing of its own for Material, which mike has no theme support for.
 add_version_selector() {
   if ! grep -q 'provider: mike' mkdocs.yml; then
     if grep -q '^extra:' mkdocs.yml; then
@@ -111,6 +113,11 @@ add_version_selector() {
       printf '\nextra:\n  version:\n    provider: mike\n    default: latest\n' >> mkdocs.yml
     fi
     log "added the version selector to mkdocs.yml of this tag"
+  fi
+  if grep -Eq '^[[:space:]]+version_selector:[[:space:]]*false[[:space:]]*$' mkdocs.yml &&
+     grep -Eq '^[[:space:]]*-[[:space:]]+mike([[:space:]:]|$)' mkdocs.yml; then
+    sed -i.bak -E '/^[[:space:]]+version_selector:[[:space:]]*false[[:space:]]*$/d' mkdocs.yml && rm mkdocs.yml.bak
+    log "removed 'version_selector: false' of the mike plugin from mkdocs.yml of this tag"
   fi
   if [[ -f overrides/main.html ]] && ! grep -q '{% block outdated %}' overrides/main.html; then
     sed -n '/{% block outdated %}/,/{% endblock %}/p' "$ROOT/overrides/main.html" |
