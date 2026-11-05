@@ -65,10 +65,11 @@ hooks:
 plugins:
   - search
   # Versioned docs (https://buildzr.dev/<version>/), deployed by scripts/docs_pages.sh. The canonical address of
-  # every page is its copy under /latest/, so search engines index the latest release.
+  # every page is its copy under /latest/, so search engines index the latest release. Do not set
+  # `version_selector: false`: Material then drops extra.version and shows no version picker. mike has no Material
+  # support, so with the default it adds no selector of its own.
   - mike:
       canonical_version: latest
-      version_selector: false
   - mkdocstrings:
       handlers:
         python:
