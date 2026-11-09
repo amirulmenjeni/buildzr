@@ -311,7 +311,7 @@ jobs:
     # Note: See https://github.com/PaulHatch/semantic-version?tab=readme-ov-file#outputs
     # for the full list of outputs.
     - name: Get semantic version
-      uses: paulhatch/semantic-version@v6.0.5
+      uses: paulhatch/semantic-version@v6.0.7
       id: semantic-version
       with:
         tag_prefix: "v"
